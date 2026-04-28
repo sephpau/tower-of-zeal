@@ -1235,3 +1235,10 @@ html, body {
 .wallet-gate__btn:hover { background: var(--gold-bright); }
 .wallet-gate__btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .wallet-gate__status { margin-top: 16px; font-size: 13px; color: var(--text-dim); min-height: 1em; }
+.wallet-gate__label { display: block; text-align: left; font-size: 11px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px; }
+.wallet-gate__input {
+  display: block; width: 100%; margin-top: 6px; padding: 10px 12px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 14px;
+}
+.wallet-gate__input:focus { outline: none; border-color: var(--gold); }

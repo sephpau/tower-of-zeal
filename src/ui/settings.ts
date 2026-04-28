@@ -1,6 +1,7 @@
 // Persistent settings stored in localStorage.
 import { addEnergy, getEnergy, ENERGY_MAX, msUntilNextRefill } from "../core/energy";
 import { isAdmin } from "../core/admin";
+import { scopedKey } from "../auth/scope";
 
 export interface Settings {
   playerName: string;
@@ -11,10 +12,10 @@ export interface Settings {
   devUnlockClass: boolean;
 }
 
-const KEY = "stat-battler.settings.v1";
+const KEY = () => scopedKey("stat-battler.settings.v1");
 
 const DEFAULTS: Settings = {
-  playerName: "Player",
+  playerName: "",
   walletAddress: "",
   sfxOn: true,
   bgmOn: true,
@@ -23,7 +24,7 @@ const DEFAULTS: Settings = {
 
 export function loadSettings(): Settings {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY());
     if (!raw) return { ...DEFAULTS };
     const parsed = JSON.parse(raw);
     return { ...DEFAULTS, ...parsed };
@@ -34,7 +35,7 @@ export function loadSettings(): Settings {
 
 export function saveSettings(s: Settings): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(s));
+    localStorage.setItem(KEY(), JSON.stringify(s));
   } catch {
     // ignore quota / privacy-mode errors
   }
@@ -53,11 +54,8 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
 
         <label class="setting-row">
           <span class="setting-label">Wallet address</span>
-          <div class="setting-input-row">
-            <input id="setting-wallet" type="text" placeholder="0x… (paste address)" value="${escapeAttr(s.walletAddress)}" />
-            <button class="ghost-btn" id="link-wallet" type="button">Link</button>
-          </div>
-          <span class="setting-hint">Wallet linking is a placeholder — no on-chain calls yet.</span>
+          <input id="setting-wallet" type="text" value="${escapeAttr(s.walletAddress)}" readonly />
+          <span class="setting-hint">Linked via Ronin wallet at sign-in.</span>
         </label>
 
         <div class="setting-row">
@@ -101,7 +99,7 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
   root.querySelector<HTMLButtonElement>("#save-settings")?.addEventListener("click", () => {
     const next: Settings = {
       playerName: (root.querySelector<HTMLInputElement>("#setting-name")?.value || DEFAULTS.playerName).trim(),
-      walletAddress: (root.querySelector<HTMLInputElement>("#setting-wallet")?.value || "").trim(),
+      walletAddress: s.walletAddress, // managed by sign-in, not editable here
       sfxOn: !!root.querySelector<HTMLInputElement>("#setting-sfx")?.checked,
       bgmOn: !!root.querySelector<HTMLInputElement>("#setting-bgm")?.checked,
       devUnlockClass: !!root.querySelector<HTMLInputElement>("#setting-dev-class")?.checked,

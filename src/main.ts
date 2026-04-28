@@ -13,6 +13,8 @@ import { Stats } from "./core/stats";
 import { loadSession, validateSession, clearSession, Session } from "./auth/session";
 import { setUserScope } from "./auth/scope";
 import { renderWalletGate } from "./ui/walletGate";
+import { renderIgnGate } from "./ui/ignGate";
+import { loadSettings, saveSettings } from "./ui/settings";
 import { playBgm, stopBgm } from "./core/bgm";
 
 const root = document.getElementById("app");
@@ -29,7 +31,8 @@ async function bootstrap(): Promise<void> {
     if (addr) {
       currentSession = existing;
       setUserScope(addr);
-      startApp();
+      ensureWalletInSettings(addr);
+      proceedAfterAuth();
       return;
     }
     clearSession();
@@ -37,8 +40,25 @@ async function bootstrap(): Promise<void> {
   renderWalletGate(root!, s => {
     currentSession = s;
     setUserScope(s.address);
-    startApp();
+    ensureWalletInSettings(s.address);
+    proceedAfterAuth();
   });
+}
+
+function proceedAfterAuth(): void {
+  const ign = loadSettings().playerName.trim();
+  if (!ign) {
+    renderIgnGate(root!, startApp);
+    return;
+  }
+  startApp();
+}
+
+function ensureWalletInSettings(address: string): void {
+  const cur = loadSettings();
+  if (cur.walletAddress !== address) {
+    saveSettings({ ...cur, walletAddress: address });
+  }
 }
 
 function startApp(): void {
