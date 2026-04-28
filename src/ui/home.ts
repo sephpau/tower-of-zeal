@@ -1,5 +1,6 @@
 import { loadSettings } from "./settings";
-import { getEnergy, ENERGY_MAX } from "../core/energy";
+import { getEnergy, ENERGY_MAX, msUntilNextRefill } from "../core/energy";
+import { startEnergyTimerLoop, formatRefillCountdown } from "./energyTimer";
 
 export type HomeAction = "tower" | "units" | "settings";
 
@@ -9,7 +10,11 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
   root.innerHTML = `
     <div class="home-screen">
       <button class="gear-btn" id="open-settings" type="button" title="Settings">⚙</button>
-      <div class="energy-pill" title="Energy"><span class="energy-icon">⚡</span><span>${energy} / ${ENERGY_MAX}</span></div>
+      <div class="energy-pill" title="Energy">
+        <span class="energy-icon">⚡</span>
+        <span>${energy} / ${ENERGY_MAX}</span>
+        <span class="energy-timer" data-energy-timer>${formatRefillCountdown(msUntilNextRefill())}</span>
+      </div>
       <div class="home-header">
         <div class="home-greeting">Welcome, ${escapeHtml(s.playerName)}</div>
         <h1 class="home-title">Tower of Zeal</h1>
@@ -24,6 +29,7 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
       </div>
     </div>
   `;
+  startEnergyTimerLoop();
   root.querySelector("#open-settings")?.addEventListener("click", () => onAction("settings"));
   root.querySelectorAll<HTMLButtonElement>(".home-tile").forEach(btn => {
     btn.addEventListener("click", () => onAction(btn.dataset.action as HomeAction));

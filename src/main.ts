@@ -15,6 +15,7 @@ import { setUserScope } from "./auth/scope";
 import { renderWalletGate } from "./ui/walletGate";
 import { renderIgnGate } from "./ui/ignGate";
 import { loadSettings, saveSettings } from "./ui/settings";
+import { renderTutorial, isTutorialComplete } from "./ui/tutorial";
 import { playBgm, stopBgm } from "./core/bgm";
 
 const root = document.getElementById("app");
@@ -48,10 +49,18 @@ async function bootstrap(): Promise<void> {
 function proceedAfterAuth(): void {
   const ign = loadSettings().playerName.trim();
   if (!ign) {
-    renderIgnGate(root!, startApp);
+    renderIgnGate(root!, runTutorialIfNeeded);
     return;
   }
-  startApp();
+  runTutorialIfNeeded();
+}
+
+function runTutorialIfNeeded(): void {
+  if (isTutorialComplete()) {
+    startApp();
+    return;
+  }
+  renderTutorial(root!, startApp);
 }
 
 function ensureWalletInSettings(address: string): void {
