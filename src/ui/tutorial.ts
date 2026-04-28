@@ -6,6 +6,7 @@ import { PLAYER_ROSTER, SLIME } from "../units/roster";
 import { CLASSES } from "../units/classes";
 import { Battle, startBattle, tick, queueAction, Combatant, PlayerSlot } from "../core/combat";
 import { renderBattle, updateLive } from "./battle";
+import { renderUnitsScreen } from "./unitsScreen";
 import { getProgress, setProgress, resetAllProgress } from "../core/progress";
 import { scopedKey } from "../auth/scope";
 import { topBarHtml } from "./settings";
@@ -116,7 +117,7 @@ function renderBattleStep(
     renderBattle(root, battle, handleAction, () => { /* no post buttons — we drive the flow */ }, { showPostBattleButtons: false });
     showOverlay(
       "How combat works",
-      "Each unit has an <strong>ATB gauge</strong> that fills based on AGI. When it's full, the unit takes its queued action; if no action is queued, it waits until you pick one. Click a skill button below to queue an action — it'll fire as soon as the gauge fills.",
+      "Each unit has an <strong>ATB gauge</strong> that fills based on its <strong>Speed</strong> stat (Speed scales with AGI). When the gauge is full, the unit takes its queued action; if no action is queued, it waits on standby until you pick one. Click a skill button below to queue an action — it'll fire as soon as the gauge fills.",
       "Got it",
     );
   };
@@ -187,33 +188,26 @@ function renderStatsStep(root: HTMLElement, _unitId: string, onConfirm: () => vo
   const explainers: Record<string, string> = {
     STR: "Strength — boosts physical attack damage.",
     DEF: "Defense — reduces incoming physical damage.",
-    AGI: "Agility — fills your ATB gauge faster and improves dodge.",
+    AGI: "Agility — raises Speed (which fills your ATB gauge) and improves dodge.",
     DEX: "Dexterity — improves accuracy and crit chance.",
     VIT: "Vitality — increases max HP.",
     INT: "Intelligence — boosts magical attack damage and max MP.",
   };
 
-  root.innerHTML = `
-    <div class="screen-frame">
-      ${topBarHtml("Tutorial — Stats", false)}
-      <div class="tutorial-panel">
-        <p class="tutorial-text">Each level gives you <strong>4 stat points</strong> to spend on the Units screen. Every stat changes how your unit performs:</p>
-        <div class="tutorial-stats-list">
-          ${STAT_KEYS.map(k => `
-            <div class="tutorial-stat-row">
-              <span class="tutorial-stat-key">${k}</span>
-              <span class="tutorial-stat-desc">${escapeHtml(explainers[k] ?? "")}</span>
-            </div>
-          `).join("")}
-        </div>
-        <p class="tutorial-text">When you're ready, hit Confirm. Tutorial progress will reset and you'll start fresh on the home screen.</p>
-        <div class="tutorial-actions">
-          <button class="confirm-btn" id="tutorial-stats-confirm" type="button">Confirm</button>
-        </div>
-      </div>
-    </div>
-  `;
-  root.querySelector<HTMLButtonElement>("#tutorial-stats-confirm")?.addEventListener("click", onConfirm);
+  // Render the real Units screen so the player can experience class change +
+  // stat allocation in-place. The screen's "back" callback finishes the tutorial.
+  renderUnitsScreen(root, onConfirm);
+
+  // Floating one-time overlay above the screen explaining what to try.
+  const statRows = STAT_KEYS.map(k =>
+    `<div class="tutorial-stat-row"><span class="tutorial-stat-key">${k}</span><span class="tutorial-stat-desc">${escapeHtml(explainers[k] ?? "")}</span></div>`
+  ).join("");
+
+  showOverlay(
+    "Stats & Class",
+    `This is the <strong>Units</strong> screen. Tap your unit to expand it — you'll see a class picker (you can change classes at Lv2+) and a <strong>+</strong> button next to each stat to spend your <strong>4 points per level</strong>.<br><br>${statRows}<br>When you're ready to wrap up, tap the <strong>back arrow</strong> in the header to finish the tutorial.`,
+    "Got it",
+  );
 }
 
 // ---------- Step 4: completion panel ----------

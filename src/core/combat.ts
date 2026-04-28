@@ -114,18 +114,17 @@ export function makeCombatant(t: UnitTemplate, side: Side, position: Position): 
   const skills = new Set<string>();
   skills.add("idle");
   if (side === "player") {
-    const equipped = [...(progress?.equippedSkills ?? [])];
-    if (equipped.length < 4) {
-      // Top up empty slots with any available skills the player hasn't equipped,
-      // so a fresh / partial loadout doesn't leave the unit on idle-only actions.
-      const available: string[] = [];
-      for (const id of t.startingSkills) available.push(id);
-      for (const id of (CHARACTER_SKILLS[t.id] ?? [])) available.push(id);
-      if (classId) for (const id of (CLASS_SKILLS[classId] ?? [])) available.push(id);
-      for (const id of available) {
-        if (equipped.length >= 4) break;
-        if (!equipped.includes(id)) equipped.push(id);
-      }
+    let equipped = progress?.equippedSkills ?? [];
+    if (equipped.length === 0) {
+      // No loadout chosen — auto-fill 4 slots from the unit's available skills
+      // (starting + character-specific + class) so battle isn't idle-only.
+      const seen = new Set<string>();
+      const fill: string[] = [];
+      const push = (id: string) => { if (!seen.has(id)) { seen.add(id); fill.push(id); } };
+      for (const id of t.startingSkills) push(id);
+      for (const id of (CHARACTER_SKILLS[t.id] ?? [])) push(id);
+      if (classId) for (const id of (CLASS_SKILLS[classId] ?? [])) push(id);
+      equipped = fill.slice(0, 4);
     }
     for (const id of equipped) skills.add(id);
   } else {
