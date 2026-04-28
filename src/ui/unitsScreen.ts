@@ -185,16 +185,38 @@ function skillLoadoutHtml(t: UnitTemplate, classId: string | undefined, level: n
 
   if (!editing) {
     const eqVisible = equipped.filter(id => unlocked.includes(id));
-    const chips = eqVisible.length > 0
-      ? eqVisible.map(id => `<span class="skill-chip">${escapeHtml(getSkill(id).name)}</span>`).join("")
+    const chip = (id: string, locked: boolean) => {
+      const s = getSkill(id);
+      const lvlNote = locked ? `Unlocks Lv${s.unlockLevel ?? 1}` : `${s.mpCost > 0 ? `${s.mpCost} MP` : "0 MP"}${s.cooldown > 0 ? ` · CD ${s.cooldown}` : ""}`;
+      const cls = ["skill-chip", locked ? "locked" : "", eqVisible.includes(id) ? "equipped" : ""].filter(Boolean).join(" ");
+      return `<span class="${cls}">
+        ${locked ? "🔒 " : ""}${escapeHtml(s.name)}
+        <span class="skill-tip"><span class="skill-tip-name">${escapeHtml(s.name)}</span><span class="skill-tip-desc">${escapeHtml(s.description)}</span><span class="skill-tip-meta">${escapeHtml(lvlNote)}</span></span>
+      </span>`;
+    };
+
+    const equippedChips = eqVisible.length > 0
+      ? eqVisible.map(id => chip(id, false)).join("")
       : `<span class="skill-empty">(no skills equipped — Idle only)</span>`;
+
+    const remainingUnlocked = unlocked.filter(id => !eqVisible.includes(id));
+    const lockedSorted = lockedNext;
+    const browseChips = [
+      ...remainingUnlocked.map(id => chip(id, false)),
+      ...lockedSorted.map(id => chip(id, true)),
+    ].join("");
+
     return `
       <div class="skill-loadout">
         <div class="skill-loadout-head">
           <span class="skill-loadout-label">Equipped (${eqVisible.length}/${MAX_EQUIPPED_SKILLS})</span>
           <button class="ghost-btn" data-edit-skills="${escapeAttr(t.id)}" type="button" ${pool.length === 0 ? "disabled" : ""}>Edit Loadout</button>
         </div>
-        <div class="skill-chips">${chips}</div>
+        <div class="skill-chips">${equippedChips}</div>
+        ${browseChips ? `
+          <div class="skill-loadout-sub">All skills (hover for details)</div>
+          <div class="skill-chips skill-chips-browse">${browseChips}</div>
+        ` : ""}
       </div>
     `;
   }

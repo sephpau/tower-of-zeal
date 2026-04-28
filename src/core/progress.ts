@@ -65,3 +65,16 @@ export function setProgress(templateId: string, p: UnitProgress): void {
 export function resetAllProgress(): void {
   try { localStorage.removeItem(KEY()); } catch { /* ignore */ }
 }
+
+/** Snapshot the entire progress blob for this wallet (or null if empty). */
+export function snapshotAllProgress(): string | null {
+  try { return localStorage.getItem(KEY()); } catch { return null; }
+}
+
+/** Restore a previously snapshotted blob. Pass null to clear. */
+export function restoreAllProgress(snapshot: string | null): void {
+  try {
+    if (snapshot === null) localStorage.removeItem(KEY());
+    else localStorage.setItem(KEY(), snapshot);
+  } catch { /* ignore */ }
+}

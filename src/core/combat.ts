@@ -384,6 +384,7 @@ export function persistPartyProgress(b: Battle): void {
     const c = b.combatants.find(x => x.side === "player" && x.templateId === tid);
     if (!c) continue;
     const cur = getProgress(tid);
+    const equippedSkills = autoEquipNewlyUnlocked(c.templateId, c.classId, c.level, cur.equippedSkills ?? []);
     setProgress(tid, {
       ...cur,
       level: c.level,
@@ -391,8 +392,31 @@ export function persistPartyProgress(b: Battle): void {
       availablePoints: c.availablePoints,
       classId: c.classId,
       customStats: c.statBreakdown.custom,
+      equippedSkills,
     });
   }
+}
+
+/** When a unit reaches a level that unlocks a new class/character skill, append
+ *  it to their loadout so the player doesn't have to manually equip it. Caps at 4. */
+function autoEquipNewlyUnlocked(
+  templateId: string,
+  classId: string | undefined,
+  level: number,
+  current: string[],
+): string[] {
+  const equipped = [...current];
+  const candidates = new Set<string>();
+  for (const id of (CHARACTER_SKILLS[templateId] ?? [])) candidates.add(id);
+  if (classId) for (const id of (CLASS_SKILLS[classId] ?? [])) candidates.add(id);
+  for (const id of candidates) {
+    if (equipped.length >= 4) break;
+    if (equipped.includes(id)) continue;
+    const skill = getSkill(id);
+    const unlockAt = skill.unlockLevel ?? 1;
+    if (level >= unlockAt) equipped.push(id);
+  }
+  return equipped;
 }
 
 function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): void {

@@ -7,7 +7,7 @@ import { CLASSES } from "../units/classes";
 import { Battle, startBattle, tick, queueAction, Combatant, PlayerSlot } from "../core/combat";
 import { renderBattle, updateLive } from "./battle";
 import { renderUnitsScreen } from "./unitsScreen";
-import { getProgress, setProgress, resetAllProgress } from "../core/progress";
+import { getProgress, setProgress, resetAllProgress, snapshotAllProgress, restoreAllProgress } from "../core/progress";
 import { scopedKey } from "../auth/scope";
 import { topBarHtml } from "./settings";
 import { STAT_KEYS } from "../core/stats";
@@ -22,13 +22,26 @@ function markComplete(): void {
   try { localStorage.setItem(FLAG_KEY(), "1"); } catch { /* ignore */ }
 }
 
-export function renderTutorial(root: HTMLElement, onComplete: () => void): void {
+export interface TutorialOpts {
+  /** "replay" snapshots progress beforehand and restores it on completion;
+   *  "first-run" (default) resets all progress at the end. */
+  mode?: "first-run" | "replay";
+}
+
+export function renderTutorial(root: HTMLElement, onComplete: () => void, opts: TutorialOpts = {}): void {
+  const mode = opts.mode ?? "first-run";
+  const snapshot = mode === "replay" ? snapshotAllProgress() : null;
+
   renderPickStep(root, (unitId, classId) => {
     renderBattleStep(root, unitId, classId, () => {
       renderStatsStep(root, unitId, () => {
-        resetAllProgress();
-        markComplete();
-        renderCompletePanel(root, onComplete);
+        if (mode === "replay") {
+          restoreAllProgress(snapshot);
+        } else {
+          resetAllProgress();
+          markComplete();
+        }
+        renderCompletePanel(root, onComplete, mode);
       });
     });
   });
@@ -212,11 +225,14 @@ function renderStatsStep(root: HTMLElement, _unitId: string, onConfirm: () => vo
 
 // ---------- Step 4: completion panel ----------
 
-function renderCompletePanel(root: HTMLElement, onClose: () => void): void {
+function renderCompletePanel(root: HTMLElement, onClose: () => void, mode: "first-run" | "replay"): void {
+  const desc = mode === "replay"
+    ? "Tutorial closed. Your saved progress has been restored."
+    : "All changes from the tutorial have been reset. Time to play for real.";
   root.innerHTML = `
     <div class="wallet-gate">
       <h1>Tutorial Complete</h1>
-      <p class="wallet-gate__desc">All changes from the tutorial have been reset. Time to play for real.</p>
+      <p class="wallet-gate__desc">${desc}</p>
       <button id="tutorial-done" class="wallet-gate__btn">Continue</button>
     </div>
   `;

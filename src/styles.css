@@ -149,14 +149,23 @@ html, body {
   padding: 6px 8px;
   text-align: center;
 }
+/* Per design ref: bars inside the split chip are flat — no inner border. */
+.combatant.player.split .bar,
+.combatant.enemy.split .bar {
+  border: none;
+}
 .combatant.player.split .enemy-avatar,
 .combatant.enemy.split .enemy-avatar {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px;
+  background: transparent;
+  border: none;
+  padding: 0;
   display: grid;
   place-items: center;
+}
+.combatant.player.split .portrait,
+.combatant.enemy.split .portrait {
+  border: none;
+  background: var(--bg);
 }
 .combatant.player.split .enemy-avatar .portrait,
 .combatant.enemy.split .enemy-avatar .portrait {
@@ -254,7 +263,9 @@ html, body {
   50% { opacity: 0.6; }
 }
 
-.combatant.hit-flash {
+/* Only the portrait shakes/flashes on hit — info bars stay still so the
+   numbers don't jiggle. */
+.combatant.hit-flash .portrait {
   animation: hit-flash 1.6s ease-out;
 }
 @keyframes hit-flash {
@@ -262,7 +273,7 @@ html, body {
   10% { background: var(--red); transform: translate(-4px, 0); }
   20% { transform: translate(4px, 0); }
   30% { transform: translate(-3px, 0); }
-  100% { background: var(--panel); transform: translate(0, 0); }
+  100% { background: var(--bg); transform: translate(0, 0); }
 }
 
 .queued-target-tag {
@@ -647,6 +658,8 @@ html, body {
 }
 .gear-btn:hover { background: var(--panel-2); border-color: var(--gold); }
 .gear-btn:active { transform: rotate(20deg); }
+.gear-btn.tutorial-btn { right: 64px; font-family: "Cinzel", "Times New Roman", serif; font-weight: 700; color: var(--gold-bright); }
+.gear-btn.tutorial-btn:active { transform: scale(0.95); }
 .home-header { margin-bottom: 36px; }
 .home-greeting { opacity: 0.7; font-size: 13px; margin-bottom: 8px; letter-spacing: 0.08em; }
 .home-title {
@@ -1080,7 +1093,19 @@ html, body {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 4px;
+  position: relative;
+  cursor: default;
 }
+.skill-chip.equipped { border-color: var(--gold); color: var(--gold-bright); }
+.skill-chip.locked { opacity: 0.55; border-style: dashed; }
+.skill-chip:hover .skill-tip { display: block; }
+.skill-chip .skill-tip { width: 240px; }
+.skill-tip-meta { display: block; opacity: 0.7; margin-top: 4px; font-size: 10px; }
+.skill-loadout-sub {
+  font-size: 10px; color: var(--text-dim); letter-spacing: 0.7px;
+  text-transform: uppercase; margin-top: 8px; margin-bottom: 4px;
+}
+.skill-chips-browse .skill-chip { background: transparent; }
 .skill-empty { font-size: 11px; opacity: 0.5; font-style: italic; }
 .skill-pick-grid {
   display: grid;

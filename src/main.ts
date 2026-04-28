@@ -113,6 +113,14 @@ function onHomeAction(a: HomeAction): void {
   if (a === "tower") showStageSelect();
   else if (a === "units") showUnits();
   else if (a === "settings") showSettings();
+  else if (a === "tutorial") showTutorialReplay();
+}
+
+function showTutorialReplay(): void {
+  stopBgm();
+  renderTutorial(root!, () => {
+    showHome();
+  }, { mode: "replay" });
 }
 
 function showStageSelect(): void {
