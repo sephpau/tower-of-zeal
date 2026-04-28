@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { verifySession } from "../_lib/jwt";
+import { verifySession } from "../_lib/jwt.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   const auth = req.headers.authorization;
