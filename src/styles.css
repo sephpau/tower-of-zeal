@@ -1189,3 +1189,19 @@ html, body {
 .audio-toggles { display: flex; flex-direction: column; gap: 6px; }
 .toggle { display: flex; gap: 8px; align-items: center; font-size: 13px; cursor: pointer; }
 .setting-actions { display: flex; justify-content: flex-end; }
+
+/* Wallet gate */
+.wallet-gate {
+  max-width: 480px; margin: 80px auto; padding: 32px;
+  background: var(--panel); border: 1px solid var(--border-strong); border-radius: 12px;
+  text-align: center; color: var(--text);
+}
+.wallet-gate h1 { color: var(--gold-bright); margin-top: 0; letter-spacing: 1px; }
+.wallet-gate__desc { color: var(--text-dim); margin-bottom: 24px; }
+.wallet-gate__btn {
+  background: var(--gold); color: var(--bg); border: none; border-radius: 8px;
+  padding: 12px 28px; font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.wallet-gate__btn:hover { background: var(--gold-bright); }
+.wallet-gate__btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.wallet-gate__status { margin-top: 16px; font-size: 13px; color: var(--text-dim); min-height: 1em; }

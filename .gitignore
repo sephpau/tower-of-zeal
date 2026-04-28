@@ -8,3 +8,7 @@ dist
 
 # tsc emit (built next to .ts sources)
 src/**/*.js
+
+.claude
+.env
+.env.local

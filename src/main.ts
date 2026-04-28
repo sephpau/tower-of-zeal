@@ -10,11 +10,39 @@ import { recordClear } from "./core/clears";
 import { installGlobalClickSounds } from "./core/audio";
 import { STAGE_DEFS, getStage } from "./units/roster";
 import { Stats } from "./core/stats";
+import { loadSession, validateSession, clearSession, Session } from "./auth/session";
+import { renderWalletGate } from "./ui/walletGate";
 
 const root = document.getElementById("app");
 if (!root) throw new Error("#app not found");
 
-installGlobalClickSounds();
+let currentSession: Session | null = null;
+
+void bootstrap();
+
+async function bootstrap(): Promise<void> {
+  const existing = loadSession();
+  if (existing) {
+    const addr = await validateSession(existing.token);
+    if (addr) {
+      currentSession = existing;
+      startApp();
+      return;
+    }
+    clearSession();
+  }
+  renderWalletGate(root!, s => {
+    currentSession = s;
+    startApp();
+  });
+}
+
+function startApp(): void {
+  void currentSession;
+  installGlobalClickSounds();
+  showHome();
+  requestAnimationFrame(t => { lastT = t; frame(t); });
+}
 
 type Screen = "home" | "stage_select" | "squad_select" | "battle" | "units" | "settings";
 
@@ -210,9 +238,6 @@ function frame(t: number): void {
 
   requestAnimationFrame(frame);
 }
-
-showHome();
-requestAnimationFrame(t => { lastT = t; frame(t); });
 
 window.addEventListener("keydown", e => {
   if ((e.key === "r" || e.key === "R") &&
