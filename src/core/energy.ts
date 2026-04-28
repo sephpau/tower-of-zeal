@@ -1,8 +1,9 @@
 // Energy gauge. Refills to ENERGY_MAX every day at 08:00 Asia/Manila (UTC+8).
 
+import { scopedKey } from "../auth/scope";
 export const ENERGY_MAX = 20;
-const KEY = "stat-battler.energy.v1";
-const RESET_KEY = "tower-of-zeal.energy.lastReset.v1";
+const KEY = () => scopedKey("stat-battler.energy.v1");
+const RESET_KEY = () => scopedKey("tower-of-zeal.energy.lastReset.v1");
 
 const PH_OFFSET_MS = 8 * 60 * 60 * 1000;       // UTC+8
 const RESET_HOUR = 8;                          // 08:00 PH
@@ -22,12 +23,12 @@ function lastResetBoundary(now = Date.now()): number {
 
 function maybeRefill(): void {
   try {
-    const lastResetRaw = localStorage.getItem(RESET_KEY);
+    const lastResetRaw = localStorage.getItem(RESET_KEY());
     const lastReset = lastResetRaw ? Number(lastResetRaw) : 0;
     const boundary = lastResetBoundary();
     if (lastReset < boundary) {
-      localStorage.setItem(KEY, String(ENERGY_MAX));
-      localStorage.setItem(RESET_KEY, String(boundary));
+      localStorage.setItem(KEY(), String(ENERGY_MAX));
+      localStorage.setItem(RESET_KEY(), String(boundary));
     }
   } catch { /* ignore */ }
 }
@@ -35,7 +36,7 @@ function maybeRefill(): void {
 export function getEnergy(): number {
   maybeRefill();
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY());
     if (raw === null) return ENERGY_MAX;
     const n = Math.max(0, Math.min(ENERGY_MAX, Math.floor(Number(raw))));
     return Number.isFinite(n) ? n : ENERGY_MAX;
@@ -46,7 +47,7 @@ export function getEnergy(): number {
 
 export function setEnergy(n: number): void {
   const clamped = Math.max(0, Math.min(ENERGY_MAX, Math.floor(n)));
-  try { localStorage.setItem(KEY, String(clamped)); } catch { /* ignore */ }
+  try { localStorage.setItem(KEY(), String(clamped)); } catch { /* ignore */ }
 }
 
 export function consumeEnergy(amount = 1): boolean {

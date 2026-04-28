@@ -11,7 +11,9 @@ import { installGlobalClickSounds } from "./core/audio";
 import { STAGE_DEFS, getStage } from "./units/roster";
 import { Stats } from "./core/stats";
 import { loadSession, validateSession, clearSession, Session } from "./auth/session";
+import { setUserScope } from "./auth/scope";
 import { renderWalletGate } from "./ui/walletGate";
+import { playBgm, stopBgm } from "./core/bgm";
 
 const root = document.getElementById("app");
 if (!root) throw new Error("#app not found");
@@ -26,6 +28,7 @@ async function bootstrap(): Promise<void> {
     const addr = await validateSession(existing.token);
     if (addr) {
       currentSession = existing;
+      setUserScope(addr);
       startApp();
       return;
     }
@@ -33,6 +36,7 @@ async function bootstrap(): Promise<void> {
   }
   renderWalletGate(root!, s => {
     currentSession = s;
+    setUserScope(s.address);
     startApp();
   });
 }
@@ -46,7 +50,7 @@ function startApp(): void {
 
 type Screen = "home" | "stage_select" | "squad_select" | "battle" | "units" | "settings";
 
-interface CarryEntry { hp: number; mp: number; xp: number; level: number; availablePoints: number; customStats: Stats; classId?: string; skillCooldowns?: Record<string, number> }
+interface CarryEntry { hp: number; mp: number; xp: number; level: number; availablePoints: number; customStats: Stats; classId?: string; skillCooldowns?: Record<string, number>; gauge?: number; alive?: boolean }
 
 let screen: Screen = "home";
 let battle: Battle | null = null;
@@ -72,6 +76,7 @@ function handleAction(unitId: string, skillId: string, targetId: string): void {
 function showHome(): void {
   screen = "home";
   battle = null;
+  playBgm();
   renderHome(root!, onHomeAction);
 }
 
@@ -83,6 +88,7 @@ function onHomeAction(a: HomeAction): void {
 
 function showStageSelect(): void {
   screen = "stage_select";
+  playBgm();
   renderStageSelect(root!, onStagePicked, showHome);
 }
 
@@ -113,6 +119,7 @@ function showSquadSelect(): void {
 
 function showUnits(): void {
   screen = "units";
+  playBgm();
   renderUnitsScreen(root!, showHome);
 }
 
@@ -147,6 +154,7 @@ function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: 
   }
   battle = startBattle(party, stage.enemies, undefined, opts);
   screen = "battle";
+  stopBgm();
   recordedThisBattle = false;
   battleConcluded = false;
   lastStateKind = battle.state.kind;
@@ -170,7 +178,7 @@ function captureCarry(b: Battle): void {
   for (const c of b.combatants) {
     if (c.side !== "player") continue;
     survivalCarry[c.templateId] = {
-      hp: Math.max(1, c.hp),
+      hp: c.hp,
       mp: c.mp,
       xp: c.xp,
       level: c.level,
@@ -178,6 +186,8 @@ function captureCarry(b: Battle): void {
       customStats: c.statBreakdown.custom,
       classId: c.classId,
       skillCooldowns: { ...c.skillCooldowns },
+      gauge: c.gauge,
+      alive: c.alive,
     };
   }
 }

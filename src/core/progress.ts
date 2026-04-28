@@ -15,7 +15,8 @@ export interface UnitProgress {
 
 export const MAX_EQUIPPED_SKILLS = 4;
 
-const KEY = "stat-battler.progress.v1";
+import { scopedKey } from "../auth/scope";
+const KEY = () => scopedKey("stat-battler.progress.v1");
 
 function defaults(): UnitProgress {
   return { level: 1, xp: 0, customStats: { ...ZERO_STATS }, availablePoints: 0 };
@@ -23,7 +24,7 @@ function defaults(): UnitProgress {
 
 function loadAll(): Record<string, UnitProgress> {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY());
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return {};
@@ -35,7 +36,7 @@ function loadAll(): Record<string, UnitProgress> {
 
 function saveAll(map: Record<string, UnitProgress>): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(map));
+    localStorage.setItem(KEY(), JSON.stringify(map));
   } catch {
     // ignore
   }
@@ -62,5 +63,5 @@ export function setProgress(templateId: string, p: UnitProgress): void {
 }
 
 export function resetAllProgress(): void {
-  try { localStorage.removeItem(KEY); } catch { /* ignore */ }
+  try { localStorage.removeItem(KEY()); } catch { /* ignore */ }
 }

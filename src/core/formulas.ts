@@ -38,6 +38,8 @@ export function magicalDamage(
 ): DamageResult {
   const a = deriveStats(attacker);
   const d = deriveStats(defender);
+  const hit = clamp(a.hitChance - d.evadeChance, 0.1, 1.0);
+  if (!rng.chance(hit)) return { dmg: 0, miss: true, crit: false };
   let raw = a.magAtk * power - d.magDef * 0.5;
   raw = Math.max(1, raw);
   raw *= rng.range(0.9, 1.1);

@@ -114,7 +114,16 @@ export function makeCombatant(t: UnitTemplate, side: Side, position: Position): 
   const skills = new Set<string>();
   skills.add("idle");
   if (side === "player") {
-    const equipped = progress?.equippedSkills ?? [];
+    let equipped = progress?.equippedSkills ?? [];
+    if (equipped.length === 0) {
+      // Default loadout: fill with the unit's available skills (up to 4) so
+      // first-time players aren't sent into battle with only "idle".
+      const available = new Set<string>();
+      for (const id of t.startingSkills) available.add(id);
+      for (const id of (CHARACTER_SKILLS[t.id] ?? [])) available.add(id);
+      if (classId) for (const id of (CLASS_SKILLS[classId] ?? [])) available.add(id);
+      equipped = [...available].slice(0, 4);
+    }
     for (const id of equipped) skills.add(id);
   } else {
     for (const id of t.startingSkills) skills.add(id);
@@ -166,11 +175,13 @@ function placeEnemies(templates: UnitTemplate[], rng: Rng): Combatant[] {
 }
 
 export interface BattleOptions {
-  /** Carry over HP/MP/level/xp/skill-cooldowns from prior battle (survival mode). Keyed by template id. */
+  /** Carry over state from prior battle (survival mode). Keyed by template id. */
   carryover?: Record<string, {
     hp: number; mp: number; xp: number; level: number;
     availablePoints: number; customStats: Stats; classId?: string;
     skillCooldowns?: Record<string, number>;
+    gauge?: number;
+    alive?: boolean;
   }>;
   /** XP multiplier applied at end-of-battle distribution. Default 1. Survival uses 0.5. */
   xpMultiplier?: number;
@@ -195,6 +206,12 @@ export function startBattle(
       c.statBreakdown.custom = co.customStats;
       if (co.classId) c.classId = co.classId;
       if (co.skillCooldowns) c.skillCooldowns = { ...co.skillCooldowns };
+      if (typeof co.gauge === "number") c.gauge = Math.max(0, Math.min(ATB_FULL, co.gauge));
+      if (co.alive === false || c.hp <= 0) {
+        c.alive = false;
+        c.hp = 0;
+        c.queuedAction = null;
+      }
     }
     return c;
   });
@@ -407,7 +424,7 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
   } else if (skill.targeting === "all_enemies") {
     const targets = b.combatants.filter(c => c.alive && c.side !== attacker.side);
     b.log.push(`${attacker.name} unleashes ${skill.name}!`);
-    for (const t of targets) { applyDamageRolls(b, attacker, t, skill); didDamage = true; }
+    for (const t of targets) { applyDamageRolls(b, attacker, t, skill, { aoe: true }); didDamage = true; }
   } else {
     let target = b.combatants.find(c => c.id === action.targetId);
     if (!target || !target.alive) {
@@ -437,15 +454,15 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
   checkEndConditions(b);
 }
 
-function applyDamageRolls(b: Battle, attacker: Combatant, target: Combatant, skill: Skill): void {
+function applyDamageRolls(b: Battle, attacker: Combatant, target: Combatant, skill: Skill, ctx: { aoe?: boolean } = {}): void {
   const hits = Math.max(1, skill.multiHit ?? 1);
   for (let i = 0; i < hits; i++) {
     if (!target.alive) break;
-    applyDamage(b, attacker, target, skill);
+    applyDamage(b, attacker, target, skill, ctx);
   }
 }
 
-function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: Skill): void {
+function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: Skill, ctx: { aoe?: boolean } = {}): void {
   let dmg: number;
   let crit = false;
 
@@ -479,6 +496,7 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
     crit = result.crit;
   }
 
+  if (ctx.aoe) dmg = Math.max(1, Math.floor(dmg * 0.75));
   if (target.guarding) dmg = Math.max(1, Math.floor(dmg / 2));
   target.hp = Math.max(0, target.hp - dmg);
 

@@ -1,10 +1,11 @@
 // Persistent record of highest stage cleared. Used to gate stage-select unlocks.
 
-const KEY = "tower-of-zeal.clears.v1";
+import { scopedKey } from "../auth/scope";
+const KEY = () => scopedKey("tower-of-zeal.clears.v1");
 
 export function getMaxCleared(): number {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY());
     if (!raw) return 0;
     const n = Number(raw);
     return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
@@ -14,5 +15,5 @@ export function getMaxCleared(): number {
 export function recordClear(stageId: number): void {
   const cur = getMaxCleared();
   if (stageId <= cur) return;
-  try { localStorage.setItem(KEY, String(stageId)); } catch { /* ignore */ }
+  try { localStorage.setItem(KEY(), String(stageId)); } catch { /* ignore */ }
 }

@@ -77,7 +77,7 @@ export function deriveStats(s: Stats): DerivedStats {
     // 1 percentage point per accuracy/crit/evade unit, capped sensibly.
     hitChance: clamp(0.7 + accuracy * 0.005, 0.1, 1.0),
     critChance: clamp(critPoints * 0.01, 0, 0.95),
-    evadeChance: clamp(evadePoints * 0.01, 0, 0.95),
+    evadeChance: clamp(0.05 + evadePoints * 0.01, 0, 0.95),
     // ATB pacing: keep the same ballpark (~0.2..1.0/sec) the prior formula gave.
     atbSpeed: 0.2 + speed * 0.05,
   };

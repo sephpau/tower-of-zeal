@@ -127,6 +127,36 @@ html, body {
   text-align: right;
   width: 170px;
 }
+/* Split layout: stacked info-panel above a separated avatar tile (per design ref). */
+.combatant.enemy.split {
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  width: 150px;
+  text-align: center;
+}
+.combatant.enemy.split .info {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  text-align: center;
+}
+.combatant.enemy.split .enemy-avatar {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+  display: grid;
+  place-items: center;
+}
+.combatant.enemy.split .enemy-avatar .portrait {
+  width: 56px; height: 56px; font-size: 30px;
+}
 /* Equal-size bars for every combatant, regardless of HP/MP totals (per image 3). */
 .combatant .bar { width: 100%; }
 .combatant .info { width: 116px; flex: none; }

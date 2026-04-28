@@ -296,8 +296,7 @@ function enemyChipHtml(c: Combatant): string {
   const ready = c.alive && c.gauge >= ATB_FULL ? "ready" : "";
   const guardStyle = c.guarding ? "" : "display:none";
   return `
-    <div class="combatant enemy ${dead} ${ready}" data-id="${escapeAttr(c.id)}">
-      <div class="portrait">${c.portrait}<span class="lv-badge">Lv${c.level}</span></div>
+    <div class="combatant enemy split ${dead} ${ready}" data-id="${escapeAttr(c.id)}">
       <div class="info">
         <div class="name">
           ${escapeHtml(c.name)}
@@ -306,6 +305,9 @@ function enemyChipHtml(c: Combatant): string {
         <div class="bar hp"><div class="fill" style="width:${(c.hp / c.maxHp) * 100}%"></div><span class="bar-text">${c.hp}/${c.maxHp}</span></div>
         ${c.maxMp > 0 ? `<div class="bar mp"><div class="fill" style="width:${(c.mp / c.maxMp) * 100}%"></div><span class="bar-text">${c.mp}/${c.maxMp}</span></div>` : ""}
         <div class="bar atb"><div class="fill" style="width:${(c.gauge / ATB_FULL) * 100}%"></div></div>
+      </div>
+      <div class="enemy-avatar">
+        <div class="portrait">${c.portrait}<span class="lv-badge">Lv${c.level}</span></div>
       </div>
     </div>
   `;
