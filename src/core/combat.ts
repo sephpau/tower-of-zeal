@@ -1,0 +1,561 @@
+import { Stats, ZERO_STATS, deriveStats, sumStats } from "./stats";
+import { classBaseStats } from "../units/classes";
+import { Rng } from "./rng";
+import { physicalDamage, magicalDamage, DamageResult } from "./formulas";
+import { tickGauges, ATB_FULL } from "./timeline";
+import { UnitTemplate } from "../units/types";
+import { Skill } from "../skills/types";
+import { getSkill, CLASS_SKILLS, CHARACTER_SKILLS } from "../skills/registry";
+import { SLIME, SLIME_KING } from "../units/roster";
+import { awardXp, xpToNext, MAX_LEVEL } from "./levels";
+import { getProgress, setProgress, UnitProgress } from "./progress";
+import { pushDamage, pushMiss } from "./animations";
+import { sfx } from "./audio";
+
+export type Side = "player" | "enemy";
+
+export interface Position {
+  row: number;
+  col: number;
+}
+
+export interface QueuedAction {
+  skillId: string;
+  targetId: string;
+}
+
+export interface StatBreakdown {
+  unit: Stats;
+  classBase: Stats;
+  custom: Stats;
+}
+
+export interface Combatant {
+  id: string;
+  templateId: string;
+  name: string;
+  side: Side;
+  portrait: string;
+  position: Position;
+  stats: Stats;
+  statBreakdown: StatBreakdown;
+  classId?: string;
+  basicAttackKind?: "physical" | "magical";
+  hp: number;
+  mp: number;
+  maxHp: number;
+  maxMp: number;
+  atbSpeed: number;
+  gauge: number;
+  alive: boolean;
+  guarding: boolean;
+  skills: string[];
+  skillCooldowns: Record<string, number>;
+  queuedAction: QueuedAction | null;
+  level: number;
+  xp: number;
+  availablePoints: number;
+  xpReward: number;
+}
+
+export type BattleState =
+  | { kind: "ticking" }
+  | { kind: "victory" }
+  | { kind: "defeat" };
+
+export interface Battle {
+  state: BattleState;
+  combatants: Combatant[];
+  originalPartyTemplateIds: string[];
+  log: string[];
+  rng: Rng;
+  /** Seconds remaining until next action may execute. Acts as a serial-animation queue gate. */
+  actionLock: number;
+  /** XP multiplier applied at distribution time (survival = 0.5). */
+  xpMultiplier: number;
+}
+
+export interface PlayerSlot {
+  template: UnitTemplate;
+  position: Position;
+}
+
+let nextInstanceId = 0;
+
+const TEMPLATE_LOOKUP: Record<string, UnitTemplate> = {
+  slime: SLIME,
+  slime_king: SLIME_KING,
+};
+
+// 75% slower than original: 0.55s → 2.2s.
+const ANIM_DURATION_S = 2.2;
+
+export function makeCombatant(t: UnitTemplate, side: Side, position: Position): Combatant {
+  const progress: UnitProgress | null = side === "player" ? getProgress(t.id) : null;
+  const classId = progress?.classId ?? t.classId;
+  const customStats = progress?.customStats ?? t.customStats ?? { ...ZERO_STATS };
+  const level = progress?.level ?? t.level ?? 1;
+  const xp = progress?.xp ?? 0;
+  const availablePoints = progress?.availablePoints ?? 0;
+
+  const unit = { ...t.unitBaseStats };
+  const classBase = classBaseStats(classId);
+  const custom = { ...ZERO_STATS, ...customStats };
+  const effective = sumStats(unit, classBase, custom);
+  const d = deriveStats(effective);
+  const maxHp = t.overrideMaxHp ?? d.maxHp;
+  const maxMp = t.overrideMaxMp ?? d.maxMp;
+
+  // Skills available in this battle:
+  //   - idle is always present
+  //   - basic_attack always present (fallback baseline)
+  //   - players: only equipped skills (max 4) on top of idle
+  //   - enemies: their full template skill list
+  const skills = new Set<string>();
+  skills.add("idle");
+  if (side === "player") {
+    const equipped = progress?.equippedSkills ?? [];
+    for (const id of equipped) skills.add(id);
+  } else {
+    for (const id of t.startingSkills) skills.add(id);
+    for (const id of (CHARACTER_SKILLS[t.id] ?? [])) skills.add(id);
+    if (classId) for (const id of (CLASS_SKILLS[classId] ?? [])) skills.add(id);
+  }
+
+  return {
+    id: `${t.id}#${nextInstanceId++}`,
+    templateId: t.id,
+    name: t.name,
+    side,
+    portrait: t.portrait,
+    position,
+    stats: effective,
+    statBreakdown: { unit, classBase, custom },
+    classId,
+    basicAttackKind: t.basicAttackKind,
+    hp: maxHp,
+    mp: maxMp,
+    maxHp,
+    maxMp,
+    atbSpeed: d.atbSpeed,
+    gauge: 0,
+    alive: true,
+    guarding: false,
+    skills: [...skills],
+    skillCooldowns: {},
+    queuedAction: null,
+    level,
+    xp,
+    availablePoints,
+    xpReward: t.xpReward ?? 0,
+  };
+}
+
+function placeEnemies(templates: UnitTemplate[], rng: Rng): Combatant[] {
+  // Up to 9 enemies. For solo bosses, just place at center.
+  if (templates.length === 1) {
+    return [makeCombatant(templates[0], "enemy", { row: 1, col: 1 })];
+  }
+  const slots: Position[] = [];
+  for (let row = 0; row < 3; row++) for (let col = 0; col < 3; col++) slots.push({ row, col });
+  for (let i = slots.length - 1; i > 0; i--) {
+    const j = Math.floor(rng.next() * (i + 1));
+    [slots[i], slots[j]] = [slots[j], slots[i]];
+  }
+  return templates.slice(0, 9).map((t, i) => makeCombatant(t, "enemy", slots[i]));
+}
+
+export interface BattleOptions {
+  /** Carry over HP/MP/level/xp/skill-cooldowns from prior battle (survival mode). Keyed by template id. */
+  carryover?: Record<string, {
+    hp: number; mp: number; xp: number; level: number;
+    availablePoints: number; customStats: Stats; classId?: string;
+    skillCooldowns?: Record<string, number>;
+  }>;
+  /** XP multiplier applied at end-of-battle distribution. Default 1. Survival uses 0.5. */
+  xpMultiplier?: number;
+}
+
+export function startBattle(
+  players: PlayerSlot[],
+  enemies: UnitTemplate[],
+  seed = (Date.now() & 0xffffffff) >>> 0,
+  opts: BattleOptions = {},
+): Battle {
+  const rng = new Rng(seed);
+  const playerCombatants = players.map(p => {
+    const c = makeCombatant(p.template, "player", p.position);
+    const co = opts.carryover?.[p.template.id];
+    if (co) {
+      c.hp = Math.min(c.maxHp, Math.max(0, co.hp));
+      c.mp = Math.min(c.maxMp, Math.max(0, co.mp));
+      c.xp = co.xp;
+      c.level = co.level;
+      c.availablePoints = co.availablePoints;
+      c.statBreakdown.custom = co.customStats;
+      if (co.classId) c.classId = co.classId;
+      if (co.skillCooldowns) c.skillCooldowns = { ...co.skillCooldowns };
+    }
+    return c;
+  });
+  const enemyCombatants = placeEnemies(enemies, rng);
+  return {
+    state: { kind: "ticking" },
+    combatants: [...playerCombatants, ...enemyCombatants],
+    originalPartyTemplateIds: players.map(p => p.template.id),
+    log: ["Battle start."],
+    rng,
+    actionLock: 0,
+    xpMultiplier: opts.xpMultiplier ?? 1,
+  };
+}
+
+export function distanceBetween(attacker: Combatant, target: Combatant): number {
+  return attacker.position.col + target.position.col + 1;
+}
+
+export function nearestEnemy(b: Battle, attacker: Combatant): Combatant | null {
+  let best: Combatant | null = null;
+  let bestDist = Infinity;
+  let bestRow = Infinity;
+  for (const c of b.combatants) {
+    if (!c.alive || c.side === attacker.side) continue;
+    const d = distanceBetween(attacker, c);
+    if (d < bestDist || (d === bestDist && c.position.row < bestRow)) {
+      best = c;
+      bestDist = d;
+      bestRow = c.position.row;
+    }
+  }
+  return best;
+}
+
+export function tick(b: Battle, dt: number): void {
+  if (b.state.kind !== "ticking") return;
+
+  // Always tick gauges so combat keeps flowing visually even mid-animation.
+  tickGauges(b.combatants, dt);
+
+  // Animation lock — actions queue serially behind any in-flight animation.
+  if (b.actionLock > 0) {
+    b.actionLock = Math.max(0, b.actionLock - dt);
+    return;
+  }
+
+  for (const c of b.combatants) {
+    if (!c.alive) continue;
+    if (c.gauge < ATB_FULL) continue;
+
+    if (c.side === "enemy") {
+      const action = chooseEnemyAction(c, b);
+      if (action) {
+        executeAction(b, c, action);
+        return; // Only one action per frame; lock takes care of pacing.
+      }
+    } else if (c.queuedAction) {
+      const skill = getSkill(c.queuedAction.skillId);
+      if (!isSkillAffordable(c, skill, b)) {
+        c.queuedAction = null;
+      } else {
+        executeAction(b, c, c.queuedAction);
+        return;
+      }
+    }
+  }
+}
+
+function chooseEnemyAction(c: Combatant, b: Battle): QueuedAction | null {
+  if (c.templateId === "slime_king") {
+    return chooseSlimeKingAction(c, b);
+  }
+  const available = c.skills.filter(id => isSkillAffordable(c, getSkill(id), b) && id !== "idle");
+  if (available.length === 0) return targetForSkill(c, b, "basic_attack");
+  const skillId = available[Math.floor(b.rng.next() * available.length)];
+  return targetForSkill(c, b, skillId);
+}
+
+function chooseSlimeKingAction(c: Combatant, b: Battle): QueuedAction | null {
+  const slimesAlive = b.combatants.some(x => x.alive && x.side === "enemy" && x.templateId === "slime");
+  if (!slimesAlive && isSkillAffordable(c, getSkill("spawn_slimes"), b)) {
+    return targetForSkill(c, b, "spawn_slimes");
+  }
+  const pick = b.rng.next() < 0.5 ? "slime_king_goo" : "slime_barrage";
+  if (!isSkillAffordable(c, getSkill(pick), b)) {
+    return targetForSkill(c, b, "slime_king_goo");
+  }
+  return targetForSkill(c, b, pick);
+}
+
+function isSkillAffordable(c: Combatant, s: Skill, b: Battle): boolean {
+  if (s.mpCost > c.mp) return false;
+  if (s.hpCost !== undefined && s.hpCost >= c.hp) return false;
+  if ((c.skillCooldowns[s.id] ?? 0) > 0) return false;
+  if ((s.unlockLevel ?? 1) > c.level) return false;
+  if (s.kind === "summon") {
+    const occupied = new Set(
+      b.combatants.filter(x => x.side === c.side && x.alive).map(x => `${x.position.row},${x.position.col}`)
+    );
+    if (occupied.size >= 9) return false;
+  }
+  return true;
+}
+
+function targetForSkill(c: Combatant, b: Battle, skillId: string): QueuedAction | null {
+  const s = getSkill(skillId);
+  if (s.targeting === "self" || s.targeting === "all_enemies") {
+    return { skillId, targetId: c.id };
+  }
+  const target = nearestEnemy(b, c);
+  if (!target) return null;
+  return { skillId, targetId: target.id };
+}
+
+export function queueAction(b: Battle, unitId: string, skillId: string, targetId: string): void {
+  if (b.state.kind !== "ticking") return;
+  const unit = b.combatants.find(c => c.id === unitId);
+  if (!unit || !unit.alive) return;
+  if (unit.side !== "player") return;
+  if (!unit.skills.includes(skillId)) return;
+  const skill = getSkill(skillId);
+  if (!isSkillAffordable(unit, skill, b)) return;
+  const target = b.combatants.find(c => c.id === targetId);
+  if (!target || !target.alive) return;
+  if (skill.targeting === "self" && target.id !== unit.id) return;
+  if (skill.targeting === "enemy" && target.side === unit.side) return;
+  unit.queuedAction = { skillId, targetId };
+}
+
+export function clearQueued(b: Battle, unitId: string): void {
+  const unit = b.combatants.find(c => c.id === unitId);
+  if (unit) unit.queuedAction = null;
+}
+
+export function surrenderBattle(b: Battle): void {
+  if (b.state.kind !== "ticking") return;
+  b.state = { kind: "defeat" };
+  b.log.push("Surrendered.");
+  persistPartyProgress(b);
+}
+
+export function distributeEndOfBattleXp(b: Battle): void {
+  const totalRaw = b.combatants
+    .filter(c => c.side === "enemy")
+    .reduce((sum, c) => sum + (c.alive ? 0 : c.xpReward), 0);
+  const total = Math.floor(totalRaw * (b.xpMultiplier ?? 1));
+  if (total <= 0) return;
+  const partyIds = b.originalPartyTemplateIds;
+  if (partyIds.length === 0) return;
+  const share = Math.max(1, Math.floor(total / partyIds.length));
+  for (const tid of partyIds) {
+    const c = b.combatants.find(x => x.side === "player" && x.templateId === tid);
+    if (!c) continue;
+    if (c.level >= MAX_LEVEL) continue;
+    const gained = awardXp(c, share);
+    if (gained > 0) {
+      c.availablePoints += gained * 4;
+      b.log.push(`${c.name} reached Lv ${c.level}! (+${gained * 4} stat points${c.level >= MAX_LEVEL ? ", MAX" : `, next: ${xpToNext(c.level)}`})`);
+    } else {
+      b.log.push(`${c.name} +${share} XP.`);
+    }
+  }
+}
+
+export function persistPartyProgress(b: Battle): void {
+  for (const tid of b.originalPartyTemplateIds) {
+    const c = b.combatants.find(x => x.side === "player" && x.templateId === tid);
+    if (!c) continue;
+    const cur = getProgress(tid);
+    setProgress(tid, {
+      ...cur,
+      level: c.level,
+      xp: c.xp,
+      availablePoints: c.availablePoints,
+      classId: c.classId,
+      customStats: c.statBreakdown.custom,
+    });
+  }
+}
+
+function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): void {
+  const skill = getSkill(action.skillId);
+  if (!isSkillAffordable(attacker, skill, b)) {
+    b.log.push(`${attacker.name} can't use ${skill.name}.`);
+    attacker.queuedAction = null;
+    return;
+  }
+
+  attacker.guarding = false;
+  attacker.mp -= skill.mpCost;
+  if (skill.hpCost !== undefined) {
+    attacker.hp = Math.max(1, attacker.hp - skill.hpCost);
+  }
+
+  let didDamage = false;
+
+  if (skill.id === "idle") {
+    b.log.push(`${attacker.name} waits.`);
+    sfx.idle();
+  } else if (skill.targeting === "self") {
+    if (skill.kind === "summon" && skill.summon) {
+      doSummon(b, attacker, skill);
+    } else if (skill.kind === "buff" && skill.id === "guard") {
+      attacker.guarding = true;
+      b.log.push(`${attacker.name} guards.`);
+    } else if (skill.kind === "buff") {
+      b.log.push(`${attacker.name} uses ${skill.name}.`);
+    }
+  } else if (skill.targeting === "all_enemies") {
+    const targets = b.combatants.filter(c => c.alive && c.side !== attacker.side);
+    b.log.push(`${attacker.name} unleashes ${skill.name}!`);
+    for (const t of targets) { applyDamageRolls(b, attacker, t, skill); didDamage = true; }
+  } else {
+    let target = b.combatants.find(c => c.id === action.targetId);
+    if (!target || !target.alive) {
+      const fallback = nearestEnemy(b, attacker);
+      target = fallback ?? undefined;
+      if (target && attacker.queuedAction) attacker.queuedAction.targetId = target.id;
+    }
+    if (target) {
+      applyDamageRolls(b, attacker, target, skill);
+      didDamage = true;
+    }
+  }
+
+  if (skill.cooldown > 0) attacker.skillCooldowns[skill.id] = skill.cooldown;
+  for (const id of Object.keys(attacker.skillCooldowns)) {
+    if (id === skill.id) continue;
+    attacker.skillCooldowns[id] = Math.max(0, attacker.skillCooldowns[id] - 1);
+  }
+
+  // Clear the player's queued action so they don't auto-repeat.
+  if (attacker.side === "player") attacker.queuedAction = null;
+
+  attacker.gauge = 0;
+  retargetSurvivors(b);
+  // Set animation lock so subsequent ready combatants wait their turn.
+  b.actionLock = didDamage ? ANIM_DURATION_S : 0.2;
+  checkEndConditions(b);
+}
+
+function applyDamageRolls(b: Battle, attacker: Combatant, target: Combatant, skill: Skill): void {
+  const hits = Math.max(1, skill.multiHit ?? 1);
+  for (let i = 0; i < hits; i++) {
+    if (!target.alive) break;
+    applyDamage(b, attacker, target, skill);
+  }
+}
+
+function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: Skill): void {
+  let dmg: number;
+  let crit = false;
+
+  // Resolve damage kind & range for popup icon.
+  const effKind: "physical" | "magical" =
+    skill.id === "basic_attack" && attacker.basicAttackKind
+      ? attacker.basicAttackKind
+      : (skill.kind === "magical" ? "magical" : "physical");
+  const range: "melee" | "range" =
+    skill.range ?? (effKind === "magical" && skill.id === "basic_attack" && attacker.basicAttackKind === "magical"
+      ? "range"
+      : effKind === "magical" ? "range" : "melee");
+
+  if (skill.flatDamage) {
+    const { min, max } = skill.flatDamage;
+    const span = max - min + 1;
+    dmg = min + Math.floor(b.rng.next() * span);
+  } else {
+    let result: DamageResult;
+    if (effKind === "magical") {
+      result = magicalDamage(attacker.stats, target.stats, skill.power, b.rng);
+    } else {
+      result = physicalDamage(attacker.stats, target.stats, skill.power, b.rng);
+    }
+    if (result.miss) {
+      b.log.push(`${attacker.name} → ${target.name}: miss!`);
+      pushMiss(target.id);
+      return;
+    }
+    dmg = result.dmg;
+    crit = result.crit;
+  }
+
+  if (target.guarding) dmg = Math.max(1, Math.floor(dmg / 2));
+  target.hp = Math.max(0, target.hp - dmg);
+
+  pushDamage(target.id, dmg, effKind, range, crit);
+
+  const tag = crit ? " CRIT" : "";
+  const verb = skill.id === "basic_attack" ? "attacks" : `uses ${skill.name} on`;
+  b.log.push(`${attacker.name} ${verb} ${target.name}: ${dmg}${tag}`);
+
+  if (target.hp <= 0) {
+    target.alive = false;
+    target.queuedAction = null;
+    b.log.push(`${target.name} falls.`);
+    sfx.fall();
+  }
+}
+
+function doSummon(b: Battle, attacker: Combatant, skill: Skill): void {
+  if (!skill.summon) return;
+  const tpl = TEMPLATE_LOOKUP[skill.summon.templateId];
+  if (!tpl) {
+    b.log.push(`${attacker.name} tried to summon (unknown template).`);
+    return;
+  }
+  const occupied = new Set(
+    b.combatants.filter(c => c.side === attacker.side && c.alive).map(c => `${c.position.row},${c.position.col}`)
+  );
+  const empties: Position[] = [];
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+    if (!occupied.has(`${r},${c}`)) empties.push({ row: r, col: c });
+  }
+  for (let i = empties.length - 1; i > 0; i--) {
+    const j = Math.floor(b.rng.next() * (i + 1));
+    [empties[i], empties[j]] = [empties[j], empties[i]];
+  }
+  const slots = empties.slice(0, skill.summon.count);
+  if (slots.length === 0) {
+    b.log.push(`${attacker.name} tried to summon — no room.`);
+    return;
+  }
+  for (const pos of slots) {
+    const c = makeCombatant(tpl, attacker.side, pos);
+    b.combatants.push(c);
+  }
+  b.log.push(`${attacker.name} summons ${slots.length} ${tpl.name}${slots.length === 1 ? "" : "s"}!`);
+}
+
+function retargetSurvivors(b: Battle): void {
+  for (const c of b.combatants) {
+    if (!c.alive || !c.queuedAction) continue;
+    const t = b.combatants.find(x => x.id === c.queuedAction!.targetId);
+    if (t && t.alive) continue;
+    const skill = getSkill(c.queuedAction.skillId);
+    if (skill.targeting === "self") continue;
+    const nearest = nearestEnemy(b, c);
+    if (nearest) {
+      c.queuedAction.targetId = nearest.id;
+    } else {
+      c.queuedAction = null;
+    }
+  }
+}
+
+function checkEndConditions(b: Battle): void {
+  const playersAlive = b.combatants.some(c => c.side === "player" && c.alive);
+  const enemiesAlive = b.combatants.some(c => c.side === "enemy" && c.alive);
+  if (!playersAlive) {
+    b.state = { kind: "defeat" };
+    b.log.push("Defeat...");
+    sfx.defeat();
+    distributeEndOfBattleXp(b);
+    persistPartyProgress(b);
+  } else if (!enemiesAlive) {
+    b.state = { kind: "victory" };
+    b.log.push("Victory!");
+    sfx.victory();
+    distributeEndOfBattleXp(b);
+    persistPartyProgress(b);
+  }
+}
