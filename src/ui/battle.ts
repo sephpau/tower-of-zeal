@@ -330,6 +330,7 @@ function enemyChipHtml(c: Combatant): string {
           ${escapeHtml(c.name)}
           <span class="badge guard-badge" style="${guardStyle}">G</span>
         </div>
+        ${renderEffectChips(c)}
         <div class="bar hp"><div class="fill" style="width:${(c.hp / c.maxHp) * 100}%"></div><span class="bar-text">${c.hp}/${c.maxHp}</span></div>
         ${c.maxMp > 0 ? `<div class="bar mp"><div class="fill" style="width:${(c.mp / c.maxMp) * 100}%"></div><span class="bar-text">${c.mp}/${c.maxMp}</span></div>` : ""}
         <div class="bar atb"><div class="fill" style="width:${(c.gauge / ATB_FULL) * 100}%"></div></div>
@@ -361,6 +362,7 @@ function playerChipHtml(c: Combatant): string {
           ${escapeHtml(c.name)}
           <span class="badge guard-badge" style="${guardStyle}">G</span>
         </div>
+        ${renderEffectChips(c)}
         <div class="bar hp"><div class="fill" style="width:${(c.hp / c.maxHp) * 100}%"></div><span class="bar-text">${c.hp}/${c.maxHp}</span></div>
         ${c.maxMp > 0 ? `<div class="bar mp"><div class="fill" style="width:${(c.mp / c.maxMp) * 100}%"></div><span class="bar-text">${c.mp}/${c.maxMp}</span></div>` : ""}
       </div>
