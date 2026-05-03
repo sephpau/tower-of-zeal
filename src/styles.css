@@ -338,7 +338,7 @@ html, body {
 */
 .unit-row {
   display: grid;
-  grid-template-columns: 110px 110px 110px 1fr;
+  grid-template-columns: 110px 110px 110px auto 1fr;
   gap: 12px;
   align-items: center;
   padding: 8px;
@@ -395,10 +395,12 @@ html, body {
 }
 
 .unit-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 6px;
 }
+.unit-actions button { min-width: 120px; flex: 0 1 auto; }
 .unit-actions button {
   background: var(--panel-2);
   color: var(--text);
@@ -1080,8 +1082,8 @@ html, body {
 /* Action tabs (Basic / Skills) */
 .unit-action-tabs {
   display: flex;
+  flex-direction: column;
   gap: 4px;
-  margin-bottom: 4px;
 }
 .action-tab {
   background: var(--bg);
