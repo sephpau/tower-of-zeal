@@ -172,6 +172,182 @@ export const TOWER_LORD: UnitTemplate = {
   xpReward: 600,
 };
 
+// ============================================================
+// Floors 11-30 — themed rooms + skewed-stat / mechanic bosses
+// ============================================================
+
+// --- Buff-themed mobs (cast support skills on allies) ---
+
+export const CLERIC: UnitTemplate = {
+  id: "cleric", name: "Cleric", portrait: "⚕",
+  unitBaseStats: { STR: 4, DEF: 6, AGI: 5, DEX: 5, VIT: 10, INT: 14 },
+  startingSkills: ["basic_attack", "tidal_mending", "aura_shield"],
+  basicAttackKind: "magical",
+  level: 11, xpReward: 50,
+};
+
+export const CANTOR: UnitTemplate = {
+  id: "cantor", name: "Cantor", portrait: "🎺",
+  unitBaseStats: { STR: 5, DEF: 5, AGI: 7, DEX: 7, VIT: 8, INT: 12 },
+  startingSkills: ["basic_attack", "analyze_vulnerability"],
+  basicAttackKind: "magical",
+  level: 11, xpReward: 50,
+};
+
+export const ARCHON: UnitTemplate = {
+  id: "archon", name: "Archon", portrait: "📯",
+  unitBaseStats: { STR: 6, DEF: 8, AGI: 6, DEX: 8, VIT: 10, INT: 14 },
+  startingSkills: ["basic_attack", "grandmasters_domain"],
+  basicAttackKind: "magical",
+  level: 12, xpReward: 60,
+};
+
+// --- Debuff-themed mobs ---
+
+export const HEXER: UnitTemplate = {
+  id: "hexer", name: "Hexer", portrait: "🪄",
+  unitBaseStats: { STR: 6, DEF: 5, AGI: 8, DEX: 10, VIT: 8, INT: 12 },
+  startingSkills: ["basic_attack", "needle_shot"],
+  level: 12, xpReward: 55,
+};
+
+export const PLAGUE_BEARER: UnitTemplate = {
+  id: "plague_bearer", name: "Plague Bearer", portrait: "🦠",
+  unitBaseStats: { STR: 5, DEF: 6, AGI: 6, DEX: 8, VIT: 10, INT: 14 },
+  startingSkills: ["basic_attack", "ignite_touch"],
+  basicAttackKind: "magical",
+  level: 12, xpReward: 55,
+};
+
+export const JINX: UnitTemplate = {
+  id: "jinx", name: "Jinx", portrait: "🃏",
+  unitBaseStats: { STR: 4, DEF: 5, AGI: 12, DEX: 10, VIT: 7, INT: 10 },
+  startingSkills: ["basic_attack", "shadow_step"],
+  level: 12, xpReward: 55,
+};
+
+export const GRAVELOCK: UnitTemplate = {
+  id: "gravelock", name: "Gravelock", portrait: "⛓",
+  unitBaseStats: { STR: 10, DEF: 10, AGI: 4, DEX: 7, VIT: 14, INT: 4 },
+  startingSkills: ["basic_attack", "bash"],
+  level: 13, xpReward: 60,
+};
+
+// --- Heavier mid-tier mobs (floors 15-22) ---
+
+export const DARK_KNIGHT: UnitTemplate = {
+  id: "dark_knight", name: "Dark Knight", portrait: "⚔",
+  unitBaseStats: { STR: 18, DEF: 14, AGI: 6, DEX: 9, VIT: 14, INT: 0 },
+  startingSkills: ["basic_attack", "impact_strike"],
+  level: 14, xpReward: 80,
+};
+
+export const LICH: UnitTemplate = {
+  id: "lich", name: "Lich", portrait: "💀✨",
+  unitBaseStats: { STR: 4, DEF: 8, AGI: 7, DEX: 9, VIT: 12, INT: 22 },
+  startingSkills: ["basic_attack", "blazing_burst", "binding_shot"],
+  basicAttackKind: "magical",
+  level: 16, xpReward: 110,
+};
+
+export const BERSERKER: UnitTemplate = {
+  id: "berserker", name: "Berserker", portrait: "🪓",
+  unitBaseStats: { STR: 24, DEF: 4, AGI: 12, DEX: 10, VIT: 8, INT: 0 },
+  startingSkills: ["basic_attack", "limit_break"],
+  level: 17, xpReward: 130,
+};
+
+export const NIGHT_HAG: UnitTemplate = {
+  id: "night_hag", name: "Night Hag", portrait: "🌑",
+  unitBaseStats: { STR: 6, DEF: 8, AGI: 10, DEX: 12, VIT: 12, INT: 20 },
+  startingSkills: ["basic_attack", "ignite_touch", "shadow_step", "needle_shot"],
+  basicAttackKind: "magical",
+  level: 19, xpReward: 160,
+};
+
+export const GARGOYLE: UnitTemplate = {
+  id: "gargoyle", name: "Gargoyle", portrait: "🗿",
+  unitBaseStats: { STR: 14, DEF: 22, AGI: 4, DEX: 6, VIT: 22, INT: 4 },
+  startingSkills: ["basic_attack", "iron_bulwark"],
+  level: 18, xpReward: 140,
+};
+
+export const DEMON_HOUND: UnitTemplate = {
+  id: "demon_hound", name: "Demon Hound", portrait: "🐺‍🔥",
+  unitBaseStats: { STR: 16, DEF: 8, AGI: 18, DEX: 14, VIT: 10, INT: 0 },
+  startingSkills: ["basic_attack", "swift_jab"],
+  level: 20, xpReward: 180,
+};
+
+// --- Floor bosses 11-30 ---
+
+// Floor 14 — VIT-skewed wall boss. Massive HP, low offense, low speed.
+export const IRON_BEHEMOTH: UnitTemplate = {
+  id: "iron_behemoth", name: "Iron Behemoth", portrait: "🦏",
+  unitBaseStats: { STR: 8, DEF: 14, AGI: 2, DEX: 5, VIT: 80, INT: 0 },
+  startingSkills: ["basic_attack", "iron_bulwark"],
+  overrideMaxHp: 1500,
+  overrideMaxMp: 30,
+  level: 14,
+  xpReward: 400,
+};
+
+// Floor 17 — AOE freezer boss.
+export const STORM_LORD: UnitTemplate = {
+  id: "storm_lord", name: "Storm Lord", portrait: "⛈",
+  unitBaseStats: { STR: 10, DEF: 12, AGI: 12, DEX: 14, VIT: 22, INT: 26 },
+  startingSkills: ["basic_attack", "tidal_wave", "binding_shot", "frost_bite"],
+  basicAttackKind: "magical",
+  overrideMaxHp: 480,
+  overrideMaxMp: 200,
+  level: 17, xpReward: 540,
+};
+
+// Floor 20 — physical brute boss.
+export const DEMON_GENERAL: UnitTemplate = {
+  id: "demon_general", name: "Demon General", portrait: "😈",
+  unitBaseStats: { STR: 32, DEF: 18, AGI: 14, DEX: 14, VIT: 24, INT: 0 },
+  startingSkills: ["basic_attack", "colossal_slam", "earthshaker", "limit_break"],
+  overrideMaxHp: 720,
+  overrideMaxMp: 120,
+  level: 20, xpReward: 700,
+};
+
+// Floor 23 — debuff stacker boss.
+export const WITCH_QUEEN: UnitTemplate = {
+  id: "witch_queen", name: "Witch Queen", portrait: "🧙‍♀",
+  unitBaseStats: { STR: 8, DEF: 14, AGI: 12, DEX: 16, VIT: 22, INT: 30 },
+  startingSkills: ["basic_attack", "ignite_touch", "shadow_step", "binding_shot", "mark_of_death"],
+  basicAttackKind: "magical",
+  overrideMaxHp: 720,
+  overrideMaxMp: 240,
+  level: 23, xpReward: 900,
+};
+
+// Floor 26 — fire/burn boss.
+export const DRAGON_LORD: UnitTemplate = {
+  id: "dragon_lord", name: "Dragon Lord", portrait: "🐲",
+  unitBaseStats: { STR: 22, DEF: 18, AGI: 12, DEX: 14, VIT: 28, INT: 28 },
+  startingSkills: ["basic_attack", "inferno_crash", "blazing_burst", "solar_flare"],
+  basicAttackKind: "magical",
+  overrideMaxHp: 920,
+  overrideMaxMp: 240,
+  level: 26, xpReward: 1100,
+};
+
+// Floor 30 — final boss, balanced and scariest.
+export const TOWER_GOD: UnitTemplate = {
+  id: "tower_god", name: "Tower God", portrait: "🌌",
+  unitBaseStats: { STR: 32, DEF: 28, AGI: 22, DEX: 24, VIT: 40, INT: 32 },
+  startingSkills: [
+    "basic_attack", "colossal_slam", "inferno_crash", "celestial_beam",
+    "tidal_wave", "earthshaker", "mark_of_death",
+  ],
+  overrideMaxHp: 1400,
+  overrideMaxMp: 400,
+  level: 30, xpReward: 2000,
+};
+
 // ---- Stages ----
 
 export const STAGE_1_ENEMIES: UnitTemplate[] = [SLIME, SLIME, SLIME, SLIME_KING];
@@ -195,6 +371,30 @@ export const STAGE_DEFS: StageEnemyDef[] = [
   { id: 8, name: "Bone Cathedral", enemies: [SKELETON_KNIGHT, SKELETON_KNIGHT, WRAITH, WRAITH, WRAITH] },
   { id: 9, name: "Throne Approach", enemies: [SKELETON_KNIGHT, ELITE_WRAITH, ELITE_WRAITH, ACOLYTE, BANDIT, WRAITH] },
   { id: 10, name: "Tower Lord", enemies: [TOWER_LORD], soloBoss: true },
+
+  // ----- Tier 2: Floors 11-20 -----
+  { id: 11, name: "Splintered Vault", enemies: [SKELETON_KNIGHT, SKELETON_KNIGHT, ELITE_WRAITH, BANDIT, ACOLYTE] },
+  { id: 12, name: "Choir of Halos", enemies: [CLERIC, CANTOR, ARCHON, CLERIC] },
+  { id: 13, name: "The Hex Pit", enemies: [HEXER, PLAGUE_BEARER, JINX, GRAVELOCK, HEXER] },
+  { id: 14, name: "Iron Behemoth", enemies: [IRON_BEHEMOTH], soloBoss: true },
+  { id: 15, name: "Black Phalanx", enemies: [DARK_KNIGHT, DARK_KNIGHT, DARK_KNIGHT, GRAVELOCK] },
+  { id: 16, name: "Pale Sanctum", enemies: [LICH, ACOLYTE, ACOLYTE, ELITE_WRAITH, ELITE_WRAITH] },
+  { id: 17, name: "Storm Lord", enemies: [STORM_LORD], soloBoss: true },
+  { id: 18, name: "Statue Garden", enemies: [GARGOYLE, GARGOYLE, GARGOYLE, ARCHON] },
+  { id: 19, name: "Witching Hour", enemies: [NIGHT_HAG, JINX, JINX, HEXER, PLAGUE_BEARER] },
+  { id: 20, name: "Demon General", enemies: [DEMON_GENERAL], soloBoss: true },
+
+  // ----- Tier 3: Floors 21-30 -----
+  { id: 21, name: "Hounds of the Pit", enemies: [DEMON_HOUND, DEMON_HOUND, DEMON_HOUND, BERSERKER] },
+  { id: 22, name: "Mirror of Sorrows", enemies: [BERSERKER, NIGHT_HAG, LICH, GARGOYLE] },
+  { id: 23, name: "Witch Queen", enemies: [WITCH_QUEEN], soloBoss: true },
+  { id: 24, name: "Crucible", enemies: [DARK_KNIGHT, DEMON_HOUND, NIGHT_HAG, PLAGUE_BEARER, GRAVELOCK, HEXER] },
+  { id: 25, name: "Inner Sanctum", enemies: [LICH, LICH, ARCHON, CLERIC, CANTOR] },
+  { id: 26, name: "Dragon Lord", enemies: [DRAGON_LORD], soloBoss: true },
+  { id: 27, name: "The Long Walk", enemies: [DEMON_HOUND, DEMON_HOUND, DARK_KNIGHT, DARK_KNIGHT, BERSERKER] },
+  { id: 28, name: "Twilight Spire", enemies: [NIGHT_HAG, NIGHT_HAG, LICH, GARGOYLE, GARGOYLE] },
+  { id: 29, name: "Final Approach", enemies: [DEMON_GENERAL, WITCH_QUEEN] },
+  { id: 30, name: "Tower God", enemies: [TOWER_GOD], soloBoss: true },
 ];
 
 export function getStage(id: number): StageEnemyDef | null {
