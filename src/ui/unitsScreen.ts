@@ -145,6 +145,7 @@ function classRowHtml(t: UnitTemplate, classId: string | undefined, isPicking: b
             <button class="class-pick-btn ${classId === c.id ? "current" : ""}" data-pick-class="${escapeAttr(c.id)}" data-template="${escapeAttr(t.id)}" type="button">
               <div class="class-name">${escapeHtml(c.name)}</div>
               <div class="class-role">${escapeHtml(c.role)}</div>
+              ${classSkillTipHtml(c.id)}
             </button>
           `).join("")}
         </div>
@@ -171,6 +172,24 @@ function classRowHtml(t: UnitTemplate, classId: string | undefined, isPicking: b
         : `<button class="ghost-btn" data-open-pick="${escapeAttr(t.id)}" type="button">Change (dev)</button>`}
     </div>
   `;
+}
+
+function classSkillTipHtml(classId: string): string {
+  const ids = CLASS_SKILLS[classId] ?? [];
+  if (ids.length === 0) return "";
+  const sorted = [...ids].sort((a, b) => (getSkill(a).unlockLevel ?? 1) - (getSkill(b).unlockLevel ?? 1));
+  const rows = sorted.map(id => {
+    const s = getSkill(id);
+    const lvl = s.unlockLevel ?? 1;
+    return `<div class="class-tip-row">
+      <span class="class-tip-skill"><span class="class-tip-lvl">Lv${lvl}</span> ${escapeHtml(s.name)}</span>
+      <span class="class-tip-desc">${escapeHtml(s.description)}</span>
+    </div>`;
+  }).join("");
+  return `<span class="class-tip">
+    <span class="class-tip-head">Class skills</span>
+    ${rows}
+  </span>`;
 }
 
 function skillLoadoutHtml(t: UnitTemplate, classId: string | undefined, level: number, editing: boolean, equipped: string[]): string {
