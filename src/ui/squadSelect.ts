@@ -10,6 +10,33 @@ export interface SquadResult {
   stageId: number;
 }
 
+type SortKey = "lvl" | "name" | "STR" | "DEF" | "AGI" | "DEX" | "VIT" | "INT";
+const SORT_LABELS: Record<SortKey, string> = {
+  lvl: "Level",
+  name: "Name (A→Z)",
+  STR: "STR",
+  DEF: "DEF",
+  AGI: "AGI",
+  DEX: "DEX",
+  VIT: "VIT",
+  INT: "INT",
+};
+let lastSortKey: SortKey = "lvl";
+let lastSortDir: "asc" | "desc" = "desc";
+
+function sortRoster(roster: UnitTemplate[], key: SortKey, dir: "asc" | "desc"): UnitTemplate[] {
+  const out = [...roster];
+  out.sort((a, b) => {
+    let cmp = 0;
+    if (key === "lvl") cmp = getProgress(a.id).level - getProgress(b.id).level;
+    else if (key === "name") cmp = a.name.localeCompare(b.name);
+    else cmp = a.unitBaseStats[key] - b.unitBaseStats[key];
+    if (cmp === 0) cmp = a.name.localeCompare(b.name);
+    return dir === "asc" ? cmp : -cmp;
+  });
+  return out;
+}
+
 export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm: (r: SquadResult) => void, onBack: () => void): void {
   const picks: UnitTemplate[] = [];
   const stage = getStage(stageId) ?? STAGE_DEFS[0];
@@ -17,6 +44,7 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
   const draw = () => {
     const placed = picks.length;
     const atCap = placed >= MAX_PARTY_SIZE;
+    const sorted = sortRoster(PLAYER_ROSTER, lastSortKey, lastSortDir);
     root.innerHTML = `
       <div class="squad-screen">
         ${topBarHtml(`Floor ${stage.id} · ${stage.name}`, true)}
@@ -25,9 +53,23 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
 
         <div class="squad-layout-flat">
           <div class="roster">
-            <div class="section-label">Roster</div>
+            <div class="roster-header">
+              <span class="section-label">Roster</span>
+              <div class="roster-sort">
+                <label class="roster-sort-label">Sort
+                  <select id="roster-sort-key">
+                    ${(Object.keys(SORT_LABELS) as SortKey[]).map(k =>
+                      `<option value="${k}" ${k === lastSortKey ? "selected" : ""}>${SORT_LABELS[k]}</option>`
+                    ).join("")}
+                  </select>
+                </label>
+                <button class="ghost-btn roster-sort-dir" id="roster-sort-dir" type="button" title="Toggle direction">
+                  ${lastSortDir === "desc" ? "↓ High→Low" : "↑ Low→High"}
+                </button>
+              </div>
+            </div>
             <div class="roster-list">
-              ${PLAYER_ROSTER.map(t => rosterItemHtml(t, picks, atCap)).join("")}
+              ${sorted.map(t => rosterItemHtml(t, picks, atCap)).join("")}
             </div>
           </div>
 
@@ -48,6 +90,15 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
     `;
 
     root.querySelector("#back-btn")?.addEventListener("click", onBack);
+
+    root.querySelector<HTMLSelectElement>("#roster-sort-key")?.addEventListener("change", e => {
+      lastSortKey = (e.target as HTMLSelectElement).value as SortKey;
+      draw();
+    });
+    root.querySelector<HTMLButtonElement>("#roster-sort-dir")?.addEventListener("click", () => {
+      lastSortDir = lastSortDir === "desc" ? "asc" : "desc";
+      draw();
+    });
 
     root.querySelectorAll<HTMLElement>("[data-roster]").forEach(el => {
       const id = el.dataset.roster!;
