@@ -78,13 +78,15 @@ export const SKILLS: Record<string, Skill> = {
     id: "impact_strike", name: "Impact Strike",
     kind: "physical", targeting: "enemy",
     power: POW.mid, mpCost: 10, cooldown: 1, unlockLevel: 1,
-    description: "Mid single melee phys. 50% chance to confuse target. (CC: not yet implemented)",
+    description: "Mid single melee phys. 50% chance to confuse target for 2 actions.",
+    applies: [{ id: "confuse", chance: 0.5, duration: 2, power: 1 }],
   },
   focus_pulse: {
     id: "focus_pulse", name: "Focus Pulse",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 20, cooldown: 5, unlockLevel: 5,
-    description: "+P.atk for 3 actions (scales with STR/VIT/DEF). (Buff: not yet implemented)",
+    description: "+30% physical attack for 3 actions.",
+    selfApplies: [{ id: "atk_buff", duration: 3, power: 0.3, target: "phys" }],
   },
   colossal_slam: {
     id: "colossal_slam", name: "Colossal Slam",
@@ -98,19 +100,22 @@ export const SKILLS: Record<string, Skill> = {
     id: "ignite_touch", name: "Ignite Touch",
     kind: "magical", targeting: "enemy",
     power: POW.mid, mpCost: 10, cooldown: 1, unlockLevel: 1,
-    description: "Mid single melee magical. 20% chance to burn. (Burn: not yet implemented)",
+    description: "Mid single melee magical. 20% chance to burn (8 dmg/action × 3).",
+    applies: [{ id: "burn", chance: 0.2, duration: 3, power: 8 }],
   },
   blazing_burst: {
     id: "blazing_burst", name: "Blazing Burst",
     kind: "magical", targeting: "all_enemies",
     power: POW.mid, mpCost: 20, cooldown: 3, unlockLevel: 5,
-    description: "Mid AOE magical. 20% chance to burn each. (Burn: not yet implemented)",
+    description: "Mid AOE magical. 20% chance to burn each (8 dmg/action × 3).",
+    applies: [{ id: "burn", chance: 0.2, duration: 3, power: 8 }],
   },
   inferno_crash: {
     id: "inferno_crash", name: "Inferno Crash",
     kind: "magical", targeting: "enemy",
     power: POW.very_high, mpCost: 40, cooldown: 5, unlockLevel: 10,
-    description: "Very High single magical. Inflicts burn. (Burn: not yet implemented)",
+    description: "Very high single magical. Inflicts burn (12 dmg/action × 3).",
+    applies: [{ id: "burn", duration: 3, power: 12 }],
   },
 
   // Sharpshooter
@@ -118,20 +123,22 @@ export const SKILLS: Record<string, Skill> = {
     id: "quick_draw", name: "Quick Draw",
     kind: "physical", targeting: "enemy",
     power: POW.mid, mpCost: 5, cooldown: 1, unlockLevel: 1,
-    description: "Mid single range phys. Refunds 30% gauge after use. (Gauge refund: not yet implemented)",
+    description: "Mid single range phys. Self +30% ATB speed for 2 actions.",
+    selfApplies: [{ id: "haste", duration: 2, power: 0.3 }],
   },
   double_tap: {
     id: "double_tap", name: "Double Tap",
     kind: "physical", targeting: "enemy",
     power: POW.mid, mpCost: 10, cooldown: 2, unlockLevel: 5,
-    description: "2× Mid single range phys. (Multi-hit: applies one big hit for now.)",
+    description: "2× Mid single range phys.",
     multiHit: 2,
   },
   apex_shot: {
     id: "apex_shot", name: "Apex Shot",
     kind: "physical", targeting: "enemy",
     power: POW.high, mpCost: 30, cooldown: 5, unlockLevel: 10,
-    description: "High single range phys. High crit chance. (Crit boost: not yet implemented)",
+    description: "High single range phys. Self +30% DEX for 1 action (crit + accuracy boost).",
+    selfApplies: [{ id: "stat_buff", duration: 1, power: 0.3, target: "DEX" }],
   },
 
   // Water Mage
@@ -139,19 +146,22 @@ export const SKILLS: Record<string, Skill> = {
     id: "hydro_bolt", name: "Hydro Bolt",
     kind: "magical", targeting: "enemy",
     power: POW.mid, mpCost: 10, cooldown: 1, unlockLevel: 1,
-    description: "Mid single range magical. Freezes target. (Freeze: not yet implemented)",
+    description: "Mid single range magical. Freezes target (-25% ATB for 2 actions).",
+    applies: [{ id: "freeze", duration: 2, power: 0.25 }],
   },
   vortex_stream: {
     id: "vortex_stream", name: "Vortex Stream",
     kind: "magical", targeting: "all_enemies",
     power: POW.mid, mpCost: 20, cooldown: 2, unlockLevel: 5,
-    description: "Mid AOE range magical. 20% chance to confuse. (CC: not yet implemented)",
+    description: "Mid AOE range magical. 20% chance to confuse (2 actions).",
+    applies: [{ id: "confuse", chance: 0.2, duration: 2, power: 1 }],
   },
   tidal_wave: {
     id: "tidal_wave", name: "Tidal Wave",
     kind: "magical", targeting: "all_enemies",
     power: POW.high, mpCost: 40, cooldown: 6, unlockLevel: 10,
-    description: "High AOE range magical. Freezes all enemies. (Freeze: not yet implemented)",
+    description: "High AOE range magical. Freezes all enemies (-25% ATB for 2 actions).",
+    applies: [{ id: "freeze", duration: 2, power: 0.25 }],
   },
 
   // Scout
@@ -159,20 +169,23 @@ export const SKILLS: Record<string, Skill> = {
     id: "swift_jab", name: "Swift Jab",
     kind: "physical", targeting: "enemy",
     power: POW.mid, mpCost: 5, cooldown: 1, unlockLevel: 1,
-    description: "Mid single melee phys. Self +50% evasion 1 action. (Buff: not yet implemented)",
+    description: "Mid single melee phys. Self +50% AGI for 1 action.",
+    selfApplies: [{ id: "stat_buff", duration: 1, power: 0.5, target: "AGI" }],
   },
   shadow_step: {
     id: "shadow_step", name: "Shadow Step",
     kind: "physical", targeting: "enemy",
     power: POW.mid, mpCost: 10, cooldown: 2, unlockLevel: 5,
-    description: "Mid single melee phys. Inflicts confuse. (CC: not yet implemented)",
+    description: "Mid single melee phys. Inflicts confuse (2 actions).",
+    applies: [{ id: "confuse", duration: 2, power: 1 }],
   },
   phantom_flurry: {
     id: "phantom_flurry", name: "Phantom Flurry",
     kind: "physical", targeting: "enemy",
     power: POW.low, mpCost: 20, cooldown: 4, unlockLevel: 10,
-    description: "10× low single melee phys. Inflicts confuse twice. (Multi-hit + CC partial.)",
+    description: "10× low single melee phys. Each hit has 20% chance to inflict bleed.",
     multiHit: 10,
+    applies: [{ id: "bleed", chance: 0.2, duration: 3, power: 0.04 }],
   },
 
   // Defender
@@ -180,19 +193,25 @@ export const SKILLS: Record<string, Skill> = {
     id: "bash", name: "Bash",
     kind: "physical", targeting: "enemy",
     power: POW.mid, mpCost: 10, cooldown: 1, unlockLevel: 1,
-    description: "Mid single melee phys. Stuns target. (Stun: not yet implemented)",
+    description: "Mid single melee phys. Stuns target (skip next action).",
+    applies: [{ id: "stun", duration: 1, power: 1 }],
   },
   phalanx_wall: {
     id: "phalanx_wall", name: "Phalanx Wall",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 20, cooldown: 3, unlockLevel: 5,
-    description: "+25% P.def & M.def, blocks 100% range damage. (Buff: not yet implemented)",
+    description: "Self +50% DEF & VIT for 3 actions.",
+    selfApplies: [
+      { id: "stat_buff", duration: 3, power: 0.5, target: "DEF" },
+      { id: "stat_buff", duration: 3, power: 0.5, target: "VIT" },
+    ],
   },
   earthshaker: {
     id: "earthshaker", name: "Earthshaker",
     kind: "physical", targeting: "all_enemies",
     power: POW.high, mpCost: 30, cooldown: 5, unlockLevel: 10,
-    description: "High AOE melee phys. Stuns all enemies. (Stun: not yet implemented)",
+    description: "High AOE melee phys. Stuns all enemies (skip next action).",
+    applies: [{ id: "stun", duration: 1, power: 1 }],
   },
 
   // Warden
@@ -200,13 +219,15 @@ export const SKILLS: Record<string, Skill> = {
     id: "binding_shot", name: "Binding Shot",
     kind: "magical", targeting: "enemy",
     power: POW.mid, mpCost: 5, cooldown: 1, unlockLevel: 1,
-    description: "Mid single range magical. Slows target. (Slow: not yet implemented)",
+    description: "Mid single range magical. Slows target (-25% ATB for 3 actions).",
+    applies: [{ id: "freeze", duration: 3, power: 0.25 }],
   },
   aura_shield: {
     id: "aura_shield", name: "Aura Shield",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 10, cooldown: 4, unlockLevel: 5,
-    description: "Allies +50% P.def/M.def for 3 actions. (Buff/ally targeting: not yet implemented)",
+    description: "Allies +50% DEF for 3 actions.",
+    applies: [{ id: "stat_buff", duration: 3, power: 0.5, target: "DEF" }],
   },
   celestial_beam: {
     id: "celestial_beam", name: "Celestial Beam",
@@ -230,13 +251,15 @@ export const SKILLS: Record<string, Skill> = {
     id: "radiant_punch", name: "Radiant Punch",
     kind: "magical", targeting: "all_enemies",
     power: POW.mid, mpCost: 15, cooldown: 2, unlockLevel: 2,
-    description: "Mid magical hit + AOE splash. 20% blind 2 actions. (Splash + blind: not yet implemented)",
+    description: "Mid AOE magical. 20% chance to blind (-20% hit) for 2 actions.",
+    applies: [{ id: "blind", chance: 0.2, duration: 2, power: 0.2 }],
   },
   solar_flare: {
     id: "solar_flare", name: "Solar Flare",
     kind: "magical", targeting: "all_enemies",
     power: POW.high, mpCost: 40, cooldown: 5, unlockLevel: 5,
-    description: "High AOE range magical. 20% burn 3 actions. (Burn: not yet implemented)",
+    description: "High AOE range magical. 20% chance to burn (10 dmg/action × 3).",
+    applies: [{ id: "burn", chance: 0.2, duration: 3, power: 10 }],
   },
 
   // Aspen (physical)
@@ -257,7 +280,11 @@ export const SKILLS: Record<string, Skill> = {
     id: "whirlwind_edge", name: "Whirlwind Edge",
     kind: "physical", targeting: "all_enemies",
     power: POW.mid, mpCost: 10, cooldown: 4, unlockLevel: 5,
-    description: "Mid AOE melee phys. +50% VIT/DEF for 2 actions. (Buff: not yet implemented)",
+    description: "Mid AOE melee phys. Self +50% VIT & DEF for 2 actions.",
+    selfApplies: [
+      { id: "stat_buff", duration: 2, power: 0.5, target: "VIT" },
+      { id: "stat_buff", duration: 2, power: 0.5, target: "DEF" },
+    ],
   },
 
   // Oge (tank)
@@ -265,19 +292,29 @@ export const SKILLS: Record<string, Skill> = {
     id: "iron_bulwark", name: "Iron Bulwark",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 0, cooldown: 1, unlockLevel: 1,
-    description: "+25% P.def/M.def for 2 actions (scales VIT + DEF). (Buff: not yet implemented)",
+    description: "Self +25% DEF & VIT for 2 actions.",
+    selfApplies: [
+      { id: "stat_buff", duration: 2, power: 0.25, target: "DEF" },
+      { id: "stat_buff", duration: 2, power: 0.25, target: "VIT" },
+    ],
   },
   bastions_call: {
     id: "bastions_call", name: "Bastion's Call",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 5, cooldown: 1, unlockLevel: 2,
-    description: "Taunt all enemies for 2 actions. (Taunt: not yet implemented)",
+    description: "Self -50% damage taken for 2 actions (draws fire).",
+    selfApplies: [{ id: "dmg_reduction", duration: 2, power: 0.5 }],
   },
   unyielding_heart: {
     id: "unyielding_heart", name: "Unyielding Heart",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 20, cooldown: 6, unlockLevel: 5,
-    description: "−80% damage taken 3 actions; allies +P/M.atk. (Buff: not yet implemented)",
+    description: "Self -80% damage taken; allies +20% phys & mag attack for 3 actions.",
+    selfApplies: [{ id: "dmg_reduction", duration: 3, power: 0.8 }],
+    applies: [
+      { id: "atk_buff", duration: 3, power: 0.2, target: "phys" },
+      { id: "atk_buff", duration: 3, power: 0.2, target: "mag" },
+    ],
   },
 
   // Soda (physical / support heal)
@@ -291,7 +328,8 @@ export const SKILLS: Record<string, Skill> = {
     id: "soda_pop", name: "Soda Pop",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 10, cooldown: 3, unlockLevel: 2,
-    description: "Heal target ally 20% (scales DEX). (Heal: not yet implemented)",
+    description: "Allies regen 6 HP per action for 2 actions.",
+    applies: [{ id: "regen", duration: 2, power: 6 }],
   },
   swift_echo: {
     id: "swift_echo", name: "Swift Echo",
@@ -312,13 +350,18 @@ export const SKILLS: Record<string, Skill> = {
     id: "limit_break", name: "Limit Break",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 5, cooldown: 3, unlockLevel: 2,
-    description: "2× P.atk, −50% P/M.def for 3 turns. (Buff: not yet implemented)",
+    description: "Self +100% phys atk, -50% DEF for 3 actions (glass-cannon mode).",
+    selfApplies: [
+      { id: "atk_buff", duration: 3, power: 1.0, target: "phys" },
+      { id: "stat_buff", duration: 3, power: -0.5, target: "DEF" },
+    ],
   },
   all_or_nothing: {
     id: "all_or_nothing", name: "All or Nothing!",
     kind: "physical", targeting: "enemy",
     power: POW.high, mpCost: 10, cooldown: 2, unlockLevel: 5,
-    description: "High single phys; recoil = 20% damage. (Recoil + confuse: not yet implemented)",
+    description: "High single phys; 50% chance to confuse self for 1 action.",
+    selfApplies: [{ id: "confuse", chance: 0.5, duration: 1, power: 1 }],
   },
 
   // Gruyere (physical / debuff)
@@ -332,13 +375,21 @@ export const SKILLS: Record<string, Skill> = {
     id: "analyze_vulnerability", name: "Analyze Vulnerability",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 5, cooldown: 2, unlockLevel: 2,
-    description: "Allies +15% dmg vs target for 2 actions. (Debuff: not yet implemented)",
+    description: "Allies +15% phys & mag attack for 2 actions.",
+    applies: [
+      { id: "atk_buff", duration: 2, power: 0.15, target: "phys" },
+      { id: "atk_buff", duration: 2, power: 0.15, target: "mag" },
+    ],
   },
   grandmasters_domain: {
     id: "grandmasters_domain", name: "Grandmaster's Domain",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 20, cooldown: 5, unlockLevel: 5,
-    description: "Allies +20% DEX/AGI for 3 actions. (Buff: not yet implemented)",
+    description: "Allies +20% DEX & AGI for 3 actions.",
+    applies: [
+      { id: "stat_buff", duration: 3, power: 0.2, target: "DEX" },
+      { id: "stat_buff", duration: 3, power: 0.2, target: "AGI" },
+    ],
   },
 
   // Calypso (magical / support heal)
@@ -352,13 +403,18 @@ export const SKILLS: Record<string, Skill> = {
     id: "tidal_mending", name: "Tidal Mending",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 5, cooldown: 2, unlockLevel: 2,
-    description: "Heal ally 20% HP + restore 20 mana. (Heal/refresh: not yet implemented)",
+    description: "Allies regen 8 HP per action for 2 actions.",
+    applies: [{ id: "regen", duration: 2, power: 8 }],
   },
   sirens_sanctuary: {
     id: "sirens_sanctuary", name: "Siren's Sanctuary",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 20, cooldown: 5, unlockLevel: 5,
-    description: "Allies CC immune, −50% mana cost & cooldowns, heal 10% HP. (Buff: not yet implemented)",
+    description: "Allies regen 12 HP per action and gain -30% damage taken for 3 actions.",
+    applies: [
+      { id: "regen", duration: 3, power: 12 },
+      { id: "dmg_reduction", duration: 3, power: 0.3 },
+    ],
   },
 
   // Calico (magical / range)
@@ -372,13 +428,18 @@ export const SKILLS: Record<string, Skill> = {
     id: "needle_shot", name: "Needle Shot",
     kind: "physical", targeting: "enemy",
     power: POW.mid, mpCost: 5, cooldown: 2, unlockLevel: 2,
-    description: "Mid single range phys, 100% hit, 20% crit. Bleed 3 actions. (Bleed: not yet implemented)",
+    description: "Mid single range phys. Inflicts bleed (5% max HP per action × 3).",
+    applies: [{ id: "bleed", duration: 3, power: 0.05 }],
   },
   mark_of_death: {
     id: "mark_of_death", name: "Mark of Death",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 20, cooldown: 5, unlockLevel: 5,
-    description: "Mark a target: cant evade, +20% incoming, −20% AGI for 4 actions. (Debuff: not yet implemented)",
+    description: "Allies gain +20% phys & mag atk for 4 actions (mark intent).",
+    applies: [
+      { id: "atk_buff", duration: 4, power: 0.2, target: "phys" },
+      { id: "atk_buff", duration: 4, power: 0.2, target: "mag" },
+    ],
   },
 
   // Nova (magical)
@@ -392,7 +453,8 @@ export const SKILLS: Record<string, Skill> = {
     id: "frost_bite", name: "Frost Bite",
     kind: "magical", targeting: "all_enemies",
     power: POW.mid, mpCost: 15, cooldown: 2, unlockLevel: 2,
-    description: "Mid AOE range magical. Freeze enemies. (Freeze: not yet implemented)",
+    description: "Mid AOE range magical. Freezes enemies (-25% ATB for 2 actions).",
+    applies: [{ id: "freeze", duration: 2, power: 0.25 }],
   },
   navigators_wrath: {
     id: "navigators_wrath", name: "Navigator's Wrath",

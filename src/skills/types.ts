@@ -1,3 +1,5 @@
+import { EffectApplication } from "../core/effects";
+
 export type SkillKind = "physical" | "magical" | "buff" | "summon";
 
 // "self" — only the attacker. "enemy" — single enemy target. "all_enemies" — every living combatant on the opposite side.
@@ -30,4 +32,10 @@ export interface Skill {
   // legacy-ish flags kept for the existing Slime skills + future hooks.
   noDistancePenalty?: boolean;
   customGaugeMul?: number;
+  /** Status effects applied on hit. For "self"/"all_self" target the effect is
+   *  applied to the caster. For "enemy"/"all_enemies" the effect is applied to
+   *  each damaged target. */
+  applies?: EffectApplication[];
+  /** Effects applied to the caster regardless of damage (e.g., self buffs from buff skills). */
+  selfApplies?: EffectApplication[];
 }

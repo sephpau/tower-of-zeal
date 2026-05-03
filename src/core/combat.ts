@@ -11,6 +11,19 @@ import { awardXp, xpToNext, MAX_LEVEL } from "./levels";
 import { getProgress, setProgress, UnitProgress } from "./progress";
 import { pushDamage, pushMiss } from "./animations";
 import { sfx } from "./audio";
+import {
+  ActiveEffect,
+  EffectApplication,
+  applyEffect,
+  applyTickEffects,
+  atkBuffMultiplier,
+  buffedStats,
+  hasEffect,
+  incomingDamageMultiplier,
+  isSkillBlockedBySilence,
+  tickEffectDurations,
+  blindHitPenalty,
+} from "./effects";
 
 export type Side = "player" | "enemy";
 
@@ -56,6 +69,8 @@ export interface Combatant {
   xp: number;
   availablePoints: number;
   xpReward: number;
+  /** Active buffs/debuffs (applied on hit, ticks per action). */
+  effects: ActiveEffect[];
 }
 
 export type BattleState =
@@ -112,7 +127,10 @@ export function makeCombatant(t: UnitTemplate, side: Side, position: Position): 
   //   - players: only equipped skills (max 4) on top of idle
   //   - enemies: their full template skill list
   const skills = new Set<string>();
+  // Baseline actions every unit always has: Idle, Attack, Guard.
   skills.add("idle");
+  skills.add("basic_attack");
+  skills.add("guard");
   if (side === "player") {
     let equipped = progress?.equippedSkills ?? [];
     if (equipped.length === 0) {
@@ -159,6 +177,7 @@ export function makeCombatant(t: UnitTemplate, side: Side, position: Position): 
     xp,
     availablePoints,
     xpReward: t.xpReward ?? 0,
+    effects: [],
   };
 }
 
@@ -265,6 +284,26 @@ export function tick(b: Battle, dt: number): void {
     if (!c.alive) continue;
     if (c.gauge < ATB_FULL) continue;
 
+    // Tick DoT/HoT before action.
+    applyTickEffects(c, b.log);
+    if (!c.alive) {
+      // Effect killed them.
+      c.gauge = 0;
+      tickEffectDurations(c);
+      checkEndConditions(b);
+      return;
+    }
+
+    // Stun: skip the queued/AI action this turn.
+    if (hasEffect(c, "stun")) {
+      b.log.push(`${c.name} is stunned and skips the action.`);
+      c.gauge = 0;
+      c.queuedAction = null;
+      tickEffectDurations(c);
+      b.actionLock = 0.4;
+      return;
+    }
+
     if (c.side === "enemy") {
       const action = chooseEnemyAction(c, b);
       if (action) {
@@ -273,6 +312,14 @@ export function tick(b: Battle, dt: number): void {
       }
     } else if (c.queuedAction) {
       const skill = getSkill(c.queuedAction.skillId);
+      if (isSkillBlockedBySilence(c, skill.id)) {
+        b.log.push(`${c.name} is silenced — ${skill.name} fails.`);
+        c.queuedAction = null;
+        c.gauge = 0;
+        tickEffectDurations(c);
+        b.actionLock = 0.4;
+        return;
+      }
       if (!isSkillAffordable(c, skill, b)) {
         c.queuedAction = null;
       } else {
@@ -287,7 +334,11 @@ function chooseEnemyAction(c: Combatant, b: Battle): QueuedAction | null {
   if (c.templateId === "slime_king") {
     return chooseSlimeKingAction(c, b);
   }
-  const available = c.skills.filter(id => isSkillAffordable(c, getSkill(id), b) && id !== "idle");
+  const available = c.skills.filter(id =>
+    isSkillAffordable(c, getSkill(id), b)
+    && id !== "idle"
+    && !isSkillBlockedBySilence(c, id)
+  );
   if (available.length === 0) return targetForSkill(c, b, "basic_attack");
   const skillId = available[Math.floor(b.rng.next() * available.length)];
   return targetForSkill(c, b, skillId);
@@ -446,6 +497,14 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
       b.log.push(`${attacker.name} guards.`);
     } else if (skill.kind === "buff") {
       b.log.push(`${attacker.name} uses ${skill.name}.`);
+      // Self-buffs and party buffs without an offensive target apply effects via
+      // selfApplies (caster) and applies (each ally — see below).
+      if (skill.applies && skill.applies.length > 0) {
+        const allies = b.combatants.filter(c => c.alive && c.side === attacker.side);
+        for (const a of allies) {
+          for (const eff of skill.applies) maybeApplyEffect(b, attacker, a, eff);
+        }
+      }
     }
   } else if (skill.targeting === "all_enemies") {
     const targets = b.combatants.filter(c => c.alive && c.side !== attacker.side);
@@ -458,6 +517,14 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
       target = fallback ?? undefined;
       if (target && attacker.queuedAction) attacker.queuedAction.targetId = target.id;
     }
+    // Confuse: pick a random alive combatant (any side) instead.
+    if (target && hasEffect(attacker, "confuse")) {
+      const candidates = b.combatants.filter(c => c.alive && c.id !== attacker.id);
+      if (candidates.length > 0) {
+        target = candidates[Math.floor(b.rng.next() * candidates.length)];
+        b.log.push(`${attacker.name} is confused and targets ${target.name}!`);
+      }
+    }
     if (target) {
       applyDamageRolls(b, attacker, target, skill);
       didDamage = true;
@@ -469,6 +536,14 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
     if (id === skill.id) continue;
     attacker.skillCooldowns[id] = Math.max(0, attacker.skillCooldowns[id] - 1);
   }
+
+  // Self-buff applications (e.g., Guardian Wall on caster).
+  if (skill.selfApplies && skill.selfApplies.length > 0) {
+    for (const eff of skill.selfApplies) maybeApplyEffect(b, attacker, attacker, eff);
+  }
+
+  // Decrement effects on the actor at end of their action.
+  tickEffectDurations(attacker);
 
   // Clear the player's queued action so they don't auto-repeat.
   if (attacker.side === "player") attacker.queuedAction = null;
@@ -507,11 +582,22 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
     const span = max - min + 1;
     dmg = min + Math.floor(b.rng.next() * span);
   } else {
+    // Stat-buff scaling on both sides (VIT/DEF/STR/INT/etc.).
+    const attackerStats0 = buffedStats(attacker, attacker.stats);
+    const targetStats0 = buffedStats(target, target.stats);
+    // Apply +atk buffs to attacker stats for this damage roll.
+    const atkMul = atkBuffMultiplier(attacker, effKind === "magical" ? "mag" : "phys");
+    const buffedAttackerStats = atkMul === 1 ? attackerStats0 : (() => {
+      const s = { ...attackerStats0 };
+      if (effKind === "magical") s.INT = Math.floor(s.INT * atkMul);
+      else s.STR = Math.floor(s.STR * atkMul);
+      return s;
+    })();
     let result: DamageResult;
     if (effKind === "magical") {
-      result = magicalDamage(attacker.stats, target.stats, skill.power, b.rng);
+      result = magicalDamage(buffedAttackerStats, targetStats0, skill.power, b.rng, blindHitPenalty(attacker));
     } else {
-      result = physicalDamage(attacker.stats, target.stats, skill.power, b.rng);
+      result = physicalDamage(buffedAttackerStats, targetStats0, skill.power, b.rng, blindHitPenalty(attacker));
     }
     if (result.miss) {
       b.log.push(`${attacker.name} → ${target.name}: miss!`);
@@ -524,6 +610,9 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
 
   if (ctx.aoe) dmg = Math.max(1, Math.floor(dmg * 0.75));
   if (target.guarding) dmg = Math.max(1, Math.floor(dmg / 2));
+  // Vulnerability / damage reduction on the defender.
+  const incomingMul = incomingDamageMultiplier(target);
+  if (incomingMul !== 1) dmg = Math.max(1, Math.floor(dmg * incomingMul));
   target.hp = Math.max(0, target.hp - dmg);
 
   pushDamage(target.id, dmg, effKind, range, crit);
@@ -537,7 +626,26 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
     target.queuedAction = null;
     b.log.push(`${target.name} falls.`);
     sfx.fall();
+    return;
   }
+
+  // Apply attached on-hit effects.
+  if (skill.applies && skill.applies.length > 0) {
+    for (const eff of skill.applies) maybeApplyEffect(b, attacker, target, eff);
+  }
+}
+
+function maybeApplyEffect(b: Battle, source: Combatant, target: Combatant, eff: EffectApplication): void {
+  const chance = eff.chance ?? 1;
+  if (chance < 1 && b.rng.next() > chance) return;
+  applyEffect(target, {
+    id: eff.id,
+    duration: eff.duration,
+    power: eff.power,
+    target: eff.target,
+    sourceId: source.id,
+  });
+  if (eff.id !== "regen") b.log.push(`${target.name} is afflicted with ${eff.id}.`);
 }
 
 function doSummon(b: Battle, attacker: Combatant, skill: Skill): void {

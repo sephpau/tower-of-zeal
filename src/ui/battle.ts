@@ -2,6 +2,16 @@ import { Battle, Combatant } from "../core/combat";
 import { ATB_FULL } from "../core/timeline";
 import { getSkill } from "../skills/registry";
 import { drainEvents, FloatEvent, iconGlyph } from "../core/animations";
+import { effectIcon, effectName, isDebuff, isSkillBlockedBySilence, isSilenced } from "../core/effects";
+
+const BASE_SKILL_IDS = new Set(["idle", "basic_attack", "guard"]);
+type ActionTab = "basic" | "skills";
+const actionTabByUnit = new Map<string, ActionTab>();
+function getActionTab(c: Combatant): ActionTab {
+  const cur = actionTabByUnit.get(c.id);
+  if (cur) return cur;
+  return isSilenced(c) ? "basic" : "skills";
+}
 
 export type ActionHandler = (unitId: string, skillId: string, targetId: string) => void;
 export type PostBattleAction = "home" | "stages" | "surrender";
@@ -201,6 +211,24 @@ function visibleSkills(c: Combatant): string[] {
 }
 
 function wireActionButtons(root: HTMLElement, b: Battle, onAction: ActionHandler): void {
+  // Wire action-tab toggles. Tab switching only swaps the visible buttons in
+  // that unit's row — no full battle re-render needed.
+  root.querySelectorAll<HTMLButtonElement>("[data-tab-unit]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const unitId = btn.dataset.tabUnit!;
+      const tab = btn.dataset.tab as ActionTab;
+      const c = b.combatants.find(x => x.id === unitId);
+      if (!c) return;
+      if (tab === "skills" && isSilenced(c)) return;
+      actionTabByUnit.set(unitId, tab);
+      const row = root.querySelector<HTMLElement>(`[data-row-id="${cssAttr(unitId)}"]`);
+      if (!row) return;
+      row.outerHTML = unitRowHtml(c);
+      // Re-bind everything because outerHTML rebuilt the subtree.
+      wireActionButtons(root, b, onAction);
+    });
+  });
+
   for (const c of b.combatants) {
     if (c.side !== "player") continue;
     for (const skillId of visibleSkills(c)) {
@@ -375,29 +403,44 @@ function actionPanelHtml(b: Battle, showPostButtons: boolean): string {
 }
 
 function unitRowHtml(c: Combatant): string {
-  const skills = visibleSkills(c);
-  const buttons = skills.map(id => {
+  const all = visibleSkills(c);
+  const basicIds = all.filter(id => BASE_SKILL_IDS.has(id));
+  const skillIds = all.filter(id => !BASE_SKILL_IDS.has(id));
+  const tab = getActionTab(c);
+  const silenced = isSilenced(c);
+
+  const renderButton = (id: string): string => {
     const skill = getSkill(id);
     const cd = c.skillCooldowns[id] ?? 0;
     const unaffordable = skill.mpCost > c.mp || (skill.hpCost !== undefined && skill.hpCost >= c.hp);
     const onCd = cd > 0;
     const queued = c.queuedAction?.skillId === id;
+    const blockedBySilence = isSkillBlockedBySilence(c, id);
     const cls = [
       "skill-btn",
       unaffordable ? "unaffordable" : "",
       onCd ? "on-cooldown" : "",
       queued ? "queued" : "",
+      blockedBySilence ? "silenced" : "",
     ].filter(Boolean).join(" ");
     const cost = skill.mpCost > 0 ? `<span class="cost">${skill.mpCost} MP</span>` : "";
     const hp = skill.hpCost ? `<span class="cost hp">${skill.hpCost}HP</span>` : "";
     const cdBadge = `<span class="cd-badge">${onCd ? cd : ""}</span>`;
     const tip = `<span class="skill-tip"><span class="skill-tip-name">${escapeHtml(skill.name)}</span><span class="skill-tip-desc">${escapeHtml(skill.description)}</span></span>`;
-    return `<button class="${cls}" data-unit-id="${escapeAttr(c.id)}" data-skill="${escapeAttr(id)}" ${unaffordable || onCd ? "disabled" : ""}><span class="skill-label">${escapeHtml(skill.name)}</span>${cost}${hp}${cdBadge}${tip}</button>`;
-  }).join("");
+    const disabled = unaffordable || onCd || blockedBySilence;
+    return `<button class="${cls}" data-unit-id="${escapeAttr(c.id)}" data-skill="${escapeAttr(id)}" ${disabled ? "disabled" : ""}><span class="skill-label">${escapeHtml(skill.name)}</span>${cost}${hp}${cdBadge}${tip}</button>`;
+  };
+
+  const visibleIds = tab === "basic" ? basicIds : skillIds;
+  const buttons = visibleIds.map(renderButton).join("");
   const dead = !c.alive ? "dead" : "";
+  const effectChips = renderEffectChips(c);
   return `
     <div class="unit-row ${dead}" data-row-id="${escapeAttr(c.id)}">
-      <div class="unit-label">${escapeHtml(c.name)}</div>
+      <div class="unit-label">
+        ${escapeHtml(c.name)}
+        ${effectChips}
+      </div>
       <div class="unit-vitals-stack">
         <div class="vstat"><span class="vstat-label hp">HP</span><span class="vstat-val hp">${c.hp}/${c.maxHp}</span></div>
         ${c.maxMp > 0 ? `<div class="vstat"><span class="vstat-label mp">MP</span><span class="vstat-val mp">${c.mp}/${c.maxMp}</span></div>` : ""}
@@ -405,9 +448,22 @@ function unitRowHtml(c: Combatant): string {
       <div class="unit-atb">
         <div class="bar atb"><div class="fill" style="width:${(c.gauge / ATB_FULL) * 100}%"></div></div>
       </div>
+      <div class="unit-action-tabs">
+        <button class="action-tab ${tab === "basic" ? "active" : ""}" data-tab-unit="${escapeAttr(c.id)}" data-tab="basic" type="button">Basic</button>
+        <button class="action-tab ${tab === "skills" ? "active" : ""} ${silenced ? "tab-disabled" : ""}" data-tab-unit="${escapeAttr(c.id)}" data-tab="skills" type="button">Skills</button>
+      </div>
       <div class="unit-actions">${buttons}</div>
     </div>
   `;
+}
+
+function renderEffectChips(c: Combatant): string {
+  if (c.effects.length === 0) return "";
+  return `<span class="effect-chips">${c.effects.map(e => {
+    const icon = effectIcon(e.id);
+    const cls = isDebuff(e.id) ? "effect-chip debuff" : "effect-chip buff";
+    return `<span class="${cls}" title="${escapeAttr(effectName(e.id))} (${e.duration} actions)">${icon}<span class="effect-dur">${e.duration}</span></span>`;
+  }).join("")}</span>`;
 }
 
 function escapeHtml(s: string): string {

@@ -14,11 +14,12 @@ export function physicalDamage(
   attacker: Stats,
   defender: Stats,
   power: number,
-  rng: Rng
+  rng: Rng,
+  hitPenalty = 0,
 ): DamageResult {
   const a = deriveStats(attacker);
   const d = deriveStats(defender);
-  const hit = clamp(a.hitChance - d.evadeChance, 0.1, 1.0);
+  const hit = clamp(a.hitChance - d.evadeChance - hitPenalty, 0.1, 1.0);
   if (!rng.chance(hit)) return { dmg: 0, miss: true, crit: false };
 
   const crit = rng.chance(a.critChance);
@@ -34,11 +35,12 @@ export function magicalDamage(
   attacker: Stats,
   defender: Stats,
   power: number,
-  rng: Rng
+  rng: Rng,
+  hitPenalty = 0,
 ): DamageResult {
   const a = deriveStats(attacker);
   const d = deriveStats(defender);
-  const hit = clamp(a.hitChance - d.evadeChance, 0.1, 1.0);
+  const hit = clamp(a.hitChance - d.evadeChance - hitPenalty, 0.1, 1.0);
   if (!rng.chance(hit)) return { dmg: 0, miss: true, crit: false };
   let raw = a.magAtk * power - d.magDef * 0.5;
   raw = Math.max(1, raw);
