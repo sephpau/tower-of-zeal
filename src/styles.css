@@ -1028,6 +1028,34 @@ html, body {
   margin-right: 4px;
 }
 .class-tip-desc { display: block; opacity: 0.8; font-size: 10px; }
+
+/* Confirm-class modal */
+.class-confirm-warning {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid var(--red);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--red-soft);
+  line-height: 1.4;
+}
+.class-confirm-warning strong { color: var(--red); }
+.class-confirm-skills-head {
+  font-size: 10px; color: var(--text-dim); letter-spacing: 0.7px;
+  text-transform: uppercase; margin-bottom: 6px;
+}
+.class-confirm-skill {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+}
+.class-confirm-skill:last-child { margin-bottom: 0; }
+.class-confirm-skill-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.class-confirm-skill-name { font-weight: 700; color: var(--gold-bright); font-size: 12px; }
+.class-confirm-skill-meta { font-size: 10px; opacity: 0.7; margin-left: auto; }
+.class-confirm-skill-desc { font-size: 11px; opacity: 0.85; margin-top: 4px; }
 .class-pick-btn.current {
   border-color: var(--lime);
   background: #052e1a;

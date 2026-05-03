@@ -468,11 +468,66 @@ function wireClassPicker(root: HTMLElement, pickingFor: Set<string>, devUnlock: 
       const tid = btn.dataset.template!;
       const cur = getProgress(tid);
       if (cur.classId && !devUnlock) return;
-      setProgress(tid, { ...cur, classId });
-      pickingFor.delete(tid);
-      redraw();
+      openClassConfirmModal(root, classId, tid, () => {
+        const c = getProgress(tid);
+        setProgress(tid, { ...c, classId });
+        pickingFor.delete(tid);
+        redraw();
+      });
     });
   });
+}
+
+function openClassConfirmModal(root: HTMLElement, classId: string, templateId: string, onConfirm: () => void): void {
+  const cls = getClass(classId);
+  if (!cls) return;
+  const ids = CLASS_SKILLS[classId] ?? [];
+  const sorted = [...ids].sort((a, b) => (getSkill(a).unlockLevel ?? 1) - (getSkill(b).unlockLevel ?? 1));
+  const skillRows = sorted.map(id => {
+    const s = getSkill(id);
+    const lvl = s.unlockLevel ?? 1;
+    const meta = `${s.mpCost > 0 ? `${s.mpCost} MP` : "0 MP"}${s.cooldown > 0 ? ` · CD ${s.cooldown}` : ""}`;
+    return `
+      <div class="class-confirm-skill">
+        <div class="class-confirm-skill-head">
+          <span class="class-tip-lvl">Lv${lvl}</span>
+          <span class="class-confirm-skill-name">${escapeHtml(s.name)}</span>
+          <span class="class-confirm-skill-meta">${escapeHtml(meta)}</span>
+        </div>
+        <div class="class-confirm-skill-desc">${escapeHtml(s.description)}</div>
+      </div>
+    `;
+  }).join("");
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay class-confirm-modal";
+  overlay.innerHTML = `
+    <div class="modal-panel">
+      <div class="modal-title">Confirm Class — ${escapeHtml(cls.name)}</div>
+      <div class="modal-sub">Role: ${escapeHtml(cls.role)}</div>
+      <div class="class-confirm-warning">
+        <strong>Warning:</strong> Once you confirm, this class is locked for the season and cannot be changed.
+      </div>
+      <div class="class-confirm-skills">
+        <div class="class-confirm-skills-head">Class skills</div>
+        ${skillRows || `<div class="skill-empty">(no class skills defined)</div>`}
+      </div>
+      <div class="modal-actions">
+        <button class="ghost-btn" data-class-confirm-cancel type="button">Cancel</button>
+        <button class="confirm-btn" data-class-confirm-ok type="button">Confirm ${escapeHtml(cls.name)}</button>
+      </div>
+    </div>
+  `;
+  root.appendChild(overlay);
+
+  const close = () => { overlay.remove(); };
+  overlay.querySelector<HTMLButtonElement>("[data-class-confirm-cancel]")?.addEventListener("click", close);
+  overlay.querySelector<HTMLButtonElement>("[data-class-confirm-ok]")?.addEventListener("click", () => {
+    close();
+    onConfirm();
+  });
+  overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+  void templateId;
 }
 
 function escapeHtml(s: string): string {
