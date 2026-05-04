@@ -24,6 +24,8 @@ export interface UnitTemplate {
   xpReward?: number;
   /** Per-damage-type incoming multipliers (e.g., { magical: 0.25 } = takes 25% of magical damage). */
   resist?: DamageResistance;
+  /** Outgoing damage multiplier (boss scaling). 1 = normal. 3 = boss hits 3x harder. */
+  atkMultiplier?: number;
 }
 
 export interface DamageResistance {

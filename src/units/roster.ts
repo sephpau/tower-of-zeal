@@ -85,6 +85,7 @@ export const SLIME_KING: UnitTemplate = {
   overrideMaxMp: 25,
   level: 5,
   xpReward: 50,
+  atkMultiplier: 3,
 };
 
 export const WOLF: UnitTemplate = {
@@ -149,6 +150,7 @@ export const STONE_SENTINEL: UnitTemplate = {
   overrideMaxMp: 50,
   level: 8,
   xpReward: 120,
+  atkMultiplier: 3,
 };
 
 export const WRAITH_LORD: UnitTemplate = {
@@ -160,6 +162,7 @@ export const WRAITH_LORD: UnitTemplate = {
   overrideMaxMp: 120,
   level: 12,
   xpReward: 260,
+  atkMultiplier: 3,
 };
 
 export const TOWER_LORD: UnitTemplate = {
@@ -170,6 +173,7 @@ export const TOWER_LORD: UnitTemplate = {
   overrideMaxMp: 200,
   level: 16,
   xpReward: 600,
+  atkMultiplier: 3,
 };
 
 // ============================================================
@@ -290,6 +294,7 @@ export const IRON_BEHEMOTH: UnitTemplate = {
   overrideMaxMp: 30,
   level: 14,
   xpReward: 400,
+  atkMultiplier: 3,
 };
 
 // Floor 17 — AOE freezer boss.
@@ -301,6 +306,7 @@ export const STORM_LORD: UnitTemplate = {
   overrideMaxHp: 480,
   overrideMaxMp: 200,
   level: 17, xpReward: 540,
+  atkMultiplier: 3,
 };
 
 // Floor 20 — physical brute boss.
@@ -311,6 +317,7 @@ export const DEMON_GENERAL: UnitTemplate = {
   overrideMaxHp: 720,
   overrideMaxMp: 120,
   level: 20, xpReward: 700,
+  atkMultiplier: 3,
 };
 
 // Floor 23 — debuff stacker boss.
@@ -322,6 +329,7 @@ export const WITCH_QUEEN: UnitTemplate = {
   overrideMaxHp: 720,
   overrideMaxMp: 240,
   level: 23, xpReward: 900,
+  atkMultiplier: 3,
 };
 
 // Floor 26 — fire/burn boss.
@@ -333,6 +341,7 @@ export const DRAGON_LORD: UnitTemplate = {
   overrideMaxHp: 920,
   overrideMaxMp: 240,
   level: 26, xpReward: 1100,
+  atkMultiplier: 3,
 };
 
 // Floor 30 — final boss, balanced and scariest.
@@ -346,6 +355,7 @@ export const TOWER_GOD: UnitTemplate = {
   overrideMaxHp: 1400,
   overrideMaxMp: 400,
   level: 30, xpReward: 2000,
+  atkMultiplier: 3,
 };
 
 // ============================================================
@@ -360,14 +370,14 @@ export const NULL_GUARDIAN: UnitTemplate = {
   unitBaseStats: { STR: 14, DEF: 14, AGI: 6, DEX: 9, VIT: 18, INT: 4 },
   startingSkills: ["basic_attack", "iron_bulwark"],
   level: 22, xpReward: 280,
-  resist: { magical: 0.25 },
+  resist: { magical: 0.08 },
 };
 export const VOID_KNIGHT: UnitTemplate = {
   id: "void_knight", name: "Void Knight", portrait: "⚔🌑",
   unitBaseStats: { STR: 18, DEF: 16, AGI: 8, DEX: 10, VIT: 16, INT: 6 },
   startingSkills: ["basic_attack", "impact_strike"],
   level: 24, xpReward: 320,
-  resist: { magical: 0.2 },
+  resist: { magical: 0.07 },
 };
 
 // --- Anti-PHYSICAL (incorporeal — high AGI/INT, physical: 0.25) ---
@@ -377,7 +387,7 @@ export const SPECTRE: UnitTemplate = {
   startingSkills: ["basic_attack", "shadow_step"],
   basicAttackKind: "magical",
   level: 22, xpReward: 280,
-  resist: { physical: 0.25 },
+  resist: { physical: 0.08 },
 };
 export const STORMCALLER: UnitTemplate = {
   id: "stormcaller", name: "Stormcaller", portrait: "⚡🪶",
@@ -385,7 +395,7 @@ export const STORMCALLER: UnitTemplate = {
   startingSkills: ["basic_attack", "frost_bite"],
   basicAttackKind: "magical",
   level: 24, xpReward: 320,
-  resist: { physical: 0.2 },
+  resist: { physical: 0.07 },
 };
 
 // --- Anti-MELEE (high AGI evasion, melee: 0.25) ---
@@ -394,7 +404,7 @@ export const AIR_DANCER: UnitTemplate = {
   unitBaseStats: { STR: 8, DEF: 6, AGI: 22, DEX: 14, VIT: 10, INT: 8 },
   startingSkills: ["basic_attack", "swift_jab"],
   level: 23, xpReward: 300,
-  resist: { melee: 0.25 },
+  resist: { melee: 0.08 },
 };
 export const FLOATING_EYE: UnitTemplate = {
   id: "floating_eye", name: "Floating Eye", portrait: "👁",
@@ -402,7 +412,7 @@ export const FLOATING_EYE: UnitTemplate = {
   startingSkills: ["basic_attack", "blazing_burst"],
   basicAttackKind: "magical",
   level: 24, xpReward: 320,
-  resist: { melee: 0.25 },
+  resist: { melee: 0.08 },
 };
 
 // --- Anti-RANGE (thick hide / shells, range: 0.25) ---
@@ -411,14 +421,14 @@ export const BULWARK_BEAR: UnitTemplate = {
   unitBaseStats: { STR: 18, DEF: 16, AGI: 4, DEX: 8, VIT: 24, INT: 0 },
   startingSkills: ["basic_attack", "earthshaker"],
   level: 23, xpReward: 300,
-  resist: { range: 0.25 },
+  resist: { range: 0.08 },
 };
 export const SPIKED_SHELL: UnitTemplate = {
   id: "spiked_shell", name: "Spiked Shell", portrait: "🦔",
   unitBaseStats: { STR: 10, DEF: 22, AGI: 4, DEX: 6, VIT: 22, INT: 4 },
   startingSkills: ["basic_attack", "iron_bulwark"],
   level: 24, xpReward: 320,
-  resist: { range: 0.25 },
+  resist: { range: 0.08 },
 };
 
 // --- Anti-X bosses ---
@@ -429,7 +439,8 @@ export const NULL_HIEROPHANT: UnitTemplate = {
   overrideMaxHp: 1100,
   overrideMaxMp: 200,
   level: 28, xpReward: 1300,
-  resist: { magical: 0.15 },
+  resist: { magical: 0.05 },
+  atkMultiplier: 3,
 };
 export const THE_UNTOUCHED: UnitTemplate = {
   id: "the_untouched", name: "The Untouched", portrait: "🌫",
@@ -439,7 +450,8 @@ export const THE_UNTOUCHED: UnitTemplate = {
   overrideMaxHp: 1100,
   overrideMaxMp: 320,
   level: 28, xpReward: 1300,
-  resist: { physical: 0.15 },
+  resist: { physical: 0.05 },
+  atkMultiplier: 3,
 };
 
 // ---- Stages ----
