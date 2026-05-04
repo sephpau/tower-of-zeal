@@ -149,7 +149,9 @@ export function updateLive(root: HTMLElement, b: Battle): void {
     tEl.appendChild(tag);
   }
 
-  // Targetable highlight on enemies.
+  // Targetable highlight + cursor mode on enemies.
+  const cluster = root.querySelector<HTMLElement>(".enemy-cluster");
+  cluster?.classList.remove("cursor-sword", "cursor-wand");
   root.querySelectorAll<HTMLElement>(".enemy-cluster .combatant").forEach(el => {
     el.classList.remove("targetable");
   });
@@ -162,6 +164,13 @@ export function updateLive(root: HTMLElement, b: Battle): void {
           if (el) el.classList.add("targetable");
         }
       }
+      // Pick cursor based on resolved damage kind for this skill.
+      const attacker = b.combatants.find(c => c.id === targeting!.unitId);
+      const kind: "physical" | "magical" =
+        skill.id === "basic_attack" && attacker?.basicAttackKind === "magical"
+          ? "magical"
+          : (skill.kind === "magical" ? "magical" : "physical");
+      cluster?.classList.add(kind === "magical" ? "cursor-wand" : "cursor-sword");
     }
   }
 
