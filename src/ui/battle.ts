@@ -255,18 +255,23 @@ function wireActionButtons(root: HTMLElement, b: Battle, onAction: ActionHandler
 }
 
 function wireEnemyClicks(root: HTMLElement, b: Battle, onAction: ActionHandler): void {
-  const cells = root.querySelectorAll<HTMLElement>(".enemy-cluster .combatant");
-  cells.forEach(el => {
-    el.addEventListener("click", () => {
-      if (!targeting) return;
-      const targetId = el.dataset.id;
-      if (!targetId) return;
-      const target = b.combatants.find(c => c.id === targetId);
-      if (!target || !target.alive || target.side !== "enemy") return;
-      onAction(targeting.unitId, targeting.skillId, targetId);
-      targeting = null;
-      updateLive(root, b);
-    });
+  // Event-delegated: a single listener on the cluster survives DOM rebuilds of
+  // the individual enemy chips, so clicks never get lost between renders.
+  const cluster = root.querySelector<HTMLElement>(".enemy-cluster");
+  if (!cluster) return;
+  cluster.addEventListener("click", e => {
+    if (!targeting) return;
+    const cell = (e.target as HTMLElement | null)?.closest<HTMLElement>(".combatant");
+    if (!cell) return;
+    const targetId = cell.dataset.id;
+    if (!targetId) return;
+    const target = b.combatants.find(c => c.id === targetId);
+    if (!target) return;
+    // Don't block on `alive`: the engine retargets to the nearest survivor.
+    if (target.side !== "enemy") return;
+    onAction(targeting.unitId, targeting.skillId, targetId);
+    targeting = null;
+    updateLive(root, b);
   });
 }
 
