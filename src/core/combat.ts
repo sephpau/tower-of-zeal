@@ -71,6 +71,7 @@ export interface Combatant {
   xpReward: number;
   /** Active buffs/debuffs (applied on hit, ticks per action). */
   effects: ActiveEffect[];
+  resist?: import("../units/types").DamageResistance;
 }
 
 export type BattleState =
@@ -178,6 +179,7 @@ export function makeCombatant(t: UnitTemplate, side: Side, position: Position): 
     availablePoints,
     xpReward: t.xpReward ?? 0,
     effects: [],
+    resist: t.resist,
   };
 }
 
@@ -610,6 +612,16 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
 
   if (ctx.aoe) dmg = Math.max(1, Math.floor(dmg * 0.75));
   if (target.guarding) dmg = Math.max(1, Math.floor(dmg / 2));
+  // Type resistances (melee/range/physical/magical) on the target template.
+  if (target.resist) {
+    const r = target.resist;
+    let mul = 1;
+    if (effKind === "physical" && r.physical !== undefined) mul *= r.physical;
+    if (effKind === "magical" && r.magical !== undefined) mul *= r.magical;
+    if (range === "melee" && r.melee !== undefined) mul *= r.melee;
+    if (range === "range" && r.range !== undefined) mul *= r.range;
+    if (mul !== 1) dmg = Math.max(1, Math.floor(dmg * mul));
+  }
   // Vulnerability / damage reduction on the defender.
   const incomingMul = incomingDamageMultiplier(target);
   if (incomingMul !== 1) dmg = Math.max(1, Math.floor(dmg * incomingMul));

@@ -348,6 +348,100 @@ export const TOWER_GOD: UnitTemplate = {
   level: 30, xpReward: 2000,
 };
 
+// ============================================================
+// Floors 31-40 — anti-X resistance gauntlet
+// Each unit has a "resist" multiplier on incoming damage of one type.
+// 0.25 = takes 25% (i.e., 75% reduction). 0.15 on bosses.
+// ============================================================
+
+// --- Anti-MAGIC (high INT/DEF, magical: 0.25) ---
+export const NULL_GUARDIAN: UnitTemplate = {
+  id: "null_guardian", name: "Null Guardian", portrait: "🛡✨",
+  unitBaseStats: { STR: 14, DEF: 14, AGI: 6, DEX: 9, VIT: 18, INT: 4 },
+  startingSkills: ["basic_attack", "iron_bulwark"],
+  level: 22, xpReward: 280,
+  resist: { magical: 0.25 },
+};
+export const VOID_KNIGHT: UnitTemplate = {
+  id: "void_knight", name: "Void Knight", portrait: "⚔🌑",
+  unitBaseStats: { STR: 18, DEF: 16, AGI: 8, DEX: 10, VIT: 16, INT: 6 },
+  startingSkills: ["basic_attack", "impact_strike"],
+  level: 24, xpReward: 320,
+  resist: { magical: 0.2 },
+};
+
+// --- Anti-PHYSICAL (incorporeal — high AGI/INT, physical: 0.25) ---
+export const SPECTRE: UnitTemplate = {
+  id: "spectre", name: "Spectre", portrait: "👻💨",
+  unitBaseStats: { STR: 4, DEF: 6, AGI: 14, DEX: 12, VIT: 12, INT: 18 },
+  startingSkills: ["basic_attack", "shadow_step"],
+  basicAttackKind: "magical",
+  level: 22, xpReward: 280,
+  resist: { physical: 0.25 },
+};
+export const STORMCALLER: UnitTemplate = {
+  id: "stormcaller", name: "Stormcaller", portrait: "⚡🪶",
+  unitBaseStats: { STR: 5, DEF: 8, AGI: 12, DEX: 12, VIT: 14, INT: 22 },
+  startingSkills: ["basic_attack", "frost_bite"],
+  basicAttackKind: "magical",
+  level: 24, xpReward: 320,
+  resist: { physical: 0.2 },
+};
+
+// --- Anti-MELEE (high AGI evasion, melee: 0.25) ---
+export const AIR_DANCER: UnitTemplate = {
+  id: "air_dancer", name: "Air Dancer", portrait: "🪽",
+  unitBaseStats: { STR: 8, DEF: 6, AGI: 22, DEX: 14, VIT: 10, INT: 8 },
+  startingSkills: ["basic_attack", "swift_jab"],
+  level: 23, xpReward: 300,
+  resist: { melee: 0.25 },
+};
+export const FLOATING_EYE: UnitTemplate = {
+  id: "floating_eye", name: "Floating Eye", portrait: "👁",
+  unitBaseStats: { STR: 4, DEF: 8, AGI: 18, DEX: 16, VIT: 10, INT: 18 },
+  startingSkills: ["basic_attack", "blazing_burst"],
+  basicAttackKind: "magical",
+  level: 24, xpReward: 320,
+  resist: { melee: 0.25 },
+};
+
+// --- Anti-RANGE (thick hide / shells, range: 0.25) ---
+export const BULWARK_BEAR: UnitTemplate = {
+  id: "bulwark_bear", name: "Bulwark Bear", portrait: "🐻",
+  unitBaseStats: { STR: 18, DEF: 16, AGI: 4, DEX: 8, VIT: 24, INT: 0 },
+  startingSkills: ["basic_attack", "earthshaker"],
+  level: 23, xpReward: 300,
+  resist: { range: 0.25 },
+};
+export const SPIKED_SHELL: UnitTemplate = {
+  id: "spiked_shell", name: "Spiked Shell", portrait: "🦔",
+  unitBaseStats: { STR: 10, DEF: 22, AGI: 4, DEX: 6, VIT: 22, INT: 4 },
+  startingSkills: ["basic_attack", "iron_bulwark"],
+  level: 24, xpReward: 320,
+  resist: { range: 0.25 },
+};
+
+// --- Anti-X bosses ---
+export const NULL_HIEROPHANT: UnitTemplate = {
+  id: "null_hierophant", name: "Null Hierophant", portrait: "📿",
+  unitBaseStats: { STR: 22, DEF: 26, AGI: 10, DEX: 14, VIT: 30, INT: 8 },
+  startingSkills: ["basic_attack", "phalanx_wall", "earthshaker", "impact_strike"],
+  overrideMaxHp: 1100,
+  overrideMaxMp: 200,
+  level: 28, xpReward: 1300,
+  resist: { magical: 0.15 },
+};
+export const THE_UNTOUCHED: UnitTemplate = {
+  id: "the_untouched", name: "The Untouched", portrait: "🌫",
+  unitBaseStats: { STR: 6, DEF: 12, AGI: 22, DEX: 18, VIT: 26, INT: 30 },
+  startingSkills: ["basic_attack", "tidal_wave", "celestial_beam", "binding_shot", "shadow_step"],
+  basicAttackKind: "magical",
+  overrideMaxHp: 1100,
+  overrideMaxMp: 320,
+  level: 28, xpReward: 1300,
+  resist: { physical: 0.15 },
+};
+
 // ---- Stages ----
 
 export const STAGE_1_ENEMIES: UnitTemplate[] = [SLIME, SLIME, SLIME, SLIME_KING];
@@ -395,6 +489,19 @@ export const STAGE_DEFS: StageEnemyDef[] = [
   { id: 28, name: "Twilight Spire", enemies: [NIGHT_HAG, NIGHT_HAG, LICH, GARGOYLE, GARGOYLE] },
   { id: 29, name: "Final Approach", enemies: [DEMON_GENERAL, WITCH_QUEEN] },
   { id: 30, name: "Tower God", enemies: [TOWER_GOD], soloBoss: true },
+
+  // ----- Tier 4: Floors 31-40 — anti-X gauntlet -----
+  // Each floor punishes a single damage profile: bring a balanced party.
+  { id: 31, name: "Silent Reliquary", enemies: [NULL_GUARDIAN, NULL_GUARDIAN, NULL_GUARDIAN, VOID_KNIGHT] },              // anti-magic mob 1
+  { id: 32, name: "Mage-Eater Hall", enemies: [VOID_KNIGHT, VOID_KNIGHT, NULL_GUARDIAN, GARGOYLE] },                       // anti-magic mob 2
+  { id: 33, name: "Veil of Mist", enemies: [SPECTRE, SPECTRE, SPECTRE, STORMCALLER] },                                     // anti-physical mob 1
+  { id: 34, name: "Skybreaker Roost", enemies: [STORMCALLER, STORMCALLER, SPECTRE, ELITE_WRAITH] },                        // anti-physical mob 2
+  { id: 35, name: "Wind Garden", enemies: [AIR_DANCER, AIR_DANCER, AIR_DANCER, FLOATING_EYE] },                            // anti-melee mob 1
+  { id: 36, name: "Hovering Watch", enemies: [FLOATING_EYE, FLOATING_EYE, AIR_DANCER, AIR_DANCER] },                       // anti-melee mob 2
+  { id: 37, name: "Hide & Hide", enemies: [BULWARK_BEAR, BULWARK_BEAR, SPIKED_SHELL, SPIKED_SHELL] },                      // anti-range mob 1
+  { id: 38, name: "Shellwall", enemies: [SPIKED_SHELL, SPIKED_SHELL, SPIKED_SHELL, BULWARK_BEAR] },                         // anti-range mob 2
+  { id: 39, name: "Null Hierophant", enemies: [NULL_HIEROPHANT], soloBoss: true },                                          // anti-magic boss
+  { id: 40, name: "The Untouched", enemies: [THE_UNTOUCHED], soloBoss: true },                                              // anti-physical boss
 ];
 
 export function getStage(id: number): StageEnemyDef | null {

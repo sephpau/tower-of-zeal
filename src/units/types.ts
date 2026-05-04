@@ -22,4 +22,13 @@ export interface UnitTemplate {
   overrideMaxMp?: number;
   level?: number;
   xpReward?: number;
+  /** Per-damage-type incoming multipliers (e.g., { magical: 0.25 } = takes 25% of magical damage). */
+  resist?: DamageResistance;
+}
+
+export interface DamageResistance {
+  physical?: number;
+  magical?: number;
+  melee?: number;
+  range?: number;
 }
