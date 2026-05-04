@@ -454,6 +454,109 @@ export const THE_UNTOUCHED: UnitTemplate = {
   atkMultiplier: 3,
 };
 
+// ============================================================
+// Floors 41-50 — Apex tier. Resist + active buff/debuff combo.
+// Everything from prior tiers stacked.
+// ============================================================
+
+// --- Anti-magic, support buffer ---
+export const SHIELD_PRIEST: UnitTemplate = {
+  id: "shield_priest", name: "Shield Priest", portrait: "✝🛡",
+  unitBaseStats: { STR: 10, DEF: 14, AGI: 8, DEX: 10, VIT: 22, INT: 14 },
+  startingSkills: ["basic_attack", "aura_shield", "tidal_mending"],
+  basicAttackKind: "magical",
+  level: 32, xpReward: 480,
+  resist: { magical: 0.08 },
+};
+export const WARDING_PALADIN: UnitTemplate = {
+  id: "warding_paladin", name: "Warding Paladin", portrait: "🗝🛡",
+  unitBaseStats: { STR: 16, DEF: 18, AGI: 8, DEX: 12, VIT: 22, INT: 8 },
+  startingSkills: ["basic_attack", "phalanx_wall", "impact_strike"],
+  level: 33, xpReward: 520,
+  resist: { magical: 0.07 },
+};
+
+// --- Anti-physical, debuff caster ---
+export const WRAITH_HEXER: UnitTemplate = {
+  id: "wraith_hexer", name: "Wraith Hexer", portrait: "👻🪄",
+  unitBaseStats: { STR: 4, DEF: 8, AGI: 14, DEX: 14, VIT: 14, INT: 24 },
+  startingSkills: ["basic_attack", "ignite_touch", "needle_shot"],
+  basicAttackKind: "magical",
+  level: 32, xpReward: 480,
+  resist: { physical: 0.08 },
+};
+export const STORM_ORACLE: UnitTemplate = {
+  id: "storm_oracle", name: "Storm Oracle", portrait: "⚡🔮",
+  unitBaseStats: { STR: 6, DEF: 10, AGI: 12, DEX: 14, VIT: 16, INT: 26 },
+  startingSkills: ["basic_attack", "binding_shot", "frost_bite"],
+  basicAttackKind: "magical",
+  level: 33, xpReward: 520,
+  resist: { physical: 0.07 },
+};
+
+// --- Anti-melee, evasive buff/debuff hybrid ---
+export const DUST_DJINN: UnitTemplate = {
+  id: "dust_djinn", name: "Dust Djinn", portrait: "🌬",
+  unitBaseStats: { STR: 8, DEF: 8, AGI: 24, DEX: 16, VIT: 12, INT: 14 },
+  startingSkills: ["basic_attack", "shadow_step", "swift_jab"],
+  level: 34, xpReward: 560,
+  resist: { melee: 0.08 },
+};
+export const MIRROR_SPRITE: UnitTemplate = {
+  id: "mirror_sprite", name: "Mirror Sprite", portrait: "🪞✨",
+  unitBaseStats: { STR: 4, DEF: 10, AGI: 20, DEX: 18, VIT: 12, INT: 22 },
+  startingSkills: ["basic_attack", "radiant_punch", "tidal_mending"],
+  basicAttackKind: "magical",
+  level: 34, xpReward: 560,
+  resist: { melee: 0.07 },
+};
+
+// --- Anti-range, armored brutes that stun + buff allies ---
+export const HUSK_TITAN: UnitTemplate = {
+  id: "husk_titan", name: "Husk Titan", portrait: "🗿🪨",
+  unitBaseStats: { STR: 22, DEF: 22, AGI: 4, DEX: 8, VIT: 32, INT: 0 },
+  startingSkills: ["basic_attack", "iron_bulwark", "bash"],
+  level: 35, xpReward: 600,
+  resist: { range: 0.08 },
+};
+export const CARAPACE_MATRON: UnitTemplate = {
+  id: "carapace_matron", name: "Carapace Matron", portrait: "🦂",
+  unitBaseStats: { STR: 14, DEF: 24, AGI: 6, DEX: 12, VIT: 26, INT: 6 },
+  startingSkills: ["basic_attack", "aura_shield", "needle_shot"],
+  level: 35, xpReward: 600,
+  resist: { range: 0.07 },
+};
+
+// --- Tier-5 bosses ---
+
+// Floor 45 — heals itself, silences party, double-resist (magic + melee).
+export const APEX_ARBITER: UnitTemplate = {
+  id: "apex_arbiter", name: "Apex Arbiter", portrait: "⚖",
+  unitBaseStats: { STR: 18, DEF: 22, AGI: 14, DEX: 16, VIT: 32, INT: 28 },
+  startingSkills: ["basic_attack", "tidal_mending", "phalanx_wall", "earthshaker", "binding_shot"],
+  basicAttackKind: "magical",
+  overrideMaxHp: 1600,
+  overrideMaxMp: 360,
+  level: 38, xpReward: 1800,
+  resist: { magical: 0.06, melee: 0.06 },
+  atkMultiplier: 3,
+};
+
+// Floor 50 — final-tier boss. Mild resist on every type + 4x damage.
+export const WORLD_ENDER: UnitTemplate = {
+  id: "world_ender", name: "World Ender", portrait: "🌑🌌",
+  unitBaseStats: { STR: 36, DEF: 32, AGI: 24, DEX: 26, VIT: 44, INT: 36 },
+  startingSkills: [
+    "basic_attack", "colossal_slam", "inferno_crash", "celestial_beam",
+    "tidal_wave", "earthshaker", "mark_of_death", "phalanx_wall",
+  ],
+  overrideMaxHp: 2400,
+  overrideMaxMp: 600,
+  level: 45, xpReward: 3500,
+  resist: { physical: 0.5, magical: 0.5, melee: 0.5, range: 0.5 },
+  atkMultiplier: 4,
+};
+
 // ---- Stages ----
 
 export const STAGE_1_ENEMIES: UnitTemplate[] = [SLIME, SLIME, SLIME, SLIME_KING];
@@ -514,6 +617,18 @@ export const STAGE_DEFS: StageEnemyDef[] = [
   { id: 38, name: "Shellwall", enemies: [SPIKED_SHELL, SPIKED_SHELL, SPIKED_SHELL, BULWARK_BEAR] },                         // anti-range mob 2
   { id: 39, name: "Null Hierophant", enemies: [NULL_HIEROPHANT], soloBoss: true },                                          // anti-magic boss
   { id: 40, name: "The Untouched", enemies: [THE_UNTOUCHED], soloBoss: true },                                              // anti-physical boss
+
+  // ----- Tier 5: Floors 41-50 — resist + buff/debuff combos -----
+  { id: 41, name: "Bastion of Halos", enemies: [SHIELD_PRIEST, WARDING_PALADIN, WARDING_PALADIN, SHIELD_PRIEST] },         // anti-magic, heals + def buffs
+  { id: 42, name: "Hexed Citadel", enemies: [SHIELD_PRIEST, WRAITH_HEXER, WARDING_PALADIN, WRAITH_HEXER] },                // anti-magic + DoT debuffers
+  { id: 43, name: "Phantom Court", enemies: [WRAITH_HEXER, STORM_ORACLE, WRAITH_HEXER, STORM_ORACLE] },                    // anti-physical debuffers (freeze + DoT)
+  { id: 44, name: "Eye of the Storm", enemies: [STORM_ORACLE, STORM_ORACLE, SHIELD_PRIEST, MIRROR_SPRITE] },               // anti-physical + regen support
+  { id: 45, name: "Apex Arbiter", enemies: [APEX_ARBITER], soloBoss: true },                                                // dual-resist boss with silences
+  { id: 46, name: "Whispering Veil", enemies: [DUST_DJINN, DUST_DJINN, MIRROR_SPRITE, MIRROR_SPRITE] },                    // anti-melee, confuse + heals
+  { id: 47, name: "Hall of Echoes", enemies: [MIRROR_SPRITE, MIRROR_SPRITE, WRAITH_HEXER, DUST_DJINN, DUST_DJINN] },       // anti-melee + debuff swarm
+  { id: 48, name: "Carapace Bastion", enemies: [HUSK_TITAN, HUSK_TITAN, CARAPACE_MATRON, CARAPACE_MATRON] },               // anti-range, stun + ally def-buff
+  { id: 49, name: "Last Wall", enemies: [HUSK_TITAN, CARAPACE_MATRON, WRAITH_HEXER, WARDING_PALADIN] },                    // anti-range with mixed harassment
+  { id: 50, name: "World Ender", enemies: [WORLD_ENDER], soloBoss: true },                                                  // capstone boss
 ];
 
 export function getStage(id: number): StageEnemyDef | null {
