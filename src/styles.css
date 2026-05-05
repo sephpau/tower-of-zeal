@@ -191,6 +191,16 @@ html, body {
   flex-shrink: 0;
   border: 1px solid var(--border);
   position: relative;
+  overflow: hidden;
+}
+.portrait-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  pointer-events: none;
+  user-select: none;
 }
 .info { flex: 1; min-width: 0; }
 .name { font-weight: 700; margin-bottom: 4px; font-size: 13px; color: var(--text); }
@@ -1756,6 +1766,7 @@ html, body {
   border: 2px solid var(--border-strong);
   border-radius: 50%;
   display: grid; place-items: center;
+  overflow: hidden;
 }
 .roster-card.selected .rs-portrait { border-color: var(--gold-bright); }
 .rs-portrait .lv-badge {
