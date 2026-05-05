@@ -55,10 +55,18 @@ export function getProgress(templateId: string): UnitProgress {
     availablePoints: entry.availablePoints ?? 0,
     equippedSkills: Array.isArray(entry.equippedSkills) ? entry.equippedSkills.slice(0, MAX_EQUIPPED_SKILLS) : [],
   };
-  // Lazy heal: existing saves where the loadout was left empty get auto-filled
-  // the first time they're read. Idempotent — re-runs are no-ops once filled.
-  const filled = autoEquipNewlyUnlocked(templateId, result.classId, result.level, result.equippedSkills ?? []);
-  if (filled.length !== (result.equippedSkills?.length ?? 0)) {
+  // Lazy heal: strip skills now locked behind a higher unlockLevel (e.g. after
+  // an admin Reset Level dropped the unit back to Lv1) and top up empty slots
+  // with currently-unlocked options. Idempotent — re-runs are no-ops once
+  // the loadout is consistent with the unit's current level.
+  const before = result.equippedSkills ?? [];
+  const trimmed = before.filter(id => {
+    const s = getSkill(id);
+    return (s.unlockLevel ?? 1) <= result.level;
+  });
+  const filled = autoEquipNewlyUnlocked(templateId, result.classId, result.level, trimmed);
+  const changed = filled.length !== before.length || filled.some((id, i) => before[i] !== id);
+  if (changed) {
     result.equippedSkills = filled;
     map[templateId] = result;
     saveAll(map);
