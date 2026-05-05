@@ -273,9 +273,10 @@ html, body {
   0%, 100% { box-shadow: 0 0 12px rgba(248, 113, 113, 0.45); }
   50% { box-shadow: 0 0 22px rgba(248, 113, 113, 0.85); }
 }
-.combatant.ready {
+.combatant.ready { border-color: transparent; box-shadow: none; }
+.combatant.ready .portrait {
   border-color: var(--gold-bright);
-  box-shadow: 0 0 14px rgba(244, 211, 94, 0.30);
+  box-shadow: 0 0 16px rgba(244, 211, 94, 0.55);
 }
 .combatant.ready .bar.atb .fill {
   filter: brightness(1.2) saturate(1.2);
