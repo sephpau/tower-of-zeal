@@ -1,19 +1,41 @@
 import { UnitTemplate } from "./types";
-import { Stats, ZERO_STATS } from "../core/stats";
+import { Stats } from "../core/stats";
 
-/** Unit baseStats scaled for `level` — adds unitGrowth × (level - 1). */
+/** Default per-level growth, expressed as a fraction of the base stat, used
+ *  for templates (mostly enemies) that don't declare unitGrowth explicitly.
+ *  At 0.05 a level-30 enemy with base STR 14 ends up at ~14 + 14*0.05*29 ≈ 34. */
+export const DEFAULT_GROWTH_PCT = 0.05;
+
+/** Unit baseStats scaled for `level`.
+ *  - If unitGrowth is set on the template, adds it × (level - 1).
+ *  - Otherwise, uses baseStats × DEFAULT_GROWTH_PCT × (level - 1).
+ *  This keeps enemy mobs scaling alongside players without requiring an
+ *  explicit unitGrowth on every enemy template. */
 export function unitBaseAtLevel(t: UnitTemplate, level: number): Stats {
-  const g = t.unitGrowth ?? ZERO_STATS;
   const lvls = Math.max(0, level - 1);
+  if (lvls === 0) return { ...t.unitBaseStats };
+  const explicit = t.unitGrowth;
+  if (explicit) {
+    return {
+      STR: t.unitBaseStats.STR + explicit.STR * lvls,
+      DEF: t.unitBaseStats.DEF + explicit.DEF * lvls,
+      AGI: t.unitBaseStats.AGI + explicit.AGI * lvls,
+      DEX: t.unitBaseStats.DEX + explicit.DEX * lvls,
+      VIT: t.unitBaseStats.VIT + explicit.VIT * lvls,
+      INT: t.unitBaseStats.INT + explicit.INT * lvls,
+    };
+  }
+  // Implicit growth derived from baseStats.
   return {
-    STR: t.unitBaseStats.STR + g.STR * lvls,
-    DEF: t.unitBaseStats.DEF + g.DEF * lvls,
-    AGI: t.unitBaseStats.AGI + g.AGI * lvls,
-    DEX: t.unitBaseStats.DEX + g.DEX * lvls,
-    VIT: t.unitBaseStats.VIT + g.VIT * lvls,
-    INT: t.unitBaseStats.INT + g.INT * lvls,
+    STR: t.unitBaseStats.STR * (1 + DEFAULT_GROWTH_PCT * lvls),
+    DEF: t.unitBaseStats.DEF * (1 + DEFAULT_GROWTH_PCT * lvls),
+    AGI: t.unitBaseStats.AGI * (1 + DEFAULT_GROWTH_PCT * lvls),
+    DEX: t.unitBaseStats.DEX * (1 + DEFAULT_GROWTH_PCT * lvls),
+    VIT: t.unitBaseStats.VIT * (1 + DEFAULT_GROWTH_PCT * lvls),
+    INT: t.unitBaseStats.INT * (1 + DEFAULT_GROWTH_PCT * lvls),
   };
 }
+
 
 // ---- Player units ----
 // startingSkills is just "idle" — class & character signature skills come from registry.
