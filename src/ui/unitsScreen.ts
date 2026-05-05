@@ -4,7 +4,7 @@ import { Stats, ZERO_STATS, sumStats, deriveStats, STAT_KEYS, StatKey } from "..
 import { classBaseAtLevel, getClass, CLASSES } from "../units/classes";
 import { topBarHtml, loadSettings } from "./settings";
 import { hexStatSvg, hexLegendHtml } from "./hexStat";
-import { getProgress, setProgress, UnitProgress, MAX_EQUIPPED_SKILLS } from "../core/progress";
+import { getProgress, setProgress, UnitProgress, MAX_EQUIPPED_SKILLS, autoEquipNewlyUnlocked } from "../core/progress";
 import { xpToNext, MAX_LEVEL } from "../core/levels";
 import { CLASS_SKILLS, CHARACTER_SKILLS, getSkill } from "../skills/registry";
 import { isAdmin } from "../core/admin";
@@ -445,11 +445,14 @@ function wireAdminControls(root: HTMLElement, admin: boolean, redraw: () => void
       const tid = btn.dataset.adminLevelup!;
       const cur = getProgress(tid);
       if (cur.level >= MAX_LEVEL) return;
+      const newLevel = cur.level + 1;
+      const equippedSkills = autoEquipNewlyUnlocked(tid, cur.classId, newLevel, cur.equippedSkills ?? []);
       setProgress(tid, {
         ...cur,
-        level: cur.level + 1,
+        level: newLevel,
         xp: 0,
         availablePoints: cur.availablePoints + 4,
+        equippedSkills,
       });
       redraw();
     });
@@ -475,12 +478,18 @@ function wireAdminControls(root: HTMLElement, admin: boolean, redraw: () => void
       const cur = getProgress(tid);
       if (cur.level <= 1) return;
       if (!confirm(`Reset this unit to Lv 1? Clears XP, level progress, allocated stat points, and any unspent points. Equipped class and skills stay.`)) return;
+      // Trim equipped skills back to those actually unlocked at level 1.
+      const trimmedEquipped = (cur.equippedSkills ?? []).filter(id => {
+        const s = getSkill(id);
+        return (s.unlockLevel ?? 1) <= 1;
+      });
       setProgress(tid, {
         ...cur,
         level: 1,
         xp: 0,
         customStats: { ...ZERO_STATS },
         availablePoints: 0,
+        equippedSkills: trimmedEquipped,
       });
       redraw();
     });
@@ -508,7 +517,8 @@ function wireClassPicker(root: HTMLElement, pickingFor: Set<string>, devUnlock: 
       if (cur.classId && !devUnlock) return;
       openClassConfirmModal(root, classId, tid, () => {
         const c = getProgress(tid);
-        setProgress(tid, { ...c, classId });
+        const equippedSkills = autoEquipNewlyUnlocked(tid, classId, c.level, c.equippedSkills ?? []);
+        setProgress(tid, { ...c, classId, equippedSkills });
         pickingFor.delete(tid);
         redraw();
       });

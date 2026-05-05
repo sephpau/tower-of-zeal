@@ -9,7 +9,7 @@ import { Skill } from "../skills/types";
 import { getSkill, CLASS_SKILLS, CHARACTER_SKILLS } from "../skills/registry";
 import { SLIME, SLIME_KING } from "../units/roster";
 import { awardXp, xpToNext, MAX_LEVEL } from "./levels";
-import { getProgress, setProgress, UnitProgress } from "./progress";
+import { getProgress, setProgress, UnitProgress, autoEquipNewlyUnlocked } from "./progress";
 import { pushDamage, pushMiss } from "./animations";
 import { sfx } from "./audio";
 import {
@@ -553,28 +553,6 @@ export function persistPartyProgress(b: Battle): void {
       equippedSkills,
     });
   }
-}
-
-/** When a unit reaches a level that unlocks a new class/character skill, append
- *  it to their loadout so the player doesn't have to manually equip it. Caps at 4. */
-function autoEquipNewlyUnlocked(
-  templateId: string,
-  classId: string | undefined,
-  level: number,
-  current: string[],
-): string[] {
-  const equipped = [...current];
-  const candidates = new Set<string>();
-  for (const id of (CHARACTER_SKILLS[templateId] ?? [])) candidates.add(id);
-  if (classId) for (const id of (CLASS_SKILLS[classId] ?? [])) candidates.add(id);
-  for (const id of candidates) {
-    if (equipped.length >= 4) break;
-    if (equipped.includes(id)) continue;
-    const skill = getSkill(id);
-    const unlockAt = skill.unlockLevel ?? 1;
-    if (level >= unlockAt) equipped.push(id);
-  }
-  return equipped;
 }
 
 function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): void {

@@ -1,4 +1,5 @@
 import { Stats, ZERO_STATS } from "./stats";
+import { CLASS_SKILLS, CHARACTER_SKILLS, getSkill } from "../skills/registry";
 
 // Persistent per-unit progress, keyed by template id.
 // Resets to defaults when there's no entry for that id.
@@ -60,6 +61,29 @@ export function setProgress(templateId: string, p: UnitProgress): void {
   const map = loadAll();
   map[templateId] = p;
   saveAll(map);
+}
+
+/** Append any newly-unlocked class/character skills to the loadout, capped at
+ *  MAX_EQUIPPED_SKILLS. Idempotent: never removes, never duplicates. Useful
+ *  on class change, level change (admin or normal), or first-time setup. */
+export function autoEquipNewlyUnlocked(
+  templateId: string,
+  classId: string | undefined,
+  level: number,
+  current: string[],
+): string[] {
+  const equipped = [...current];
+  const candidates = new Set<string>();
+  for (const id of (CHARACTER_SKILLS[templateId] ?? [])) candidates.add(id);
+  if (classId) for (const id of (CLASS_SKILLS[classId] ?? [])) candidates.add(id);
+  for (const id of candidates) {
+    if (equipped.length >= MAX_EQUIPPED_SKILLS) break;
+    if (equipped.includes(id)) continue;
+    const skill = getSkill(id);
+    const unlockAt = skill.unlockLevel ?? 1;
+    if (level >= unlockAt) equipped.push(id);
+  }
+  return equipped;
 }
 
 export function resetAllProgress(): void {
