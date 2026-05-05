@@ -317,6 +317,11 @@ function applyBossScaling(c: Combatant, statMul: number, speedMul: number): void
   c.hp = c.maxHp;
   c.mp = c.maxMp;
   c.atbSpeed = origAtb * speedMul;
+  // Bosses keep their template atkMultiplier (2×) for normal floor runs;
+  // Boss Raid bumps it ×1.5 → 3× to match the harder mode's intent.
+  if (c.atkMultiplier && c.atkMultiplier > 1) {
+    c.atkMultiplier = c.atkMultiplier * 1.5;
+  }
 }
 
 function applyPlayerBoost(c: Combatant, mul: number): void {

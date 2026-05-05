@@ -122,7 +122,7 @@ export const SLIME_KING: UnitTemplate = {
   overrideMaxMp: 25,
   level: 5,
   xpReward: 50,
-  atkMultiplier: 3,
+  atkMultiplier: 2,
 };
 
 export const WOLF: UnitTemplate = {
@@ -187,7 +187,7 @@ export const STONE_SENTINEL: UnitTemplate = {
   overrideMaxMp: 50,
   level: 8,
   xpReward: 120,
-  atkMultiplier: 3,
+  atkMultiplier: 2,
 };
 
 export const WRAITH_LORD: UnitTemplate = {
@@ -199,7 +199,7 @@ export const WRAITH_LORD: UnitTemplate = {
   overrideMaxMp: 120,
   level: 12,
   xpReward: 260,
-  atkMultiplier: 3,
+  atkMultiplier: 2,
 };
 
 export const TOWER_LORD: UnitTemplate = {
@@ -210,7 +210,7 @@ export const TOWER_LORD: UnitTemplate = {
   overrideMaxMp: 200,
   level: 16,
   xpReward: 600,
-  atkMultiplier: 3,
+  atkMultiplier: 2,
 };
 
 // ============================================================
@@ -331,7 +331,7 @@ export const IRON_BEHEMOTH: UnitTemplate = {
   overrideMaxMp: 30,
   level: 14,
   xpReward: 400,
-  atkMultiplier: 3,
+  atkMultiplier: 2,
 };
 
 // Floor 17 — AOE freezer boss.
@@ -343,7 +343,7 @@ export const STORM_LORD: UnitTemplate = {
   overrideMaxHp: 480,
   overrideMaxMp: 200,
   level: 17, xpReward: 540,
-  atkMultiplier: 3,
+  atkMultiplier: 2,
 };
 
 // Floor 20 — physical brute boss.
@@ -354,7 +354,7 @@ export const DEMON_GENERAL: UnitTemplate = {
   overrideMaxHp: 720,
   overrideMaxMp: 120,
   level: 20, xpReward: 700,
-  atkMultiplier: 3,
+  atkMultiplier: 2,
 };
 
 // Floor 23 — debuff stacker boss.
@@ -366,7 +366,7 @@ export const WITCH_QUEEN: UnitTemplate = {
   overrideMaxHp: 720,
   overrideMaxMp: 240,
   level: 23, xpReward: 900,
-  atkMultiplier: 3,
+  atkMultiplier: 2,
 };
 
 // Floor 26 — fire/burn boss.
@@ -378,7 +378,7 @@ export const DRAGON_LORD: UnitTemplate = {
   overrideMaxHp: 920,
   overrideMaxMp: 240,
   level: 26, xpReward: 1100,
-  atkMultiplier: 3,
+  atkMultiplier: 2,
 };
 
 // Floor 30 — final boss, balanced and scariest.
@@ -392,7 +392,7 @@ export const TOWER_GOD: UnitTemplate = {
   overrideMaxHp: 1400,
   overrideMaxMp: 400,
   level: 30, xpReward: 2000,
-  atkMultiplier: 3,
+  atkMultiplier: 2,
 };
 
 // ============================================================
@@ -477,7 +477,7 @@ export const NULL_HIEROPHANT: UnitTemplate = {
   overrideMaxMp: 200,
   level: 28, xpReward: 1300,
   resist: { magical: 0.05 },
-  atkMultiplier: 3,
+  atkMultiplier: 2,
 };
 export const THE_UNTOUCHED: UnitTemplate = {
   id: "the_untouched", name: "The Untouched", portrait: "🌫",
@@ -488,7 +488,7 @@ export const THE_UNTOUCHED: UnitTemplate = {
   overrideMaxMp: 320,
   level: 28, xpReward: 1300,
   resist: { physical: 0.05 },
-  atkMultiplier: 3,
+  atkMultiplier: 2,
 };
 
 // ============================================================
@@ -576,7 +576,7 @@ export const APEX_ARBITER: UnitTemplate = {
   overrideMaxMp: 360,
   level: 38, xpReward: 1800,
   resist: { magical: 0.06, melee: 0.06 },
-  atkMultiplier: 3,
+  atkMultiplier: 2,
 };
 
 // Floor 50 — final-tier boss. Mild resist on every type + 4x damage.
@@ -591,7 +591,7 @@ export const WORLD_ENDER: UnitTemplate = {
   overrideMaxMp: 600,
   level: 45, xpReward: 3500,
   resist: { physical: 0.5, magical: 0.5, melee: 0.5, range: 0.5 },
-  atkMultiplier: 4,
+  atkMultiplier: 2,
 };
 
 // ---- Stages ----
