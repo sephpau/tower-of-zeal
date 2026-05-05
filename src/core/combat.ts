@@ -782,7 +782,7 @@ function healScaleBonus(caster: Combatant, scaling: NonNullable<Skill["scalesWit
   for (const s of scaling) {
     const weight = s.weight ?? 1;
     const stat = caster.stats[s.stat] ?? 0;
-    bonus += stat * weight;
+    bonus += (stat * weight) / 10;
   }
   return Math.floor(bonus);
 }
