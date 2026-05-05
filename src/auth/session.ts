@@ -35,3 +35,21 @@ export async function validateSession(token: string): Promise<string | null> {
     return null;
   }
 }
+
+// Module-level cache of the wallet address the server actually verified for
+// this session. localStorage settings/session contents are user-editable, so
+// anything that needs to TRUST an address (admin gating, leaderboard binding)
+// must read from here rather than from settings.walletAddress.
+let verifiedAddress: string | null = null;
+
+export function setVerifiedAddress(addr: string): void {
+  verifiedAddress = addr.trim().toLowerCase();
+}
+
+export function getVerifiedAddress(): string | null {
+  return verifiedAddress;
+}
+
+export function clearVerifiedAddress(): void {
+  verifiedAddress = null;
+}

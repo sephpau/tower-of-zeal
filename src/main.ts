@@ -13,7 +13,7 @@ import { recordClear } from "./core/clears";
 import { installGlobalClickSounds } from "./core/audio";
 import { STAGE_DEFS, getStage, BOSS_RAID_FLOORS } from "./units/roster";
 import { Stats } from "./core/stats";
-import { loadSession, validateSession, clearSession, Session } from "./auth/session";
+import { loadSession, validateSession, clearSession, setVerifiedAddress, Session } from "./auth/session";
 import { setUserScope } from "./auth/scope";
 import { renderWalletGate } from "./ui/walletGate";
 import { renderIgnGate } from "./ui/ignGate";
@@ -38,6 +38,7 @@ async function bootstrap(): Promise<void> {
     const addr = await validateSession(existing.token);
     if (addr) {
       currentSession = existing;
+      setVerifiedAddress(addr);
       setUserScope(addr);
       ensureWalletInSettings(addr);
       void proceedAfterAuth();
@@ -47,6 +48,7 @@ async function bootstrap(): Promise<void> {
   }
   renderWalletGate(root!, s => {
     currentSession = s;
+    setVerifiedAddress(s.address);
     setUserScope(s.address);
     ensureWalletInSettings(s.address);
     void proceedAfterAuth();
