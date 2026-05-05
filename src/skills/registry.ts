@@ -15,7 +15,7 @@ export const SKILLS: Record<string, Skill> = {
     id: "basic_attack", name: "Attack",
     kind: "physical", targeting: "enemy",
     power: 1.0, mpCost: 0, cooldown: 0,
-    description: "A basic strike.",
+    description: "Single melee phys.",
   },
   guard: {
     id: "guard", name: "Guard",
@@ -27,13 +27,13 @@ export const SKILLS: Record<string, Skill> = {
     id: "power_strike", name: "Power Strike",
     kind: "physical", targeting: "enemy",
     power: 2.0, mpCost: 6, cooldown: 0,
-    description: "A heavy physical attack.",
+    description: "Single melee phys.",
   },
   fireball: {
     id: "fireball", name: "Fireball",
     kind: "magical", targeting: "enemy",
     power: 1.6, mpCost: 5, cooldown: 0,
-    description: "A magical strike.",
+    description: "Single melee magical.",
   },
 
   // ---- Slime / Boss (post-50%-nerf) ----
@@ -41,21 +41,21 @@ export const SKILLS: Record<string, Skill> = {
     id: "slime_goo", name: "Slime Goo",
     kind: "physical", targeting: "enemy",
     power: 0, mpCost: 0, cooldown: 0,
-    description: "Sticky goo splatter (2–5 dmg).",
+    description: "Single melee phys. Sticky goo splatter (2–5 dmg).",
     flatDamage: { min: 2, max: 5 },
   },
   slime_king_goo: {
     id: "slime_king_goo", name: "Slime Goo",
     kind: "physical", targeting: "enemy",
     power: 0, mpCost: 0, cooldown: 0,
-    description: "King-sized goo splatter (8–10 dmg).",
+    description: "Single melee phys. King-sized goo splatter (8–10 dmg).",
     flatDamage: { min: 8, max: 10 },
   },
   slime_barrage: {
     id: "slime_barrage", name: "Slime Barrage",
     kind: "physical", targeting: "all_enemies",
     power: 0, mpCost: 0, cooldown: 0,
-    description: "Hits every player unit (10–15 dmg each).",
+    description: "AOE melee phys. Hits every player unit (10–15 dmg each).",
     flatDamage: { min: 10, max: 15 },
   },
   spawn_slimes: {
@@ -92,7 +92,7 @@ export const SKILLS: Record<string, Skill> = {
     id: "colossal_slam", name: "Colossal Slam",
     kind: "physical", targeting: "all_enemies",
     power: POW.high, mpCost: 30, cooldown: 4, unlockLevel: 10,
-    description: "High AOE phys (scales with STR/DEF/VIT).",
+    description: "High AOE melee phys (scales with STR/DEF/VIT).",
     scalesWith: [{ stat: "STR" }, { stat: "DEF" }, { stat: "VIT" }],
   },
 
@@ -108,7 +108,7 @@ export const SKILLS: Record<string, Skill> = {
     id: "blazing_burst", name: "Blazing Burst",
     kind: "magical", targeting: "all_enemies",
     power: POW.mid, mpCost: 20, cooldown: 3, unlockLevel: 5,
-    description: "Mid AOE magical. 20% chance to burn each (8 dmg/action × 3).",
+    description: "Mid AOE melee magical. 20% chance to burn each (8 dmg/action × 3).",
     applies: [{ id: "burn", chance: 0.2, duration: 3, power: 8 }],
   },
   inferno_crash: {
@@ -122,21 +122,21 @@ export const SKILLS: Record<string, Skill> = {
   // Sharpshooter
   quick_draw: {
     id: "quick_draw", name: "Quick Draw",
-    kind: "physical", targeting: "enemy",
+    kind: "physical", targeting: "enemy", range: "range",
     power: POW.mid, mpCost: 5, cooldown: 1, unlockLevel: 1,
     description: "Mid single range phys. Self +30% ATB speed for 2 actions.",
     selfApplies: [{ id: "haste", duration: 2, power: 0.3 }],
   },
   double_tap: {
     id: "double_tap", name: "Double Tap",
-    kind: "physical", targeting: "enemy",
+    kind: "physical", targeting: "enemy", range: "range",
     power: POW.mid, mpCost: 10, cooldown: 2, unlockLevel: 5,
     description: "2× Mid single range phys.",
     multiHit: 2,
   },
   apex_shot: {
     id: "apex_shot", name: "Apex Shot",
-    kind: "physical", targeting: "enemy",
+    kind: "physical", targeting: "enemy", range: "range",
     power: POW.high, mpCost: 30, cooldown: 5, unlockLevel: 10,
     description: "High single range phys. Self +30% DEX for 1 action (crit + accuracy boost).",
     selfApplies: [{ id: "stat_buff", duration: 1, power: 0.3, target: "DEX" }],
@@ -145,21 +145,21 @@ export const SKILLS: Record<string, Skill> = {
   // Water Mage
   hydro_bolt: {
     id: "hydro_bolt", name: "Hydro Bolt",
-    kind: "magical", targeting: "enemy",
+    kind: "magical", targeting: "enemy", range: "range",
     power: POW.mid, mpCost: 10, cooldown: 1, unlockLevel: 1,
     description: "Mid single range magical. Freezes target (-25% ATB for 2 actions).",
     applies: [{ id: "freeze", duration: 2, power: 0.25 }],
   },
   vortex_stream: {
     id: "vortex_stream", name: "Vortex Stream",
-    kind: "magical", targeting: "all_enemies",
+    kind: "magical", targeting: "all_enemies", range: "range",
     power: POW.mid, mpCost: 20, cooldown: 2, unlockLevel: 5,
     description: "Mid AOE range magical. 20% chance to confuse (2 actions).",
     applies: [{ id: "confuse", chance: 0.2, duration: 2, power: 1 }],
   },
   tidal_wave: {
     id: "tidal_wave", name: "Tidal Wave",
-    kind: "magical", targeting: "all_enemies",
+    kind: "magical", targeting: "all_enemies", range: "range",
     power: POW.high, mpCost: 40, cooldown: 6, unlockLevel: 10,
     description: "High AOE range magical. Freezes all enemies (-25% ATB for 2 actions).",
     applies: [{ id: "freeze", duration: 2, power: 0.25 }],
@@ -218,7 +218,7 @@ export const SKILLS: Record<string, Skill> = {
   // Warden
   binding_shot: {
     id: "binding_shot", name: "Binding Shot",
-    kind: "magical", targeting: "enemy",
+    kind: "magical", targeting: "enemy", range: "range",
     power: POW.mid, mpCost: 5, cooldown: 1, unlockLevel: 1,
     description: "Mid single range magical. Slows target (-25% ATB for 3 actions).",
     applies: [{ id: "freeze", duration: 3, power: 0.25 }],
@@ -232,7 +232,7 @@ export const SKILLS: Record<string, Skill> = {
   },
   celestial_beam: {
     id: "celestial_beam", name: "Celestial Beam",
-    kind: "magical", targeting: "all_enemies",
+    kind: "magical", targeting: "all_enemies", range: "range",
     power: POW.high, mpCost: 20, cooldown: 5, unlockLevel: 10,
     description: "High AOE range magical.",
   },
@@ -253,12 +253,12 @@ export const SKILLS: Record<string, Skill> = {
     id: "radiant_punch", name: "Radiant Punch",
     kind: "magical", targeting: "all_enemies",
     power: POW.mid, mpCost: 15, cooldown: 2, unlockLevel: 2,
-    description: "Mid AOE magical. 20% chance to blind (-20% hit) for 2 actions.",
+    description: "Mid AOE melee magical. 20% chance to blind (-20% hit) for 2 actions.",
     applies: [{ id: "blind", chance: 0.2, duration: 2, power: 0.2 }],
   },
   solar_flare: {
     id: "solar_flare", name: "Solar Flare",
-    kind: "magical", targeting: "all_enemies",
+    kind: "magical", targeting: "all_enemies", range: "range",
     power: POW.high, mpCost: 40, cooldown: 5, unlockLevel: 5,
     description: "High AOE range magical. 20% chance to burn (10 dmg/action × 3).",
     applies: [{ id: "burn", chance: 0.2, duration: 3, power: 10 }],
@@ -276,7 +276,7 @@ export const SKILLS: Record<string, Skill> = {
     id: "twin_slash", name: "Twin Slash",
     kind: "physical", targeting: "enemy",
     power: POW.low * 0.8, mpCost: 5, cooldown: 2, unlockLevel: 2,
-    description: "2× single melee phys (80% Decimate dmg).",
+    description: "2× low single melee phys (80% Decimate dmg).",
     multiHit: 2,
   },
   whirlwind_edge: {
@@ -339,7 +339,7 @@ export const SKILLS: Record<string, Skill> = {
     id: "swift_echo", name: "Swift Echo",
     kind: "physical", targeting: "enemy",
     power: POW.low, mpCost: 10, cooldown: 2, unlockLevel: 5,
-    description: "3 rapid low melee strikes (scales AGI).",
+    description: "3× low single melee phys (scales AGI).",
     multiHit: 3,
     scalesWith: [{ stat: "AGI" }],
   },
@@ -366,7 +366,7 @@ export const SKILLS: Record<string, Skill> = {
     id: "all_or_nothing", name: "All or Nothing!",
     kind: "physical", targeting: "enemy",
     power: POW.high, mpCost: 10, cooldown: 2, unlockLevel: 5,
-    description: "High single phys; 50% chance to confuse self for 1 action.",
+    description: "High single melee phys; 50% chance to confuse self for 1 action.",
     selfApplies: [{ id: "confuse", chance: 0.5, duration: 1, power: 1 }],
   },
 
@@ -402,7 +402,7 @@ export const SKILLS: Record<string, Skill> = {
   // Calypso (magical / support heal)
   siphon_pulse: {
     id: "siphon_pulse", name: "Siphon Pulse",
-    kind: "magical", targeting: "enemy",
+    kind: "magical", targeting: "enemy", range: "range",
     power: POW.low, mpCost: 0, cooldown: 1, unlockLevel: 1,
     description: "Low single range magical (scales m.atk + INT).",
     scalesWith: [{ stat: "INT" }],
@@ -428,14 +428,14 @@ export const SKILLS: Record<string, Skill> = {
   // Calico (magical / range)
   horizon_strike: {
     id: "horizon_strike", name: "Horizon Strike",
-    kind: "magical", targeting: "enemy",
+    kind: "magical", targeting: "enemy", range: "range",
     power: POW.low, mpCost: 0, cooldown: 1, unlockLevel: 1,
     description: "Low single range magical (scales m.atk + AGI + INT).",
     scalesWith: [{ stat: "AGI" }, { stat: "INT" }],
   },
   needle_shot: {
     id: "needle_shot", name: "Needle Shot",
-    kind: "physical", targeting: "enemy",
+    kind: "physical", targeting: "enemy", range: "range",
     power: POW.mid, mpCost: 5, cooldown: 2, unlockLevel: 2,
     description: "Mid single range phys. Inflicts bleed (5% max HP per action × 3).",
     applies: [{ id: "bleed", duration: 3, power: 0.05 }],
@@ -454,21 +454,21 @@ export const SKILLS: Record<string, Skill> = {
   // Nova (magical)
   water_bolt: {
     id: "water_bolt", name: "Water Bolt",
-    kind: "magical", targeting: "enemy",
+    kind: "magical", targeting: "enemy", range: "range",
     power: POW.low, mpCost: 5, cooldown: 1, unlockLevel: 1,
     description: "Low single range magical (scales m.atk + INT).",
     scalesWith: [{ stat: "INT" }],
   },
   frost_bite: {
     id: "frost_bite", name: "Frost Bite",
-    kind: "magical", targeting: "all_enemies",
+    kind: "magical", targeting: "all_enemies", range: "range",
     power: POW.mid, mpCost: 15, cooldown: 2, unlockLevel: 2,
     description: "Mid AOE range magical. Freezes enemies (-25% ATB for 2 actions).",
     applies: [{ id: "freeze", duration: 2, power: 0.25 }],
   },
   navigators_wrath: {
     id: "navigators_wrath", name: "Navigator's Wrath",
-    kind: "magical", targeting: "enemy",
+    kind: "magical", targeting: "enemy", range: "range",
     power: POW.very_high, mpCost: 40, cooldown: 6, unlockLevel: 5,
     description: "Very High single range magical (scales m.atk + INT).",
     scalesWith: [{ stat: "INT" }],
