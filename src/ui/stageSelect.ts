@@ -1,7 +1,8 @@
 import { topBarHtml } from "./settings";
 import { getEnergy, ENERGY_MAX, msUntilNextRefill } from "../core/energy";
-import { STAGE_DEFS } from "../units/roster";
+import { STAGE_DEFS, StageEnemyDef } from "../units/roster";
 import { getMaxCleared } from "../core/clears";
+import { UnitTemplate, DamageResistance } from "../units/types";
 
 export const SURVIVAL_ENERGY_COST: number = 3;
 export const BOSS_RAID_ENERGY_COST: number = 3;
@@ -87,7 +88,7 @@ function formatCountdown(ms: number): string {
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
-function stageTileHtml(s: { id: number; name: string; soloBoss?: boolean }, energy: number, maxCleared: number): string {
+function stageTileHtml(s: StageEnemyDef, energy: number, maxCleared: number): string {
   const unlocked = s.id <= maxCleared + 1;
   const noEnergy = energy <= 0;
   const playable = unlocked && !noEnergy;
@@ -97,11 +98,63 @@ function stageTileHtml(s: { id: number; name: string; soloBoss?: boolean }, ener
   ].filter(Boolean).join(" ");
   const label = unlocked ? s.name : "Locked";
   const tag = s.soloBoss ? `<div class="stage-tag boss-tag">BOSS</div>` : "";
+  const tooltip = unlocked ? stageTooltipHtml(s) : "";
   return `
     <button class="${cls}" data-stage="${s.id}" type="button" ${playable ? "" : "disabled"}>
       <div class="stage-num">Floor ${s.id}</div>
       <div class="stage-name">${label}</div>
       ${tag}
+      ${tooltip}
     </button>
   `;
+}
+
+function stageTooltipHtml(s: StageEnemyDef): string {
+  const counts = new Map<string, { unit: UnitTemplate; count: number }>();
+  for (const u of s.enemies) {
+    const cur = counts.get(u.id);
+    if (cur) cur.count += 1;
+    else counts.set(u.id, { unit: u, count: 1 });
+  }
+  const rows = [...counts.values()].map(({ unit, count }) => {
+    const lvl = unit.level ?? 1;
+    const tags = resistTags(unit.resist);
+    const atk = unit.atkMultiplier && unit.atkMultiplier > 1
+      ? `<span class="stt-tag stt-warn">×${unit.atkMultiplier} ATK</span>`
+      : "";
+    return `
+      <div class="stt-row">
+        <span class="stt-portrait">${unit.portrait}</span>
+        <span class="stt-name">${escapeHtml(unit.name)}${count > 1 ? ` ×${count}` : ""}</span>
+        <span class="stt-lv">Lv${lvl}</span>
+        ${tags}${atk}
+      </div>
+    `;
+  }).join("");
+  const heading = s.soloBoss ? "Solo Boss" : `${s.enemies.length} enemies`;
+  return `
+    <div class="stage-tooltip" role="tooltip">
+      <div class="stt-head">
+        <span class="stt-title">${escapeHtml(s.name)}</span>
+        <span class="stt-meta">${heading}</span>
+      </div>
+      <div class="stt-rows">${rows}</div>
+    </div>
+  `;
+}
+
+function resistTags(r: DamageResistance | undefined): string {
+  if (!r) return "";
+  const tags: string[] = [];
+  for (const key of ["physical", "magical", "melee", "range"] as const) {
+    const v = r[key];
+    if (v === undefined) continue;
+    if (v < 1) tags.push(`<span class="stt-tag stt-resist">resists ${key}</span>`);
+    else if (v > 1) tags.push(`<span class="stt-tag stt-weak">weak ${key}</span>`);
+  }
+  return tags.join("");
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 }
