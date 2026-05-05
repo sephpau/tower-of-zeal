@@ -1,5 +1,6 @@
 import { Stats, ZERO_STATS, deriveStats, sumStats, MP_PER_LEVEL } from "./stats";
-import { classBaseStats } from "../units/classes";
+import { classBaseAtLevel } from "../units/classes";
+import { unitBaseAtLevel } from "../units/roster";
 import { Rng } from "./rng";
 import { physicalDamage, magicalDamage, DamageResult } from "./formulas";
 import { tickGauges, ATB_FULL } from "./timeline";
@@ -115,8 +116,8 @@ export function makeCombatant(t: UnitTemplate, side: Side, position: Position): 
   const xp = progress?.xp ?? 0;
   const availablePoints = progress?.availablePoints ?? 0;
 
-  const unit = { ...t.unitBaseStats };
-  const classBase = classBaseStats(classId);
+  const unit = unitBaseAtLevel(t, level);
+  const classBase = classBaseAtLevel(classId, level);
   const custom = { ...ZERO_STATS, ...customStats };
   const effective = sumStats(unit, classBase, custom);
   const d = deriveStats(effective);

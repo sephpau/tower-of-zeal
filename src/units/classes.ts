@@ -69,3 +69,19 @@ export function classBaseStats(id: string | undefined): Stats {
   const cls = getClass(id);
   return cls ? { ...cls.baseStats } : { ...ZERO_STATS };
 }
+
+/** Class baseStats scaled for `level` — adds growth × (level - 1). */
+export function classBaseAtLevel(id: string | undefined, level: number): Stats {
+  if (!id) return { ...ZERO_STATS };
+  const cls = getClass(id);
+  if (!cls) return { ...ZERO_STATS };
+  const lvls = Math.max(0, level - 1);
+  return {
+    STR: cls.baseStats.STR + cls.growth.STR * lvls,
+    DEF: cls.baseStats.DEF + cls.growth.DEF * lvls,
+    AGI: cls.baseStats.AGI + cls.growth.AGI * lvls,
+    DEX: cls.baseStats.DEX + cls.growth.DEX * lvls,
+    VIT: cls.baseStats.VIT + cls.growth.VIT * lvls,
+    INT: cls.baseStats.INT + cls.growth.INT * lvls,
+  };
+}

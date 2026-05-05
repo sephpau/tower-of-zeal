@@ -1,7 +1,7 @@
-import { PLAYER_ROSTER } from "../units/roster";
+import { PLAYER_ROSTER, unitBaseAtLevel } from "../units/roster";
 import { UnitTemplate } from "../units/types";
 import { Stats, ZERO_STATS, sumStats, deriveStats, STAT_KEYS, StatKey } from "../core/stats";
-import { classBaseStats, getClass, CLASSES } from "../units/classes";
+import { classBaseAtLevel, getClass, CLASSES } from "../units/classes";
 import { topBarHtml, loadSettings } from "./settings";
 import { hexStatSvg, hexLegendHtml } from "./hexStat";
 import { getProgress, setProgress, UnitProgress, MAX_EQUIPPED_SKILLS } from "../core/progress";
@@ -64,9 +64,10 @@ function unitCardHtml(t: UnitTemplate, isPicking: boolean, devUnlock: boolean, a
   const isPlayer = isPlayerTemplate(t.id);
   const progress: UnitProgress | null = isPlayer ? getProgress(t.id) : null;
 
-  const unit = t.unitBaseStats;
+  const lvlForBase = progress?.level ?? t.level ?? 1;
+  const unit = unitBaseAtLevel(t, lvlForBase);
   const classId = progress?.classId ?? t.classId;
-  const cls = classBaseStats(classId);
+  const cls = classBaseAtLevel(classId, lvlForBase);
   const cust = progress?.customStats ?? t.customStats ?? { ...ZERO_STATS };
   const effective = sumStats(unit, cls, cust);
   const d = deriveStats(effective);

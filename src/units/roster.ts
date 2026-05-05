@@ -1,4 +1,19 @@
 import { UnitTemplate } from "./types";
+import { Stats, ZERO_STATS } from "../core/stats";
+
+/** Unit baseStats scaled for `level` — adds unitGrowth × (level - 1). */
+export function unitBaseAtLevel(t: UnitTemplate, level: number): Stats {
+  const g = t.unitGrowth ?? ZERO_STATS;
+  const lvls = Math.max(0, level - 1);
+  return {
+    STR: t.unitBaseStats.STR + g.STR * lvls,
+    DEF: t.unitBaseStats.DEF + g.DEF * lvls,
+    AGI: t.unitBaseStats.AGI + g.AGI * lvls,
+    DEX: t.unitBaseStats.DEX + g.DEX * lvls,
+    VIT: t.unitBaseStats.VIT + g.VIT * lvls,
+    INT: t.unitBaseStats.INT + g.INT * lvls,
+  };
+}
 
 // ---- Player units ----
 // startingSkills is just "idle" — class & character signature skills come from registry.
@@ -6,57 +21,57 @@ import { UnitTemplate } from "./types";
 export const SODA: UnitTemplate = {
   id: "soda", name: "Soda", portrait: "💧",
   unitBaseStats: { STR: 5, DEF: 2, AGI: 15, DEX: 12, VIT: 3, INT: 3 },
-  unitGrowth:    { STR: 1.0, DEF: 0.4, AGI: 3.0, DEX: 2.4, VIT: 0.6, INT: 0.6 },
+  unitGrowth:    { STR: 0.5, DEF: 0.2, AGI: 1.5, DEX: 1.2, VIT: 0.3, INT: 0.3 },
   startingSkills: ["idle"],
 };
 export const EGO: UnitTemplate = {
   id: "ego", name: "Ego", portrait: "🪞",
   unitBaseStats: { STR: 18, DEF: 0, AGI: 2, DEX: 16, VIT: 2, INT: 2 },
-  unitGrowth:    { STR: 3.6, DEF: 0.0, AGI: 0.4, DEX: 3.2, VIT: 0.4, INT: 0.4 },
+  unitGrowth:    { STR: 1.8, DEF: 0.0, AGI: 0.2, DEX: 1.6, VIT: 0.2, INT: 0.2 },
   startingSkills: ["idle"],
 };
 export const GRUYERE: UnitTemplate = {
   id: "gruyere", name: "Gruyere", portrait: "🧀",
   unitBaseStats: { STR: 4, DEF: 6, AGI: 6, DEX: 10, VIT: 4, INT: 10 },
-  unitGrowth:    { STR: 0.8, DEF: 1.2, AGI: 1.2, DEX: 2.0, VIT: 0.8, INT: 2.0 },
+  unitGrowth:    { STR: 0.4, DEF: 0.6, AGI: 0.6, DEX: 1.0, VIT: 0.4, INT: 1.0 },
   startingSkills: ["idle"],
 };
 export const CALYPSO: UnitTemplate = {
   id: "calypso", name: "Calypso", portrait: "🌊",
   unitBaseStats: { STR: 2, DEF: 5, AGI: 3, DEX: 5, VIT: 10, INT: 15 },
-  unitGrowth:    { STR: 0.4, DEF: 1.0, AGI: 0.6, DEX: 1.0, VIT: 2.0, INT: 3.0 },
+  unitGrowth:    { STR: 0.2, DEF: 0.5, AGI: 0.3, DEX: 0.5, VIT: 1.0, INT: 1.5 },
   startingSkills: ["idle"],
 };
 export const CALICO: UnitTemplate = {
   id: "calico", name: "Calico", portrait: "🐈",
   unitBaseStats: { STR: 2, DEF: 2, AGI: 8, DEX: 20, VIT: 3, INT: 5 },
-  unitGrowth:    { STR: 0.4, DEF: 0.4, AGI: 1.6, DEX: 4.0, VIT: 0.6, INT: 1.0 },
+  unitGrowth:    { STR: 0.2, DEF: 0.2, AGI: 0.8, DEX: 2.0, VIT: 0.3, INT: 0.5 },
   startingSkills: ["idle"],
 };
 export const NOVA: UnitTemplate = {
   id: "nova", name: "Nova", portrait: "✨",
   unitBaseStats: { STR: 2, DEF: 4, AGI: 4, DEX: 4, VIT: 6, INT: 20 },
-  unitGrowth:    { STR: 0.4, DEF: 0.8, AGI: 0.8, DEX: 0.8, VIT: 1.2, INT: 4.0 },
+  unitGrowth:    { STR: 0.2, DEF: 0.4, AGI: 0.4, DEX: 0.4, VIT: 0.6, INT: 2.0 },
   startingSkills: ["idle"],
   basicAttackKind: "magical",
 };
 export const HERA: UnitTemplate = {
   id: "hera", name: "Hera", portrait: "👑",
   unitBaseStats: { STR: 1, DEF: 7, AGI: 1, DEX: 1, VIT: 10, INT: 20 },
-  unitGrowth:    { STR: 0.2, DEF: 1.4, AGI: 0.2, DEX: 0.2, VIT: 2.0, INT: 4.0 },
+  unitGrowth:    { STR: 0.1, DEF: 0.7, AGI: 0.1, DEX: 0.1, VIT: 1.0, INT: 2.0 },
   startingSkills: ["idle"],
   basicAttackKind: "magical",
 };
 export const ASPEN: UnitTemplate = {
   id: "aspen", name: "Aspen", portrait: "🏹",
   unitBaseStats: { STR: 15, DEF: 8, AGI: 5, DEX: 7, VIT: 5, INT: 0 },
-  unitGrowth:    { STR: 3.0, DEF: 1.6, AGI: 1.0, DEX: 1.4, VIT: 1.0, INT: 0.0 },
+  unitGrowth:    { STR: 1.5, DEF: 0.8, AGI: 0.5, DEX: 0.7, VIT: 0.5, INT: 0.0 },
   startingSkills: ["idle"],
 };
 export const OGE: UnitTemplate = {
   id: "oge", name: "Oge", portrait: "🪨",
   unitBaseStats: { STR: 5, DEF: 15, AGI: 2, DEX: 3, VIT: 15, INT: 0 },
-  unitGrowth:    { STR: 1.0, DEF: 3.0, AGI: 0.4, DEX: 0.6, VIT: 3.0, INT: 0.0 },
+  unitGrowth:    { STR: 0.5, DEF: 1.5, AGI: 0.2, DEX: 0.3, VIT: 1.5, INT: 0.0 },
   startingSkills: ["idle"],
 };
 

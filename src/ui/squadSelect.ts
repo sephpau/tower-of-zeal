@@ -1,19 +1,20 @@
 import { UnitTemplate } from "../units/types";
 import { PlayerSlot } from "../core/combat";
-import { PLAYER_ROSTER, MAX_PARTY_SIZE, getStage, STAGE_DEFS } from "../units/roster";
+import { PLAYER_ROSTER, MAX_PARTY_SIZE, getStage, STAGE_DEFS, unitBaseAtLevel } from "../units/roster";
 import { topBarHtml } from "./settings";
 import { getProgress } from "../core/progress";
 import { Stats, ZERO_STATS, STAT_KEYS, sumStats } from "../core/stats";
-import { classBaseStats } from "../units/classes";
+import { classBaseAtLevel } from "../units/classes";
 import { hexStatSvg } from "./hexStat";
 
-// Effective stats = unit base + class base + allocated custom points.
+// Effective stats = unit base@lvl + class base@lvl + allocated custom points.
 // Mirrors what makeCombatant does, so the roster preview matches battle reality.
 function effectiveStats(t: UnitTemplate): Stats {
   const progress = getProgress(t.id);
   const classId = progress.classId ?? t.classId;
+  const level = progress.level ?? t.level ?? 1;
   const custom = { ...ZERO_STATS, ...(progress.customStats ?? t.customStats ?? ZERO_STATS) };
-  return sumStats(t.unitBaseStats, classBaseStats(classId), custom);
+  return sumStats(unitBaseAtLevel(t, level), classBaseAtLevel(classId, level), custom);
 }
 
 export interface SquadResult {
@@ -162,12 +163,14 @@ function rosterItemHtml(t: UnitTemplate, picks: UnitTemplate[], atCap: boolean):
     selected ? "selected" : "",
     locked ? "locked" : "",
   ].filter(Boolean).join(" ");
-  const lvl = getProgress(t.id).level;
   const progress = getProgress(t.id);
+  const lvl = progress.level;
   const classId = progress.classId ?? t.classId;
   const custom = { ...ZERO_STATS, ...(progress.customStats ?? t.customStats ?? ZERO_STATS) };
-  const s = sumStats(t.unitBaseStats, classBaseStats(classId), custom);
-  const statRows = STAT_KEYS.map(k => `<span class="rs-stat"><span class="rs-stat-k">${k}</span><span class="rs-stat-v">${s[k]}</span></span>`).join("");
+  const unitBase = unitBaseAtLevel(t, lvl);
+  const classBase = classBaseAtLevel(classId, lvl);
+  const s = sumStats(unitBase, classBase, custom);
+  const statRows = STAT_KEYS.map(k => `<span class="rs-stat"><span class="rs-stat-k">${k}</span><span class="rs-stat-v">${Math.round(s[k])}</span></span>`).join("");
   return `
     <div class="${cls}" data-roster="${escapeAttr(t.id)}">
       <div class="rs-portrait-wrap">
@@ -175,7 +178,7 @@ function rosterItemHtml(t: UnitTemplate, picks: UnitTemplate[], atCap: boolean):
         <div class="rs-name">${escapeHtml(t.name)}</div>
         ${selected ? `<div class="placed-tag">Selected</div>` : ""}
       </div>
-      <div class="rs-hex">${hexStatSvg({ unit: t.unitBaseStats, classBase: classBaseStats(classId), custom, size: 140 })}</div>
+      <div class="rs-hex">${hexStatSvg({ unit: unitBase, classBase, custom, size: 140 })}</div>
       <div class="rs-stat-row">${statRows}</div>
     </div>
   `;
