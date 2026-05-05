@@ -6,7 +6,7 @@ import { physicalDamage, magicalDamage, DamageResult } from "./formulas";
 import { tickGauges, ATB_FULL } from "./timeline";
 import { UnitTemplate } from "../units/types";
 import { Skill } from "../skills/types";
-import { getSkill, CLASS_SKILLS, CHARACTER_SKILLS } from "../skills/registry";
+import { getSkill, CLASS_SKILLS, CHARACTER_SKILLS, SKILLS } from "../skills/registry";
 import { SLIME, SLIME_KING } from "../units/roster";
 import { awardXp, xpToNext, MAX_LEVEL } from "./levels";
 import { getProgress, setProgress, UnitProgress, autoEquipNewlyUnlocked } from "./progress";
@@ -137,17 +137,23 @@ export function makeCombatant(t: UnitTemplate, side: Side, position: Position): 
   skills.add("basic_attack");
   skills.add("guard");
   if (side === "player") {
-    let equipped = progress?.equippedSkills ?? [];
-    if (equipped.length === 0) {
-      // No loadout chosen — auto-fill 4 slots from the unit's available skills
-      // (starting + character-specific + class) so battle isn't idle-only.
-      const seen = new Set<string>();
-      const fill: string[] = [];
-      const push = (id: string) => { if (!seen.has(id)) { seen.add(id); fill.push(id); } };
+    const equipped = [...(progress?.equippedSkills ?? [])];
+    // Top up any empty loadout slots with currently-unlocked skills the unit has
+    // access to (starting + character-specific + class), preserving the player's
+    // chosen order. Idempotent — already-equipped skills are skipped.
+    if (equipped.length < 4) {
+      const seen = new Set<string>(equipped);
+      const candidates: string[] = [];
+      const push = (id: string) => { if (!seen.has(id)) { seen.add(id); candidates.push(id); } };
       for (const id of t.startingSkills) push(id);
       for (const id of (CHARACTER_SKILLS[t.id] ?? [])) push(id);
       if (classId) for (const id of (CLASS_SKILLS[classId] ?? [])) push(id);
-      equipped = fill.slice(0, 4);
+      for (const id of candidates) {
+        if (equipped.length >= 4) break;
+        const sk = SKILLS[id];
+        if (sk && (sk.unlockLevel ?? 1) > level) continue; // skip locked
+        equipped.push(id);
+      }
     }
     for (const id of equipped) skills.add(id);
   } else {
