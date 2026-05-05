@@ -19,6 +19,7 @@ export type EffectId =
   // Damage taken modifiers
   | "vulnerability" // +X% damage taken
   | "dmg_reduction" // -X% damage taken
+  | "taunt"         // damage to allies on this side is redirected to the tauntER (incl. each AOE hit)
   // Stat / attack buffs
   | "stat_buff"     // +X% to one stat (target = StatKey)
   | "atk_buff"      // +X% phys.atk or mag.atk (target = "phys" | "mag")
@@ -61,6 +62,7 @@ const EFFECT_NAMES: Record<EffectId, string> = {
   confuse: "Confuse",
   vulnerability: "Vulnerable",
   dmg_reduction: "Shield",
+  taunt: "Drawing Fire",
   stat_buff: "Stat Up",
   atk_buff: "Atk Up",
   regen: "Regen",
@@ -78,6 +80,7 @@ const EFFECT_ICONS: Record<EffectId, string> = {
   confuse: "❓",
   vulnerability: "💢",
   dmg_reduction: "🛡",
+  taunt: "🎯",
   stat_buff: "⬆",
   atk_buff: "⚔",
   regen: "💚",

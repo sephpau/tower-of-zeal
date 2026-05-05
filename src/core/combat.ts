@@ -657,6 +657,15 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
   checkEndConditions(b);
 }
 
+function findActiveTaunter(b: Battle, side: Side): Combatant | null {
+  for (const c of b.combatants) {
+    if (c.side !== side) continue;
+    if (!c.alive) continue;
+    if (hasEffect(c, "taunt")) return c;
+  }
+  return null;
+}
+
 function applyDamageRolls(b: Battle, attacker: Combatant, target: Combatant, skill: Skill, ctx: { aoe?: boolean } = {}): void {
   const hits = Math.max(1, skill.multiHit ?? 1);
   for (let i = 0; i < hits; i++) {
@@ -666,6 +675,15 @@ function applyDamageRolls(b: Battle, attacker: Combatant, target: Combatant, ski
 }
 
 function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: Skill, ctx: { aoe?: boolean } = {}): void {
+  // Taunt redirect: if any ally of the original target has the "taunt" effect
+  // active and is alive (and isn't the target themselves), the hit is rerouted
+  // to that taunter. AOE iterates per-target, so each instance gets redirected
+  // — meaning the taunter eats the full AOE.
+  const taunter = findActiveTaunter(b, target.side);
+  if (taunter && taunter !== target) {
+    target = taunter;
+  }
+
   let dmg: number;
   let crit = false;
 

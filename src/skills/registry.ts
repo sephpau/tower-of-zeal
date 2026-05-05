@@ -302,8 +302,8 @@ export const SKILLS: Record<string, Skill> = {
     id: "bastions_call", name: "Bastion's Call",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 5, cooldown: 1, unlockLevel: 2,
-    description: "Self -50% damage taken for 2 actions (draws fire).",
-    selfApplies: [{ id: "dmg_reduction", duration: 2, power: 0.5 }],
+    description: "Draws fire — for 2 actions, all damage to allies (including every hit of AOE) is redirected to self.",
+    selfApplies: [{ id: "taunt", duration: 2, power: 1 }],
   },
   unyielding_heart: {
     id: "unyielding_heart", name: "Unyielding Heart",
