@@ -307,10 +307,12 @@ function enemyClusterHtml(b: Battle): string {
   const count = enemies.length;
   // Hand-tuned cluster layout (percent positions inside .enemy-cluster).
   const positions = clusterPositions(count);
+  // A single enemy means a solo boss — rendered larger to convey threat.
+  const soloBoss = count === 1;
   return enemies.map((c, i) => {
     const p = positions[i] ?? { x: 50, y: 50 };
-    return `<div class="cluster-slot" style="left:${p.x}%;top:${p.y}%">
-      ${enemyChipHtml(c)}
+    return `<div class="cluster-slot ${soloBoss ? "boss" : ""}" style="left:${p.x}%;top:${p.y}%">
+      ${enemyChipHtml(c, soloBoss)}
     </div>`;
   }).join("");
 }
@@ -332,12 +334,13 @@ function clusterPositions(n: number): { x: number; y: number }[] {
   return presets[Math.min(9, n)] ?? presets[9];
 }
 
-function enemyChipHtml(c: Combatant): string {
+function enemyChipHtml(c: Combatant, isBoss = false): string {
   const dead = !c.alive ? "dead" : "";
   const ready = c.alive && c.gauge >= ATB_FULL ? "ready" : "";
+  const boss = isBoss ? "boss" : "";
   const guardStyle = c.guarding ? "" : "display:none";
   return `
-    <div class="combatant enemy split ${dead} ${ready}" data-id="${escapeAttr(c.id)}">
+    <div class="combatant enemy split ${boss} ${dead} ${ready}" data-id="${escapeAttr(c.id)}">
       <div class="info">
         <div class="name">
           ${escapeHtml(c.name)}

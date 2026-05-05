@@ -1507,7 +1507,7 @@ html, body {
 /* ---------- Boss Raid tile ---------- */
 .bossraid-tile {
   position: relative;
-  height: 460px;          /* bigger than the survival tile per spec */
+  height: 380px;          /* match survival tile height */
   border-radius: 14px;
   border: 2px solid #fff;
   overflow: hidden;
@@ -1721,4 +1721,32 @@ html, body {
 
 @media (max-width: 900px) {
   .roster-list { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ---------- Solo boss — large, threatening ---------- */
+.combatant.enemy.split.boss {
+  width: 280px;
+  gap: 14px;
+}
+.combatant.enemy.split.boss .info {
+  padding: 10px 14px;
+  border-color: var(--red-soft);
+  box-shadow: 0 0 18px rgba(248, 113, 113, 0.20);
+}
+.combatant.enemy.split.boss .name {
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  color: #ff9a7a;
+}
+.combatant.enemy.split.boss .bar { height: 14px; }
+.combatant.enemy.split.boss .bar-text { font-size: 11px; }
+.combatant.enemy.split.boss .enemy-avatar .portrait {
+  width: 140px; height: 140px; font-size: 88px;
+  border: 3px solid var(--red-soft);
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.35), inset 0 0 30px rgba(120, 0, 0, 0.4);
+  background: radial-gradient(circle at 50% 40%, rgba(255,80,80,0.12) 0%, var(--bg) 70%);
+}
+.combatant.enemy.split.boss .lv-badge {
+  font-size: 12px;
+  padding: 2px 7px;
 }
