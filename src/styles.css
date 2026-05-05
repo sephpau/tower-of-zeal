@@ -1513,7 +1513,8 @@ html, body {
   position: relative;
   height: 380px;          /* match survival tile height */
   border-radius: 14px;
-  border: 2px solid #fff;
+  border: 2px solid #ff5050;
+  box-shadow: 0 0 28px rgba(220, 40, 40, 0.35);
   overflow: hidden;
   cursor: pointer;
   background: radial-gradient(ellipse at 50% 50%, #1a0612 0%, #050208 80%);
