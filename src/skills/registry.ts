@@ -80,6 +80,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.mid, mpCost: 10, cooldown: 1, unlockLevel: 1,
     description: "Mid single melee phys. 50% chance to confuse target for 2 actions.",
     applies: [{ id: "confuse", chance: 0.5, duration: 2, power: 1 }],
+    scalesWith: [{ stat: "STR" }],
   },
   focus_pulse: {
     id: "focus_pulse", name: "Focus Pulse",
@@ -103,6 +104,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.mid, mpCost: 10, cooldown: 1, unlockLevel: 1,
     description: "Mid single melee magical. 20% chance to burn (8 dmg/action × 3).",
     applies: [{ id: "burn", chance: 0.2, duration: 3, power: 8 }],
+    scalesWith: [{ stat: "INT" }],
   },
   blazing_burst: {
     id: "blazing_burst", name: "Blazing Burst",
@@ -110,6 +112,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.mid, mpCost: 20, cooldown: 3, unlockLevel: 5,
     description: "Mid AOE melee magical. 20% chance to burn each (8 dmg/action × 3).",
     applies: [{ id: "burn", chance: 0.2, duration: 3, power: 8 }],
+    scalesWith: [{ stat: "INT" }],
   },
   inferno_crash: {
     id: "inferno_crash", name: "Inferno Crash",
@@ -117,6 +120,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.very_high, mpCost: 40, cooldown: 5, unlockLevel: 10,
     description: "Very high single melee magical. Inflicts burn (12 dmg/action × 3).",
     applies: [{ id: "burn", duration: 3, power: 12 }],
+    scalesWith: [{ stat: "INT" }],
   },
 
   // Sharpshooter
@@ -126,6 +130,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.mid, mpCost: 5, cooldown: 1, unlockLevel: 1,
     description: "Mid single range phys. Self +30% ATB speed for 2 actions.",
     selfApplies: [{ id: "haste", duration: 2, power: 0.3 }],
+    scalesWith: [{ stat: "DEX" }],
   },
   double_tap: {
     id: "double_tap", name: "Double Tap",
@@ -133,6 +138,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.mid, mpCost: 10, cooldown: 2, unlockLevel: 5,
     description: "2× Mid single range phys.",
     multiHit: 2,
+    scalesWith: [{ stat: "DEX" }],
   },
   apex_shot: {
     id: "apex_shot", name: "Apex Shot",
@@ -140,6 +146,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.high, mpCost: 30, cooldown: 5, unlockLevel: 10,
     description: "High single range phys. Self +30% DEX for 1 action (crit + accuracy boost).",
     selfApplies: [{ id: "stat_buff", duration: 1, power: 0.3, target: "DEX" }],
+    scalesWith: [{ stat: "DEX" }],
   },
 
   // Water Mage
@@ -149,6 +156,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.mid, mpCost: 10, cooldown: 1, unlockLevel: 1,
     description: "Mid single range magical. Freezes target (-25% ATB for 2 actions).",
     applies: [{ id: "freeze", duration: 2, power: 0.25 }],
+    scalesWith: [{ stat: "INT" }],
   },
   vortex_stream: {
     id: "vortex_stream", name: "Vortex Stream",
@@ -156,6 +164,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.mid, mpCost: 20, cooldown: 2, unlockLevel: 5,
     description: "Mid AOE range magical. 20% chance to confuse (2 actions).",
     applies: [{ id: "confuse", chance: 0.2, duration: 2, power: 1 }],
+    scalesWith: [{ stat: "INT" }],
   },
   tidal_wave: {
     id: "tidal_wave", name: "Tidal Wave",
@@ -163,6 +172,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.high, mpCost: 40, cooldown: 6, unlockLevel: 10,
     description: "High AOE range magical. Freezes all enemies (-25% ATB for 2 actions).",
     applies: [{ id: "freeze", duration: 2, power: 0.25 }],
+    scalesWith: [{ stat: "INT" }],
   },
 
   // Scout
@@ -172,6 +182,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.mid, mpCost: 5, cooldown: 1, unlockLevel: 1,
     description: "Mid single melee phys. Self +50% AGI for 1 action.",
     selfApplies: [{ id: "stat_buff", duration: 1, power: 0.5, target: "AGI" }],
+    scalesWith: [{ stat: "AGI" }],
   },
   shadow_step: {
     id: "shadow_step", name: "Shadow Step",
@@ -179,6 +190,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.mid, mpCost: 10, cooldown: 2, unlockLevel: 5,
     description: "Mid single melee phys. Inflicts confuse (2 actions).",
     applies: [{ id: "confuse", duration: 2, power: 1 }],
+    scalesWith: [{ stat: "AGI" }],
   },
   phantom_flurry: {
     id: "phantom_flurry", name: "Phantom Flurry",
@@ -187,6 +199,7 @@ export const SKILLS: Record<string, Skill> = {
     description: "10× low single melee phys. Each hit has 20% chance to inflict bleed.",
     multiHit: 10,
     applies: [{ id: "bleed", chance: 0.2, duration: 3, power: 0.04 }],
+    scalesWith: [{ stat: "AGI" }],
   },
 
   // Defender
@@ -196,6 +209,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.mid, mpCost: 10, cooldown: 1, unlockLevel: 1,
     description: "Mid single melee phys. Stuns target (skip next action).",
     applies: [{ id: "stun", duration: 1, power: 1 }],
+    scalesWith: [{ stat: "STR" }],
   },
   phalanx_wall: {
     id: "phalanx_wall", name: "Phalanx Wall",
@@ -213,6 +227,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.high, mpCost: 30, cooldown: 5, unlockLevel: 10,
     description: "High AOE melee phys. Stuns all enemies (skip next action).",
     applies: [{ id: "stun", duration: 1, power: 1 }],
+    scalesWith: [{ stat: "STR" }, { stat: "VIT" }],
   },
 
   // Warden
@@ -222,6 +237,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.mid, mpCost: 5, cooldown: 1, unlockLevel: 1,
     description: "Mid single range magical. Slows target (-25% ATB for 3 actions).",
     applies: [{ id: "freeze", duration: 3, power: 0.25 }],
+    scalesWith: [{ stat: "INT" }],
   },
   aura_shield: {
     id: "aura_shield", name: "Aura Shield",
@@ -235,6 +251,7 @@ export const SKILLS: Record<string, Skill> = {
     kind: "magical", targeting: "all_enemies", range: "range",
     power: POW.high, mpCost: 20, cooldown: 5, unlockLevel: 10,
     description: "High AOE range magical.",
+    scalesWith: [{ stat: "INT" }],
   },
 
   // ============================================================
@@ -255,6 +272,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.mid, mpCost: 15, cooldown: 2, unlockLevel: 2,
     description: "Mid AOE melee magical. 20% chance to blind (-20% hit) for 2 actions.",
     applies: [{ id: "blind", chance: 0.2, duration: 2, power: 0.2 }],
+    scalesWith: [{ stat: "INT" }],
   },
   solar_flare: {
     id: "solar_flare", name: "Solar Flare",
@@ -262,6 +280,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.high, mpCost: 40, cooldown: 5, unlockLevel: 5,
     description: "High AOE range magical. 20% chance to burn (10 dmg/action × 3).",
     applies: [{ id: "burn", chance: 0.2, duration: 3, power: 10 }],
+    scalesWith: [{ stat: "INT" }],
   },
 
   // Aspen (physical)
@@ -278,6 +297,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.low * 0.8, mpCost: 5, cooldown: 2, unlockLevel: 2,
     description: "2× low single melee phys (80% Decimate dmg).",
     multiHit: 2,
+    scalesWith: [{ stat: "STR" }],
   },
   whirlwind_edge: {
     id: "whirlwind_edge", name: "Whirlwind Edge",
@@ -288,6 +308,7 @@ export const SKILLS: Record<string, Skill> = {
       { id: "stat_buff", duration: 2, power: 0.5, target: "VIT" },
       { id: "stat_buff", duration: 2, power: 0.5, target: "DEF" },
     ],
+    scalesWith: [{ stat: "STR" }, { stat: "VIT" }],
   },
 
   // Oge (tank)
@@ -369,6 +390,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.high, mpCost: 10, cooldown: 2, unlockLevel: 5,
     description: "High single melee phys; 50% chance to confuse self for 1 action.",
     selfApplies: [{ id: "confuse", chance: 0.5, duration: 1, power: 1 }],
+    scalesWith: [{ stat: "STR" }],
   },
 
   // Gruyere (physical / debuff)
@@ -442,6 +464,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.mid, mpCost: 5, cooldown: 2, unlockLevel: 2,
     description: "Mid single range phys. Inflicts bleed (5% max HP per action × 3).",
     applies: [{ id: "bleed", duration: 3, power: 0.05 }],
+    scalesWith: [{ stat: "DEX" }],
   },
   mark_of_death: {
     id: "mark_of_death", name: "Mark of Death",
@@ -468,6 +491,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.mid, mpCost: 15, cooldown: 2, unlockLevel: 2,
     description: "Mid AOE range magical. Freezes enemies (-25% ATB for 2 actions).",
     applies: [{ id: "freeze", duration: 2, power: 0.25 }],
+    scalesWith: [{ stat: "INT" }],
   },
   navigators_wrath: {
     id: "navigators_wrath", name: "Navigator's Wrath",
