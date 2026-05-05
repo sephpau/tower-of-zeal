@@ -90,6 +90,7 @@ function unitCardHtml(t: UnitTemplate, isPicking: boolean, devUnlock: boolean, a
             <div class="admin-row-inline">
               <button class="admin-btn" data-admin-levelup="${escapeAttr(t.id)}" type="button" ${lvl >= MAX_LEVEL ? "disabled" : ""}>+ Level</button>
               <button class="admin-btn" data-admin-reset-stats="${escapeAttr(t.id)}" type="button">Reset Stats</button>
+              <button class="admin-btn" data-admin-reset-level="${escapeAttr(t.id)}" type="button" ${lvl <= 1 ? "disabled" : ""}>Reset Level</button>
             </div>
           ` : ""}
         </div>
@@ -464,6 +465,22 @@ function wireAdminControls(root: HTMLElement, admin: boolean, redraw: () => void
         ...cur,
         customStats: { ...ZERO_STATS },
         availablePoints: cur.availablePoints + refund,
+      });
+      redraw();
+    });
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-admin-reset-level]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const tid = btn.dataset.adminResetLevel!;
+      const cur = getProgress(tid);
+      if (cur.level <= 1) return;
+      if (!confirm(`Reset this unit to Lv 1? Clears XP, level progress, allocated stat points, and any unspent points. Equipped class and skills stay.`)) return;
+      setProgress(tid, {
+        ...cur,
+        level: 1,
+        xp: 0,
+        customStats: { ...ZERO_STATS },
+        availablePoints: 0,
       });
       redraw();
     });
