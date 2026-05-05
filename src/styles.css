@@ -224,12 +224,14 @@ html, body {
   /* Shift cape up so its visual focal point sits above the portrait — */
   /* equivalent to nudging the unit image down within the cape framing. */
   transform: translate(-50%, -62%);
-  width: 230%;
+  width: 170%;
   height: auto;
   pointer-events: none;
   user-select: none;
   z-index: -1;
 }
+/* Squad-select roster card has more room — let the cape breathe a bit more there. */
+.rs-portrait .portrait-cape { width: 200%; }
 .info { flex: 1; min-width: 0; }
 .name { font-weight: 700; margin-bottom: 4px; font-size: 13px; color: var(--text); }
 .badge {
