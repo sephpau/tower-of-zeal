@@ -775,6 +775,14 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
 function maybeApplyEffect(b: Battle, source: Combatant, target: Combatant, eff: EffectApplication): void {
   const chance = eff.chance ?? 1;
   if (chance < 1 && b.rng.next() > chance) return;
+  if (eff.id === "heal") {
+    if (!target.alive) return;
+    const amount = Math.max(1, Math.floor(eff.power));
+    const before = target.hp;
+    target.hp = Math.min(target.maxHp, target.hp + amount);
+    b.log.push(`${target.name} heals ${target.hp - before} HP.`);
+    return;
+  }
   applyEffect(target, {
     id: eff.id,
     duration: eff.duration,

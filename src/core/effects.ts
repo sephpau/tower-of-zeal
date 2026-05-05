@@ -24,7 +24,8 @@ export type EffectId =
   | "stat_buff"     // +X% to one stat (target = StatKey)
   | "atk_buff"      // +X% phys.atk or mag.atk (target = "phys" | "mag")
   // Healing
-  | "regen";
+  | "regen"
+  | "heal";       // instant: heal `power` HP on application, no duration
 
 export type EffectTarget = StatKey | "phys" | "mag";
 
@@ -66,6 +67,7 @@ const EFFECT_NAMES: Record<EffectId, string> = {
   stat_buff: "Stat Up",
   atk_buff: "Atk Up",
   regen: "Regen",
+  heal: "Heal",
 };
 
 const EFFECT_ICONS: Record<EffectId, string> = {
@@ -84,6 +86,7 @@ const EFFECT_ICONS: Record<EffectId, string> = {
   stat_buff: "⬆",
   atk_buff: "⚔",
   regen: "💚",
+  heal: "💚",
 };
 
 const DEBUFF_IDS = new Set<EffectId>([
