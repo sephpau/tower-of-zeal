@@ -1163,18 +1163,19 @@ html, body {
   position: relative;
   height: 380px;
   border-radius: 14px;
-  border: 2px solid #fff;
+  border: 2px solid #facc15;
   overflow: hidden;
   cursor: pointer;
   background: linear-gradient(180deg, #1a1d3e 0%, #06091e 100%);
   padding: 0;
   font-family: inherit;
   color: var(--text);
+  box-shadow: 0 0 28px rgba(244, 204, 21, 0.35);
 }
 .survival-tile:disabled { opacity: 0.5; cursor: not-allowed; }
 .survival-tile:hover:not(:disabled) {
-  border-color: var(--gold-bright);
-  box-shadow: 0 0 24px rgba(244, 211, 94, 0.30);
+  border-color: #fde047;
+  box-shadow: 0 0 36px rgba(253, 224, 71, 0.55);
 }
 .survival-art {
   position: absolute; inset: 0;
@@ -1207,15 +1208,18 @@ html, body {
 }
 .survival-title {
   font-family: "Cinzel", "Times New Roman", serif;
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 800;
-  color: #fff;
-  letter-spacing: 0.06em;
-  text-shadow: 0 2px 12px rgba(0,0,0,0.8);
+  color: #fde047;
+  letter-spacing: 0.08em;
+  text-shadow:
+    0 0 18px rgba(253, 224, 71, 0.55),
+    0 2px 4px rgba(0, 0, 0, 0.95),
+    0 0 2px rgba(0, 0, 0, 1);
 }
 .survival-sub {
   font-size: 13px;
-  color: #fff;
+  color: #fde047;
   margin-top: 4px;
   text-shadow: 0 2px 8px rgba(0,0,0,0.8);
 }
