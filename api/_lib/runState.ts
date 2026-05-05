@@ -40,15 +40,18 @@ export async function bumpStartCounter(address: string): Promise<number> {
 }
 
 // Leaderboard score encoding: higher floor first, then lower ms first.
-// score = floor * 1e10 - clamp(ms, 0, 1e10 - 1)
-const MS_BUCKET = 1e10;
+// score = floor * MS_BUCKET + (MS_BUCKET - 1 - clamp(ms))
+// This keeps each floor's scores inside its own bucket [floor*B, (floor+1)*B)
+// so decoding is unambiguous regardless of ms.
+const MS_BUCKET = 1e10; // 1e10 ms = ~115 days, safely larger than any real run.
 export function encodeScore(floor: number, ms: number): number {
   const clampedMs = Math.max(0, Math.min(MS_BUCKET - 1, Math.floor(ms)));
-  return floor * MS_BUCKET - clampedMs;
+  return floor * MS_BUCKET + (MS_BUCKET - 1 - clampedMs);
 }
 export function decodeScore(score: number): { floor: number; ms: number } {
   const floor = Math.floor(score / MS_BUCKET);
-  const ms = floor * MS_BUCKET - score;
+  const rest = score - floor * MS_BUCKET;
+  const ms = MS_BUCKET - 1 - rest;
   return { floor, ms };
 }
 

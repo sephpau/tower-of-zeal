@@ -220,10 +220,10 @@ function visibleSkills(c: Combatant): string[] {
 }
 
 function wireActionButtons(root: HTMLElement, b: Battle, onAction: ActionHandler): void {
-  // Wire action-tab toggles. Tab switching only swaps the visible buttons in
-  // that unit's row — no full battle re-render needed.
+  // Use onclick property assignment (not addEventListener) so repeat calls are
+  // idempotent — reassignment overwrites the previous handler instead of stacking.
   root.querySelectorAll<HTMLButtonElement>("[data-tab-unit]").forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.onclick = () => {
       const unitId = btn.dataset.tabUnit!;
       const tab = btn.dataset.tab as ActionTab;
       const c = b.combatants.find(x => x.id === unitId);
@@ -233,9 +233,8 @@ function wireActionButtons(root: HTMLElement, b: Battle, onAction: ActionHandler
       const row = root.querySelector<HTMLElement>(`[data-row-id="${cssAttr(unitId)}"]`);
       if (!row) return;
       row.outerHTML = unitRowHtml(c);
-      // Re-bind everything because outerHTML rebuilt the subtree.
       wireActionButtons(root, b, onAction);
-    });
+    };
   });
 
   for (const c of b.combatants) {
@@ -245,7 +244,7 @@ function wireActionButtons(root: HTMLElement, b: Battle, onAction: ActionHandler
         `button[data-unit-id="${cssAttr(c.id)}"][data-skill="${cssAttr(skillId)}"]`
       );
       if (!btn) continue;
-      btn.addEventListener("click", () => {
+      btn.onclick = () => {
         const skill = getSkill(skillId);
         if (skill.targeting === "self" || skill.targeting === "all_enemies") {
           onAction(c.id, skillId, c.id);
@@ -258,7 +257,7 @@ function wireActionButtons(root: HTMLElement, b: Battle, onAction: ActionHandler
           }
         }
         updateLive(root, b);
-      });
+      };
     }
   }
 }
