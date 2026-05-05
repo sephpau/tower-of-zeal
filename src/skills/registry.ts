@@ -113,9 +113,9 @@ export const SKILLS: Record<string, Skill> = {
   },
   inferno_crash: {
     id: "inferno_crash", name: "Inferno Crash",
-    kind: "magical", targeting: "enemy",
+    kind: "magical", targeting: "enemy", range: "melee",
     power: POW.very_high, mpCost: 40, cooldown: 5, unlockLevel: 10,
-    description: "Very high single magical. Inflicts burn (12 dmg/action × 3).",
+    description: "Very high single melee magical. Inflicts burn (12 dmg/action × 3).",
     applies: [{ id: "burn", duration: 3, power: 12 }],
   },
 
