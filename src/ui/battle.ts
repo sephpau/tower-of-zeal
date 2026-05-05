@@ -344,7 +344,7 @@ function enemyChipHtml(c: Combatant, isBoss = false): string {
     <div class="combatant enemy split ${boss} ${dead} ${ready}" data-id="${escapeAttr(c.id)}">
       <div class="info">
         <div class="name">
-          ${escapeHtml(c.name)}
+          <span class="lv-inline">Lv${c.level}</span> ${escapeHtml(c.name)}
           <span class="badge guard-badge" style="${guardStyle}">G</span>
         </div>
         ${renderEffectChips(c)}
@@ -353,7 +353,7 @@ function enemyChipHtml(c: Combatant, isBoss = false): string {
         <div class="bar atb"><div class="fill" style="width:${(c.gauge / ATB_FULL) * 100}%"></div></div>
       </div>
       <div class="enemy-avatar">
-        <div class="portrait">${portraitInner(c.templateId, c.portrait)}<span class="lv-badge">Lv${c.level}</span></div>
+        <div class="portrait">${portraitInner(c.templateId, c.portrait)}</div>
       </div>
     </div>
   `;
@@ -376,7 +376,7 @@ function playerChipHtml(c: Combatant): string {
     <div class="combatant player split ${dead} ${ready}" data-id="${escapeAttr(c.id)}">
       <div class="info">
         <div class="name">
-          ${escapeHtml(c.name)}
+          <span class="lv-inline">Lv${c.level}</span> ${escapeHtml(c.name)}
           <span class="badge guard-badge" style="${guardStyle}">G</span>
         </div>
         ${renderEffectChips(c)}
@@ -384,7 +384,7 @@ function playerChipHtml(c: Combatant): string {
         ${c.maxMp > 0 ? `<div class="bar mp"><div class="fill" style="width:${(c.mp / c.maxMp) * 100}%"></div><span class="bar-text">${c.mp}/${c.maxMp}</span></div>` : ""}
       </div>
       <div class="enemy-avatar">
-        <div class="portrait">${portraitInner(c.templateId, c.portrait)}<span class="lv-badge">Lv${c.level}</span></div>
+        <div class="portrait">${portraitInner(c.templateId, c.portrait)}</div>
       </div>
     </div>
   `;

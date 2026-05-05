@@ -83,9 +83,9 @@ function unitCardHtml(t: UnitTemplate, isPicking: boolean, devUnlock: boolean, a
   return `
     <div class="unit-card" data-template="${escapeAttr(t.id)}">
       <div class="unit-card-head">
-        <div class="portrait">${portraitInner(t.id, t.portrait)}<span class="lv-badge">Lv${lvl}</span></div>
+        <div class="portrait">${portraitInner(t.id, t.portrait)}</div>
         <div class="unit-card-head-info">
-          <div class="unit-card-name">${escapeHtml(t.name)}</div>
+          <div class="unit-card-name"><span class="lv-inline">Lv${lvl}</span> ${escapeHtml(t.name)}</div>
           <div class="unit-card-hp">HP ${maxHp} · MP ${maxMp} · Class: ${escapeHtml(className)}</div>
           ${isPlayer && admin ? `
             <div class="admin-row-inline">

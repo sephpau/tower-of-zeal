@@ -143,11 +143,24 @@ html, body {
 .combatant.player.split .info,
 .combatant.enemy.split .info {
   width: 100%;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 4px 0;
   text-align: center;
+}
+.lv-inline {
+  display: inline-block;
+  font-family: "Inter", sans-serif;
+  font-size: 0.78em;
+  font-weight: 700;
+  color: var(--gold-bright);
+  background: rgba(244, 211, 94, 0.14);
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-right: 4px;
+  vertical-align: middle;
+  letter-spacing: 0;
 }
 /* Per design ref: bars inside the split chip are flat — no inner border. */
 .combatant.player.split .bar,
