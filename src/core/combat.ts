@@ -600,7 +600,12 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
       if (skill.applies && skill.applies.length > 0) {
         const allies = b.combatants.filter(c => c.alive && c.side === attacker.side);
         for (const a of allies) {
-          for (const eff of skill.applies) maybeApplyEffect(b, attacker, a, eff);
+          for (const eff of skill.applies) {
+            const scaled = eff.id === "heal" && skill.scalesWith && skill.scalesWith.length > 0
+              ? { ...eff, power: eff.power + healScaleBonus(attacker, skill.scalesWith) }
+              : eff;
+            maybeApplyEffect(b, attacker, a, scaled);
+          }
         }
       }
     }
@@ -770,6 +775,16 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
   if (skill.applies && skill.applies.length > 0) {
     for (const eff of skill.applies) maybeApplyEffect(b, attacker, target, eff);
   }
+}
+
+function healScaleBonus(caster: Combatant, scaling: NonNullable<Skill["scalesWith"]>): number {
+  let bonus = 0;
+  for (const s of scaling) {
+    const weight = s.weight ?? 1;
+    const stat = caster.stats[s.stat] ?? 0;
+    bonus += stat * weight;
+  }
+  return Math.floor(bonus);
 }
 
 function maybeApplyEffect(b: Battle, source: Combatant, target: Combatant, eff: EffectApplication): void {

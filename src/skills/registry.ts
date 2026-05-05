@@ -332,8 +332,9 @@ export const SKILLS: Record<string, Skill> = {
     id: "soda_pop", name: "Soda Pop",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 10, cooldown: 3, unlockLevel: 2,
-    description: "Allies instantly heal 12 HP.",
+    description: "Allies instantly heal 12 + AGI + DEX HP.",
     applies: [{ id: "heal", duration: 1, power: 12 }],
+    scalesWith: [{ stat: "AGI" }, { stat: "DEX" }],
   },
   swift_echo: {
     id: "swift_echo", name: "Swift Echo",
@@ -411,18 +412,20 @@ export const SKILLS: Record<string, Skill> = {
     id: "tidal_mending", name: "Tidal Mending",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 5, cooldown: 2, unlockLevel: 2,
-    description: "Allies instantly heal 16 HP.",
+    description: "Allies instantly heal 16 + INT HP.",
     applies: [{ id: "heal", duration: 1, power: 16 }],
+    scalesWith: [{ stat: "INT" }],
   },
   sirens_sanctuary: {
     id: "sirens_sanctuary", name: "Siren's Sanctuary",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 20, cooldown: 5, unlockLevel: 5,
-    description: "Allies instantly heal 36 HP and gain -30% damage taken for 3 actions.",
+    description: "Allies instantly heal 36 + INT HP and gain -30% damage taken for 3 actions.",
     applies: [
       { id: "heal", duration: 1, power: 36 },
       { id: "dmg_reduction", duration: 3, power: 0.3 },
     ],
+    scalesWith: [{ stat: "INT" }],
   },
 
   // Calico (magical / range)
