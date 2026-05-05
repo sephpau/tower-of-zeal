@@ -252,12 +252,12 @@ export function startBattle(
   });
   const enemyCombatants = placeEnemies(enemies, rng);
 
-  // Boss Raid: scale enemy stats (3x effective, 1.5x atb-speed), then apply
-  // any stacking bossStatReduction (5% per pick).
+  // Boss Raid: scale enemy stats and atb-speed, then apply any stacking
+  // bossStatReduction (5% per Weaken pick) on top.
   if (opts.bossRaid) {
     const reduction = Math.max(0, Math.min(0.95, opts.bossStatReduction ?? 0));
-    const statMul = 3 * (1 - reduction);
-    const speedMul = 1.5 * (1 - reduction);
+    const statMul = BOSS_RAID_STAT_MUL * (1 - reduction);
+    const speedMul = BOSS_RAID_SPEED_MUL * (1 - reduction);
     for (const c of enemyCombatants) {
       applyBossScaling(c, statMul, speedMul);
     }
@@ -291,6 +291,10 @@ export function startBattle(
     xpMultiplier: opts.xpMultiplier ?? 1,
   };
 }
+
+// Boss Raid base multipliers. Tune here; bossStatReduction (Weaken pick) stacks on top.
+export const BOSS_RAID_STAT_MUL = 2.0;   // was 3.0 — too punishing
+export const BOSS_RAID_SPEED_MUL = 1.25; // was 1.5  — still faster than the player party
 
 function applyBossScaling(c: Combatant, statMul: number, speedMul: number): void {
   // Scale input stats so derived combat values (physAtk, magAtk, defs, etc.)
