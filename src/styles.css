@@ -221,7 +221,9 @@ html, body {
   position: absolute;
   left: 50%;
   top: 50%;
-  transform: translate(-50%, -50%);
+  /* Shift cape up so its visual focal point sits above the portrait — */
+  /* equivalent to nudging the unit image down within the cape framing. */
+  transform: translate(-50%, -62%);
   width: 230%;
   height: auto;
   pointer-events: none;
