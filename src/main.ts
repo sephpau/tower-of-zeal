@@ -303,6 +303,8 @@ function shouldShowPostButtons(b: Battle): boolean {
   if (b.state.kind === "defeat") return true;
   // Floor mode — always show.
   if (mode === "floor") return true;
+  // Boss raid victory: only show on the final boss.
+  if (mode === "boss_raid") return brIndex >= BOSS_RAID_FLOORS.length;
   // Survival victory: only show on the final floor.
   return survivalFloor >= STAGE_DEFS.length;
 }
