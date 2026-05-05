@@ -59,3 +59,14 @@ export async function incrWithExpire(key: string, ttlSeconds: number): Promise<n
   if (n === 1) await call(["EXPIRE", key, ttlSeconds]);
   return n;
 }
+
+export async function hset(key: string, field: string, value: string): Promise<void> {
+  await call(["HSET", key, field, value]);
+}
+
+export async function hmget(key: string, fields: string[]): Promise<(string | null)[]> {
+  if (fields.length === 0) return [];
+  const r = await call(["HMGET", key, ...fields]);
+  if (!Array.isArray(r)) return fields.map(() => null);
+  return r.map(v => (typeof v === "string" ? v : null));
+}

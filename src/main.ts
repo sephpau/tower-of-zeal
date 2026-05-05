@@ -19,6 +19,7 @@ import { renderIgnGate } from "./ui/ignGate";
 import { loadSettings, saveSettings } from "./ui/settings";
 import { renderTutorial, isTutorialComplete } from "./ui/tutorial";
 import { renderLeaderboard } from "./ui/leaderboard";
+import { fetchServerIgn } from "./auth/ign";
 import { playBgm, stopBgm } from "./core/bgm";
 import { startRun, reportFloor, endRun, abortLiveRun } from "./core/leaderboard";
 
@@ -37,7 +38,7 @@ async function bootstrap(): Promise<void> {
       currentSession = existing;
       setUserScope(addr);
       ensureWalletInSettings(addr);
-      proceedAfterAuth();
+      void proceedAfterAuth();
       return;
     }
     clearSession();
@@ -46,17 +47,23 @@ async function bootstrap(): Promise<void> {
     currentSession = s;
     setUserScope(s.address);
     ensureWalletInSettings(s.address);
-    proceedAfterAuth();
+    void proceedAfterAuth();
   });
 }
 
-function proceedAfterAuth(): void {
-  const ign = loadSettings().playerName.trim();
-  if (!ign) {
-    renderIgnGate(root!, runTutorialIfNeeded);
+async function proceedAfterAuth(): Promise<void> {
+  const localIgn = loadSettings().playerName.trim();
+  if (localIgn) { runTutorialIfNeeded(); return; }
+
+  // No local IGN — check the server in case this wallet already picked one
+  // on another browser/device.
+  const serverIgn = await fetchServerIgn();
+  if (serverIgn) {
+    saveSettings({ ...loadSettings(), playerName: serverIgn });
+    runTutorialIfNeeded();
     return;
   }
-  runTutorialIfNeeded();
+  renderIgnGate(root!, runTutorialIfNeeded);
 }
 
 function runTutorialIfNeeded(): void {

@@ -1,4 +1,5 @@
 import { loadSettings, saveSettings } from "./settings";
+import { saveServerIgn } from "../auth/ign";
 
 export function renderIgnGate(root: HTMLElement, onComplete: () => void): void {
   root.innerHTML = `
@@ -20,6 +21,7 @@ export function renderIgnGate(root: HTMLElement, onComplete: () => void): void {
     const ign = input.value.trim();
     if (!ign) { status.textContent = "Enter an in-game name first."; return; }
     saveSettings({ ...loadSettings(), playerName: ign });
+    void saveServerIgn(ign);
     onComplete();
   };
 

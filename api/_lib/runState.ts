@@ -1,4 +1,4 @@
-import { getJson, setJson, del, zaddGt, incrWithExpire } from "./redis.js";
+import { getJson, setJson, del, zaddGt, incrWithExpire, hset } from "./redis.js";
 
 // A live survival run. Stored at Redis key `run:{runId}` with a TTL.
 export interface RunState {
@@ -11,6 +11,20 @@ export interface RunState {
 
 const RUN_TTL_SECONDS = 60 * 60 * 2; // 2 hours — must beat the JWT exp.
 export const LB_KEY = "lb:survival:v1";
+export const IGN_HASH_KEY = "igns";
+const MAX_IGN_LEN = 24;
+
+export function sanitizeIgn(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  // Strip control chars, collapse whitespace, trim, cap length.
+  const cleaned = raw.replace(/[\x00-\x1f\x7f]/g, "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return null;
+  return cleaned.slice(0, MAX_IGN_LEN);
+}
+
+export async function recordIgn(address: string, ign: string): Promise<void> {
+  await hset(IGN_HASH_KEY, address.toLowerCase(), ign);
+}
 
 // Anti-cheat: minimum average ms per cleared floor enforced at /end.
 // Real fast clears are allowed; pure spam (e.g. 50 floor pings in 1s) is rejected.

@@ -11,7 +11,7 @@ export function renderLeaderboard(root: HTMLElement, onBack: () => void): void {
       <div class="lb-panel">
         <div class="lb-header-row">
           <span class="lb-col rank">#</span>
-          <span class="lb-col addr">Player</span>
+          <span class="lb-col player">Player</span>
           <span class="lb-col floor">Floor</span>
           <span class="lb-col time">Time</span>
         </div>
@@ -36,10 +36,14 @@ export function renderLeaderboard(root: HTMLElement, onBack: () => void): void {
 
 function rowHtml(e: LbEntry, myAddr: string | null): string {
   const isMe = myAddr !== null && e.address.toLowerCase() === myAddr;
+  const name = e.ign ?? "—";
   return `
     <div class="lb-row ${isMe ? "me" : ""}">
       <span class="lb-col rank">${e.rank}</span>
-      <span class="lb-col addr" title="${escapeHtml(e.address)}">${shortAddr(e.address)}</span>
+      <span class="lb-col player">
+        <span class="lb-ign">${escapeHtml(name)}</span>
+        <span class="lb-addr" title="${escapeHtml(e.address)}">${shortAddr(e.address)}</span>
+      </span>
       <span class="lb-col floor">${e.floor}</span>
       <span class="lb-col time">${formatMs(e.ms)}</span>
     </div>

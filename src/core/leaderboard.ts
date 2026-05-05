@@ -3,10 +3,12 @@
 // we just won't have a leaderboard entry for it.
 
 import { loadSession } from "../auth/session";
+import { loadSettings } from "../ui/settings";
 
 export interface LbEntry {
   rank: number;
   address: string;
+  ign: string | null;
   floor: number;
   ms: number;
 }
@@ -62,10 +64,11 @@ export async function endRun(): Promise<{ floor: number; totalMs: number } | nul
   const cur = live;
   live = null;
   try {
+    const ign = loadSettings().playerName;
     const r = await fetch("/api/run/end", {
       method: "POST",
       headers: { Authorization: `Bearer ${cur.token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ runId: cur.runId }),
+      body: JSON.stringify({ runId: cur.runId, ign }),
     });
     if (!r.ok) return null;
     return await r.json() as { floor: number; totalMs: number };

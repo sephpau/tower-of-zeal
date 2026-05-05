@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifyRun } from "../_lib/jwt.js";
-import { getRun, saveRun, deleteRun, submitToLeaderboard, MIN_AVG_FLOOR_MS } from "../_lib/runState.js";
+import { getRun, saveRun, deleteRun, submitToLeaderboard, MIN_AVG_FLOOR_MS, sanitizeIgn, recordIgn } from "../_lib/runState.js";
 
 // Body: { runId: string }
 // The server uses its own clock for totalMs — client-supplied times are ignored.
@@ -9,9 +9,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) { res.status(401).json({ error: "no token" }); return; }
 
-  const body = (req.body ?? {}) as { runId?: unknown };
+  const body = (req.body ?? {}) as { runId?: unknown; ign?: unknown };
   const runId = typeof body.runId === "string" ? body.runId : null;
   if (!runId) { res.status(400).json({ error: "bad body" }); return; }
+  const ign = sanitizeIgn(body.ign);
 
   let payload;
   try { payload = await verifyRun(auth.slice("Bearer ".length)); }
@@ -34,6 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         rejectedReason = "average floor time below threshold";
       } else {
         await submitToLeaderboard(state.address, floor, totalMs);
+        if (ign) await recordIgn(state.address, ign);
         submitted = true;
       }
     }
