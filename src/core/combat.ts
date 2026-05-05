@@ -121,10 +121,12 @@ export function makeCombatant(t: UnitTemplate, side: Side, position: Position): 
   const custom = { ...ZERO_STATS, ...customStats };
   const effective = sumStats(unit, classBase, custom);
   const d = deriveStats(effective);
-  const maxHp = t.overrideMaxHp ?? d.maxHp;
+  // Round HP/MP to integers — fractional stat growth (e.g. INT 0.7/lvl) flows
+  // into derived values and would otherwise render as 229.8/229.8 in the UI.
+  const maxHp = Math.max(1, Math.round(t.overrideMaxHp ?? d.maxHp));
   // MP scales by level on top of stat-derived MP so casters always have the
   // mana to actually use their kit. Override still wins if set.
-  const maxMp = t.overrideMaxMp ?? (d.maxMp + level * MP_PER_LEVEL);
+  const maxMp = Math.max(0, Math.round(t.overrideMaxMp ?? (d.maxMp + level * MP_PER_LEVEL)));
 
   // Skills available in this battle:
   //   - idle is always present
