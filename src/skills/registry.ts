@@ -15,7 +15,7 @@ export const SKILLS: Record<string, Skill> = {
     id: "basic_attack", name: "Attack",
     kind: "physical", targeting: "enemy",
     power: 1.0, mpCost: 0, cooldown: 0,
-    description: "Single melee phys.",
+    description: "Low single melee phys.",
   },
   guard: {
     id: "guard", name: "Guard",
@@ -27,13 +27,13 @@ export const SKILLS: Record<string, Skill> = {
     id: "power_strike", name: "Power Strike",
     kind: "physical", targeting: "enemy",
     power: 2.0, mpCost: 6, cooldown: 0,
-    description: "Single melee phys.",
+    description: "High single melee phys.",
   },
   fireball: {
     id: "fireball", name: "Fireball",
     kind: "magical", targeting: "enemy",
     power: 1.6, mpCost: 5, cooldown: 0,
-    description: "Single melee magical.",
+    description: "Mid single melee magical.",
   },
 
   // ---- Slime / Boss (post-50%-nerf) ----
@@ -41,21 +41,21 @@ export const SKILLS: Record<string, Skill> = {
     id: "slime_goo", name: "Slime Goo",
     kind: "physical", targeting: "enemy",
     power: 0, mpCost: 0, cooldown: 0,
-    description: "Single melee phys. Sticky goo splatter (2–5 dmg).",
+    description: "Low single melee phys. Sticky goo splatter (2–5 dmg).",
     flatDamage: { min: 2, max: 5 },
   },
   slime_king_goo: {
     id: "slime_king_goo", name: "Slime Goo",
     kind: "physical", targeting: "enemy",
     power: 0, mpCost: 0, cooldown: 0,
-    description: "Single melee phys. King-sized goo splatter (8–10 dmg).",
+    description: "Mid single melee phys. King-sized goo splatter (8–10 dmg).",
     flatDamage: { min: 8, max: 10 },
   },
   slime_barrage: {
     id: "slime_barrage", name: "Slime Barrage",
     kind: "physical", targeting: "all_enemies",
     power: 0, mpCost: 0, cooldown: 0,
-    description: "AOE melee phys. Hits every player unit (10–15 dmg each).",
+    description: "Mid AOE melee phys. Hits every player unit (10–15 dmg each).",
     flatDamage: { min: 10, max: 15 },
   },
   spawn_slimes: {
