@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifyRun } from "../_lib/jwt.js";
-import { getRun, saveRun, deleteRun, submitToLeaderboard, MIN_AVG_FLOOR_MS, sanitizeIgn, recordIgn } from "../_lib/runState.js";
+import { getRun, saveRun, deleteRun, submitToLeaderboard, MIN_AVG_FLOOR_MS, sanitizeIgn, setIgnIfAllowed } from "../_lib/runState.js";
 
 // Body: { runId: string }
 // The server uses its own clock for totalMs — client-supplied times are ignored.
@@ -35,7 +35,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         rejectedReason = "average floor time below threshold";
       } else {
         await submitToLeaderboard(state.address, floor, totalMs);
-        if (ign) await recordIgn(state.address, ign);
+        // Cooldown is intentionally silent here — keep the old name on conflict.
+        if (ign) await setIgnIfAllowed(state.address, ign);
         submitted = true;
       }
     }

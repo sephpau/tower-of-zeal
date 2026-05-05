@@ -19,7 +19,7 @@ import { renderIgnGate } from "./ui/ignGate";
 import { loadSettings, saveSettings } from "./ui/settings";
 import { renderTutorial, isTutorialComplete } from "./ui/tutorial";
 import { renderLeaderboard } from "./ui/leaderboard";
-import { fetchServerIgn } from "./auth/ign";
+import { fetchServerIgn, saveServerIgn } from "./auth/ign";
 import { playBgm, stopBgm } from "./core/bgm";
 import { startRun, reportFloor, endRun, abortLiveRun } from "./core/leaderboard";
 
@@ -53,16 +53,25 @@ async function bootstrap(): Promise<void> {
 
 async function proceedAfterAuth(): Promise<void> {
   const localIgn = loadSettings().playerName.trim();
-  if (localIgn) { runTutorialIfNeeded(); return; }
-
-  // No local IGN — check the server in case this wallet already picked one
-  // on another browser/device.
   const serverIgn = await fetchServerIgn();
-  if (serverIgn) {
-    saveSettings({ ...loadSettings(), playerName: serverIgn });
+
+  if (localIgn && !serverIgn) {
+    // Backfill: this wallet has a local IGN from before server-side persistence.
+    // Save it up now so the leaderboard can display it. Cooldown doesn't apply
+    // to the first-time set, so this is safe.
+    void saveServerIgn(localIgn);
     runTutorialIfNeeded();
     return;
   }
+  if (serverIgn) {
+    if (serverIgn !== localIgn) {
+      saveSettings({ ...loadSettings(), playerName: serverIgn });
+    }
+    runTutorialIfNeeded();
+    return;
+  }
+  if (localIgn) { runTutorialIfNeeded(); return; }
+
   renderIgnGate(root!, runTutorialIfNeeded);
 }
 

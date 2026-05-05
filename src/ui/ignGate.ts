@@ -21,7 +21,7 @@ export function renderIgnGate(root: HTMLElement, onComplete: () => void): void {
     const ign = input.value.trim();
     if (!ign) { status.textContent = "Enter an in-game name first."; return; }
     saveSettings({ ...loadSettings(), playerName: ign });
-    void saveServerIgn(ign);
+    void saveServerIgn(ign).then(r => { void r; });
     onComplete();
   };
 

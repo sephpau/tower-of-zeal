@@ -2,6 +2,7 @@
 import { addEnergy, getEnergy, ENERGY_MAX, msUntilNextRefill } from "../core/energy";
 import { isAdmin } from "../core/admin";
 import { scopedKey } from "../auth/scope";
+import { saveServerIgn, formatCooldown } from "../auth/ign";
 
 export interface Settings {
   playerName: string;
@@ -50,6 +51,8 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
         <label class="setting-row">
           <span class="setting-label">Player name</span>
           <input id="setting-name" type="text" maxlength="24" value="${escapeAttr(s.playerName)}" />
+          <span class="setting-hint">You can only change your name once every 7 days.</span>
+          <span id="ign-status" class="setting-hint" style="color: var(--gold-bright);"></span>
         </label>
 
         <label class="setting-row">
@@ -96,16 +99,39 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
 
   root.querySelector("#back-btn")?.addEventListener("click", onClose);
 
-  root.querySelector<HTMLButtonElement>("#save-settings")?.addEventListener("click", () => {
+  root.querySelector<HTMLButtonElement>("#save-settings")?.addEventListener("click", async () => {
+    const newName = (root.querySelector<HTMLInputElement>("#setting-name")?.value || DEFAULTS.playerName).trim();
+    const status = root.querySelector<HTMLElement>("#ign-status");
+
+    let finalName = newName;
+    if (newName !== s.playerName && newName) {
+      const result = await saveServerIgn(newName);
+      if (!result.ok) {
+        if (result.reason === "cooldown") {
+          if (status) status.textContent = `Name change on cooldown — try again in ${formatCooldown(result.nextAllowedAt)}.`;
+          finalName = result.serverIgn;
+          const input = root.querySelector<HTMLInputElement>("#setting-name");
+          if (input) input.value = result.serverIgn;
+          // Don't close — let the user see the error.
+          // Still save the other settings below.
+        } else if (result.reason === "invalid") {
+          if (status) status.textContent = "Name is invalid (empty or too long).";
+          return;
+        } else {
+          if (status) status.textContent = "Couldn't reach the server — name not saved online.";
+        }
+      }
+    }
+
     const next: Settings = {
-      playerName: (root.querySelector<HTMLInputElement>("#setting-name")?.value || DEFAULTS.playerName).trim(),
-      walletAddress: s.walletAddress, // managed by sign-in, not editable here
+      playerName: finalName,
+      walletAddress: s.walletAddress,
       sfxOn: !!root.querySelector<HTMLInputElement>("#setting-sfx")?.checked,
       bgmOn: !!root.querySelector<HTMLInputElement>("#setting-bgm")?.checked,
       devUnlockClass: !!root.querySelector<HTMLInputElement>("#setting-dev-class")?.checked,
     };
     saveSettings(next);
-    onClose();
+    if (finalName === newName) onClose();
   });
 
   root.querySelector<HTMLButtonElement>("#admin-add-energy")?.addEventListener("click", () => {

@@ -1,4 +1,4 @@
-import { getJson, setJson, del, zaddGt, incrWithExpire, hset } from "./redis.js";
+import { getJson, setJson, del, zaddGt, incrWithExpire, hset, hmget } from "./redis.js";
 
 // A live survival run. Stored at Redis key `run:{runId}` with a TTL.
 export interface RunState {
@@ -12,7 +12,9 @@ export interface RunState {
 const RUN_TTL_SECONDS = 60 * 60 * 2; // 2 hours — must beat the JWT exp.
 export const LB_KEY = "lb:survival:v1";
 export const IGN_HASH_KEY = "igns";
+export const IGN_SET_AT_KEY = "ign_set_at";
 const MAX_IGN_LEN = 24;
+export const IGN_CHANGE_COOLDOWN_MS = Number(process.env.LB_IGN_COOLDOWN_MS ?? 7 * 24 * 60 * 60 * 1000);
 
 export function sanitizeIgn(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
@@ -22,8 +24,32 @@ export function sanitizeIgn(raw: unknown): string | null {
   return cleaned.slice(0, MAX_IGN_LEN);
 }
 
-export async function recordIgn(address: string, ign: string): Promise<void> {
-  await hset(IGN_HASH_KEY, address.toLowerCase(), ign);
+export type IgnUpdateResult =
+  | { kind: "saved"; ign: string }
+  | { kind: "unchanged"; ign: string }
+  | { kind: "cooldown"; ign: string; nextAllowedAt: number };
+
+// Idempotent IGN write with 7-day cooldown for changes (not for first-time set).
+export async function setIgnIfAllowed(address: string, ign: string): Promise<IgnUpdateResult> {
+  const addr = address.toLowerCase();
+  const [existing, setAtRaw] = await hmget(IGN_HASH_KEY, [addr]).then(async ([cur]) => {
+    const [t] = await hmget(IGN_SET_AT_KEY, [addr]);
+    return [cur, t] as const;
+  });
+
+  if (existing && existing === ign) return { kind: "unchanged", ign };
+
+  if (existing && existing !== ign) {
+    const setAt = setAtRaw ? Number(setAtRaw) : 0;
+    const elapsed = Date.now() - (Number.isFinite(setAt) ? setAt : 0);
+    if (elapsed < IGN_CHANGE_COOLDOWN_MS) {
+      return { kind: "cooldown", ign: existing, nextAllowedAt: setAt + IGN_CHANGE_COOLDOWN_MS };
+    }
+  }
+
+  await hset(IGN_HASH_KEY, addr, ign);
+  await hset(IGN_SET_AT_KEY, addr, String(Date.now()));
+  return { kind: "saved", ign };
 }
 
 // Anti-cheat: minimum average ms per cleared floor enforced at /end.
