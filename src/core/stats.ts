@@ -51,6 +51,8 @@ export interface DerivedStats {
 
 export const BASE_HP = 30;
 export const BASE_MP = 20;
+/** MP gained per level on top of stat-derived MP. */
+export const MP_PER_LEVEL = 30;
 
 export function deriveStats(s: Stats): DerivedStats {
   const maxHp = BASE_HP + s.STR * 3 + s.DEF * 5 + s.VIT * 10;

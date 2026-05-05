@@ -1,4 +1,4 @@
-import { Stats, ZERO_STATS, deriveStats, sumStats } from "./stats";
+import { Stats, ZERO_STATS, deriveStats, sumStats, MP_PER_LEVEL } from "./stats";
 import { classBaseStats } from "../units/classes";
 import { Rng } from "./rng";
 import { physicalDamage, magicalDamage, DamageResult } from "./formulas";
@@ -121,7 +121,9 @@ export function makeCombatant(t: UnitTemplate, side: Side, position: Position): 
   const effective = sumStats(unit, classBase, custom);
   const d = deriveStats(effective);
   const maxHp = t.overrideMaxHp ?? d.maxHp;
-  const maxMp = t.overrideMaxMp ?? d.maxMp;
+  // MP scales by level on top of stat-derived MP so casters always have the
+  // mana to actually use their kit. Override still wins if set.
+  const maxMp = t.overrideMaxMp ?? (d.maxMp + level * MP_PER_LEVEL);
 
   // Skills available in this battle:
   //   - idle is always present
@@ -298,7 +300,7 @@ function applyBossScaling(c: Combatant, statMul: number, speedMul: number): void
   c.stats = scaleStats(c.stats, statMul);
   const d = deriveStats(c.stats);
   c.maxHp = Math.max(1, Math.round(d.maxHp));
-  c.maxMp = Math.max(0, Math.round(d.maxMp));
+  c.maxMp = Math.max(0, Math.round(d.maxMp + c.level * MP_PER_LEVEL));
   c.hp = c.maxHp;
   c.mp = c.maxMp;
   c.atbSpeed = origAtb * speedMul;
@@ -309,7 +311,7 @@ function applyPlayerBoost(c: Combatant, mul: number): void {
   c.stats = scaleStats(c.stats, mul);
   const d = deriveStats(c.stats);
   const newMaxHp = Math.max(1, Math.round(d.maxHp));
-  const newMaxMp = Math.max(0, Math.round(d.maxMp));
+  const newMaxMp = Math.max(0, Math.round(d.maxMp + c.level * MP_PER_LEVEL));
   // Preserve current HP/MP ratio when scaling caps.
   const hpRatio = c.maxHp > 0 ? c.hp / c.maxHp : 1;
   const mpRatio = c.maxMp > 0 ? c.mp / c.maxMp : 1;
