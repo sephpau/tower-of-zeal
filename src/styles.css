@@ -241,6 +241,12 @@ html, body {
 .rs-portrait .portrait-cape[src*="water_mage"] {
   transform: translate(-50%, -62%);
 }
+/* Battle scene — same treatment: center all capes vertically except fire/water mage. */
+.combatant .portrait-cape { transform: translate(-50%, -50%); }
+.combatant .portrait-cape[src*="fire_mage"],
+.combatant .portrait-cape[src*="water_mage"] {
+  transform: translate(-50%, -62%);
+}
 .info { flex: 1; min-width: 0; }
 .name { font-weight: 700; margin-bottom: 4px; font-size: 13px; color: var(--text); }
 .badge {
