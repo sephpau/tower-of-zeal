@@ -12,11 +12,13 @@ export interface Gauged {
   maxHp: number;
 }
 
+// Gauge is allowed to accumulate past ATB_FULL. The amount of overflow tells us
+// who has been waiting longest at the front of the queue, so the action loop
+// can dispatch in "first ready" order rather than array order.
 export function tickGauges(combatants: Gauged[], dtSeconds: number): void {
   for (const c of combatants) {
     if (!c.alive) continue;
-    if (c.gauge >= ATB_FULL) continue;
     const speedMult = atbSpeedMultiplier(c);
-    c.gauge = Math.min(ATB_FULL, c.gauge + c.atbSpeed * speedMult * ATB_PACE * dtSeconds);
+    c.gauge = c.gauge + c.atbSpeed * speedMult * ATB_PACE * dtSeconds;
   }
 }

@@ -363,53 +363,70 @@ export function tick(b: Battle, dt: number): void {
     return;
   }
 
+  // Pick the combatant who's been "ready" longest with an action they can take.
+  // Gauge overflow past ATB_FULL serves as the wait-time tiebreaker, so a unit
+  // that hits full first and idles waiting for an action goes ahead of one that
+  // just filled this frame.
+  let actor: Combatant | null = null;
+  let bestGauge = ATB_FULL - 0.01;
   for (const c of b.combatants) {
     if (!c.alive) continue;
     if (c.gauge < ATB_FULL) continue;
+    // Players without a queued action aren't candidates — they keep waiting.
+    if (c.side === "player" && !c.queuedAction) continue;
+    if (c.gauge > bestGauge) { bestGauge = c.gauge; actor = c; }
+  }
+  if (!actor) return;
 
-    // Tick DoT/HoT before action.
-    applyTickEffects(c, b.log);
-    if (!c.alive) {
-      // Effect killed them.
-      c.gauge = 0;
-      tickEffectDurations(c);
-      checkEndConditions(b);
+  const c = actor;
+
+  // Tick DoT/HoT before action.
+  applyTickEffects(c, b.log);
+  if (!c.alive) {
+    c.gauge = 0;
+    tickEffectDurations(c);
+    checkEndConditions(b);
+    return;
+  }
+
+  // Stun: skip the queued/AI action this turn.
+  if (hasEffect(c, "stun")) {
+    b.log.push(`${c.name} is stunned and skips the action.`);
+    c.gauge = 0;
+    c.queuedAction = null;
+    tickEffectDurations(c);
+    b.actionLock = 0.4;
+    return;
+  }
+
+  if (c.side === "enemy") {
+    const action = chooseEnemyAction(c, b);
+    if (action) {
+      executeAction(b, c, action);
       return;
     }
+    // No valid action — reset so they don't camp the front of the queue forever.
+    c.gauge = 0;
+    return;
+  }
 
-    // Stun: skip the queued/AI action this turn.
-    if (hasEffect(c, "stun")) {
-      b.log.push(`${c.name} is stunned and skips the action.`);
-      c.gauge = 0;
+  // Player with a queued action.
+  if (c.queuedAction) {
+    const skill = getSkill(c.queuedAction.skillId);
+    if (isSkillBlockedBySilence(c, skill.id)) {
+      b.log.push(`${c.name} is silenced — ${skill.name} fails.`);
       c.queuedAction = null;
+      c.gauge = 0;
       tickEffectDurations(c);
       b.actionLock = 0.4;
       return;
     }
-
-    if (c.side === "enemy") {
-      const action = chooseEnemyAction(c, b);
-      if (action) {
-        executeAction(b, c, action);
-        return; // Only one action per frame; lock takes care of pacing.
-      }
-    } else if (c.queuedAction) {
-      const skill = getSkill(c.queuedAction.skillId);
-      if (isSkillBlockedBySilence(c, skill.id)) {
-        b.log.push(`${c.name} is silenced — ${skill.name} fails.`);
-        c.queuedAction = null;
-        c.gauge = 0;
-        tickEffectDurations(c);
-        b.actionLock = 0.4;
-        return;
-      }
-      if (!isSkillAffordable(c, skill, b)) {
-        c.queuedAction = null;
-      } else {
-        executeAction(b, c, c.queuedAction);
-        return;
-      }
+    if (!isSkillAffordable(c, skill, b)) {
+      // Drop the bad queue but don't burn the turn — they'll re-queue.
+      c.queuedAction = null;
+      return;
     }
+    executeAction(b, c, c.queuedAction);
   }
 }
 

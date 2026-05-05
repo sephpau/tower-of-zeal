@@ -3,6 +3,17 @@ import { PlayerSlot } from "../core/combat";
 import { PLAYER_ROSTER, MAX_PARTY_SIZE, getStage, STAGE_DEFS } from "../units/roster";
 import { topBarHtml } from "./settings";
 import { getProgress } from "../core/progress";
+import { Stats, ZERO_STATS, sumStats } from "../core/stats";
+import { classBaseStats } from "../units/classes";
+
+// Effective stats = unit base + class base + allocated custom points.
+// Mirrors what makeCombatant does, so the roster preview matches battle reality.
+function effectiveStats(t: UnitTemplate): Stats {
+  const progress = getProgress(t.id);
+  const classId = progress.classId ?? t.classId;
+  const custom = { ...ZERO_STATS, ...(progress.customStats ?? t.customStats ?? ZERO_STATS) };
+  return sumStats(t.unitBaseStats, classBaseStats(classId), custom);
+}
 
 export interface SquadResult {
   players: PlayerSlot[];
@@ -30,7 +41,7 @@ function sortRoster(roster: UnitTemplate[], key: SortKey, dir: "asc" | "desc"): 
     let cmp = 0;
     if (key === "lvl") cmp = getProgress(a.id).level - getProgress(b.id).level;
     else if (key === "name") cmp = a.name.localeCompare(b.name);
-    else cmp = a.unitBaseStats[key] - b.unitBaseStats[key];
+    else cmp = effectiveStats(a)[key] - effectiveStats(b)[key];
     if (cmp === 0) cmp = a.name.localeCompare(b.name);
     return dir === "asc" ? cmp : -cmp;
   });
@@ -149,7 +160,7 @@ function rosterItemHtml(t: UnitTemplate, picks: UnitTemplate[], atCap: boolean):
     locked ? "locked" : "",
   ].filter(Boolean).join(" ");
   const lvl = getProgress(t.id).level;
-  const s = t.unitBaseStats;
+  const s = effectiveStats(t);
   return `
     <div class="${cls}" data-roster="${escapeAttr(t.id)}">
       <div class="portrait">${t.portrait}<span class="lv-badge">Lv${lvl}</span></div>
