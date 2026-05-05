@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifyRun } from "../_lib/jwt.js";
-import { getRun, saveRun, deleteRun, submitToLeaderboard } from "../_lib/runState.js";
+import { getRun, saveRun, deleteRun, submitToLeaderboard, MIN_AVG_FLOOR_MS } from "../_lib/runState.js";
 
 // Body: { runId: string }
 // The server uses its own clock for totalMs — client-supplied times are ignored.
@@ -26,8 +26,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const totalMs = state.lastFloorAt - state.startedAt;
     const floor = state.currentFloor;
 
+    let submitted = false;
+    let rejectedReason: string | null = null;
     if (floor > 0) {
-      await submitToLeaderboard(state.address, floor, totalMs);
+      const avg = totalMs / floor;
+      if (avg < MIN_AVG_FLOOR_MS) {
+        rejectedReason = "average floor time below threshold";
+      } else {
+        await submitToLeaderboard(state.address, floor, totalMs);
+        submitted = true;
+      }
     }
 
     if (state.status === "live") {
@@ -37,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     // Free the slot quickly; the leaderboard entry is what persists.
     await deleteRun(runId);
 
-    res.status(200).json({ ok: true, floor, totalMs });
+    res.status(200).json({ ok: true, floor, totalMs, submitted, rejectedReason });
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
   }

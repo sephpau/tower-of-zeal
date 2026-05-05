@@ -12,8 +12,9 @@ export interface RunState {
 const RUN_TTL_SECONDS = 60 * 60 * 2; // 2 hours — must beat the JWT exp.
 export const LB_KEY = "lb:survival:v1";
 
-// Anti-cheat: minimum ms a single floor must take. Tune as you observe real runs.
-export const MIN_FLOOR_MS = Number(process.env.LB_MIN_FLOOR_MS ?? 8000);
+// Anti-cheat: minimum average ms per cleared floor enforced at /end.
+// Real fast clears are allowed; pure spam (e.g. 50 floor pings in 1s) is rejected.
+export const MIN_AVG_FLOOR_MS = Number(process.env.LB_MIN_AVG_FLOOR_MS ?? 2000);
 // Cap submitted floor so a forged client can't claim absurd numbers.
 export const MAX_FLOOR = Number(process.env.LB_MAX_FLOOR ?? 50);
 // Per-wallet rate-limit on /run/start.

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifyRun } from "../_lib/jwt.js";
-import { getRun, saveRun, MIN_FLOOR_MS, MAX_FLOOR } from "../_lib/runState.js";
+import { getRun, saveRun, MAX_FLOOR } from "../_lib/runState.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== "POST") { res.status(405).json({ error: "method" }); return; }
@@ -27,9 +27,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     if (floor !== state.currentFloor + 1) { res.status(409).json({ error: "non-sequential floor" }); return; }
 
     const now = Date.now();
-    const elapsed = now - state.lastFloorAt;
-    if (elapsed < MIN_FLOOR_MS) { res.status(409).json({ error: "floor too fast" }); return; }
-
     state.currentFloor = floor;
     state.lastFloorAt = now;
     await saveRun(runId, state);
