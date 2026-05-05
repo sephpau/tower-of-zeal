@@ -47,7 +47,7 @@ export function getProgress(templateId: string): UnitProgress {
   const map = loadAll();
   const entry = map[templateId];
   if (!entry) return defaults();
-  return {
+  const result: UnitProgress = {
     level: entry.level ?? 1,
     xp: entry.xp ?? 0,
     customStats: { ...ZERO_STATS, ...(entry.customStats ?? {}) },
@@ -55,6 +55,15 @@ export function getProgress(templateId: string): UnitProgress {
     availablePoints: entry.availablePoints ?? 0,
     equippedSkills: Array.isArray(entry.equippedSkills) ? entry.equippedSkills.slice(0, MAX_EQUIPPED_SKILLS) : [],
   };
+  // Lazy heal: existing saves where the loadout was left empty get auto-filled
+  // the first time they're read. Idempotent — re-runs are no-ops once filled.
+  const filled = autoEquipNewlyUnlocked(templateId, result.classId, result.level, result.equippedSkills ?? []);
+  if (filled.length !== (result.equippedSkills?.length ?? 0)) {
+    result.equippedSkills = filled;
+    map[templateId] = result;
+    saveAll(map);
+  }
+  return result;
 }
 
 export function setProgress(templateId: string, p: UnitProgress): void {
