@@ -36,7 +36,7 @@ export function renderStageSelect(root: HTMLElement, onPick: (pick: StagePick) =
           </button>
           <button class="bossraid-tile" id="bossraid-tile" type="button" ${energy < BOSS_RAID_ENERGY_COST ? "disabled" : ""}>
             <div class="bossraid-art">
-              <div class="bossraid-eye"></div>
+              <img class="bossraid-img" src="/boss-raid.png" alt="" draggable="false" />
             </div>
             <div class="bossraid-overlay">
               <div class="bossraid-title">Boss Raid</div>

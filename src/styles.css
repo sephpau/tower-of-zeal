@@ -1529,22 +1529,13 @@ html, body {
     radial-gradient(circle at 50% 50%, #0a0210 0%, #000 90%);
   display: flex; align-items: center; justify-content: center;
 }
-/* Placeholder eye — replace .bossraid-eye with an <img> from markofthezeal.com when available. */
-.bossraid-eye {
-  position: relative;
-  width: 180px; height: 100px;
-  background: radial-gradient(ellipse at center, #ffaa00 0%, #ff3030 35%, #1a0000 70%, transparent 100%);
-  border-radius: 50%;
-  filter: drop-shadow(0 0 24px rgba(255, 50, 0, 0.6));
-}
-.bossraid-eye::before {
-  content: "";
-  position: absolute;
-  left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: 32px; height: 70px;
-  background: #050000;
-  border-radius: 50%;
-  box-shadow: 0 0 12px rgba(0, 0, 0, 0.9);
+.bossraid-img {
+  max-width: 80%;
+  max-height: 78%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 24px rgba(255, 50, 0, 0.5));
+  pointer-events: none;
+  user-select: none;
 }
 .bossraid-overlay {
   position: absolute;
