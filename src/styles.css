@@ -231,7 +231,7 @@ html, body {
   z-index: -1;
 }
 /* Squad-select roster — keep cape compact so it doesn't overlap the hex chart labels. */
-.rs-portrait .portrait-cape { width: 140%; }
+.rs-portrait .portrait-cape { width: 115%; }
 .info { flex: 1; min-width: 0; }
 .name { font-weight: 700; margin-bottom: 4px; font-size: 13px; color: var(--text); }
 .badge {
