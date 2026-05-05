@@ -1,6 +1,15 @@
 import { EffectApplication } from "../core/effects";
+import { StatKey } from "../core/stats";
 
 export type SkillKind = "physical" | "magical" | "buff" | "summon";
+
+/** Per-skill stat scaling on top of the generic phys.atk / mag.atk formula.
+ *  Each entry contributes (attacker.stats[stat] * weight) to the attack stat
+ *  used in the damage roll, multiplied by the skill's power. Default weight 1. */
+export interface SkillScaling {
+  stat: StatKey;
+  weight?: number;
+}
 
 // "self" — only the attacker. "enemy" — single enemy target. "all_enemies" — every living combatant on the opposite side.
 export type SkillTargeting = "self" | "enemy" | "all_enemies";
@@ -38,4 +47,6 @@ export interface Skill {
   applies?: EffectApplication[];
   /** Effects applied to the caster regardless of damage (e.g., self buffs from buff skills). */
   selfApplies?: EffectApplication[];
+  /** Adds (stat × weight × power) to the damage formula for damaging skills. */
+  scalesWith?: SkillScaling[];
 }

@@ -93,6 +93,7 @@ export const SKILLS: Record<string, Skill> = {
     kind: "physical", targeting: "all_enemies",
     power: POW.high, mpCost: 30, cooldown: 4, unlockLevel: 10,
     description: "High AOE phys (scales with STR/DEF/VIT).",
+    scalesWith: [{ stat: "STR" }, { stat: "DEF" }, { stat: "VIT" }],
   },
 
   // Fire Mage
@@ -246,6 +247,7 @@ export const SKILLS: Record<string, Skill> = {
     kind: "magical", targeting: "enemy",
     power: POW.low, mpCost: 2, cooldown: 1, unlockLevel: 1,
     description: "Low single melee magical (scales m.atk + INT).",
+    scalesWith: [{ stat: "INT" }],
   },
   radiant_punch: {
     id: "radiant_punch", name: "Radiant Punch",
@@ -268,6 +270,7 @@ export const SKILLS: Record<string, Skill> = {
     kind: "physical", targeting: "enemy",
     power: POW.low, mpCost: 0, cooldown: 1, unlockLevel: 1,
     description: "Low single melee phys (scales p.atk + STR + VIT).",
+    scalesWith: [{ stat: "STR" }, { stat: "VIT" }],
   },
   twin_slash: {
     id: "twin_slash", name: "Twin Slash",
@@ -323,6 +326,7 @@ export const SKILLS: Record<string, Skill> = {
     kind: "physical", targeting: "enemy",
     power: POW.low, mpCost: 0, cooldown: 1, unlockLevel: 1,
     description: "Low single melee phys (scales p.atk + AGI).",
+    scalesWith: [{ stat: "AGI" }],
   },
   soda_pop: {
     id: "soda_pop", name: "Soda Pop",
@@ -337,6 +341,7 @@ export const SKILLS: Record<string, Skill> = {
     power: POW.low, mpCost: 10, cooldown: 2, unlockLevel: 5,
     description: "3 rapid low melee strikes (scales AGI).",
     multiHit: 3,
+    scalesWith: [{ stat: "AGI" }],
   },
 
   // Ego (physical)
@@ -345,6 +350,7 @@ export const SKILLS: Record<string, Skill> = {
     kind: "physical", targeting: "enemy",
     power: POW.low, mpCost: 0, cooldown: 1, unlockLevel: 1,
     description: "Low single melee phys (scales p.atk + STR).",
+    scalesWith: [{ stat: "STR" }],
   },
   limit_break: {
     id: "limit_break", name: "Limit Break",
@@ -370,6 +376,7 @@ export const SKILLS: Record<string, Skill> = {
     kind: "physical", targeting: "enemy",
     power: POW.low, mpCost: 0, cooldown: 1, unlockLevel: 1,
     description: "Low single melee phys (scales p.atk + DEX).",
+    scalesWith: [{ stat: "DEX" }],
   },
   analyze_vulnerability: {
     id: "analyze_vulnerability", name: "Analyze Vulnerability",
@@ -398,6 +405,7 @@ export const SKILLS: Record<string, Skill> = {
     kind: "magical", targeting: "enemy",
     power: POW.low, mpCost: 0, cooldown: 1, unlockLevel: 1,
     description: "Low single range magical (scales m.atk + INT).",
+    scalesWith: [{ stat: "INT" }],
   },
   tidal_mending: {
     id: "tidal_mending", name: "Tidal Mending",
@@ -423,6 +431,7 @@ export const SKILLS: Record<string, Skill> = {
     kind: "magical", targeting: "enemy",
     power: POW.low, mpCost: 0, cooldown: 1, unlockLevel: 1,
     description: "Low single range magical (scales m.atk + AGI + INT).",
+    scalesWith: [{ stat: "AGI" }, { stat: "INT" }],
   },
   needle_shot: {
     id: "needle_shot", name: "Needle Shot",
@@ -448,6 +457,7 @@ export const SKILLS: Record<string, Skill> = {
     kind: "magical", targeting: "enemy",
     power: POW.low, mpCost: 5, cooldown: 1, unlockLevel: 1,
     description: "Low single range magical (scales m.atk + INT).",
+    scalesWith: [{ stat: "INT" }],
   },
   frost_bite: {
     id: "frost_bite", name: "Frost Bite",
@@ -461,6 +471,7 @@ export const SKILLS: Record<string, Skill> = {
     kind: "magical", targeting: "enemy",
     power: POW.very_high, mpCost: 40, cooldown: 6, unlockLevel: 5,
     description: "Very High single range magical (scales m.atk + INT).",
+    scalesWith: [{ stat: "INT" }],
   },
 };
 

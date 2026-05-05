@@ -23,6 +23,8 @@ export function physicalDamage(
   power: number,
   rng: Rng,
   hitPenalty = 0,
+  /** Per-skill stat-scaling bonus added to the attack stat before power multiply. */
+  bonusAtk = 0,
 ): DamageResult {
   const a = deriveStats(attacker);
   const d = deriveStats(defender);
@@ -32,7 +34,7 @@ export function physicalDamage(
   const crit = rng.chance(a.critChance);
   const pen = armorPenetration(attacker.DEX);
   const effDef = d.physDef * (1 - pen);
-  let raw = a.physAtk * power - effDef * 0.5;
+  let raw = (a.physAtk + bonusAtk) * power - effDef * 0.5;
   raw = Math.max(1, raw);
   if (crit) raw *= 1.5;
   raw *= rng.range(0.9, 1.1);
@@ -46,6 +48,7 @@ export function magicalDamage(
   power: number,
   rng: Rng,
   hitPenalty = 0,
+  bonusAtk = 0,
 ): DamageResult {
   const a = deriveStats(attacker);
   const d = deriveStats(defender);
@@ -53,7 +56,7 @@ export function magicalDamage(
   if (!rng.chance(hit)) return { dmg: 0, miss: true, crit: false };
   const pen = armorPenetration(attacker.DEX);
   const effDef = d.magDef * (1 - pen);
-  let raw = a.magAtk * power - effDef * 0.5;
+  let raw = (a.magAtk + bonusAtk) * power - effDef * 0.5;
   raw = Math.max(1, raw);
   raw *= rng.range(0.9, 1.1);
   return { dmg: Math.max(1, Math.floor(raw)), miss: false, crit: false };

@@ -713,11 +713,18 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
       else s.STR = Math.floor(s.STR * atkMul);
       return s;
     })();
+    // Per-skill scaling: each entry adds (stat * weight) onto the attack stat.
+    let bonusAtk = 0;
+    if (skill.scalesWith) {
+      for (const e of skill.scalesWith) {
+        bonusAtk += (buffedAttackerStats[e.stat] ?? 0) * (e.weight ?? 1);
+      }
+    }
     let result: DamageResult;
     if (effKind === "magical") {
-      result = magicalDamage(buffedAttackerStats, targetStats0, skill.power, b.rng, blindHitPenalty(attacker));
+      result = magicalDamage(buffedAttackerStats, targetStats0, skill.power, b.rng, blindHitPenalty(attacker), bonusAtk);
     } else {
-      result = physicalDamage(buffedAttackerStats, targetStats0, skill.power, b.rng, blindHitPenalty(attacker));
+      result = physicalDamage(buffedAttackerStats, targetStats0, skill.power, b.rng, blindHitPenalty(attacker), bonusAtk);
     }
     if (result.miss) {
       b.log.push(`${attacker.name} → ${target.name}: miss!`);
