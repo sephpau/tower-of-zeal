@@ -3,8 +3,9 @@ import { PlayerSlot } from "../core/combat";
 import { PLAYER_ROSTER, MAX_PARTY_SIZE, getStage, STAGE_DEFS } from "../units/roster";
 import { topBarHtml } from "./settings";
 import { getProgress } from "../core/progress";
-import { Stats, ZERO_STATS, sumStats } from "../core/stats";
+import { Stats, ZERO_STATS, STAT_KEYS, sumStats } from "../core/stats";
 import { classBaseStats } from "../units/classes";
+import { hexStatSvg } from "./hexStat";
 
 // Effective stats = unit base + class base + allocated custom points.
 // Mirrors what makeCombatant does, so the roster preview matches battle reality.
@@ -124,6 +125,8 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
 
     root.querySelector<HTMLButtonElement>("#confirm")?.addEventListener("click", () => {
       if (picks.length === 0) return;
+      const partyNames = picks.map(p => p.name).join(", ");
+      if (!confirm(`Start the battle with ${picks.length} unit${picks.length === 1 ? "" : "s"} (${partyNames})?\n\nYou can't change your party once the battle begins.`)) return;
       const players: PlayerSlot[] = picks.map((t, i) => ({
         template: t,
         position: { row: i, col: 0 },
@@ -155,20 +158,25 @@ function enemyChipsHtml(enemies: UnitTemplate[], soloBoss: boolean): string {
 function rosterItemHtml(t: UnitTemplate, picks: UnitTemplate[], atCap: boolean): string {
   const selected = picks.some(p => p.id === t.id);
   const locked = atCap && !selected;
-  const cls = ["roster-item",
+  const cls = ["roster-card",
     selected ? "selected" : "",
     locked ? "locked" : "",
   ].filter(Boolean).join(" ");
   const lvl = getProgress(t.id).level;
-  const s = effectiveStats(t);
+  const progress = getProgress(t.id);
+  const classId = progress.classId ?? t.classId;
+  const custom = { ...ZERO_STATS, ...(progress.customStats ?? t.customStats ?? ZERO_STATS) };
+  const s = sumStats(t.unitBaseStats, classBaseStats(classId), custom);
+  const statRows = STAT_KEYS.map(k => `<span class="rs-stat"><span class="rs-stat-k">${k}</span><span class="rs-stat-v">${s[k]}</span></span>`).join("");
   return `
     <div class="${cls}" data-roster="${escapeAttr(t.id)}">
-      <div class="portrait">${t.portrait}<span class="lv-badge">Lv${lvl}</span></div>
-      <div class="info">
-        <div class="name">${escapeHtml(t.name)}</div>
-        <div class="stats">STR ${s.STR} · DEF ${s.DEF} · AGI ${s.AGI} · DEX ${s.DEX} · VIT ${s.VIT} · INT ${s.INT}</div>
+      <div class="rs-portrait-wrap">
+        <div class="rs-portrait">${t.portrait}<span class="lv-badge">Lv${lvl}</span></div>
+        <div class="rs-name">${escapeHtml(t.name)}</div>
         ${selected ? `<div class="placed-tag">Selected</div>` : ""}
       </div>
+      <div class="rs-hex">${hexStatSvg({ unit: t.unitBaseStats, classBase: classBaseStats(classId), custom, size: 140 })}</div>
+      <div class="rs-stat-row">${statRows}</div>
     </div>
   `;
 }

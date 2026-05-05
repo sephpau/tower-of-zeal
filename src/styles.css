@@ -565,7 +565,11 @@ html, body {
   border-radius: 12px;
   padding: 14px;
 }
-.roster-list { display: flex; flex-direction: column; gap: 6px; }
+.roster-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
 .roster-header {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 8px;
@@ -1649,3 +1653,72 @@ html, body {
 .br-confirm-actions .confirm-btn,
 .br-confirm-actions .ghost-btn { min-width: 110px; }
 .admin-row-inline { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+
+/* ---------- Roster card (squad select) ---------- */
+.roster-card {
+  display: grid;
+  grid-template-rows: auto auto;
+  grid-template-columns: 100px 1fr;
+  gap: 8px 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  cursor: pointer;
+  transition: border-color 0.1s, background 0.1s, box-shadow 0.1s;
+}
+.roster-card:hover { background: var(--panel-2); border-color: var(--border-strong); }
+.roster-card.selected {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 0 1px var(--gold-bright) inset, 0 0 16px rgba(244, 211, 94, 0.20);
+}
+.roster-card.locked { opacity: 0.35; cursor: not-allowed; }
+
+.rs-portrait-wrap {
+  grid-row: 1;
+  grid-column: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.rs-portrait {
+  position: relative;
+  width: 80px; height: 80px;
+  font-size: 44px;
+  background: radial-gradient(circle, rgba(244,211,94,0.06) 0%, transparent 70%), var(--bg);
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+  display: grid; place-items: center;
+}
+.roster-card.selected .rs-portrait { border-color: var(--gold-bright); }
+.rs-portrait .lv-badge {
+  position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%);
+}
+.rs-name { font-size: 12px; font-weight: 700; color: var(--text); text-align: center; }
+.roster-card .placed-tag { color: var(--gold-bright); font-size: 10px; font-weight: 700; }
+
+.rs-hex {
+  grid-row: 1;
+  grid-column: 2;
+  display: grid; place-items: center;
+  min-width: 0;
+}
+.rs-hex svg { display: block; max-width: 100%; height: auto; }
+
+.rs-stat-row {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.rs-stat {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  font-size: 10px;
+}
+.rs-stat-k { color: var(--text-dim); font-weight: 700; letter-spacing: 0.04em; }
+.rs-stat-v { color: var(--gold-bright); font-weight: 700; font-size: 12px; }
+
+@media (max-width: 900px) {
+  .roster-list { grid-template-columns: repeat(2, 1fr); }
+}
