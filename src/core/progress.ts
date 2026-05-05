@@ -56,18 +56,20 @@ export function getProgress(templateId: string): UnitProgress {
     equippedSkills: Array.isArray(entry.equippedSkills) ? entry.equippedSkills.slice(0, MAX_EQUIPPED_SKILLS) : [],
   };
   // Lazy heal: strip skills now locked behind a higher unlockLevel (e.g. after
-  // an admin Reset Level dropped the unit back to Lv1) and top up empty slots
-  // with currently-unlocked options. Idempotent — re-runs are no-ops once
-  // the loadout is consistent with the unit's current level.
+  // an admin Reset Level dropped the unit back to Lv1), and only auto-fill
+  // when the loadout is fully empty — partial top-ups happen at battle start
+  // so the user can intentionally run with fewer than MAX skills.
   const before = result.equippedSkills ?? [];
   const trimmed = before.filter(id => {
     const s = getSkill(id);
     return (s.unlockLevel ?? 1) <= result.level;
   });
-  const filled = autoEquipNewlyUnlocked(templateId, result.classId, result.level, trimmed);
-  const changed = filled.length !== before.length || filled.some((id, i) => before[i] !== id);
+  const next = trimmed.length === 0
+    ? autoEquipNewlyUnlocked(templateId, result.classId, result.level, trimmed)
+    : trimmed;
+  const changed = next.length !== before.length || next.some((id, i) => before[i] !== id);
   if (changed) {
-    result.equippedSkills = filled;
+    result.equippedSkills = next;
     map[templateId] = result;
     saveAll(map);
   }
