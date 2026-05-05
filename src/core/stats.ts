@@ -1,14 +1,15 @@
 // Six core stats. The sheet defines a per-stat contribution to each derived value:
 //
-//             phys atk  mag atk  speed  evade  accuracy  crit  phys def  mag def  HP   MP
+//             phys atk  mag atk  speed  evade  accuracy  crit  phys def  mag def  HP   MP   armor pen
 //   STR        3                                                  1         1     3
 //   DEF                                                           3         2     5
 //   AGI        1                  1      1
-//   DEX        1        1                       3         2
+//   DEX        1        1                       3         2                                  +1% / pt
 //   VIT                                                           1         1     10
 //   INT                 3                       1                           2          10
 //
 // Derived stats below sum those contributions. Combat uses these effective values directly.
+// Armor pen (DEX-derived) is applied at damage time in formulas.ts, not stored on Combatant.
 
 export type StatKey = "STR" | "DEF" | "AGI" | "DEX" | "VIT" | "INT";
 
