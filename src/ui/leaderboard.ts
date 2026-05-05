@@ -21,7 +21,7 @@ export function renderLeaderboard(root: HTMLElement, onBack: () => void): void {
       </div>
     </div>
   `;
-  root.querySelector<HTMLButtonElement>("[data-back]")?.addEventListener("click", onBack);
+  root.querySelector<HTMLButtonElement>("#back-btn")?.addEventListener("click", onBack);
 
   void fetchTop(50).then(entries => {
     const rows = root.querySelector<HTMLElement>("#lb-rows");

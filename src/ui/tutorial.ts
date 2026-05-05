@@ -50,21 +50,30 @@ export function renderTutorial(root: HTMLElement, onComplete: () => void, opts: 
       });
     },
     finish,
+    mode,
   );
 }
 
 // ---------- Step 1: pick unit + class ----------
 
-function renderPickStep(root: HTMLElement, onConfirm: (unitId: string, classId: string) => void, onSkip: () => void): void {
+function renderPickStep(root: HTMLElement, onConfirm: (unitId: string, classId: string) => void, onSkip: () => void, mode: "first-run" | "replay" = "first-run"): void {
   let chosenUnit: string | null = null;
   let chosenClass: string | null = null;
+  const isReplay = mode === "replay";
+  const skipLabel = isReplay ? "Exit" : "Skip tutorial";
+  const skipConfirmMsg = isReplay
+    ? "Exit the tutorial replay? Your real progress is unaffected."
+    : "Skip the tutorial? It will be marked complete and your progress will be reset, just like finishing it normally.";
+  const intro = isReplay
+    ? "Tutorial replay. Pick one unit and one class. <strong>Your real progress is preserved — anything you do here is discarded when you exit.</strong>"
+    : "Welcome to Tower of Zeal! Let's start with a quick walkthrough. Pick one unit and one class. <strong>All progress made during this tutorial will reset when it ends.</strong>";
 
   const draw = () => {
     root.innerHTML = `
       <div class="screen-frame">
         ${topBarHtml("Tutorial — Pick a unit & class", false)}
         <div class="tutorial-panel">
-          <p class="tutorial-text">Welcome to Tower of Zeal! Let's start with a quick walkthrough. Pick one unit and one class. <strong>All progress made during this tutorial will reset when it ends.</strong></p>
+          <p class="tutorial-text">${intro}</p>
 
           <div class="tutorial-section-label">Unit</div>
           <div class="tutorial-grid units">
@@ -88,7 +97,7 @@ function renderPickStep(root: HTMLElement, onConfirm: (unitId: string, classId: 
 
           <div class="tutorial-actions">
             <button class="confirm-btn" id="tutorial-confirm" type="button" ${chosenUnit && chosenClass ? "" : "disabled"}>Confirm</button>
-            <button class="confirm-btn secondary" id="tutorial-skip" type="button">Skip tutorial</button>
+            <button class="confirm-btn secondary" id="tutorial-skip" type="button">${skipLabel}</button>
           </div>
         </div>
       </div>
@@ -107,7 +116,7 @@ function renderPickStep(root: HTMLElement, onConfirm: (unitId: string, classId: 
       onConfirm(chosenUnit, chosenClass);
     });
     root.querySelector<HTMLButtonElement>("#tutorial-skip")?.addEventListener("click", () => {
-      if (!confirm("Skip the tutorial? It will be marked complete and your progress will be reset, just like finishing it normally.")) return;
+      if (!confirm(skipConfirmMsg)) return;
       onSkip();
     });
   };
