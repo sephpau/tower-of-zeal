@@ -231,10 +231,15 @@ html, body {
   z-index: -1;
 }
 /* Squad-select roster — keep cape compact so it doesn't overlap the hex chart labels.
-   Reset vertical centering so the wings don't poke past the top of the tile. */
+   Reset vertical centering so the wings don't poke past the top of the tile,
+   except for fire/water mage capes which look better with the default upward shift. */
 .rs-portrait .portrait-cape {
   width: 140%;
   transform: translate(-50%, -50%);
+}
+.rs-portrait .portrait-cape[src*="fire_mage"],
+.rs-portrait .portrait-cape[src*="water_mage"] {
+  transform: translate(-50%, -62%);
 }
 .info { flex: 1; min-width: 0; }
 .name { font-weight: 700; margin-bottom: 4px; font-size: 13px; color: var(--text); }
