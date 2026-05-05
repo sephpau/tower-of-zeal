@@ -32,24 +32,30 @@ export function renderTutorial(root: HTMLElement, onComplete: () => void, opts: 
   const mode = opts.mode ?? "first-run";
   const snapshot = mode === "replay" ? snapshotAllProgress() : null;
 
-  renderPickStep(root, (unitId, classId) => {
-    renderBattleStep(root, unitId, classId, () => {
-      renderStatsStep(root, unitId, () => {
-        if (mode === "replay") {
-          restoreAllProgress(snapshot);
-        } else {
-          resetAllProgress();
-          markComplete();
-        }
-        renderCompletePanel(root, onComplete, mode);
+  const finish = () => {
+    if (mode === "replay") {
+      restoreAllProgress(snapshot);
+    } else {
+      resetAllProgress();
+      markComplete();
+    }
+    renderCompletePanel(root, onComplete, mode);
+  };
+
+  renderPickStep(
+    root,
+    (unitId, classId) => {
+      renderBattleStep(root, unitId, classId, () => {
+        renderStatsStep(root, unitId, finish);
       });
-    });
-  });
+    },
+    finish,
+  );
 }
 
 // ---------- Step 1: pick unit + class ----------
 
-function renderPickStep(root: HTMLElement, onConfirm: (unitId: string, classId: string) => void): void {
+function renderPickStep(root: HTMLElement, onConfirm: (unitId: string, classId: string) => void, onSkip: () => void): void {
   let chosenUnit: string | null = null;
   let chosenClass: string | null = null;
 
@@ -82,6 +88,7 @@ function renderPickStep(root: HTMLElement, onConfirm: (unitId: string, classId: 
 
           <div class="tutorial-actions">
             <button class="confirm-btn" id="tutorial-confirm" type="button" ${chosenUnit && chosenClass ? "" : "disabled"}>Confirm</button>
+            <button class="confirm-btn secondary" id="tutorial-skip" type="button">Skip tutorial</button>
           </div>
         </div>
       </div>
@@ -98,6 +105,10 @@ function renderPickStep(root: HTMLElement, onConfirm: (unitId: string, classId: 
       const cur = getProgress(chosenUnit);
       setProgress(chosenUnit, { ...cur, classId: chosenClass });
       onConfirm(chosenUnit, chosenClass);
+    });
+    root.querySelector<HTMLButtonElement>("#tutorial-skip")?.addEventListener("click", () => {
+      if (!confirm("Skip the tutorial? It will be marked complete and your progress will be reset, just like finishing it normally.")) return;
+      onSkip();
     });
   };
 

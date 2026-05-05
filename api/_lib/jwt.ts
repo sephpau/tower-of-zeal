@@ -46,3 +46,25 @@ export async function verifySession(token: string): Promise<SessionPayload> {
   }
   return { kind: "session", address: payload.address };
 }
+
+export interface RunPayload {
+  kind: "run";
+  runId: string;
+  address: string;
+}
+
+export async function signRun(runId: string, address: string): Promise<string> {
+  return new SignJWT({ kind: "run", runId, address })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("2h")
+    .sign(SECRET);
+}
+
+export async function verifyRun(token: string): Promise<RunPayload> {
+  const { payload } = await jwtVerify(token, SECRET);
+  if (payload.kind !== "run" || typeof payload.runId !== "string" || typeof payload.address !== "string") {
+    throw new Error("invalid run token");
+  }
+  return { kind: "run", runId: payload.runId, address: payload.address };
+}

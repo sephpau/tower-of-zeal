@@ -2,7 +2,7 @@ import { loadSettings } from "./settings";
 import { getEnergy, ENERGY_MAX, msUntilNextRefill } from "../core/energy";
 import { startEnergyTimerLoop, formatRefillCountdown } from "./energyTimer";
 
-export type HomeAction = "tower" | "units" | "settings" | "tutorial";
+export type HomeAction = "tower" | "units" | "settings" | "tutorial" | "leaderboard";
 
 export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void): void {
   const s = loadSettings();
@@ -26,6 +26,9 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
         </button>
         <button class="home-tile" data-action="units" type="button">
           <div class="tile-title">Units</div>
+        </button>
+        <button class="home-tile" data-action="leaderboard" type="button">
+          <div class="tile-title">Leaderboard</div>
         </button>
       </div>
     </div>

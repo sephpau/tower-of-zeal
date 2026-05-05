@@ -3,6 +3,8 @@ import { renderBattle, updateLive, PostBattleAction } from "./ui/battle";
 import { renderSquadSelect, SquadResult } from "./ui/squadSelect";
 import { renderHome, HomeAction } from "./ui/home";
 import { renderStageSelect, StagePick, SURVIVAL_ENERGY_COST } from "./ui/stageSelect";
+
+const SURVIVAL_XP_MULT = 1 / 50;
 import { renderUnitsScreen } from "./ui/unitsScreen";
 import { renderSettings } from "./ui/settings";
 import { consumeEnergy, getEnergy } from "./core/energy";
@@ -16,7 +18,9 @@ import { renderWalletGate } from "./ui/walletGate";
 import { renderIgnGate } from "./ui/ignGate";
 import { loadSettings, saveSettings } from "./ui/settings";
 import { renderTutorial, isTutorialComplete } from "./ui/tutorial";
+import { renderLeaderboard } from "./ui/leaderboard";
 import { playBgm, stopBgm } from "./core/bgm";
+import { startRun, reportFloor, endRun, abortLiveRun } from "./core/leaderboard";
 
 const root = document.getElementById("app");
 if (!root) throw new Error("#app not found");
@@ -77,7 +81,7 @@ function startApp(): void {
   requestAnimationFrame(t => { lastT = t; frame(t); });
 }
 
-type Screen = "home" | "stage_select" | "squad_select" | "battle" | "units" | "settings";
+type Screen = "home" | "stage_select" | "squad_select" | "battle" | "units" | "settings" | "leaderboard";
 
 interface CarryEntry { hp: number; mp: number; xp: number; level: number; availablePoints: number; customStats: Stats; classId?: string; skillCooldowns?: Record<string, number>; gauge?: number; alive?: boolean }
 
@@ -103,6 +107,12 @@ function handleAction(unitId: string, skillId: string, targetId: string): void {
 }
 
 function showHome(): void {
+  // If we're abandoning a live survival run mid-flight, finalize it so any
+  // floors already cleared count toward the leaderboard.
+  if (mode === "survival" && battle && battle.state.kind !== "victory" && battle.state.kind !== "defeat") {
+    void endRun();
+  }
+  abortLiveRun();
   screen = "home";
   battle = null;
   playBgm();
@@ -114,6 +124,12 @@ function onHomeAction(a: HomeAction): void {
   else if (a === "units") showUnits();
   else if (a === "settings") showSettings();
   else if (a === "tutorial") showTutorialReplay();
+  else if (a === "leaderboard") showLeaderboard();
+}
+
+function showLeaderboard(): void {
+  screen = "leaderboard";
+  renderLeaderboard(root!, showHome);
 }
 
 function showTutorialReplay(): void {
@@ -174,7 +190,8 @@ function startBattleFromSquad(squad: SquadResult): void {
     survivalParty = squad.players;
     survivalFloor = 1;
     survivalCarry = {};
-    runFloor(squad.players, 1, 0.5);
+    void startRun();
+    runFloor(squad.players, 1, SURVIVAL_XP_MULT);
   } else {
     if (getEnergy() <= 0) { alert("No energy left."); return; }
     if (!consumeEnergy(1)) { alert("Energy could not be consumed."); return; }
@@ -254,21 +271,24 @@ function frame(t: number): void {
       }
       if (mode === "survival") {
         captureCarry(battle);
+        void reportFloor(survivalFloor);
         if (survivalFloor < STAGE_DEFS.length) {
           survivalFloor += 1;
           // Brief delay before auto-advance so player can see the Victory banner.
           setTimeout(() => {
             if (mode !== "survival" || !survivalParty) return;
-            runFloor(survivalParty, survivalFloor, 0.5);
+            runFloor(survivalParty, survivalFloor, SURVIVAL_XP_MULT);
           }, 1500);
         } else {
           recordClear(STAGE_DEFS.length);
+          void endRun();
         }
       }
     }
 
     if (!battleConcluded && battle.state.kind === "defeat") {
       battleConcluded = true;
+      if (mode === "survival") void endRun();
       // Persisted by combat.ts already.
     }
 
