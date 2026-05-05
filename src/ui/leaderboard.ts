@@ -1,37 +1,63 @@
-import { fetchTop, formatMs, LbEntry } from "../core/leaderboard";
+import { fetchTop, formatMs, LbEntry, LbMode } from "../core/leaderboard";
 import { topBarHtml } from "./settings";
 import { loadSession } from "../auth/session";
 
+const MODE_LABEL: Record<LbMode, string> = {
+  survival: "Survival",
+  boss_raid: "Boss Raid",
+};
+const FLOOR_LABEL: Record<LbMode, string> = {
+  survival: "Floor",
+  boss_raid: "Bosses",
+};
+
 export function renderLeaderboard(root: HTMLElement, onBack: () => void): void {
   const myAddr = loadSession()?.address.toLowerCase() ?? null;
+  let mode: LbMode = "survival";
 
-  root.innerHTML = `
-    <div class="screen-frame">
-      ${topBarHtml("Survival Leaderboard", true)}
-      <div class="lb-panel">
-        <div class="lb-header-row">
-          <span class="lb-col rank">#</span>
-          <span class="lb-col player">Player</span>
-          <span class="lb-col floor">Floor</span>
-          <span class="lb-col time">Time</span>
+  const draw = () => {
+    root.innerHTML = `
+      <div class="screen-frame">
+        ${topBarHtml("Leaderboard", true)}
+        <div class="lb-mode-tabs">
+          <button class="lb-mode-tab ${mode === "survival" ? "active" : ""}" data-mode="survival" type="button">${MODE_LABEL.survival}</button>
+          <button class="lb-mode-tab ${mode === "boss_raid" ? "active" : ""}" data-mode="boss_raid" type="button">${MODE_LABEL.boss_raid}</button>
         </div>
-        <div class="lb-rows" id="lb-rows">
-          <div class="lb-empty">Loading…</div>
+        <div class="lb-panel">
+          <div class="lb-header-row">
+            <span class="lb-col rank">#</span>
+            <span class="lb-col player">Player</span>
+            <span class="lb-col floor">${FLOOR_LABEL[mode]}</span>
+            <span class="lb-col time">Time</span>
+          </div>
+          <div class="lb-rows" id="lb-rows">
+            <div class="lb-empty">Loading…</div>
+          </div>
         </div>
       </div>
-    </div>
-  `;
-  root.querySelector<HTMLButtonElement>("#back-btn")?.addEventListener("click", onBack);
+    `;
+    root.querySelector<HTMLButtonElement>("#back-btn")?.addEventListener("click", onBack);
+    root.querySelectorAll<HTMLButtonElement>(".lb-mode-tab").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const m = btn.dataset.mode as LbMode;
+        if (m === mode) return;
+        mode = m;
+        draw();
+      });
+    });
 
-  void fetchTop(50).then(entries => {
-    const rows = root.querySelector<HTMLElement>("#lb-rows");
-    if (!rows) return;
-    if (entries.length === 0) {
-      rows.innerHTML = `<div class="lb-empty">No runs yet — be the first!</div>`;
-      return;
-    }
-    rows.innerHTML = entries.map(e => rowHtml(e, myAddr)).join("");
-  });
+    void fetchTop(mode, 50).then(entries => {
+      const rows = root.querySelector<HTMLElement>("#lb-rows");
+      if (!rows) return;
+      if (entries.length === 0) {
+        rows.innerHTML = `<div class="lb-empty">No runs yet — be the first!</div>`;
+        return;
+      }
+      rows.innerHTML = entries.map(e => rowHtml(e, myAddr)).join("");
+    });
+  };
+
+  draw();
 }
 
 function rowHtml(e: LbEntry, myAddr: string | null): string {

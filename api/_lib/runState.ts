@@ -3,14 +3,25 @@ import { getJson, setJson, del, zaddGt, incrWithExpire, hset, hmget } from "./re
 // A live survival run. Stored at Redis key `run:{runId}` with a TTL.
 export interface RunState {
   address: string;
+  mode: LbMode;
   startedAt: number;       // ms epoch (server clock)
-  currentFloor: number;    // last floor cleared; 0 = none cleared yet
+  currentFloor: number;    // count of bosses/floors cleared; 0 = none cleared yet
   lastFloorAt: number;     // ms epoch when currentFloor was cleared (or startedAt)
   status: "live" | "ended";
 }
 
 const RUN_TTL_SECONDS = 60 * 60 * 2; // 2 hours — must beat the JWT exp.
-export const LB_KEY = "lb:survival:v1";
+export type LbMode = "survival" | "boss_raid";
+export const LB_KEYS: Record<LbMode, string> = {
+  survival: "lb:survival:v1",
+  boss_raid: "lb:bossraid:v1",
+};
+// Back-compat default key (existing references).
+export const LB_KEY = LB_KEYS.survival;
+export function lbKeyFor(mode: LbMode): string { return LB_KEYS[mode]; }
+export function isLbMode(s: unknown): s is LbMode {
+  return s === "survival" || s === "boss_raid";
+}
 export const IGN_HASH_KEY = "igns";
 export const IGN_SET_AT_KEY = "ign_set_at";
 const MAX_IGN_LEN = 24;
@@ -95,6 +106,6 @@ export function decodeScore(score: number): { floor: number; ms: number } {
   return { floor, ms };
 }
 
-export async function submitToLeaderboard(address: string, floor: number, ms: number): Promise<void> {
-  await zaddGt(LB_KEY, encodeScore(floor, ms), address.toLowerCase());
+export async function submitToLeaderboard(address: string, floor: number, ms: number, mode: LbMode = "survival"): Promise<void> {
+  await zaddGt(lbKeyFor(mode), encodeScore(floor, ms), address.toLowerCase());
 }

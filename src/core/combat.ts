@@ -208,8 +208,16 @@ export interface BattleOptions {
     gauge?: number;
     alive?: boolean;
   }>;
-  /** XP multiplier applied at end-of-battle distribution. Default 1. Survival uses 0.5. */
+  /** XP multiplier applied at end-of-battle distribution. Default 1. Survival uses 1/50. */
   xpMultiplier?: number;
+  /** Boss Raid: scale boss stats 3x and atb-speed 1.5x. Set per battle. */
+  bossRaid?: boolean;
+  /** Boss Raid: stacking 5%-per-pick reduction applied on top of bossRaid scaling. */
+  bossStatReduction?: number;
+  /** Boss Raid: stacking 10%-per-pick boost applied to player stats and atb-speed. */
+  playerStatBoost?: number;
+  /** Boss Raid: heal player HP/MP by 20% of max at battle start (consumed once per pick). */
+  pendingHeal?: boolean;
 }
 
 export function startBattle(
@@ -241,6 +249,36 @@ export function startBattle(
     return c;
   });
   const enemyCombatants = placeEnemies(enemies, rng);
+
+  // Boss Raid: scale enemy stats (3x effective, 1.5x atb-speed), then apply
+  // any stacking bossStatReduction (5% per pick).
+  if (opts.bossRaid) {
+    const reduction = Math.max(0, Math.min(0.95, opts.bossStatReduction ?? 0));
+    const statMul = 3 * (1 - reduction);
+    const speedMul = 1.5 * (1 - reduction);
+    for (const c of enemyCombatants) {
+      applyBossScaling(c, statMul, speedMul);
+    }
+  }
+
+  // Boss Raid: stacking player stat boost (10% per pick) — affects all players.
+  const boost = Math.max(0, opts.playerStatBoost ?? 0);
+  if (boost > 0) {
+    const mul = 1 + boost;
+    for (const c of playerCombatants) {
+      applyPlayerBoost(c, mul);
+    }
+  }
+
+  // Boss Raid: heal 20% HP/MP at battle start (consumed once per pick by caller).
+  if (opts.pendingHeal) {
+    for (const c of playerCombatants) {
+      if (!c.alive) continue;
+      c.hp = Math.min(c.maxHp, c.hp + Math.floor(c.maxHp * 0.2));
+      c.mp = Math.min(c.maxMp, c.mp + Math.floor(c.maxMp * 0.2));
+    }
+  }
+
   return {
     state: { kind: "ticking" },
     combatants: [...playerCombatants, ...enemyCombatants],
@@ -249,6 +287,47 @@ export function startBattle(
     rng,
     actionLock: 0,
     xpMultiplier: opts.xpMultiplier ?? 1,
+  };
+}
+
+function applyBossScaling(c: Combatant, statMul: number, speedMul: number): void {
+  // Scale input stats so derived combat values (physAtk, magAtk, defs, etc.)
+  // come out roughly statMul times stronger. We override atbSpeed afterward
+  // since AGI feeds into both speed and damage; we want speed at speedMul, not statMul.
+  const origAtb = c.atbSpeed;
+  c.stats = scaleStats(c.stats, statMul);
+  const d = deriveStats(c.stats);
+  c.maxHp = Math.max(1, Math.round(d.maxHp));
+  c.maxMp = Math.max(0, Math.round(d.maxMp));
+  c.hp = c.maxHp;
+  c.mp = c.maxMp;
+  c.atbSpeed = origAtb * speedMul;
+}
+
+function applyPlayerBoost(c: Combatant, mul: number): void {
+  const origAtb = c.atbSpeed;
+  c.stats = scaleStats(c.stats, mul);
+  const d = deriveStats(c.stats);
+  const newMaxHp = Math.max(1, Math.round(d.maxHp));
+  const newMaxMp = Math.max(0, Math.round(d.maxMp));
+  // Preserve current HP/MP ratio when scaling caps.
+  const hpRatio = c.maxHp > 0 ? c.hp / c.maxHp : 1;
+  const mpRatio = c.maxMp > 0 ? c.mp / c.maxMp : 1;
+  c.maxHp = newMaxHp;
+  c.maxMp = newMaxMp;
+  c.hp = Math.round(newMaxHp * hpRatio);
+  c.mp = Math.round(newMaxMp * mpRatio);
+  c.atbSpeed = origAtb * mul;
+}
+
+function scaleStats(s: Stats, mul: number): Stats {
+  return {
+    STR: s.STR * mul,
+    INT: s.INT * mul,
+    DEX: s.DEX * mul,
+    AGI: s.AGI * mul,
+    DEF: s.DEF * mul,
+    VIT: s.VIT * mul,
   };
 }
 

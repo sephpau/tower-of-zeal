@@ -634,3 +634,6 @@ export const STAGE_DEFS: StageEnemyDef[] = [
 export function getStage(id: number): StageEnemyDef | null {
   return STAGE_DEFS.find(s => s.id === id) ?? null;
 }
+
+// Boss-only floor list, in order. Used by the Boss Raid game mode.
+export const BOSS_RAID_FLOORS: StageEnemyDef[] = STAGE_DEFS.filter(s => s.soloBoss === true);

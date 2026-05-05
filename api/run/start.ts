@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { nanoid } from "nanoid";
 import { verifySession, signRun } from "../_lib/jwt.js";
-import { saveRun, bumpStartCounter, MAX_STARTS_PER_HOUR } from "../_lib/runState.js";
+import { saveRun, bumpStartCounter, MAX_STARTS_PER_HOUR, isLbMode } from "../_lib/runState.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== "POST") { res.status(405).json({ error: "method" }); return; }
@@ -20,10 +20,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const starts = await bumpStartCounter(address);
     if (starts > MAX_STARTS_PER_HOUR) { res.status(429).json({ error: "too many runs" }); return; }
 
+    const body = (req.body ?? {}) as { mode?: unknown };
+    const mode = isLbMode(body.mode) ? body.mode : "survival";
+
     const runId = nanoid(16);
     const now = Date.now();
     await saveRun(runId, {
       address,
+      mode,
       startedAt: now,
       currentFloor: 0,
       lastFloorAt: now,

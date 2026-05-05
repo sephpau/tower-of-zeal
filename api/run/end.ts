@@ -34,7 +34,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       if (avg < MIN_AVG_FLOOR_MS) {
         rejectedReason = "average floor time below threshold";
       } else {
-        await submitToLeaderboard(state.address, floor, totalMs);
+        await submitToLeaderboard(state.address, floor, totalMs, state.mode);
         // Cooldown is intentionally silent here — keep the old name on conflict.
         if (ign) await setIgnIfAllowed(state.address, ign);
         submitted = true;

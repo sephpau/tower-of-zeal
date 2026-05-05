@@ -2,15 +2,16 @@ import { Battle, startBattle, tick, queueAction, surrenderBattle, persistPartyPr
 import { renderBattle, updateLive, PostBattleAction } from "./ui/battle";
 import { renderSquadSelect, SquadResult } from "./ui/squadSelect";
 import { renderHome, HomeAction } from "./ui/home";
-import { renderStageSelect, StagePick, SURVIVAL_ENERGY_COST } from "./ui/stageSelect";
+import { renderStageSelect, StagePick, SURVIVAL_ENERGY_COST, BOSS_RAID_ENERGY_COST } from "./ui/stageSelect";
 
 const SURVIVAL_XP_MULT = 1 / 50;
+const BOSS_RAID_XP_MULT = 1 / 10;
 import { renderUnitsScreen } from "./ui/unitsScreen";
 import { renderSettings } from "./ui/settings";
 import { consumeEnergy, getEnergy } from "./core/energy";
 import { recordClear } from "./core/clears";
 import { installGlobalClickSounds } from "./core/audio";
-import { STAGE_DEFS, getStage } from "./units/roster";
+import { STAGE_DEFS, getStage, BOSS_RAID_FLOORS } from "./units/roster";
 import { Stats } from "./core/stats";
 import { loadSession, validateSession, clearSession, Session } from "./auth/session";
 import { setUserScope } from "./auth/scope";
@@ -20,6 +21,7 @@ import { loadSettings, saveSettings } from "./ui/settings";
 import { renderTutorial, isTutorialComplete } from "./ui/tutorial";
 import { renderLeaderboard } from "./ui/leaderboard";
 import { fetchServerIgn, saveServerIgn } from "./auth/ign";
+import { showBossRaidReward, BossRaidReward } from "./ui/bossRaidReward";
 import { playBgm, stopBgm } from "./core/bgm";
 import { startRun, reportFloor, endRun, abortLiveRun } from "./core/leaderboard";
 
@@ -110,10 +112,18 @@ let lastAliveCount: number = 0;
 
 // Mode state.
 let currentStageId = 1;
-let mode: "floor" | "survival" = "floor";
+let mode: "floor" | "survival" | "boss_raid" = "floor";
 let survivalFloor = 1;
 let survivalParty: SquadResult["players"] | null = null;
 let survivalCarry: Record<string, CarryEntry> = {};
+
+// Boss Raid state.
+let brIndex = 0;                              // index into BOSS_RAID_FLOORS, 0 = first boss
+let brParty: SquadResult["players"] | null = null;
+let brCarry: Record<string, CarryEntry> = {};
+let brBossStatReduction = 0;                  // stacking 5%-per-pick
+let brPlayerStatBoost = 0;                    // stacking 10%-per-pick
+let brPendingHeal = false;                    // one-shot 20% HP/MP at next floor start
 let recordedThisBattle = false;
 let battleConcluded = false;
 
@@ -123,9 +133,9 @@ function handleAction(unitId: string, skillId: string, targetId: string): void {
 }
 
 function showHome(): void {
-  // If we're abandoning a live survival run mid-flight, finalize it so any
+  // If abandoning a live survival/boss-raid run mid-flight, finalize it so any
   // floors already cleared count toward the leaderboard.
-  if (mode === "survival" && battle && battle.state.kind !== "victory" && battle.state.kind !== "defeat") {
+  if ((mode === "survival" || mode === "boss_raid") && battle && battle.state.kind !== "victory" && battle.state.kind !== "defeat") {
     void endRun();
   }
   abortLiveRun();
@@ -166,7 +176,7 @@ function onStagePicked(pick: StagePick): void {
     mode = "floor";
     currentStageId = pick.id;
     showSquadSelect();
-  } else {
+  } else if (pick.kind === "survival") {
     if (getEnergy() < SURVIVAL_ENERGY_COST) {
       alert(`Survival Mode requires ${SURVIVAL_ENERGY_COST} energy.`);
       return;
@@ -176,6 +186,20 @@ function onStagePicked(pick: StagePick): void {
     survivalFloor = 1;
     survivalParty = null;
     survivalCarry = {};
+    showSquadSelect();
+  } else { // boss_raid
+    if (getEnergy() < BOSS_RAID_ENERGY_COST) {
+      alert(`Boss Raid requires ${BOSS_RAID_ENERGY_COST} energy.`);
+      return;
+    }
+    mode = "boss_raid";
+    currentStageId = BOSS_RAID_FLOORS[0]?.id ?? 1;
+    brIndex = 0;
+    brParty = null;
+    brCarry = {};
+    brBossStatReduction = 0;
+    brPlayerStatBoost = 0;
+    brPendingHeal = false;
     showSquadSelect();
   }
 }
@@ -206,13 +230,53 @@ function startBattleFromSquad(squad: SquadResult): void {
     survivalParty = squad.players;
     survivalFloor = 1;
     survivalCarry = {};
-    void startRun();
+    void startRun("survival");
     runFloor(squad.players, 1, SURVIVAL_XP_MULT);
+  } else if (mode === "boss_raid") {
+    if (!consumeEnergy(BOSS_RAID_ENERGY_COST)) {
+      alert("Energy could not be consumed.");
+      return;
+    }
+    brParty = squad.players;
+    brIndex = 0;
+    brCarry = {};
+    void startRun("boss_raid");
+    const firstBoss = BOSS_RAID_FLOORS[0];
+    if (firstBoss) runBossRaidFloor(squad.players, firstBoss.id);
   } else {
     if (getEnergy() <= 0) { alert("No energy left."); return; }
     if (!consumeEnergy(1)) { alert("Energy could not be consumed."); return; }
     runFloor(squad.players, currentStageId, 1.0);
   }
+}
+
+function applyBossRaidReward(r: BossRaidReward): void {
+  if (r === "heal") brPendingHeal = true;
+  else if (r === "boost") brPlayerStatBoost += 0.10;
+  else if (r === "weaken") brBossStatReduction = Math.min(0.95, brBossStatReduction + 0.05);
+}
+
+function runBossRaidFloor(party: SquadResult["players"], floorId: number): void {
+  const stage = getStage(floorId);
+  if (!stage) { showHome(); return; }
+  const opts: BattleOptions = {
+    xpMultiplier: BOSS_RAID_XP_MULT,
+    bossRaid: true,
+    bossStatReduction: brBossStatReduction,
+    playerStatBoost: brPlayerStatBoost,
+    pendingHeal: brPendingHeal,
+  };
+  if (Object.keys(brCarry).length > 0) opts.carryover = brCarry;
+  brPendingHeal = false; // consumed
+  battle = startBattle(party, stage.enemies, undefined, opts);
+  screen = "battle";
+  stopBgm();
+  recordedThisBattle = false;
+  battleConcluded = false;
+  lastStateKind = battle.state.kind;
+  lastCombatantCount = battle.combatants.length;
+  lastAliveCount = battle.combatants.filter(c => c.alive).length;
+  renderBattle(root!, battle, handleAction, onPostBattle);
 }
 
 function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: number): void {
@@ -244,10 +308,16 @@ function shouldShowPostButtons(b: Battle): boolean {
 }
 
 function captureCarry(b: Battle): void {
-  survivalCarry = {};
+  survivalCarry = captureCarryFrom(b);
+}
+function captureBrCarry(b: Battle): void {
+  brCarry = captureCarryFrom(b);
+}
+function captureCarryFrom(b: Battle): Record<string, CarryEntry> {
+  const out: Record<string, CarryEntry> = {};
   for (const c of b.combatants) {
     if (c.side !== "player") continue;
-    survivalCarry[c.templateId] = {
+    out[c.templateId] = {
       hp: c.hp,
       mp: c.mp,
       xp: c.xp,
@@ -260,6 +330,7 @@ function captureCarry(b: Battle): void {
       alive: c.alive,
     };
   }
+  return out;
 }
 
 function onPostBattle(a: PostBattleAction): void {
@@ -300,11 +371,30 @@ function frame(t: number): void {
           void endRun();
         }
       }
+      if (mode === "boss_raid") {
+        captureBrCarry(battle);
+        brIndex += 1;
+        void reportFloor(brIndex);
+        if (brIndex < BOSS_RAID_FLOORS.length) {
+          // Pause briefly to let the Victory banner read, then offer the boon picker.
+          setTimeout(() => {
+            if (mode !== "boss_raid" || !brParty) return;
+            showBossRaidReward(root!, (reward) => {
+              applyBossRaidReward(reward);
+              const nextBoss = BOSS_RAID_FLOORS[brIndex];
+              if (mode !== "boss_raid" || !brParty || !nextBoss) return;
+              runBossRaidFloor(brParty, nextBoss.id);
+            });
+          }, 1200);
+        } else {
+          void endRun();
+        }
+      }
     }
 
     if (!battleConcluded && battle.state.kind === "defeat") {
       battleConcluded = true;
-      if (mode === "survival") void endRun();
+      if (mode === "survival" || mode === "boss_raid") void endRun();
       // Persisted by combat.ts already.
     }
 

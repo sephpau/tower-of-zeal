@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { zrevrangeWithScores, hmget } from "../_lib/redis.js";
-import { LB_KEY, IGN_HASH_KEY, decodeScore } from "../_lib/runState.js";
+import { lbKeyFor, IGN_HASH_KEY, decodeScore, isLbMode } from "../_lib/runState.js";
 
 // Public endpoint — no auth needed to read top scores.
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -13,8 +13,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     if (Number.isFinite(n) && n > 0 && n <= 200) limit = n;
   }
 
+  const modeRaw = req.query.mode;
+  const mode = isLbMode(modeRaw) ? modeRaw : "survival";
+
   try {
-    const rows = await zrevrangeWithScores(LB_KEY, 0, limit - 1);
+    const rows = await zrevrangeWithScores(lbKeyFor(mode), 0, limit - 1);
     const igns = rows.length > 0 ? await hmget(IGN_HASH_KEY, rows.map(r => r.member)) : [];
     const entries = rows.map((r, i) => {
       const { floor, ms } = decodeScore(r.score);

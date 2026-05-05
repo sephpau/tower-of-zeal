@@ -13,11 +13,14 @@ export interface LbEntry {
   ms: number;
 }
 
+export type LbMode = "survival" | "boss_raid";
+
 export interface LiveRun {
   runId: string;
   token: string;
   startedAt: number; // local clock, for UI timer only
   highestFloor: number;
+  mode: LbMode;
 }
 
 let live: LiveRun | null = null;
@@ -28,17 +31,18 @@ function sessionToken(): string | null {
   return loadSession()?.token ?? null;
 }
 
-export async function startRun(): Promise<LiveRun | null> {
+export async function startRun(mode: LbMode = "survival"): Promise<LiveRun | null> {
   const sess = sessionToken();
   if (!sess) return null;
   try {
     const r = await fetch("/api/run/start", {
       method: "POST",
       headers: { Authorization: `Bearer ${sess}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ mode }),
     });
     if (!r.ok) return null;
     const data = await r.json() as { runId: string; token: string };
-    live = { runId: data.runId, token: data.token, startedAt: Date.now(), highestFloor: 0 };
+    live = { runId: data.runId, token: data.token, startedAt: Date.now(), highestFloor: 0, mode };
     return live;
   } catch {
     return null;
@@ -77,9 +81,9 @@ export async function endRun(): Promise<{ floor: number; totalMs: number } | nul
 
 export function abortLiveRun(): void { live = null; }
 
-export async function fetchTop(limit = 50): Promise<LbEntry[]> {
+export async function fetchTop(mode: LbMode = "survival", limit = 50): Promise<LbEntry[]> {
   try {
-    const r = await fetch(`/api/leaderboard/top?limit=${limit}`);
+    const r = await fetch(`/api/leaderboard/top?mode=${mode}&limit=${limit}`);
     if (!r.ok) return [];
     const data = await r.json() as { entries: LbEntry[] };
     return data.entries ?? [];

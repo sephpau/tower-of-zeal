@@ -4,8 +4,12 @@ import { STAGE_DEFS } from "../units/roster";
 import { getMaxCleared } from "../core/clears";
 
 export const SURVIVAL_ENERGY_COST: number = 3;
+export const BOSS_RAID_ENERGY_COST: number = 3;
 
-export type StagePick = { kind: "floor"; id: number } | { kind: "survival" };
+export type StagePick =
+  | { kind: "floor"; id: number }
+  | { kind: "survival" }
+  | { kind: "boss_raid" };
 
 export function renderStageSelect(root: HTMLElement, onPick: (pick: StagePick) => void, onBack: () => void): void {
   const energy = getEnergy();
@@ -22,13 +26,24 @@ export function renderStageSelect(root: HTMLElement, onPick: (pick: StagePick) =
         <div class="stage-grid">
           ${STAGE_DEFS.map(s => stageTileHtml(s, energy, maxCleared)).join("")}
         </div>
-        <button class="survival-tile" id="survival-tile" type="button" ${energy < SURVIVAL_ENERGY_COST ? "disabled" : ""}>
-          <div class="survival-art"></div>
-          <div class="survival-overlay">
-            <div class="survival-title">Survival Mode!</div>
-            <div class="survival-sub">(${SURVIVAL_ENERGY_COST} energy spent per run)</div>
-          </div>
-        </button>
+        <div class="side-tiles">
+          <button class="survival-tile" id="survival-tile" type="button" ${energy < SURVIVAL_ENERGY_COST ? "disabled" : ""}>
+            <div class="survival-art"></div>
+            <div class="survival-overlay">
+              <div class="survival-title">Survival Mode!</div>
+              <div class="survival-sub">(${SURVIVAL_ENERGY_COST} energy spent per run)</div>
+            </div>
+          </button>
+          <button class="bossraid-tile" id="bossraid-tile" type="button" ${energy < BOSS_RAID_ENERGY_COST ? "disabled" : ""}>
+            <div class="bossraid-art">
+              <div class="bossraid-eye"></div>
+            </div>
+            <div class="bossraid-overlay">
+              <div class="bossraid-title">Boss Raid</div>
+              <div class="bossraid-sub">(${BOSS_RAID_ENERGY_COST} energy spent per run)</div>
+            </div>
+          </button>
+        </div>
       </div>
     </div>
   `;
@@ -47,6 +62,10 @@ export function renderStageSelect(root: HTMLElement, onPick: (pick: StagePick) =
   root.querySelector<HTMLButtonElement>("#survival-tile")?.addEventListener("click", () => {
     if (getEnergy() < SURVIVAL_ENERGY_COST) return;
     onPick({ kind: "survival" });
+  });
+  root.querySelector<HTMLButtonElement>("#bossraid-tile")?.addEventListener("click", () => {
+    if (getEnergy() < BOSS_RAID_ENERGY_COST) return;
+    onPick({ kind: "boss_raid" });
   });
 
   // Live countdown — tick every second; stop when the timer element disappears (screen change).
