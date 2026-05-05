@@ -85,7 +85,12 @@ function unitCardHtml(t: UnitTemplate, isPicking: boolean, devUnlock: boolean, a
         <div class="unit-card-head-info">
           <div class="unit-card-name">${escapeHtml(t.name)}</div>
           <div class="unit-card-hp">HP ${maxHp} · MP ${maxMp} · Class: ${escapeHtml(className)}</div>
-          ${isPlayer && admin ? `<button class="admin-btn" data-admin-levelup="${escapeAttr(t.id)}" type="button" ${lvl >= MAX_LEVEL ? "disabled" : ""}>+ Level</button>` : ""}
+          ${isPlayer && admin ? `
+            <div class="admin-row-inline">
+              <button class="admin-btn" data-admin-levelup="${escapeAttr(t.id)}" type="button" ${lvl >= MAX_LEVEL ? "disabled" : ""}>+ Level</button>
+              <button class="admin-btn" data-admin-reset-stats="${escapeAttr(t.id)}" type="button">Reset Stats</button>
+            </div>
+          ` : ""}
         </div>
       </div>
 
@@ -443,6 +448,21 @@ function wireAdminControls(root: HTMLElement, admin: boolean, redraw: () => void
         level: cur.level + 1,
         xp: 0,
         availablePoints: cur.availablePoints + 4,
+      });
+      redraw();
+    });
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-admin-reset-stats]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const tid = btn.dataset.adminResetStats!;
+      const cur = getProgress(tid);
+      const refund = STAT_KEYS.reduce((sum, k) => sum + (cur.customStats[k] ?? 0), 0);
+      if (refund === 0 && cur.availablePoints === 0) return;
+      if (!confirm(`Refund ${refund} allocated point${refund === 1 ? "" : "s"} back to available? This zeroes out the unit's custom stat allocation.`)) return;
+      setProgress(tid, {
+        ...cur,
+        customStats: { ...ZERO_STATS },
+        availablePoints: cur.availablePoints + refund,
       });
       redraw();
     });

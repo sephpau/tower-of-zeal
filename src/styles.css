@@ -1648,3 +1648,4 @@ html, body {
 .br-confirm-actions { display: flex; justify-content: center; gap: 12px; }
 .br-confirm-actions .confirm-btn,
 .br-confirm-actions .ghost-btn { min-width: 110px; }
+.admin-row-inline { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
