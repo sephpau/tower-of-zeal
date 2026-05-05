@@ -1,4 +1,4 @@
-import { UnitTemplate } from "../units/types";
+import { UnitTemplate, DamageResistance } from "../units/types";
 import { PlayerSlot } from "../core/combat";
 import { PLAYER_ROSTER, MAX_PARTY_SIZE, getStage, STAGE_DEFS, unitBaseAtLevel } from "../units/roster";
 import { topBarHtml } from "./settings";
@@ -142,9 +142,8 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
 function enemyChipsHtml(enemies: UnitTemplate[], soloBoss: boolean): string {
   if (soloBoss) {
     const e = enemies[0];
-    return `<div class="enemy-chip boss">${e.portrait} ${e.name} · BOSS</div>`;
+    return `<div class="enemy-chip boss" tabindex="0">${e.portrait} ${e.name} · BOSS${enemyTipHtml(e, 1)}</div>`;
   }
-  // Group same-template enemies into "Slime ×3"
   const counts = new Map<string, { t: UnitTemplate; n: number }>();
   for (const e of enemies) {
     const cur = counts.get(e.id);
@@ -152,8 +151,39 @@ function enemyChipsHtml(enemies: UnitTemplate[], soloBoss: boolean): string {
     else counts.set(e.id, { t: e, n: 1 });
   }
   return [...counts.values()].map(({ t, n }) =>
-    `<div class="enemy-chip">${t.portrait} ${t.name}${n > 1 ? ` ×${n}` : ""}</div>`
+    `<div class="enemy-chip" tabindex="0">${t.portrait} ${t.name}${n > 1 ? ` ×${n}` : ""}${enemyTipHtml(t, n)}</div>`
   ).join("");
+}
+
+function enemyTipHtml(t: UnitTemplate, count: number): string {
+  const lvl = t.level ?? 1;
+  const tags = resistTags(t.resist);
+  const atk = t.atkMultiplier && t.atkMultiplier > 1
+    ? `<span class="stt-tag stt-warn">×${t.atkMultiplier} ATK</span>`
+    : "";
+  return `
+    <div class="stage-tooltip stage-tooltip-anchor-left" role="tooltip">
+      <div class="stt-head">
+        <span class="stt-title">${escapeHtml(t.name)}${count > 1 ? ` ×${count}` : ""}</span>
+        <span class="stt-meta">Lv${lvl}</span>
+      </div>
+      <div class="stt-rows">
+        <div class="stt-row">${tags || `<span class="stt-meta">No special resists</span>`}${atk}</div>
+      </div>
+    </div>
+  `;
+}
+
+function resistTags(r: DamageResistance | undefined): string {
+  if (!r) return "";
+  const tags: string[] = [];
+  for (const key of ["physical", "magical", "melee", "range"] as const) {
+    const v = r[key];
+    if (v === undefined) continue;
+    if (v < 1) tags.push(`<span class="stt-tag stt-resist">resists ${key}</span>`);
+    else if (v > 1) tags.push(`<span class="stt-tag stt-weak">weak ${key}</span>`);
+  }
+  return tags.join("");
 }
 
 function rosterItemHtml(t: UnitTemplate, picks: UnitTemplate[], atCap: boolean): string {
