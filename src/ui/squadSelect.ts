@@ -6,7 +6,7 @@ import { getProgress } from "../core/progress";
 import { Stats, ZERO_STATS, STAT_KEYS, sumStats } from "../core/stats";
 import { classBaseAtLevel } from "../units/classes";
 import { hexStatSvg } from "./hexStat";
-import { portraitInner } from "../units/art";
+import { portraitInner, capeHtml } from "../units/art";
 
 // Effective stats = unit base@lvl + class base@lvl + allocated custom points.
 // Mirrors what makeCombatant does, so the roster preview matches battle reality.
@@ -205,7 +205,7 @@ function rosterItemHtml(t: UnitTemplate, picks: UnitTemplate[], atCap: boolean):
   return `
     <div class="${cls}" data-roster="${escapeAttr(t.id)}">
       <div class="rs-portrait-wrap">
-        <div class="rs-portrait">${portraitInner(t.id, t.portrait)}<span class="lv-badge">Lv${lvl}</span></div>
+        <div class="rs-portrait">${capeHtml(classId)}${portraitInner(t.id, t.portrait)}<span class="lv-badge">Lv${lvl}</span></div>
         <div class="rs-name">${escapeHtml(t.name)}</div>
         ${selected ? `<div class="placed-tag">Selected</div>` : ""}
       </div>

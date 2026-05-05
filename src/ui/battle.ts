@@ -3,7 +3,7 @@ import { ATB_FULL } from "../core/timeline";
 import { getSkill } from "../skills/registry";
 import { drainEvents, FloatEvent, iconGlyph } from "../core/animations";
 import { effectIcon, effectName, isDebuff, isSkillBlockedBySilence, isSilenced } from "../core/effects";
-import { portraitInner } from "../units/art";
+import { portraitInner, capeHtml } from "../units/art";
 
 const BASE_SKILL_IDS = new Set(["idle", "basic_attack", "guard"]);
 type ActionTab = "basic" | "skills";
@@ -353,7 +353,7 @@ function enemyChipHtml(c: Combatant, isBoss = false): string {
         <div class="bar atb"><div class="fill" style="width:${(c.gauge / ATB_FULL) * 100}%"></div></div>
       </div>
       <div class="enemy-avatar">
-        <div class="portrait">${portraitInner(c.templateId, c.portrait)}</div>
+        <div class="portrait">${capeHtml(c.classId)}${portraitInner(c.templateId, c.portrait)}</div>
       </div>
     </div>
   `;
@@ -384,7 +384,7 @@ function playerChipHtml(c: Combatant): string {
         ${c.maxMp > 0 ? `<div class="bar mp"><div class="fill" style="width:${(c.mp / c.maxMp) * 100}%"></div><span class="bar-text">${c.mp}/${c.maxMp}</span></div>` : ""}
       </div>
       <div class="enemy-avatar">
-        <div class="portrait">${portraitInner(c.templateId, c.portrait)}</div>
+        <div class="portrait">${capeHtml(c.classId)}${portraitInner(c.templateId, c.portrait)}</div>
       </div>
     </div>
   `;
