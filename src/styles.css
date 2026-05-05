@@ -186,10 +186,10 @@ html, body {
   font-size: 30px;
   width: 46px; height: 46px;
   background: var(--bg);
-  border-radius: 8px;
+  border-radius: 50%;
   display: grid; place-items: center;
   flex-shrink: 0;
-  border: 1px solid var(--border);
+  border: 2px solid var(--border-strong);
   position: relative;
   overflow: hidden;
 }
