@@ -11,6 +11,7 @@ import { renderSettings } from "./ui/settings";
 import { consumeEnergy, getEnergy } from "./core/energy";
 import { fetchServerEnergy, consumeServerEnergy } from "./auth/energyApi";
 import { fetchDailyStatus, getCachedDailyMultiplier } from "./core/daily";
+import { renderRunSummary, RunSummary, RunSummaryUnit } from "./ui/runSummary";
 import { recordClear } from "./core/clears";
 import { installGlobalClickSounds } from "./core/audio";
 import { STAGE_DEFS, getStage, BOSS_RAID_FLOORS } from "./units/roster";
@@ -25,7 +26,7 @@ import { renderLeaderboard } from "./ui/leaderboard";
 import { fetchServerIgn, saveServerIgn } from "./auth/ign";
 import { showBossRaidReward, BossRaidReward } from "./ui/bossRaidReward";
 import { playBgm, stopBgm } from "./core/bgm";
-import { startRun, reportFloor, endRun, abortLiveRun, reportFloorCleared } from "./core/leaderboard";
+import { startRun, reportFloor, endRun, abortLiveRun, reportFloorCleared, getLiveRun } from "./core/leaderboard";
 
 const root = document.getElementById("app");
 if (!root) throw new Error("#app not found");
@@ -113,9 +114,9 @@ function startApp(): void {
   requestAnimationFrame(t => { lastT = t; frame(t); });
 }
 
-type Screen = "home" | "stage_select" | "squad_select" | "battle" | "units" | "settings" | "leaderboard";
+type Screen = "home" | "stage_select" | "squad_select" | "battle" | "units" | "settings" | "leaderboard" | "run_summary";
 
-interface CarryEntry { hp: number; mp: number; xp: number; level: number; availablePoints: number; customStats: Stats; classId?: string; skillCooldowns?: Record<string, number>; gauge?: number; alive?: boolean }
+interface CarryEntry { hp: number; mp: number; xp: number; level: number; availablePoints: number; customStats: Stats; classId?: string; skillCooldowns?: Record<string, number>; gauge?: number; alive?: boolean; damageDealt?: number; damageTaken?: number; kills?: number; xpGainedTotal?: number }
 
 let screen: Screen = "home";
 let battle: Battle | null = null;
@@ -140,6 +141,46 @@ let brPlayerStatBoost = 0;                    // stacking 10%-per-pick
 let brPendingHeal = false;                    // one-shot 20% HP/MP at next floor start
 let recordedThisBattle = false;
 let battleConcluded = false;
+
+/** Snapshot a survival/boss-raid run's per-unit aggregates from the active battle. */
+function buildRunSummaryUnits(b: Battle): RunSummaryUnit[] {
+  return b.combatants
+    .filter(c => c.side === "player")
+    .map(c => ({
+      templateId: c.templateId,
+      level: c.level,
+      xpGained: c.xpGainedTotal,
+      damageDealt: c.damageDealt,
+      damageTaken: c.damageTaken,
+      kills: c.kills,
+    }));
+}
+
+async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: number): Promise<void> {
+  if (!battle) { showHome(); return; }
+  const runMode = mode === "boss_raid" ? "boss_raid" : "survival";
+  const units = buildRunSummaryUnits(battle);
+  // Capture the live-run start time before endRun() clears it.
+  const startedAt = getLiveRun()?.startedAt ?? Date.now();
+  const result = await endRun();
+  const totalMs = result?.totalMs ?? Math.max(0, Date.now() - startedAt);
+  const submitted = !!result;
+
+  const summary: RunSummary = {
+    mode: runMode,
+    outcome,
+    floorsCleared,
+    totalMs,
+    units,
+    submitted,
+  };
+
+  abortLiveRun();
+  screen = "run_summary";
+  battle = null;
+  playBgm();
+  renderRunSummary(root!, summary, showHome);
+}
 
 function handleAction(unitId: string, skillId: string, targetId: string): void {
   if (!battle) return;
@@ -347,6 +388,10 @@ function captureCarryFrom(b: Battle): Record<string, CarryEntry> {
       skillCooldowns: { ...c.skillCooldowns },
       gauge: c.gauge,
       alive: c.alive,
+      damageDealt: c.damageDealt,
+      damageTaken: c.damageTaken,
+      kills: c.kills,
+      xpGainedTotal: c.xpGainedTotal,
     };
   }
   return out;
@@ -388,7 +433,9 @@ function frame(t: number): void {
           }, 1500);
         } else {
           recordClear(STAGE_DEFS.length);
-          void endRun();
+          // Brief delay so the Victory banner reads before the summary.
+          const cleared = STAGE_DEFS.length;
+          setTimeout(() => { void showRunSummary("victory", cleared); }, 1500);
         }
       }
       if (mode === "boss_raid") {
@@ -407,14 +454,19 @@ function frame(t: number): void {
             });
           }, 1200);
         } else {
-          void endRun();
+          const cleared = brIndex;
+          setTimeout(() => { void showRunSummary("victory", cleared); }, 1500);
         }
       }
     }
 
     if (!battleConcluded && battle.state.kind === "defeat") {
       battleConcluded = true;
-      if (mode === "survival" || mode === "boss_raid") void endRun();
+      if (mode === "survival" || mode === "boss_raid") {
+        const cleared = mode === "survival" ? Math.max(0, survivalFloor - 1) : brIndex;
+        // Brief delay so the Defeat banner reads before the summary.
+        setTimeout(() => { void showRunSummary("defeat", cleared); }, 1800);
+      }
       // Persisted by combat.ts already.
     }
 

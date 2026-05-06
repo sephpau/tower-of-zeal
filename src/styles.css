@@ -2024,3 +2024,165 @@ html, body {
   color: var(--text-dim);
   text-align: center;
 }
+
+/* ---------- Run summary screen ---------- */
+.run-summary-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(ellipse at top, rgba(244,211,94,0.04), transparent 60%), var(--bg);
+}
+.rs-card {
+  width: 100%;
+  max-width: 720px;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
+}
+.rs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+.rs-mode-tag {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-strong);
+  text-transform: uppercase;
+}
+.rs-mode-survival { color: var(--gold-bright); border-color: var(--gold-bright); }
+.rs-mode-boss_raid { color: #ff7070; border-color: #ff5050; }
+.rs-outcome {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.rs-outcome-victory { color: var(--gold-bright); }
+.rs-outcome-defeat { color: #ff5050; }
+.rs-headline {
+  display: flex;
+  justify-content: space-around;
+  align-items: baseline;
+  gap: 20px;
+}
+.rs-headline-floor {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 42px;
+  font-weight: 800;
+  color: var(--gold-bright);
+}
+.rs-headline-time {
+  font-family: ui-monospace, monospace;
+  font-size: 28px;
+  color: var(--text);
+}
+.rs-multiplier-banner {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold-bright);
+  background: rgba(244, 211, 94, 0.1);
+  border: 1px solid var(--gold-bright);
+  border-radius: 6px;
+  padding: 6px 10px;
+  letter-spacing: 0.05em;
+}
+.rs-totals {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.rs-total {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: center;
+}
+.rs-total-label {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+.rs-total-value {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gold-bright);
+}
+.rs-units-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.rs-unit-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.rs-unit-row.mvp {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 12px rgba(244, 211, 94, 0.3);
+}
+.rs-unit-row .portrait { width: 40px; height: 40px; font-size: 24px; }
+.rs-unit-main { flex: 1; min-width: 0; }
+.rs-unit-name {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.mvp-tag {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  background: var(--gold-bright);
+  color: var(--bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-right: 4px;
+}
+.rs-unit-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text);
+}
+.rs-unit-stats .dim { color: var(--text-dim); margin-right: 3px; font-size: 9px; letter-spacing: 0.05em; }
+.rs-submitted {
+  text-align: center;
+  font-size: 11px;
+  color: var(--gold-bright);
+  letter-spacing: 0.05em;
+}
+.rs-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+}
+.rs-actions .confirm-btn { min-width: 160px; }

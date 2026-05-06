@@ -74,6 +74,11 @@ export interface Combatant {
   effects: ActiveEffect[];
   resist?: import("../units/types").DamageResistance;
   atkMultiplier?: number;
+  // ---- Run-summary trackers (accumulate across floors via carryover) ----
+  damageDealt: number;
+  damageTaken: number;
+  kills: number;
+  xpGainedTotal: number;
 }
 
 export type BattleState =
@@ -193,6 +198,10 @@ export function makeCombatant(t: UnitTemplate, side: Side, position: Position): 
     effects: [],
     resist: t.resist,
     atkMultiplier: t.atkMultiplier,
+    damageDealt: 0,
+    damageTaken: 0,
+    kills: 0,
+    xpGainedTotal: 0,
   };
 }
 
@@ -218,6 +227,11 @@ export interface BattleOptions {
     skillCooldowns?: Record<string, number>;
     gauge?: number;
     alive?: boolean;
+    /** Run-summary trackers — accumulate across floors. */
+    damageDealt?: number;
+    damageTaken?: number;
+    kills?: number;
+    xpGainedTotal?: number;
   }>;
   /** XP multiplier applied at end-of-battle distribution. Default 1. Survival uses 1/50. */
   xpMultiplier?: number;
@@ -256,6 +270,10 @@ export function startBattle(
         c.hp = 0;
         c.queuedAction = null;
       }
+      if (typeof co.damageDealt === "number") c.damageDealt = co.damageDealt;
+      if (typeof co.damageTaken === "number") c.damageTaken = co.damageTaken;
+      if (typeof co.kills === "number") c.kills = co.kills;
+      if (typeof co.xpGainedTotal === "number") c.xpGainedTotal = co.xpGainedTotal;
     }
     return c;
   });
@@ -541,6 +559,7 @@ export function distributeEndOfBattleXp(b: Battle): void {
     if (!c) continue;
     if (c.level >= MAX_LEVEL) continue;
     const gained = awardXp(c, share);
+    c.xpGainedTotal += share;
     if (gained > 0) {
       c.availablePoints += gained * 4;
       b.log.push(`${c.name} reached Lv ${c.level}! (+${gained * 4} stat points${c.level >= MAX_LEVEL ? ", MAX" : `, next: ${xpToNext(c.level)}`})`);
@@ -757,6 +776,12 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
   if (incomingMul !== 1) dmg = Math.max(1, Math.floor(dmg * incomingMul));
   target.hp = Math.max(0, target.hp - dmg);
 
+  // Run-summary trackers: only credit cross-side damage.
+  if (attacker.side !== target.side) {
+    attacker.damageDealt += dmg;
+    target.damageTaken += dmg;
+  }
+
   pushDamage(target.id, dmg, effKind, range, crit);
 
   const tag = crit ? " CRIT" : "";
@@ -766,6 +791,7 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
   if (target.hp <= 0) {
     target.alive = false;
     target.queuedAction = null;
+    if (attacker.side !== target.side) attacker.kills += 1;
     b.log.push(`${target.name} falls.`);
     sfx.fall();
     return;
