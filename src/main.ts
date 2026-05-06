@@ -11,7 +11,9 @@ import { renderSettings } from "./ui/settings";
 import { consumeEnergy, getEnergy } from "./core/energy";
 import { fetchServerEnergy, consumeServerEnergy } from "./auth/energyApi";
 import { fetchDailyStatus, getCachedDailyMultiplier } from "./core/daily";
-import { renderRunSummary, RunSummary, RunSummaryUnit } from "./ui/runSummary";
+import { renderRunSummary, RunSummary, RunSummaryUnit, pickMvpId } from "./ui/runSummary";
+import { getProgress, setProgress } from "./core/progress";
+import { awardXp } from "./core/levels";
 import { recordClear } from "./core/clears";
 import { installGlobalClickSounds } from "./core/audio";
 import { STAGE_DEFS, getStage, BOSS_RAID_FLOORS } from "./units/roster";
@@ -179,6 +181,34 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
     if (stage) floorLabel = stage.name;
   }
 
+  // MVP bonus: +20% XP to the unit with the highest damage+kills score.
+  // Applied after the main run XP has been distributed and persisted, so the
+  // bonus stacks on the level the MVP just earned. Skipped on defeat without
+  // any earned XP to avoid awarding a zero bonus.
+  const MVP_XP_BONUS = 0.2;
+  const mvpId = pickMvpId(units);
+  let mvpBonusXp = 0;
+  if (mvpId) {
+    const mvpUnit = units.find(u => u.templateId === mvpId);
+    if (mvpUnit && mvpUnit.xpGained > 0) {
+      const bonus = Math.floor(mvpUnit.xpGained * MVP_XP_BONUS);
+      if (bonus > 0) {
+        const cur = getProgress(mvpId);
+        const lifted = { level: cur.level, xp: cur.xp };
+        const gained = awardXp(lifted, bonus);
+        setProgress(mvpId, {
+          ...cur,
+          level: lifted.level,
+          xp: lifted.xp,
+          availablePoints: cur.availablePoints + gained * 4,
+        });
+        mvpUnit.level = lifted.level;
+        mvpUnit.xpGained += bonus;
+        mvpBonusXp = bonus;
+      }
+    }
+  }
+
   const summary: RunSummary = {
     mode: runMode,
     outcome,
@@ -187,6 +217,8 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
     units,
     submitted,
     floorLabel,
+    mvpId,
+    mvpBonusXp,
   };
 
   abortLiveRun();

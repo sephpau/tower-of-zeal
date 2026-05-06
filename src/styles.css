@@ -2186,3 +2186,15 @@ html, body {
   margin-top: 4px;
 }
 .rs-actions .confirm-btn { min-width: 160px; }
+
+.rs-mvp-banner {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold-bright);
+  background: rgba(244, 211, 94, 0.16);
+  border: 1px solid var(--gold-bright);
+  border-radius: 6px;
+  padding: 6px 10px;
+  letter-spacing: 0.04em;
+}

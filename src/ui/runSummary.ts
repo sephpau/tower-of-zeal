@@ -27,10 +27,26 @@ export interface RunSummary {
   submitted?: boolean;
   /** Floor-mode only — the stage name to display alongside the floor number. */
   floorLabel?: string;
+  /** MVP unit id (already factored into units[].xpGained if a bonus was applied). */
+  mvpId?: string | null;
+  /** Extra XP awarded to the MVP on top of their regular share. */
+  mvpBonusXp?: number;
+}
+
+/** Highest score = damageDealt + 1000 × kills. Returns null if no candidates. */
+export function pickMvpId(units: RunSummaryUnit[]): string | null {
+  if (units.length === 0) return null;
+  let bestId = units[0].templateId;
+  let bestScore = -1;
+  for (const u of units) {
+    const score = u.damageDealt + u.kills * 1000;
+    if (score > bestScore) { bestScore = score; bestId = u.templateId; }
+  }
+  return bestId;
 }
 
 export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose: () => void): void {
-  const mvpId = pickMvp(summary.units);
+  const mvpId = summary.mvpId ?? pickMvpId(summary.units);
   const dailyMul = getCachedDailyMultiplier();
   const totalDamageDealt = summary.units.reduce((s, u) => s + u.damageDealt, 0);
   const totalDamageTaken = summary.units.reduce((s, u) => s + u.damageTaken, 0);
@@ -58,6 +74,7 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
         </div>
 
         ${dailyMul > 1 ? `<div class="rs-multiplier-banner">🔥 Daily streak active · ${dailyMul}× XP</div>` : ""}
+        ${summary.mvpBonusXp && summary.mvpBonusXp > 0 ? `<div class="rs-mvp-banner">⭐ MVP bonus · +${summary.mvpBonusXp.toLocaleString()} XP (1.2×)</div>` : ""}
 
         <div class="rs-totals">
           <div class="rs-total"><span class="rs-total-label">Damage Dealt</span><span class="rs-total-value">${totalDamageDealt.toLocaleString()}</span></div>
@@ -105,17 +122,6 @@ function unitRowHtml(u: RunSummaryUnit, isMvp: boolean): string {
   `;
 }
 
-function pickMvp(units: RunSummaryUnit[]): string | null {
-  if (units.length === 0) return null;
-  // Score = damage dealt + 1000 per kill. Stronger units bias toward damage.
-  let bestId = units[0].templateId;
-  let bestScore = -1;
-  for (const u of units) {
-    const score = u.damageDealt + u.kills * 1000;
-    if (score > bestScore) { bestScore = score; bestId = u.templateId; }
-  }
-  return bestId;
-}
 
 function formatMs(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
