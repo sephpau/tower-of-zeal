@@ -9,6 +9,7 @@ const BOSS_RAID_XP_MULT = 1 / 10;
 import { renderUnitsScreen } from "./ui/unitsScreen";
 import { renderSettings } from "./ui/settings";
 import { consumeEnergy, getEnergy } from "./core/energy";
+import { fetchServerEnergy, consumeServerEnergy } from "./auth/energyApi";
 import { recordClear } from "./core/clears";
 import { installGlobalClickSounds } from "./core/audio";
 import { STAGE_DEFS, getStage, BOSS_RAID_FLOORS } from "./units/roster";
@@ -60,6 +61,9 @@ async function bootstrap(): Promise<void> {
 }
 
 async function proceedAfterAuth(): Promise<void> {
+  // Seed the local energy cache from the server right after auth so devtools
+  // edits made before login are immediately overwritten by the canonical value.
+  void fetchServerEnergy();
   const localIgn = loadSettings().playerName.trim();
   const serverIgn = await fetchServerIgn();
 
@@ -227,22 +231,27 @@ function showSettings(): void {
   renderSettings(root!, showHome);
 }
 
-function startBattleFromSquad(squad: SquadResult): void {
+async function startBattleFromSquad(squad: SquadResult): Promise<void> {
+  const cost = mode === "survival" ? SURVIVAL_ENERGY_COST
+             : mode === "boss_raid" ? BOSS_RAID_ENERGY_COST
+             : 1;
+  // Server-authoritative energy: localStorage edits no longer grant runs.
+  const r = await consumeServerEnergy(cost);
+  if (!r.ok) {
+    if ("error" in r) alert("Couldn't reach server to start battle. Try again.");
+    else alert(`Not enough energy (need ${cost}, have ${r.amount}).`);
+    return;
+  }
+  // Keep the local cache in sync so the energy pill matches.
+  consumeEnergy(cost);
+
   if (mode === "survival") {
-    if (!consumeEnergy(SURVIVAL_ENERGY_COST)) {
-      alert("Energy could not be consumed.");
-      return;
-    }
     survivalParty = squad.players;
     survivalFloor = 1;
     survivalCarry = {};
     void startRun("survival", squad.players.map(p => p.template.id));
     runFloor(squad.players, 1, SURVIVAL_XP_MULT);
   } else if (mode === "boss_raid") {
-    if (!consumeEnergy(BOSS_RAID_ENERGY_COST)) {
-      alert("Energy could not be consumed.");
-      return;
-    }
     brParty = squad.players;
     brIndex = 0;
     brCarry = {};
@@ -250,8 +259,6 @@ function startBattleFromSquad(squad: SquadResult): void {
     const firstBoss = BOSS_RAID_FLOORS[0];
     if (firstBoss) runBossRaidFloor(squad.players, firstBoss.id);
   } else {
-    if (getEnergy() <= 0) { alert("No energy left."); return; }
-    if (!consumeEnergy(1)) { alert("Energy could not be consumed."); return; }
     runFloor(squad.players, currentStageId, 1.0);
   }
 }
