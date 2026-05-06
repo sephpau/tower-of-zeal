@@ -2,7 +2,7 @@
 // energy refill boundary. Claiming today extends the streak; missing a day
 // resets to 1.
 
-import { getJson, setJson } from "./redis.js";
+import { getJson, setJson, setNxWithExpire } from "./redis.js";
 import { getEnergy, ENERGY_MAX } from "./energy.js";
 
 const PH_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -109,6 +109,25 @@ export async function claimDaily(address: string): Promise<DailyClaimResult> {
       reward: rewardForStreak(cur.streak),
       energy: e.amount,
       multiplier: cur.multiplier,
+    };
+  }
+
+  // Atomic lock: only one request per (wallet, dayBoundary) tuple wins. The
+  // lock TTL is 30s — long enough to let the rest of the claim finish, short
+  // enough to self-clear if the function aborts mid-write.
+  const lockKey = `daily:lock:${address.toLowerCase()}:${today}`;
+  const acquired = await setNxWithExpire(lockKey, "1", 30);
+  if (!acquired) {
+    // Another concurrent request already claimed; reflect the latest state.
+    const after = await read(address);
+    const e = await getEnergy(address);
+    return {
+      ok: false,
+      reason: "already_claimed",
+      streak: after.streak,
+      reward: rewardForStreak(after.streak),
+      energy: e.amount,
+      multiplier: after.multiplier,
     };
   }
 

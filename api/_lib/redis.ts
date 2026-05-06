@@ -71,6 +71,13 @@ export async function getNumber(key: string): Promise<number> {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Sets the key only if it does not exist. Returns true if the lock was acquired. */
+export async function setNxWithExpire(key: string, value: string, ttlSeconds: number): Promise<boolean> {
+  // Upstash REST translates SET key value NX EX seconds — returns "OK" on success, null otherwise.
+  const r = await call(["SET", key, value, "NX", "EX", ttlSeconds]);
+  return r === "OK";
+}
+
 export async function hset(key: string, field: string, value: string): Promise<void> {
   await call(["HSET", key, field, value]);
 }
