@@ -236,7 +236,7 @@ function startBattleFromSquad(squad: SquadResult): void {
     survivalParty = squad.players;
     survivalFloor = 1;
     survivalCarry = {};
-    void startRun("survival");
+    void startRun("survival", squad.players.map(p => p.template.id));
     runFloor(squad.players, 1, SURVIVAL_XP_MULT);
   } else if (mode === "boss_raid") {
     if (!consumeEnergy(BOSS_RAID_ENERGY_COST)) {
@@ -246,7 +246,7 @@ function startBattleFromSquad(squad: SquadResult): void {
     brParty = squad.players;
     brIndex = 0;
     brCarry = {};
-    void startRun("boss_raid");
+    void startRun("boss_raid", squad.players.map(p => p.template.id));
     const firstBoss = BOSS_RAID_FLOORS[0];
     if (firstBoss) runBossRaidFloor(squad.players, firstBoss.id);
   } else {

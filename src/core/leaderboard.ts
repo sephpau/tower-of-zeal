@@ -31,14 +31,14 @@ function sessionToken(): string | null {
   return loadSession()?.token ?? null;
 }
 
-export async function startRun(mode: LbMode = "survival"): Promise<LiveRun | null> {
+export async function startRun(mode: LbMode = "survival", party: string[] = []): Promise<LiveRun | null> {
   const sess = sessionToken();
   if (!sess) return null;
   try {
     const r = await fetch("/api/run/start", {
       method: "POST",
       headers: { Authorization: `Bearer ${sess}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ mode }),
+      body: JSON.stringify({ mode, party }),
     });
     if (!r.ok) return null;
     const data = await r.json() as { runId: string; token: string };
