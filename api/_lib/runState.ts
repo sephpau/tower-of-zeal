@@ -1,4 +1,4 @@
-import { getJson, setJson, del, zaddGt, incrWithExpire, hset, hmget } from "./redis.js";
+import { getJson, setJson, del, zaddGt, incrWithExpire, hset, hmget, incrBy, getNumber } from "./redis.js";
 
 // A live survival run. Stored at Redis key `run:{runId}` with a TTL.
 export interface RunState {
@@ -108,4 +108,29 @@ export function decodeScore(score: number): { floor: number; ms: number } {
 
 export async function submitToLeaderboard(address: string, floor: number, ms: number, mode: LbMode = "survival"): Promise<void> {
   await zaddGt(lbKeyFor(mode), encodeScore(floor, ms), address.toLowerCase());
+}
+
+// ---- Cheat-check audit: lifetime XP ceiling ----
+// Server tracks the maximum total XP this wallet could have earned across
+// every run it has ever completed. The client's claimed total XP (computed
+// from local unit progress) must not exceed this value.
+//
+// Per-floor ceiling values are intentionally generous (~2× realistic max)
+// so legit play never trips the gate.
+export const XP_CAP_PER_FLOOR: Record<LbMode | "floor", number> = {
+  floor: 8000,
+  survival: 200,
+  boss_raid: 1500,
+};
+export const XP_CAP_SLACK = 1000; // tolerance for in-flight runs / first-run-not-yet-ended
+
+export function xpCapKey(address: string): string { return `xpcap:${address.toLowerCase()}`; }
+
+export async function bumpXpCap(address: string, amount: number): Promise<number> {
+  if (amount <= 0) return 0;
+  return await incrBy(xpCapKey(address), Math.floor(amount));
+}
+
+export async function getXpCap(address: string): Promise<number> {
+  return await getNumber(xpCapKey(address));
 }

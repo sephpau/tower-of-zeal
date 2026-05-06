@@ -4,6 +4,7 @@ import { getSkill } from "../skills/registry";
 import { drainEvents, FloatEvent, iconGlyph } from "../core/animations";
 import { effectIcon, effectName, isDebuff, isSkillBlockedBySilence, isSilenced } from "../core/effects";
 import { portraitInner, capeHtml } from "../units/art";
+import { runCheatCheck } from "../core/cheatCheck";
 
 const BASE_SKILL_IDS = new Set(["idle", "basic_attack", "guard"]);
 type ActionTab = "basic" | "skills";
@@ -73,6 +74,35 @@ export function renderBattle(
   wireEnemyClicks(root, b, onAction);
   wireSurrender(root, b, onPost);
   wirePostBattleButtons(root, onPost);
+
+  // Anti-cheat: ask the server whether this wallet's claimed total XP fits
+  // the lifetime ceiling we've recorded. Admin wallets are exempt server-side.
+  // Network failures fall through silently — never block a legit player.
+  void runCheatCheck().then(result => {
+    if (result && !result.ok) {
+      mountCheaterOverlay(root, result.claimed, result.cap);
+    }
+  });
+}
+
+function mountCheaterOverlay(root: HTMLElement, claimed: number, cap: number): void {
+  if (root.querySelector(".cheater-overlay")) return;
+  const overlay = document.createElement("div");
+  overlay.className = "cheater-overlay";
+  overlay.innerHTML = `
+    <div class="cheater-card">
+      <div class="cheater-title">⚠ CHEATER DETECTED</div>
+      <div class="cheater-sub">
+        Your local progress doesn't match the server audit log.
+        Battles are blocked until your save is reset.
+      </div>
+      <div class="cheater-stats">
+        Claimed total XP: <strong>${claimed.toLocaleString()}</strong><br>
+        Server ceiling:&nbsp;&nbsp;&nbsp; <strong>${cap.toLocaleString()}</strong>
+      </div>
+    </div>
+  `;
+  root.appendChild(overlay);
 }
 
 export function updateLive(root: HTMLElement, b: Battle): void {

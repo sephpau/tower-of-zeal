@@ -60,6 +60,17 @@ export async function incrWithExpire(key: string, ttlSeconds: number): Promise<n
   return n;
 }
 
+export async function incrBy(key: string, amount: number): Promise<number> {
+  return await call(["INCRBY", key, Math.floor(amount)]) as number;
+}
+
+export async function getNumber(key: string): Promise<number> {
+  const r = await call(["GET", key]);
+  if (typeof r !== "string") return 0;
+  const n = Number(r);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export async function hset(key: string, field: string, value: string): Promise<void> {
   await call(["HSET", key, field, value]);
 }

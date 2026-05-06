@@ -81,6 +81,20 @@ export async function endRun(): Promise<{ floor: number; totalMs: number } | nul
 
 export function abortLiveRun(): void { live = null; }
 
+/** Single-floor (non-leaderboard) battle completed. Tells the server to credit
+ *  the wallet's anti-cheat XP ceiling. Fail-soft. */
+export async function reportFloorCleared(stageId: number): Promise<void> {
+  const sess = sessionToken();
+  if (!sess) return;
+  try {
+    await fetch("/api/run/floor-cleared", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${sess}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ stageId }),
+    });
+  } catch { /* ignore */ }
+}
+
 export async function fetchTop(mode: LbMode = "survival", limit = 50): Promise<LbEntry[]> {
   try {
     const r = await fetch(`/api/leaderboard/top?mode=${mode}&limit=${limit}`);

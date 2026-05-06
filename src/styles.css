@@ -1912,3 +1912,58 @@ html, body {
   font-size: 12px;
   padding: 2px 7px;
 }
+
+/* ---------- Cheater detection overlay ---------- */
+.cheater-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(80, 0, 0, 0.85) 0%, rgba(20, 0, 0, 0.95) 100%);
+  display: grid;
+  place-items: center;
+  z-index: 5000;
+  animation: cheaterFade 0.3s ease-out;
+}
+@keyframes cheaterFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.cheater-card {
+  background: #110000;
+  border: 3px solid #ff3030;
+  border-radius: 14px;
+  padding: 36px 48px;
+  max-width: 520px;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(255, 50, 50, 0.6), 0 0 120px rgba(255, 50, 50, 0.3) inset;
+}
+.cheater-title {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 36px;
+  font-weight: 800;
+  color: #ff5050;
+  letter-spacing: 0.12em;
+  text-shadow: 0 0 18px rgba(255, 50, 50, 0.9);
+  margin-bottom: 18px;
+  animation: cheaterPulse 1.4s ease-in-out infinite;
+}
+@keyframes cheaterPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+.cheater-sub {
+  font-size: 14px;
+  color: #ffcccc;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+.cheater-stats {
+  font-size: 13px;
+  color: #ff9999;
+  font-family: ui-monospace, monospace;
+  background: rgba(255, 50, 50, 0.06);
+  border: 1px solid rgba(255, 50, 50, 0.3);
+  border-radius: 6px;
+  padding: 10px;
+  text-align: left;
+  display: inline-block;
+}

@@ -23,7 +23,7 @@ import { renderLeaderboard } from "./ui/leaderboard";
 import { fetchServerIgn, saveServerIgn } from "./auth/ign";
 import { showBossRaidReward, BossRaidReward } from "./ui/bossRaidReward";
 import { playBgm, stopBgm } from "./core/bgm";
-import { startRun, reportFloor, endRun, abortLiveRun } from "./core/leaderboard";
+import { startRun, reportFloor, endRun, abortLiveRun, reportFloorCleared } from "./core/leaderboard";
 
 const root = document.getElementById("app");
 if (!root) throw new Error("#app not found");
@@ -362,6 +362,7 @@ function frame(t: number): void {
       battleConcluded = true;
       if (mode === "floor" && !recordedThisBattle) {
         recordClear(currentStageId);
+        void reportFloorCleared(currentStageId);
         recordedThisBattle = true;
       }
       if (mode === "survival") {
