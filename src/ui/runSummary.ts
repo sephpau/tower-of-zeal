@@ -17,13 +17,16 @@ export interface RunSummaryUnit {
 }
 
 export interface RunSummary {
-  mode: "survival" | "boss_raid";
+  mode: "survival" | "boss_raid" | "floor";
   outcome: "victory" | "defeat";
+  /** Survival/boss-raid: floors cleared this run. Floor mode: the stage id played. */
   floorsCleared: number;
   totalMs: number;
   units: RunSummaryUnit[];
   /** Provided by the leaderboard endpoint when the run was submitted. */
   submitted?: boolean;
+  /** Floor-mode only — the stage name to display alongside the floor number. */
+  floorLabel?: string;
 }
 
 export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose: () => void): void {
@@ -34,8 +37,12 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
   const totalKills = summary.units.reduce((s, u) => s + u.kills, 0);
   const totalXp = summary.units.reduce((s, u) => s + u.xpGained, 0);
 
-  const modeLabel = summary.mode === "survival" ? "Survival" : "Boss Raid";
-  const outcomeLabel = summary.outcome === "victory" ? "Run Complete" : "Run Ended";
+  const modeLabel = summary.mode === "survival" ? "Survival"
+                  : summary.mode === "boss_raid" ? "Boss Raid"
+                  : "Floor";
+  const outcomeLabel = summary.outcome === "victory"
+    ? (summary.mode === "floor" ? "Floor Cleared" : "Run Complete")
+    : (summary.mode === "floor" ? "Floor Failed" : "Run Ended");
 
   root.innerHTML = `
     <div class="run-summary-screen">
@@ -46,7 +53,7 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
         </div>
 
         <div class="rs-headline">
-          <div class="rs-headline-floor">Floor ${summary.floorsCleared}</div>
+          <div class="rs-headline-floor">Floor ${summary.floorsCleared}${summary.floorLabel ? ` · ${escapeHtml(summary.floorLabel)}` : ""}</div>
           <div class="rs-headline-time">${formatMs(summary.totalMs)}</div>
         </div>
 

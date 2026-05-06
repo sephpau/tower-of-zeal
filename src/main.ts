@@ -158,13 +158,26 @@ function buildRunSummaryUnits(b: Battle): RunSummaryUnit[] {
 
 async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: number): Promise<void> {
   if (!battle) { showHome(); return; }
-  const runMode = mode === "boss_raid" ? "boss_raid" : "survival";
+  const runMode: RunSummary["mode"] = mode === "boss_raid" ? "boss_raid"
+                                    : mode === "survival" ? "survival"
+                                    : "floor";
   const units = buildRunSummaryUnits(battle);
-  // Capture the live-run start time before endRun() clears it.
-  const startedAt = getLiveRun()?.startedAt ?? Date.now();
-  const result = await endRun();
-  const totalMs = result?.totalMs ?? Math.max(0, Date.now() - startedAt);
-  const submitted = !!result;
+  let totalMs = 0;
+  let submitted = false;
+  let floorLabel: string | undefined;
+
+  if (runMode === "survival" || runMode === "boss_raid") {
+    const startedAt = getLiveRun()?.startedAt ?? Date.now();
+    const result = await endRun();
+    totalMs = result?.totalMs ?? Math.max(0, Date.now() - startedAt);
+    submitted = !!result;
+  } else {
+    // Floor mode has no live run — fall back to per-battle elapsed time approximation
+    // and surface the stage name so the player knows which floor they cleared.
+    totalMs = 0;
+    const stage = getStage(currentStageId);
+    if (stage) floorLabel = stage.name;
+  }
 
   const summary: RunSummary = {
     mode: runMode,
@@ -173,6 +186,7 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
     totalMs,
     units,
     submitted,
+    floorLabel,
   };
 
   abortLiveRun();
@@ -356,15 +370,10 @@ function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: 
 }
 
 function shouldShowPostButtons(b: Battle): boolean {
+  // Run summary panel handles all post-battle navigation now.
+  // Keep the action panel populated only while combat is ongoing.
   if (b.state.kind === "ticking") return true;
-  // Defeat — always show.
-  if (b.state.kind === "defeat") return true;
-  // Floor mode — always show.
-  if (mode === "floor") return true;
-  // Boss raid victory: only show on the final boss.
-  if (mode === "boss_raid") return brIndex >= BOSS_RAID_FLOORS.length;
-  // Survival victory: only show on the final floor.
-  return survivalFloor >= STAGE_DEFS.length;
+  return false;
 }
 
 function captureCarry(b: Battle): void {
@@ -420,6 +429,8 @@ function frame(t: number): void {
         recordClear(currentStageId);
         void reportFloorCleared(currentStageId);
         recordedThisBattle = true;
+        const cleared = currentStageId;
+        setTimeout(() => { void showRunSummary("victory", cleared); }, 1500);
       }
       if (mode === "survival") {
         captureCarry(battle);
@@ -464,7 +475,9 @@ function frame(t: number): void {
       battleConcluded = true;
       if (mode === "survival" || mode === "boss_raid") {
         const cleared = mode === "survival" ? Math.max(0, survivalFloor - 1) : brIndex;
-        // Brief delay so the Defeat banner reads before the summary.
+        setTimeout(() => { void showRunSummary("defeat", cleared); }, 1800);
+      } else if (mode === "floor") {
+        const cleared = currentStageId;
         setTimeout(() => { void showRunSummary("defeat", cleared); }, 1800);
       }
       // Persisted by combat.ts already.

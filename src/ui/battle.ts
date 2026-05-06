@@ -437,7 +437,7 @@ function logLinesHtml(b: Battle): string {
 function actionPanelHtml(b: Battle, showPostButtons: boolean): string {
   if (b.state.kind === "victory" || b.state.kind === "defeat") {
     if (!showPostButtons) {
-      return `<div class="action-empty">${b.state.kind === "victory" ? "Floor cleared — preparing next floor…" : "Defeated."}</div>`;
+      return `<div class="action-empty">${b.state.kind === "victory" ? "Floor cleared!" : "Defeated."}</div>`;
     }
     return `
       <div class="post-battle">
