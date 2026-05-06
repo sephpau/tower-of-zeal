@@ -32,7 +32,7 @@ export async function consumeServerEnergy(cost: number): Promise<ConsumeResult> 
   const tok = token();
   if (!tok) return { ok: false, error: "network" };
   try {
-    const r = await fetch("/api/energy/consume", {
+    const r = await fetch("/api/energy", {
       method: "POST",
       headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
       body: JSON.stringify({ cost }),

@@ -31,7 +31,7 @@ export async function fetchDailyStatus(): Promise<DailyStatus | null> {
   const tok = token();
   if (!tok) return null;
   try {
-    const r = await fetch("/api/daily/status", { headers: { Authorization: `Bearer ${tok}` } });
+    const r = await fetch("/api/daily", { headers: { Authorization: `Bearer ${tok}` } });
     if (!r.ok) return null;
     const data = await r.json() as DailyStatus;
     setCachedDailyMultiplier(data.multiplier);
@@ -43,7 +43,7 @@ export async function claimDailyBonus(): Promise<DailyClaimResult | null> {
   const tok = token();
   if (!tok) return null;
   try {
-    const r = await fetch("/api/daily/claim", {
+    const r = await fetch("/api/daily", {
       method: "POST",
       headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
     });
