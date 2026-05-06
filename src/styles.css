@@ -1967,3 +1967,60 @@ html, body {
   text-align: left;
   display: inline-block;
 }
+
+/* ---------- Daily login bonus ---------- */
+.daily-slot {
+  position: absolute;
+  top: 64px;
+  right: 16px;
+  z-index: 4;
+}
+.daily-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, rgba(244,211,94,0.12), rgba(244,211,94,0.04));
+  border: 1px solid var(--gold-bright);
+  border-radius: 10px;
+  min-width: 200px;
+  box-shadow: 0 0 18px rgba(244,211,94,0.25);
+}
+.daily-card.claimed {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--border-strong);
+  box-shadow: none;
+}
+.daily-streak {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gold-bright);
+  text-align: center;
+}
+.daily-card.claimed .daily-streak { color: var(--text-dim); }
+.daily-claim-btn {
+  background: var(--gold-bright);
+  color: #181820;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+}
+.daily-claim-btn:hover:not(:disabled) { filter: brightness(1.1); }
+.daily-claim-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.daily-claimed-text {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+}
+.daily-bonus-line {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-align: center;
+}

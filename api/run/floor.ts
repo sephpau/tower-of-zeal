@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifyRun } from "../_lib/jwt.js";
 import { getRun, saveRun, MAX_FLOOR, bumpXpCap, XP_CAP_PER_FLOOR } from "../_lib/runState.js";
+import { getCurrentMultiplier } from "../_lib/daily.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== "POST") { res.status(405).json({ error: "method" }); return; }
@@ -33,7 +34,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     // Anti-cheat: bump per-wallet lifetime XP ceiling so the cheat-check on
     // battle mount knows this wallet is allowed to claim more total XP.
-    await bumpXpCap(state.address, XP_CAP_PER_FLOOR[state.mode]).catch(() => 0);
+    // Multiply by the active daily streak multiplier so legit bonus XP fits.
+    const dailyMul = await getCurrentMultiplier(state.address).catch(() => 1.0);
+    await bumpXpCap(state.address, XP_CAP_PER_FLOOR[state.mode] * dailyMul).catch(() => 0);
 
     res.status(200).json({ ok: true, currentFloor: state.currentFloor });
   } catch (e) {

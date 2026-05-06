@@ -10,6 +10,7 @@ import { renderUnitsScreen } from "./ui/unitsScreen";
 import { renderSettings } from "./ui/settings";
 import { consumeEnergy, getEnergy } from "./core/energy";
 import { fetchServerEnergy, consumeServerEnergy } from "./auth/energyApi";
+import { fetchDailyStatus, getCachedDailyMultiplier } from "./core/daily";
 import { recordClear } from "./core/clears";
 import { installGlobalClickSounds } from "./core/audio";
 import { STAGE_DEFS, getStage, BOSS_RAID_FLOORS } from "./units/roster";
@@ -64,6 +65,9 @@ async function proceedAfterAuth(): Promise<void> {
   // Seed the local energy cache from the server right after auth so devtools
   // edits made before login are immediately overwritten by the canonical value.
   void fetchServerEnergy();
+  // Pre-fetch daily streak status so the cached multiplier is ready before
+  // the first run starts.
+  void fetchDailyStatus();
   const localIgn = loadSettings().playerName.trim();
   const serverIgn = await fetchServerIgn();
 
@@ -273,7 +277,7 @@ function runBossRaidFloor(party: SquadResult["players"], floorId: number): void 
   const stage = getStage(floorId);
   if (!stage) { showHome(); return; }
   const opts: BattleOptions = {
-    xpMultiplier: BOSS_RAID_XP_MULT,
+    xpMultiplier: BOSS_RAID_XP_MULT * getCachedDailyMultiplier(),
     bossRaid: true,
     bossStatReduction: brBossStatReduction,
     playerStatBoost: brPlayerStatBoost,
@@ -295,7 +299,7 @@ function runBossRaidFloor(party: SquadResult["players"], floorId: number): void 
 function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: number): void {
   const stage = getStage(floorId);
   if (!stage) { showHome(); return; }
-  const opts: BattleOptions = { xpMultiplier };
+  const opts: BattleOptions = { xpMultiplier: xpMultiplier * getCachedDailyMultiplier() };
   if (mode === "survival" && Object.keys(survivalCarry).length > 0) {
     opts.carryover = survivalCarry;
   }

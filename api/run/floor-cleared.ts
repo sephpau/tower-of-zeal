@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifySession } from "../_lib/jwt.js";
 import { bumpXpCap, XP_CAP_PER_FLOOR } from "../_lib/runState.js";
+import { getCurrentMultiplier } from "../_lib/daily.js";
 
 // Single-floor (non-leaderboard) battle completed. Credit the wallet's
 // lifetime XP ceiling so the cheat-check has a matching audit value.
@@ -26,7 +27,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
 
   try {
-    const cap = await bumpXpCap(address, XP_CAP_PER_FLOOR.floor);
+    const dailyMul = await getCurrentMultiplier(address).catch(() => 1.0);
+    const cap = await bumpXpCap(address, XP_CAP_PER_FLOOR.floor * dailyMul);
     res.status(200).json({ ok: true, cap });
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : "server error" });

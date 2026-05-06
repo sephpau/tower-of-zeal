@@ -1,6 +1,8 @@
 import { loadSettings } from "./settings";
 import { getEnergy, ENERGY_MAX, msUntilNextRefill } from "../core/energy";
 import { startEnergyTimerLoop, formatRefillCountdown } from "./energyTimer";
+import { fetchDailyStatus, claimDailyBonus, DailyStatus } from "../core/daily";
+import { setEnergy } from "../core/energy";
 
 export type HomeAction = "tower" | "units" | "settings" | "tutorial" | "leaderboard";
 
@@ -16,6 +18,7 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
         <span>${energy} / ${ENERGY_MAX}</span>
         <span class="energy-timer" data-energy-timer>${formatRefillCountdown(msUntilNextRefill())}</span>
       </div>
+      <div class="daily-slot" id="daily-slot"></div>
       <div class="home-header">
         <div class="home-greeting">Welcome, ${escapeHtml(s.playerName)}</div>
         <h1 class="home-title">Tower of Zeal</h1>
@@ -39,6 +42,70 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
   root.querySelectorAll<HTMLButtonElement>(".home-tile").forEach(btn => {
     btn.addEventListener("click", () => onAction(btn.dataset.action as HomeAction));
   });
+
+  void mountDailyWidget(root);
+}
+
+async function mountDailyWidget(root: HTMLElement): Promise<void> {
+  const slot = root.querySelector<HTMLElement>("#daily-slot");
+  if (!slot) return;
+  const status = await fetchDailyStatus();
+  if (!status) { slot.innerHTML = ""; return; }
+  renderDailyWidget(slot, status);
+}
+
+function renderDailyWidget(slot: HTMLElement, status: DailyStatus): void {
+  const next = status.todayReward;
+  const streakDisplay = status.claimedToday ? status.streak : Math.max(1, status.streak + 1);
+  if (status.claimedToday) {
+    slot.innerHTML = `
+      <div class="daily-card claimed">
+        <div class="daily-streak">🔥 Day ${status.streak}</div>
+        <div class="daily-claimed-text">Daily reward claimed</div>
+        <div class="daily-bonus-line">${formatBonus(status.todayReward, /*active*/ true)}</div>
+      </div>
+    `;
+    return;
+  }
+  slot.innerHTML = `
+    <div class="daily-card">
+      <div class="daily-streak">🔥 Day ${streakDisplay}</div>
+      <button class="daily-claim-btn" id="daily-claim-btn" type="button">Claim Daily Reward</button>
+      <div class="daily-bonus-line">${formatBonus(next, /*active*/ false)}</div>
+    </div>
+  `;
+  slot.querySelector<HTMLButtonElement>("#daily-claim-btn")?.addEventListener("click", async () => {
+    const btn = slot.querySelector<HTMLButtonElement>("#daily-claim-btn");
+    if (btn) btn.disabled = true;
+    const result = await claimDailyBonus();
+    if (!result) {
+      if (btn) btn.disabled = false;
+      alert("Couldn't reach server. Try again.");
+      return;
+    }
+    if (!result.ok) {
+      // Race: another tab claimed first; refresh to claimed view.
+      renderDailyWidget(slot, {
+        streak: result.streak, claimedToday: true,
+        todayReward: result.reward, multiplier: result.multiplier,
+      });
+      return;
+    }
+    setEnergy(result.energy);
+    // Update the energy pill so the bonus shows immediately.
+    const pill = document.querySelector<HTMLElement>(".energy-pill span:nth-child(2)");
+    if (pill) pill.textContent = `${result.energy} / ${ENERGY_MAX}`;
+    renderDailyWidget(slot, {
+      streak: result.streak, claimedToday: true,
+      todayReward: result.reward, multiplier: result.multiplier,
+    });
+  });
+}
+
+function formatBonus(reward: { energy: number; multiplier: number }, active: boolean): string {
+  const verb = active ? "Active today:" : "Today's reward:";
+  const mulPart = reward.multiplier > 1 ? ` · ${reward.multiplier}× XP` : "";
+  return `${verb} +${reward.energy} energy${mulPart}`;
 }
 
 function escapeHtml(s: string): string {
