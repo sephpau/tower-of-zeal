@@ -1,6 +1,17 @@
 const UNIT_ART_IDS = new Set([
   "soda", "ego", "gruyere", "calypso", "calico", "nova", "hera", "aspen", "oge",
 ]);
+
+/** Player units that require holding the MoTZ Vault Key to use. */
+export const MOTZ_KEY_LOCKED_UNITS = new Set(["hera", "nova", "oge"]);
+
+import { getVerifiedPerks } from "../auth/session";
+
+/** True if this unit is currently locked behind a perk the player doesn't have. */
+export function isUnitLocked(unitId: string): boolean {
+  if (!MOTZ_KEY_LOCKED_UNITS.has(unitId)) return false;
+  return !getVerifiedPerks().motzKey;
+}
 const CLASS_CAPE_IDS = new Set([
   "fighter", "fire_mage", "water_mage", "sharpshooter", "scout", "defender", "warden",
 ]);

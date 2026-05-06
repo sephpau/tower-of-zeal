@@ -8,7 +8,7 @@ import { getProgress, setProgress, UnitProgress, MAX_EQUIPPED_SKILLS, autoEquipN
 import { xpToNext, MAX_LEVEL } from "../core/levels";
 import { CLASS_SKILLS, CHARACTER_SKILLS, getSkill } from "../skills/registry";
 import { isAdmin } from "../core/admin";
-import { portraitInner, capeHtml } from "../units/art";
+import { portraitInner, capeHtml, isUnitLocked } from "../units/art";
 
 const LORE: Record<string, string> = {
   soda: "A fizzy elemental from the spring. Said to fight harder when shaken.",
@@ -80,8 +80,13 @@ function unitCardHtml(t: UnitTemplate, isPicking: boolean, devUnlock: boolean, a
   const points = progress?.availablePoints ?? 0;
   const xp = progress?.xp ?? 0;
 
+  const locked = isPlayer && isUnitLocked(t.id);
+  const lockedAttr = locked ? ` data-locked="motz_key"` : "";
+  const lockedOverlay = locked ? `<div class="unit-locked-overlay" title="Requires MoTZ Vault Key">🔒 MoTZ Vault Key</div>` : "";
+
   return `
-    <div class="unit-card" data-template="${escapeAttr(t.id)}">
+    <div class="unit-card${locked ? " locked-card" : ""}" data-template="${escapeAttr(t.id)}"${lockedAttr}>
+      ${lockedOverlay}
       <div class="unit-card-head">
         <div class="portrait">${capeHtml(classId)}${portraitInner(t.id, t.portrait)}</div>
         <div class="unit-card-head-info">

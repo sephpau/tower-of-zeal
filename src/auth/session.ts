@@ -25,12 +25,16 @@ export function clearSession(): void {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-export async function validateSession(token: string): Promise<string | null> {
+export interface Perks { motzKey: boolean }
+
+export async function validateSession(token: string): Promise<{ address: string; perks: Perks } | null> {
   try {
     const r = await fetch("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } });
     if (!r.ok) return null;
     const data = await r.json();
-    return typeof data?.address === "string" ? data.address : null;
+    if (typeof data?.address !== "string") return null;
+    const motzKey = !!data?.perks?.motzKey;
+    return { address: data.address, perks: { motzKey } };
   } catch {
     return null;
   }
@@ -41,6 +45,7 @@ export async function validateSession(token: string): Promise<string | null> {
 // anything that needs to TRUST an address (admin gating, leaderboard binding)
 // must read from here rather than from settings.walletAddress.
 let verifiedAddress: string | null = null;
+let verifiedPerks: Perks = { motzKey: false };
 
 export function setVerifiedAddress(addr: string): void {
   verifiedAddress = addr.trim().toLowerCase();
@@ -52,4 +57,13 @@ export function getVerifiedAddress(): string | null {
 
 export function clearVerifiedAddress(): void {
   verifiedAddress = null;
+  verifiedPerks = { motzKey: false };
+}
+
+export function setVerifiedPerks(p: Perks): void {
+  verifiedPerks = { motzKey: !!p.motzKey };
+}
+
+export function getVerifiedPerks(): Perks {
+  return verifiedPerks;
 }

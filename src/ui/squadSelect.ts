@@ -6,7 +6,7 @@ import { getProgress } from "../core/progress";
 import { Stats, ZERO_STATS, STAT_KEYS, sumStats } from "../core/stats";
 import { classBaseAtLevel } from "../units/classes";
 import { hexStatSvg } from "./hexStat";
-import { portraitInner, capeHtml } from "../units/art";
+import { portraitInner, capeHtml, isUnitLocked } from "../units/art";
 
 // Effective stats = unit base@lvl + class base@lvl + allocated custom points.
 // Mirrors what makeCombatant does, so the roster preview matches battle reality.
@@ -117,6 +117,7 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
     root.querySelectorAll<HTMLElement>("[data-roster]").forEach(el => {
       const id = el.dataset.roster!;
       el.addEventListener("click", () => {
+        if (isUnitLocked(id)) return;
         const t = PLAYER_ROSTER.find(x => x.id === id)!;
         const idx = picks.findIndex(p => p.id === t.id);
         if (idx >= 0) picks.splice(idx, 1);
@@ -189,10 +190,12 @@ function resistTags(r: DamageResistance | undefined): string {
 
 function rosterItemHtml(t: UnitTemplate, picks: UnitTemplate[], atCap: boolean): string {
   const selected = picks.some(p => p.id === t.id);
-  const locked = atCap && !selected;
+  const motzLocked = isUnitLocked(t.id);
+  const locked = (atCap && !selected) || motzLocked;
   const cls = ["roster-card",
     selected ? "selected" : "",
     locked ? "locked" : "",
+    motzLocked ? "motz-locked" : "",
   ].filter(Boolean).join(" ");
   const progress = getProgress(t.id);
   const lvl = progress.level;
@@ -204,6 +207,7 @@ function rosterItemHtml(t: UnitTemplate, picks: UnitTemplate[], atCap: boolean):
   const statRows = STAT_KEYS.map(k => `<span class="rs-stat"><span class="rs-stat-k">${k}</span><span class="rs-stat-v">${Math.round(s[k])}</span></span>`).join("");
   return `
     <div class="${cls}" data-roster="${escapeAttr(t.id)}">
+      ${motzLocked ? `<div class="rs-locked-overlay" title="Requires MoTZ Vault Key">🔒</div>` : ""}
       <div class="rs-portrait-wrap">
         <div class="rs-portrait">${capeHtml(classId)}${portraitInner(t.id, t.portrait)}<span class="lv-badge">Lv${lvl}</span></div>
         <div class="rs-name">${escapeHtml(t.name)}</div>

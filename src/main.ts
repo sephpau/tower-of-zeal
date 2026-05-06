@@ -13,7 +13,7 @@ import { recordClear } from "./core/clears";
 import { installGlobalClickSounds } from "./core/audio";
 import { STAGE_DEFS, getStage, BOSS_RAID_FLOORS } from "./units/roster";
 import { Stats } from "./core/stats";
-import { loadSession, validateSession, clearSession, setVerifiedAddress, Session } from "./auth/session";
+import { loadSession, validateSession, clearSession, setVerifiedAddress, setVerifiedPerks, Session } from "./auth/session";
 import { setUserScope } from "./auth/scope";
 import { renderWalletGate } from "./ui/walletGate";
 import { renderIgnGate } from "./ui/ignGate";
@@ -35,22 +35,26 @@ void bootstrap();
 async function bootstrap(): Promise<void> {
   const existing = loadSession();
   if (existing) {
-    const addr = await validateSession(existing.token);
-    if (addr) {
+    const v = await validateSession(existing.token);
+    if (v) {
       currentSession = existing;
-      setVerifiedAddress(addr);
-      setUserScope(addr);
-      ensureWalletInSettings(addr);
+      setVerifiedAddress(v.address);
+      setVerifiedPerks(v.perks);
+      setUserScope(v.address);
+      ensureWalletInSettings(v.address);
       void proceedAfterAuth();
       return;
     }
     clearSession();
   }
-  renderWalletGate(root!, s => {
+  renderWalletGate(root!, async s => {
     currentSession = s;
     setVerifiedAddress(s.address);
     setUserScope(s.address);
     ensureWalletInSettings(s.address);
+    // Fetch perks immediately after fresh auth so the gate is correct on first render.
+    const v = await validateSession(s.token);
+    if (v) setVerifiedPerks(v.perks);
     void proceedAfterAuth();
   });
 }

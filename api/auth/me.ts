@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { getAddress } from "viem";
 import { verifySession } from "../_lib/jwt.js";
+import { holdsMotzKey } from "../_lib/ronin.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   const auth = req.headers.authorization;
@@ -10,7 +12,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const token = auth.slice("Bearer ".length);
   try {
     const payload = await verifySession(token);
-    res.status(200).json({ address: payload.address });
+    const address = getAddress(payload.address);
+    // Re-check key holding on every session validate so users who buy/sell the
+    // key see the gate update without needing to reauthenticate.
+    const motzKey = await holdsMotzKey(address).catch(() => false);
+    res.status(200).json({ address: payload.address, perks: { motzKey } });
   } catch {
     res.status(401).json({ error: "invalid session" });
   }
