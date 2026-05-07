@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { zrevrangeWithScores, hmget } from "../_lib/redis.js";
-import { lbKeyFor, IGN_HASH_KEY, decodeScore, isLbMode, getFirstConquer } from "../_lib/runState.js";
+import { lbKeyFor, IGN_HASH_KEY, decodeScore, isLbMode, getFirstConquer, getWorldEnderTop, WorldEnderEntry } from "../_lib/runState.js";
 
 // Public endpoint — no auth needed to read top scores.
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -28,16 +28,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     });
 
     let firstConquer: { address: string; ign: string | null; ms: number; when: number } | null = null;
+    let worldEnder: WorldEnderEntry[] = [];
     if (wantExtras) {
       const rec = await getFirstConquer().catch(() => null);
       if (rec) {
         const [ign] = await hmget(IGN_HASH_KEY, [rec.address.toLowerCase()]).catch(() => [null]);
         firstConquer = { address: rec.address, ign: ign ?? null, ms: rec.ms, when: rec.when };
       }
+      worldEnder = await getWorldEnderTop(3).catch(() => []);
     }
 
     res.setHeader("Cache-Control", "public, max-age=10");
-    res.status(200).json({ entries, firstConquer });
+    res.status(200).json({ entries, firstConquer, worldEnder });
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
   }

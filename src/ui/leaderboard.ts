@@ -1,8 +1,6 @@
-import { fetchTop, fetchTopWithExtras, formatMs, LbEntry, FirstConquerEntry } from "../core/leaderboard";
+import { fetchTop, fetchTopWithExtras, formatMs, LbEntry, FirstConquerEntry, WorldEnderEntry } from "../core/leaderboard";
 import { topBarHtml } from "./settings";
 import { loadSession } from "../auth/session";
-
-const BOSS_RAID_FINAL_FLOOR = 5; // BOSS_RAID_FLOORS.length — keep in sync if floors change
 
 export function renderLeaderboard(root: HTMLElement, onBack: () => void): void {
   const myAddr = loadSession()?.address.toLowerCase() ?? null;
@@ -42,22 +40,41 @@ export function renderLeaderboard(root: HTMLElement, onBack: () => void): void {
   `;
   root.querySelector<HTMLButtonElement>("#back-btn")?.addEventListener("click", onBack);
 
-  // Survival board (with first-conquer in same payload).
-  void fetchTopWithExtras("survival", 50).then(({ entries, firstConquer }) => {
+  // Survival board (with first-conquer + world-ender in same payload).
+  void fetchTopWithExtras("survival", 50).then(({ entries, firstConquer, worldEnder }) => {
     fillRows("lb-survival-rows", entries, myAddr, { replayTopN: 3, mode: "survival" });
     fillFirstConquer("lb-conquer-rows", firstConquer, myAddr);
+    fillWorldEnder("lb-fastest-rows", worldEnder, myAddr);
   });
 
-  // Boss raid board + derive Fastest World Ender from it.
+  // Boss raid board (independent fetch).
   void fetchTop("boss_raid", 50).then(entries => {
     fillRows("lb-bossraid-rows", entries, myAddr, { replayTopN: 3, mode: "boss_raid" });
-    const fastest = entries.filter(e => e.floor >= BOSS_RAID_FINAL_FLOOR).slice(0, 3);
-    fillRows("lb-fastest-rows", fastest, myAddr, { replayTopN: 3, mode: "boss_raid", hideFloor: true });
-    if (fastest.length === 0) {
-      const el = document.getElementById("lb-fastest-rows");
-      if (el) el.innerHTML = `<div class="lb-empty">No completed kills yet.</div>`;
-    }
   });
+}
+
+function fillWorldEnder(elId: string, entries: WorldEnderEntry[], myAddr: string | null): void {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (entries.length === 0) {
+    el.innerHTML = `<div class="lb-empty">No floor 50 clears yet.</div>`;
+    return;
+  }
+  el.innerHTML = entries.map(e => {
+    const isMe = myAddr !== null && e.address.toLowerCase() === myAddr;
+    const showReplay = e.rank <= 3;
+    return `
+      <div class="lb-row ${isMe ? "me" : ""}">
+        <span class="lb-col rank">${e.rank}</span>
+        <span class="lb-col player">
+          <span class="lb-ign">${escapeHtml(e.ign ?? "—")}</span>
+          <span class="lb-addr" title="${escapeHtml(e.address)}">${shortAddr(e.address)}</span>
+        </span>
+        <span class="lb-col time">${formatMs(e.ms)}</span>
+        ${replayBtnHtml(showReplay)}
+      </div>
+    `;
+  }).join("");
 }
 
 interface FillOpts {

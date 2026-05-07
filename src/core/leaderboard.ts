@@ -82,15 +82,16 @@ export async function endRun(): Promise<{ floor: number; totalMs: number } | nul
 export function abortLiveRun(): void { live = null; }
 
 /** Single-floor (non-leaderboard) battle completed. Tells the server to credit
- *  the wallet's anti-cheat XP ceiling. Fail-soft. */
-export async function reportFloorCleared(stageId: number): Promise<void> {
+ *  the wallet's anti-cheat XP ceiling. For floor 50, also submits clear time
+ *  to the Fastest World Ender leaderboard. Fail-soft. */
+export async function reportFloorCleared(stageId: number, ms?: number): Promise<void> {
   const sess = sessionToken();
   if (!sess) return;
   try {
     await fetch("/api/run/floor-cleared", {
       method: "POST",
       headers: { Authorization: `Bearer ${sess}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ stageId }),
+      body: JSON.stringify({ stageId, ...(typeof ms === "number" ? { ms } : {}) }),
     });
   } catch { /* ignore */ }
 }
@@ -111,18 +112,25 @@ export interface FirstConquerEntry {
   when: number;
 }
 
+export interface WorldEnderEntry { rank: number; address: string; ign: string | null; ms: number; }
+
 export interface LeaderboardFetch {
   entries: LbEntry[];
   firstConquer: FirstConquerEntry | null;
+  worldEnder: WorldEnderEntry[];
 }
 
 export async function fetchTopWithExtras(mode: LbMode = "survival", limit = 50): Promise<LeaderboardFetch> {
   try {
     const r = await fetch(`/api/leaderboard/top?mode=${mode}&limit=${limit}&extras=1`);
-    if (!r.ok) return { entries: [], firstConquer: null };
-    const data = await r.json() as { entries: LbEntry[]; firstConquer: FirstConquerEntry | null };
-    return { entries: data.entries ?? [], firstConquer: data.firstConquer ?? null };
-  } catch { return { entries: [], firstConquer: null }; }
+    if (!r.ok) return { entries: [], firstConquer: null, worldEnder: [] };
+    const data = await r.json() as { entries: LbEntry[]; firstConquer: FirstConquerEntry | null; worldEnder: WorldEnderEntry[] };
+    return {
+      entries: data.entries ?? [],
+      firstConquer: data.firstConquer ?? null,
+      worldEnder: data.worldEnder ?? [],
+    };
+  } catch { return { entries: [], firstConquer: null, worldEnder: [] }; }
 }
 
 export function formatMs(ms: number): string {

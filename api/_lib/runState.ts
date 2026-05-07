@@ -1,4 +1,4 @@
-import { getJson, setJson, del, zaddGt, incrWithExpire, hset, hmget, incrBy, getNumber } from "./redis.js";
+import { getJson, setJson, del, zaddGt, zaddLt, zrangeWithScores, incrWithExpire, hset, hmget, incrBy, getNumber } from "./redis.js";
 
 // A live survival run. Stored at Redis key `run:{runId}` with a TTL.
 export interface RunState {
@@ -139,6 +139,31 @@ async function setNxJson<T>(key: string, value: T): Promise<boolean> {
   const { setNxWithExpire } = await import("./redis.js");
   // No expiry for permanent achievements: pass a very long TTL.
   return await setNxWithExpire(key, JSON.stringify(value), 60 * 60 * 24 * 365 * 10);
+}
+
+// ---- "Fastest to Kill World Ender" — floor-50 single-battle clears ----
+// Tracked separately from the survival/boss-raid leaderboards because this
+// is specifically about the standalone Floor 50 fight in normal floor mode.
+export const WORLD_ENDER_LB_KEY = "lb:world_ender_fastest:v1";
+// Minimum acceptable clear time (server side anti-cheat). World Ender on Lv30
+// with 1400 HP and ~6× damage taken multiplier won't fall in less than this.
+export const MIN_WORLD_ENDER_MS = 10_000;
+export const MAX_WORLD_ENDER_MS = 30 * 60 * 1000; // 30 min, sanity cap.
+
+export async function submitWorldEnderClear(address: string, ms: number): Promise<boolean> {
+  if (ms < MIN_WORLD_ENDER_MS || ms > MAX_WORLD_ENDER_MS) return false;
+  // LT: only persist if this is a faster time than the wallet's current best.
+  await zaddLt(WORLD_ENDER_LB_KEY, ms, address.toLowerCase());
+  return true;
+}
+
+export interface WorldEnderEntry { rank: number; address: string; ign: string | null; ms: number; }
+
+export async function getWorldEnderTop(limit = 3): Promise<WorldEnderEntry[]> {
+  const rows = await zrangeWithScores(WORLD_ENDER_LB_KEY, 0, limit - 1);
+  if (rows.length === 0) return [];
+  const igns = await hmget(IGN_HASH_KEY, rows.map(r => r.member));
+  return rows.map((r, i) => ({ rank: i + 1, address: r.member, ign: igns[i] ?? null, ms: r.score }));
 }
 
 // ---- Cheat-check audit: lifetime XP ceiling ----

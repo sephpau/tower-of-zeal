@@ -143,6 +143,9 @@ let brPlayerStatBoost = 0;                    // stacking 10%-per-pick
 let brPendingHeal = false;                    // one-shot 20% HP/MP at next floor start
 let recordedThisBattle = false;
 let battleConcluded = false;
+/** Wall-clock ms when the current floor-mode battle started. Used for the
+ *  Fastest World Ender leaderboard on floor-50 clears. */
+let floorBattleStartedAt = 0;
 
 /** Snapshot a survival/boss-raid run's per-unit aggregates from the active battle. */
 function buildRunSummaryUnits(b: Battle): RunSummaryUnit[] {
@@ -395,6 +398,7 @@ function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: 
   stopBgm();
   recordedThisBattle = false;
   battleConcluded = false;
+  if (mode === "floor") floorBattleStartedAt = Date.now();
   lastStateKind = battle.state.kind;
   lastCombatantCount = battle.combatants.length;
   lastAliveCount = battle.combatants.filter(c => c.alive).length;
@@ -459,7 +463,8 @@ function frame(t: number): void {
       battleConcluded = true;
       if (mode === "floor" && !recordedThisBattle) {
         recordClear(currentStageId);
-        void reportFloorCleared(currentStageId);
+        const elapsed = floorBattleStartedAt > 0 ? Date.now() - floorBattleStartedAt : 0;
+        void reportFloorCleared(currentStageId, currentStageId === 50 ? elapsed : undefined);
         recordedThisBattle = true;
         const cleared = currentStageId;
         setTimeout(() => { void showRunSummary("victory", cleared); }, 1500);

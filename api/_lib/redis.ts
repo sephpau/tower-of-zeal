@@ -42,6 +42,21 @@ export async function zaddGt(key: string, score: number, member: string): Promis
   await call(["ZADD", key, "GT", "CH", score, member]);
 }
 
+export async function zaddLt(key: string, score: number, member: string): Promise<void> {
+  // LT: only update if new score is less than existing (used for "fastest" boards).
+  await call(["ZADD", key, "LT", "CH", score, member]);
+}
+
+export async function zrangeWithScores(key: string, start: number, stop: number): Promise<ZEntry[]> {
+  const r = await call(["ZRANGE", key, start, stop, "WITHSCORES"]);
+  if (!Array.isArray(r)) return [];
+  const out: ZEntry[] = [];
+  for (let i = 0; i < r.length; i += 2) {
+    out.push({ member: String(r[i]), score: Number(r[i + 1]) });
+  }
+  return out;
+}
+
 export interface ZEntry { member: string; score: number; }
 
 export async function zrevrangeWithScores(key: string, start: number, stop: number): Promise<ZEntry[]> {
