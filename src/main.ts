@@ -8,7 +8,7 @@ const SURVIVAL_XP_MULT = 1 / 50;
 const BOSS_RAID_XP_MULT = 1 / 10;
 import { renderUnitsScreen } from "./ui/unitsScreen";
 import { renderSettings } from "./ui/settings";
-import { consumeEnergy, getEnergy } from "./core/energy";
+import { getEnergy } from "./core/energy";
 import { fetchServerEnergy, consumeServerEnergy } from "./auth/energyApi";
 import { fetchDailyStatus, getCachedDailyMultiplier } from "./core/daily";
 import { renderRunSummary, RunSummary, RunSummaryUnit, pickMvpId } from "./ui/runSummary";
@@ -504,14 +504,14 @@ async function startBattleFromSquad(squad: SquadResult): Promise<void> {
              : mode === "boss_raid" ? BOSS_RAID_ENERGY_COST
              : 1;
   // Server-authoritative energy: localStorage edits no longer grant runs.
+  // consumeServerEnergy() already writes the server's post-deduct amount into
+  // localStorage on success — no further local consume needed.
   const r = await consumeServerEnergy(cost);
   if (!r.ok) {
     if ("error" in r) alert("Couldn't reach server to start battle. Try again.");
     else alert(`Not enough energy (need ${cost}, have ${r.amount}).`);
     return;
   }
-  // Keep the local cache in sync so the energy pill matches.
-  consumeEnergy(cost);
 
   if (mode === "survival") {
     survivalParty = squad.players;
