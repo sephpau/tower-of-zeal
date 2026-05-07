@@ -437,8 +437,23 @@ function setBar(host: HTMLElement, kind: "hp" | "mp" | "atb", cur: number, max: 
 }
 
 function logLinesHtml(b: Battle): string {
+  const players = new Set(b.combatants.filter(c => c.side === "player").map(c => c.name));
+  const enemies = new Set(b.combatants.filter(c => c.side === "enemy").map(c => c.name));
+  // Longest names first so multi-word names ("Tower God") win over substrings.
+  const allNames = [...new Set([...players, ...enemies])].sort((a, b) => b.length - a.length);
+  const colorize = (line: string): string => {
+    let html = escapeHtml(line);
+    for (const name of allNames) {
+      const escapedRegex = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(`\\b${escapedRegex}\\b`, "g");
+      const cls = players.has(name) ? "log-player" : "log-enemy";
+      html = html.replace(re, `<span class="${cls}">${escapeHtml(name)}</span>`);
+    }
+    html = html.replace(/\bCRIT\b/g, `<span class="log-crit">CRIT</span>`);
+    return html;
+  };
   // Latest line first.
-  return b.log.slice(-12).slice().reverse().map(line => `<div class="log-line">${escapeHtml(line)}</div>`).join("");
+  return b.log.slice(-12).slice().reverse().map(line => `<div class="log-line">${colorize(line)}</div>`).join("");
 }
 
 function actionPanelHtml(b: Battle, showPostButtons: boolean): string {
