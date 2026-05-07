@@ -33,6 +33,9 @@ export interface RunSummary {
   mvpBonusXp?: number;
   /** Full battle log lines from the last (or only) battle of the run. */
   battleLog?: string[];
+  /** Combatant names by side, used to colorize the log review modal. */
+  playerNames?: string[];
+  enemyNames?: string[];
 }
 
 /** Highest score = damageDealt + 1000 × kills. Returns null if no candidates. */
@@ -122,13 +125,33 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
     root.querySelector<HTMLButtonElement>("#rs-retry")?.addEventListener("click", actions.onRetry);
   }
   if (summary.battleLog && summary.battleLog.length > 0) {
-    root.querySelector<HTMLButtonElement>("#rs-log")?.addEventListener("click", () => showBattleLogModal(summary.battleLog!));
+    root.querySelector<HTMLButtonElement>("#rs-log")?.addEventListener("click", () => {
+      showBattleLogModal(summary.battleLog!, summary.playerNames ?? [], summary.enemyNames ?? []);
+    });
   }
 }
 
-function showBattleLogModal(lines: string[]): void {
+function showBattleLogModal(lines: string[], playerNames: string[], enemyNames: string[]): void {
   // Drop any prior modal so re-clicks don't stack.
   document.getElementById("rs-log-modal")?.remove();
+
+  // Sort longest first so multi-word names like "Tower God" win over "Tower".
+  // Player wins ties so a colliding name never reads as enemy.
+  const players = new Set(playerNames);
+  const enemies = new Set(enemyNames);
+  const allNames = [...new Set([...playerNames, ...enemyNames])].sort((a, b) => b.length - a.length);
+
+  const colorize = (line: string): string => {
+    let html = escapeHtml(line);
+    for (const name of allNames) {
+      const escapedRegex = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(`\\b${escapedRegex}\\b`, "g");
+      const cls = players.has(name) ? "log-player" : "log-enemy";
+      html = html.replace(re, `<span class="${cls}">${escapeHtml(name)}</span>`);
+    }
+    return html;
+  };
+
   const modal = document.createElement("div");
   modal.id = "rs-log-modal";
   modal.className = "rs-log-overlay";
@@ -138,7 +161,7 @@ function showBattleLogModal(lines: string[]): void {
         <span class="rs-log-title">Battle Log</span>
         <button class="ghost-btn rs-log-close" id="rs-log-close" type="button">Close</button>
       </div>
-      <div class="rs-log-body">${lines.map(l => `<div class="rs-log-line">${escapeHtml(l)}</div>`).join("")}</div>
+      <div class="rs-log-body">${lines.map(l => `<div class="rs-log-line">${colorize(l)}</div>`).join("")}</div>
     </div>
   `;
   document.body.appendChild(modal);

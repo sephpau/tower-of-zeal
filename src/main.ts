@@ -374,6 +374,8 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
     mvpId,
     mvpBonusXp,
     battleLog: battle ? battle.log.slice() : undefined,
+    playerNames: battle ? Array.from(new Set(battle.combatants.filter(c => c.side === "player").map(c => c.name))) : undefined,
+    enemyNames: battle ? Array.from(new Set(battle.combatants.filter(c => c.side === "enemy").map(c => c.name))) : undefined,
   };
 
   abortLiveRun();
