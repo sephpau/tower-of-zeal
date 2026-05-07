@@ -607,6 +607,8 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
     attacker.hp = Math.max(1, attacker.hp - skill.hpCost);
   }
 
+  // Buff skills get a soft cast chant up-front. Idle and Guard are quick — no chant.
+  if (skill.kind === "buff" && skill.id !== "guard") sfx.castBuff();
 
   // Quick actions (idle / guard) skip the wind-up entirely — they resolve now.
   const isQuick = skill.id === "idle" || skill.id === "guard";

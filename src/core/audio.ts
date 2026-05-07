@@ -52,18 +52,32 @@ function chord(tones: Tone[]): void {
   for (const t of tones) blip(t);
 }
 
-// ---- Crit-only file sample ----
-let critAudio: HTMLAudioElement | null = null;
-function playCritSample(): void {
+// ---- File-based samples (small set) ----
+const SAMPLE_SRC: Record<string, string> = {
+  crit: "/sfx/crit.wav",
+  hitPhys: "/sfx/hit-physical.wav",
+  hitMag: "/sfx/hit-magical.wav",
+  castBuff: "/sfx/cast-buff.wav",
+};
+const sampleCache: Record<string, HTMLAudioElement> = {};
+function preloadSample(key: string): void {
+  if (typeof window === "undefined") return;
+  if (sampleCache[key]) return;
+  const src = SAMPLE_SRC[key];
+  if (!src) return;
+  const a = new Audio(src);
+  a.preload = "auto";
+  sampleCache[key] = a;
+}
+function playSample(key: string, gain: number): void {
   if (!sfxAllowed()) return;
   if (typeof window === "undefined") return;
-  if (!critAudio) {
-    critAudio = new Audio("/sfx/crit.wav");
-    critAudio.preload = "auto";
-  }
-  // Clone so rapid crits overlap instead of cutting each other off.
-  const a = new Audio("/sfx/crit.wav");
-  a.volume = 0.7;
+  const src = SAMPLE_SRC[key];
+  if (!src) return;
+  preloadSample(key);
+  // Fresh Audio per call so rapid hits don't cut each other off.
+  const a = new Audio(src);
+  a.volume = Math.max(0, Math.min(1, gain));
   a.play().catch(() => undefined);
 }
 
@@ -71,22 +85,11 @@ function playCritSample(): void {
 export const sfx = {
   click: () => blip({ freq: 880, type: "square", durMs: 35, gain: 0.05 }),
   hover: () => blip({ freq: 660, type: "sine", durMs: 25, gain: 0.03 }),
-  physMelee: () => chord([
-    { freq: 220, endFreq: 80, type: "sawtooth", durMs: 110, gain: 0.10 },
-    { freq: 1200, endFreq: 200, type: "square", durMs: 60, gain: 0.04 },
-  ]),
-  physRange: () => chord([
-    { freq: 1500, endFreq: 600, type: "triangle", durMs: 90, gain: 0.06 },
-    { freq: 300, endFreq: 100, type: "square", durMs: 70, gain: 0.05 },
-  ]),
-  magMelee: () => chord([
-    { freq: 320, endFreq: 110, type: "sawtooth", durMs: 130, gain: 0.07 },
-    { freq: 880, endFreq: 1760, type: "sine", durMs: 130, gain: 0.05 },
-  ]),
-  magRange: () => chord([
-    { freq: 660, endFreq: 1320, type: "sine", durMs: 160, gain: 0.06 },
-    { freq: 220, endFreq: 880, type: "triangle", durMs: 160, gain: 0.04 },
-  ]),
+  physMelee: () => playSample("hitPhys", 0.22),
+  physRange: () => playSample("hitPhys", 0.22),
+  magMelee: () => playSample("hitMag", 0.22),
+  magRange: () => playSample("hitMag", 0.22),
+  castBuff: () => playSample("castBuff", 0.22),
   heal: () => chord([
     { freq: 880, endFreq: 1320, type: "sine", durMs: 160, gain: 0.07 },
     { freq: 1320, endFreq: 1760, type: "sine", durMs: 160, gain: 0.05 },
@@ -94,8 +97,7 @@ export const sfx = {
   manaHeal: () => chord([
     { freq: 660, endFreq: 990, type: "triangle", durMs: 160, gain: 0.06 },
   ]),
-  // Critical hits use the prerecorded WAV; everything else stays synth.
-  crit: () => playCritSample(),
+  crit: () => playSample("crit", 0.32),
   miss: () => blip({ freq: 220, endFreq: 110, type: "triangle", durMs: 80, gain: 0.04 }),
   fall: () => blip({ freq: 200, endFreq: 60, type: "sawtooth", durMs: 240, gain: 0.10 }),
   victory: () => chord([
