@@ -2536,3 +2536,108 @@ html, body {
 .rs-log-line .log-player, .log-line .log-player { color: #80b8ff; font-weight: 600; }
 .rs-log-line .log-enemy,  .log-line .log-enemy  { color: #ff8080; font-weight: 600; }
 .rs-log-line .log-crit,   .log-line .log-crit   { color: var(--gold-bright); font-weight: 800; letter-spacing: 0.05em; }
+
+/* ---------- Codex (Game Info) ---------- */
+.codex-btn { right: 112px; }  /* sits left of the ? tutorial button */
+.codex-screen { padding: 16px; max-width: 960px; margin: 0 auto; }
+.codex-sticky-header {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--bg);
+  padding-bottom: 6px;
+  box-shadow: 0 6px 14px -8px rgba(0, 0, 0, 0.7);
+}
+.codex-body {
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+.codex-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+.codex-h2 {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--gold-bright);
+  margin: 0 0 10px;
+  border-bottom: 1px solid rgba(244, 211, 94, 0.25);
+  padding-bottom: 8px;
+}
+.codex-intro { color: var(--text-dim); font-size: 12px; margin: 0 0 12px; }
+.codex-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.codex-stat {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 12px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.codex-stat-head { display: flex; align-items: baseline; gap: 8px; }
+.codex-stat-key {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--gold-bright);
+}
+.codex-stat-name { color: var(--text-dim); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+.codex-stat ul { margin: 4px 0 0; padding-left: 18px; color: var(--text); }
+.codex-stat li { margin: 2px 0; font-size: 11px; }
+.codex-list {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.codex-source, .codex-action, .codex-pair {
+  background: var(--bg);
+  border-left: 3px solid var(--gold-bright);
+  border-radius: 4px;
+  padding: 10px 12px;
+}
+.codex-source.unit  { border-left-color: #7cd5ff; }
+.codex-source.class { border-left-color: #d97cff; }
+.codex-source.custom { border-left-color: var(--gold-bright); }
+.codex-source-head, .codex-action-head, .codex-pair-label {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.codex-source p, .codex-action p, .codex-pair p { margin: 0; font-size: 12px; color: var(--text-dim); line-height: 1.4; }
+.codex-source p strong, .codex-action p strong, .codex-pair p strong { color: var(--text); }
+.codex-action code {
+  background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 3px; font-size: 11px;
+}
+.codex-tip {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: rgba(244, 211, 94, 0.06);
+  border: 1px dashed rgba(244, 211, 94, 0.3);
+  padding: 8px 12px;
+  border-radius: 4px;
+}
+.codex-effects { display: flex; flex-direction: column; gap: 4px; }
+.codex-effect {
+  display: grid;
+  grid-template-columns: 28px 110px 1fr;
+  gap: 8px;
+  align-items: start;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.codex-effect-icon { font-size: 16px; }
+.codex-effect-name { font-weight: 700; }
+.codex-effect-desc { color: var(--text-dim); line-height: 1.4; }
+.codex-effect-buff   { background: rgba(80, 200, 255, 0.05); }
+.codex-effect-buff   .codex-effect-name { color: #80b8ff; }
+.codex-effect-debuff { background: rgba(255, 80, 80, 0.05); }
+.codex-effect-debuff .codex-effect-name { color: #ff8080; }

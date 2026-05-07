@@ -30,6 +30,7 @@ import { renderWalletGate } from "./ui/walletGate";
 import { renderIgnGate } from "./ui/ignGate";
 import { loadSettings, saveSettings } from "./ui/settings";
 import { renderTutorial, isTutorialComplete } from "./ui/tutorial";
+import { renderCodex } from "./ui/codex";
 import { renderLeaderboard } from "./ui/leaderboard";
 import { fetchServerIgn, saveServerIgn } from "./auth/ign";
 import { showBossRaidReward, BossRaidReward } from "./ui/bossRaidReward";
@@ -122,7 +123,7 @@ function startApp(): void {
   requestAnimationFrame(t => { lastT = t; frame(t); });
 }
 
-type Screen = "home" | "stage_select" | "squad_select" | "battle" | "units" | "settings" | "leaderboard" | "run_summary" | "replay";
+type Screen = "home" | "stage_select" | "squad_select" | "battle" | "units" | "settings" | "leaderboard" | "run_summary" | "replay" | "codex";
 
 interface CarryEntry { hp: number; mp: number; xp: number; level: number; availablePoints: number; customStats: Stats; classId?: string; skillCooldowns?: Record<string, number>; gauge?: number; alive?: boolean; damageDealt?: number; damageTaken?: number; kills?: number; xpGainedTotal?: number }
 
@@ -429,6 +430,12 @@ function onHomeAction(a: HomeAction): void {
   else if (a === "settings") showSettings();
   else if (a === "tutorial") showTutorialReplay();
   else if (a === "leaderboard") showLeaderboard();
+  else if (a === "codex") showCodex();
+}
+
+function showCodex(): void {
+  screen = "codex" as Screen;
+  renderCodex(root!, showHome);
 }
 
 function showLeaderboard(): void {
