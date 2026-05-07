@@ -750,8 +750,10 @@ function frame(t: number): void {
 
   if (screen === "replay" && battle) {
     if (battle.state.kind === "ticking") {
-      injectReplayActions(battle);
-      tickAccum(battle, dt);
+      // Inject before every sim step so a unit that fires twice within a
+      // single real frame (idle keeps 25% gauge → fast refill) still has its
+      // next recorded action queued in time.
+      tickAccum(battle, dt, injectReplayActions);
     }
     const aliveNow = battle.combatants.filter(c => c.alive).length;
     if (battle.state.kind !== lastStateKind || battle.combatants.length !== lastCombatantCount || aliveNow !== lastAliveCount) {

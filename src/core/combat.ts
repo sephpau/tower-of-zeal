@@ -116,12 +116,18 @@ export const SIM_STEP = 1 / 60;
 const MAX_STEPS_PER_FRAME = 8;  // safety cap; keeps a slow tab from spiral-of-death.
 
 /** Accumulate real-frame dt and run as many fixed-step ticks as are owed.
- *  Frame loops should call this instead of tick() directly. */
-export function tickAccum(b: Battle, realDt: number): void {
+ *  Frame loops should call this instead of tick() directly.
+ *
+ *  `beforeEachTick` runs once per fixed sim step, immediately before the tick.
+ *  Replay playback uses it to inject the next recorded action right before
+ *  every step, so a unit that fires twice within a single real frame still
+ *  has its second action queued in time. */
+export function tickAccum(b: Battle, realDt: number, beforeEachTick?: (b: Battle) => void): void {
   // Cap each frame's real time to avoid huge bursts after a tab regains focus.
   b.simAccum += Math.min(realDt, MAX_STEPS_PER_FRAME * SIM_STEP);
   let steps = 0;
   while (b.simAccum >= SIM_STEP && steps < MAX_STEPS_PER_FRAME) {
+    if (beforeEachTick) beforeEachTick(b);
     tick(b, SIM_STEP);
     b.simAccum -= SIM_STEP;
     steps += 1;
