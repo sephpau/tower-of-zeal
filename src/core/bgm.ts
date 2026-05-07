@@ -1,5 +1,7 @@
 // Background music. One pre-cached <audio> element per track so switching
 // between home → battle → boss is instant and doesn't re-download.
+// Each track applies a fixed multiplier on top of the user's volume slider
+// so battle tracks can sit lower in the mix than the menu loop.
 
 import { loadSettings } from "../ui/settings";
 
@@ -12,10 +14,22 @@ const SRC: Record<BgmTrack, string> = {
   floor50: "/floor-50.mp3",
 };
 
+/** Per-track loudness multiplier. The user's volume slider × this = effective volume. */
+const TRACK_MUL: Record<BgmTrack, number> = {
+  home: 1.0,
+  battle: 0.4,
+  boss: 0.45,
+  floor50: 0.5,
+};
+
 const VOL_KEY = "toz.bgm.volume";
 
 const cache: Partial<Record<BgmTrack, HTMLAudioElement>> = {};
 let activeTrack: BgmTrack | null = null;
+
+function effectiveVolume(track: BgmTrack): number {
+  return Math.max(0, Math.min(1, readVolume() * TRACK_MUL[track]));
+}
 
 function getAudio(track: BgmTrack): HTMLAudioElement {
   let a = cache[track];
@@ -23,7 +37,7 @@ function getAudio(track: BgmTrack): HTMLAudioElement {
   a = new Audio(SRC[track]);
   a.loop = true;
   a.preload = "auto";
-  a.volume = readVolume();
+  a.volume = effectiveVolume(track);
   cache[track] = a;
   return a;
 }
@@ -42,7 +56,7 @@ export function setBgmVolume(v: number): void {
   try { localStorage.setItem(VOL_KEY, String(clamped)); } catch { /* ignore */ }
   for (const t of Object.keys(cache) as BgmTrack[]) {
     const el = cache[t];
-    if (el) el.volume = clamped;
+    if (el) el.volume = effectiveVolume(t);
   }
 }
 
@@ -68,6 +82,7 @@ export function playTrack(track: BgmTrack): void {
   }
   activeTrack = track;
   const a = getAudio(track);
+  a.volume = effectiveVolume(track);
   a.play().catch(() => { /* autoplay may be blocked until interaction */ });
 }
 
@@ -76,13 +91,11 @@ export function playBgm(): void {
   playTrack("home");
 }
 
-/** Pick the right battle track based on the floor being fought and the mode.
- *  TEMPORARILY DISABLED — battle BGM is muted while the tracks get retuned.
- *  We still stop any home BGM that may be playing so battles aren't drowned
- *  out by the menu loop. To re-enable, restore the playTrack(...) calls. */
-export function playBattleBgm(_stageId: number, _mode: "floor" | "survival" | "boss_raid", _isSoloBoss: boolean): void {
-  void _stageId; void _mode; void _isSoloBoss;
-  stopBgm();
+/** Pick the right battle track based on the floor being fought and the mode. */
+export function playBattleBgm(stageId: number, mode: "floor" | "survival" | "boss_raid", isSoloBoss: boolean): void {
+  if (stageId === 50) { playTrack("floor50"); return; }
+  if (mode === "boss_raid" || isSoloBoss) { playTrack("boss"); return; }
+  playTrack("battle");
 }
 
 export function stopBgm(): void {
