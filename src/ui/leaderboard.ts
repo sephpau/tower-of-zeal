@@ -99,9 +99,12 @@ export function renderLeaderboard(root: HTMLElement, onBack: () => void, onPlayR
     btn.textContent = "Loading…";
     const blob = await fetchReplayBlob<ReplayBlob>(scope, address);
     if (!blob) {
-      btn.disabled = false;
-      btn.textContent = "▶ Replay";
-      alert("No replay available for this entry yet.");
+      // Older entries (predating the replay save) won't have a blob — gray the
+      // button out in place instead of showing a browser alert.
+      btn.disabled = true;
+      btn.textContent = "No replay";
+      btn.classList.add("lb-replay-empty");
+      btn.title = "This entry was set before replays were recorded.";
       return;
     }
     onPlayReplay(blob);
