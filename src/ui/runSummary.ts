@@ -6,6 +6,7 @@ import { PLAYER_ROSTER } from "../units/roster";
 import { portraitInner, capeHtml } from "../units/art";
 import { getProgress } from "../core/progress";
 import { getCachedDailyMultiplier } from "../core/daily";
+import { sfx } from "../core/audio";
 
 export interface RunSummaryUnit {
   templateId: string;
@@ -67,6 +68,14 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
     ? (summary.mode === "floor" ? "Floor Cleared" : "Run Complete")
     : (summary.mode === "floor" ? "Floor Failed" : "Run Ended");
 
+  // Outcome SFX — celebrate the win, mark the loss.
+  if (summary.outcome === "victory") sfx.victory();
+  else sfx.defeat();
+
+  const bigBanner = summary.outcome === "victory"
+    ? `<div class="rs-big-banner victory">VICTORY!</div>`
+    : `<div class="rs-big-banner defeat">DEFEAT</div>`;
+
   root.innerHTML = `
     <div class="run-summary-screen">
       <div class="rs-card">
@@ -74,6 +83,8 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
           <div class="rs-mode-tag rs-mode-${summary.mode}">${modeLabel}</div>
           <div class="rs-outcome rs-outcome-${summary.outcome}">${outcomeLabel}</div>
         </div>
+
+        ${bigBanner}
 
         <div class="rs-headline">
           <div class="rs-headline-floor">Floor ${summary.floorsCleared}${summary.floorLabel ? ` · ${escapeHtml(summary.floorLabel)}` : ""}</div>
