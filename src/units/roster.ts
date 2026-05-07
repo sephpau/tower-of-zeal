@@ -325,9 +325,9 @@ export const DEMON_HOUND: UnitTemplate = {
 // Floor 14 — VIT-skewed wall boss. Massive HP, low offense, low speed.
 export const IRON_BEHEMOTH: UnitTemplate = {
   id: "iron_behemoth", name: "Iron Behemoth", portrait: "🦏",
-  unitBaseStats: { STR: 8, DEF: 14, AGI: 2, DEX: 5, VIT: 80, INT: 0 },
+  unitBaseStats: { STR: 8, DEF: 42, AGI: 2, DEX: 5, VIT: 240, INT: 0 },
   startingSkills: ["basic_attack", "iron_bulwark"],
-  overrideMaxHp: 1500,
+  overrideMaxHp: 4500,
   overrideMaxMp: 30,
   level: 14,
   xpReward: 400,
