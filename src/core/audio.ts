@@ -1,6 +1,6 @@
-// Hybrid SFX: a few synth blips for menu/click and prerecorded WAV/MP3
-// samples for combat hits, crits, misses, and the ATB-ready chime.
-// Honors loadSettings().sfxOn so all sounds can be muted from settings.
+// Tiny Web Audio synth for menu/click and combat hits, plus a single
+// prerecorded WAV for crit damage. Honors loadSettings().sfxOn so all
+// sounds can be muted from settings.
 
 import { loadSettings } from "../ui/settings";
 
@@ -52,72 +52,41 @@ function chord(tones: Tone[]): void {
   for (const t of tones) blip(t);
 }
 
-// ---- File-based samples ----
-// Pre-cached <audio> per sample. We clone on each play so rapid-fire SFX
-// can overlap (e.g. multiple hits in the same animation lock).
-const SAMPLE_SRC: Record<string, string> = {
-  hitPhys: "/sfx/hit-physical.wav",
-  hitMag: "/sfx/hit-magical.wav",
-  hitFire: "/sfx/hit-fire.mp3",
-  hitWater: "/sfx/hit-water.wav",
-  hitWind: "/sfx/hit-wind.wav",
-  hitSharpshooter: "/sfx/hit-sharpshooter.wav",
-  hitWraith: "/sfx/hit-wraith.wav",
-  slimeAttack: "/sfx/slime-attack.wav",
-  guardedHit: "/sfx/guarded-hit.wav",
-  crit: "/sfx/crit.wav",
-  miss: "/sfx/miss.mp3",
-  atbReady: "/sfx/atb-ready.wav",
-  castMagical: "/sfx/cast-magical.wav",
-  castBuff: "/sfx/cast-buff.wav",
-  clickBattle: "/sfx/click-battle.wav",
-};
-const sampleCache: Record<string, HTMLAudioElement> = {};
-function loadSample(key: string): HTMLAudioElement | null {
-  if (typeof window === "undefined") return null;
-  let cached = sampleCache[key];
-  if (cached) return cached;
-  const src = SAMPLE_SRC[key];
-  if (!src) return null;
-  cached = new Audio(src);
-  cached.preload = "auto";
-  sampleCache[key] = cached;
-  return cached;
-}
-
-function playSample(key: string, gain = 0.5): void {
+// ---- Crit-only file sample ----
+let critAudio: HTMLAudioElement | null = null;
+function playCritSample(): void {
   if (!sfxAllowed()) return;
-  const src = SAMPLE_SRC[key];
-  if (!src) return;
-  // Pre-warm the cache; clone lets concurrent plays not cut each other off.
-  loadSample(key);
-  const a = new Audio(src);
-  a.volume = Math.max(0, Math.min(1, gain));
+  if (typeof window === "undefined") return;
+  if (!critAudio) {
+    critAudio = new Audio("/sfx/crit.wav");
+    critAudio.preload = "auto";
+  }
+  // Clone so rapid crits overlap instead of cutting each other off.
+  const a = new Audio("/sfx/crit.wav");
+  a.volume = 0.7;
   a.play().catch(() => undefined);
 }
 
-// Public sounds. File-backed for combat hits / crits / misses / atb-ready.
+// Public sounds — synth blips for everything except the crit damage WAV.
 export const sfx = {
   click: () => blip({ freq: 880, type: "square", durMs: 35, gain: 0.05 }),
   hover: () => blip({ freq: 660, type: "sine", durMs: 25, gain: 0.03 }),
-  physMelee: () => playSample("hitPhys", 0.6),
-  physRange: () => playSample("hitPhys", 0.6),
-  magMelee: () => playSample("hitMag", 0.55),
-  magRange: () => playSample("hitMag", 0.55),
-  crit: () => playSample("crit", 0.7),
-  miss: () => playSample("miss", 0.45),
-  atbReady: () => playSample("atbReady", 0.35),
-  castMagical: () => playSample("castMagical", 0.55),
-  castBuff: () => playSample("castBuff", 0.5),
-  hitFire: () => playSample("hitFire", 0.6),
-  hitWater: () => playSample("hitWater", 0.6),
-  hitWind: () => playSample("hitWind", 0.6),
-  hitSharpshooter: () => playSample("hitSharpshooter", 0.6),
-  hitWraith: () => playSample("hitWraith", 0.6),
-  slimeAttack: () => playSample("slimeAttack", 0.55),
-  guardedHit: () => playSample("guardedHit", 0.55),
-  clickBattle: () => playSample("clickBattle", 0.5),
-  // Synth-only — no asset for these yet.
+  physMelee: () => chord([
+    { freq: 220, endFreq: 80, type: "sawtooth", durMs: 110, gain: 0.10 },
+    { freq: 1200, endFreq: 200, type: "square", durMs: 60, gain: 0.04 },
+  ]),
+  physRange: () => chord([
+    { freq: 1500, endFreq: 600, type: "triangle", durMs: 90, gain: 0.06 },
+    { freq: 300, endFreq: 100, type: "square", durMs: 70, gain: 0.05 },
+  ]),
+  magMelee: () => chord([
+    { freq: 320, endFreq: 110, type: "sawtooth", durMs: 130, gain: 0.07 },
+    { freq: 880, endFreq: 1760, type: "sine", durMs: 130, gain: 0.05 },
+  ]),
+  magRange: () => chord([
+    { freq: 660, endFreq: 1320, type: "sine", durMs: 160, gain: 0.06 },
+    { freq: 220, endFreq: 880, type: "triangle", durMs: 160, gain: 0.04 },
+  ]),
   heal: () => chord([
     { freq: 880, endFreq: 1320, type: "sine", durMs: 160, gain: 0.07 },
     { freq: 1320, endFreq: 1760, type: "sine", durMs: 160, gain: 0.05 },
@@ -125,6 +94,9 @@ export const sfx = {
   manaHeal: () => chord([
     { freq: 660, endFreq: 990, type: "triangle", durMs: 160, gain: 0.06 },
   ]),
+  // Critical hits use the prerecorded WAV; everything else stays synth.
+  crit: () => playCritSample(),
+  miss: () => blip({ freq: 220, endFreq: 110, type: "triangle", durMs: 80, gain: 0.04 }),
   fall: () => blip({ freq: 200, endFreq: 60, type: "sawtooth", durMs: 240, gain: 0.10 }),
   victory: () => chord([
     { freq: 523, type: "square", durMs: 160, gain: 0.06 },
@@ -147,9 +119,6 @@ export function installGlobalClickSounds(): void {
     const t = e.target as HTMLElement | null;
     if (!t) return;
     const clickable = t.closest("button, [data-roster], [data-cell], .stage-tile, .home-tile, .roster-item, .class-pick-btn, .alloc-btn, .gear-btn, .back-btn");
-    if (!clickable || (clickable as HTMLButtonElement).disabled) return;
-    // Inside a .battle screen → use the prerecorded battle click. Elsewhere → synth blip.
-    if (clickable.closest(".battle")) sfx.clickBattle();
-    else sfx.click();
+    if (clickable && !(clickable as HTMLButtonElement).disabled) sfx.click();
   }, true);
 }

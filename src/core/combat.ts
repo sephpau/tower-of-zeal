@@ -398,17 +398,7 @@ export function tick(b: Battle, dt: number): void {
   if (b.state.kind !== "ticking") return;
 
   // Always tick gauges so combat keeps flowing visually even mid-animation.
-  // Snapshot which players were ready before this tick so we can fire the
-  // atb-ready SFX only on the rising edge.
-  const playerReadyBefore: Record<string, boolean> = {};
-  for (const c of b.combatants) {
-    if (c.side === "player" && c.alive) playerReadyBefore[c.id] = c.gauge >= ATB_FULL;
-  }
   tickGauges(b.combatants, dt);
-  for (const c of b.combatants) {
-    if (c.side !== "player" || !c.alive) continue;
-    if (!playerReadyBefore[c.id] && c.gauge >= ATB_FULL) sfx.atbReady();
-  }
 
   // Animation lock — actions queue serially behind any in-flight animation.
   if (b.actionLock > 0) {
@@ -617,15 +607,6 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
     attacker.hp = Math.max(1, attacker.hp - skill.hpCost);
   }
 
-  // Magical damage skills get a "casting/chant" SFX up-front so the hit lands
-  // after the chant. Fires for any skill that will roll magical damage —
-  // including basic_attack on a unit with basicAttackKind === "magical".
-  const magicalDamageIncoming =
-    (skill.kind === "magical" && (skill.targeting === "enemy" || skill.targeting === "all_enemies"))
-    || (skill.id === "basic_attack" && attacker.basicAttackKind === "magical");
-  if (magicalDamageIncoming) sfx.castMagical();
-  // Buff skills get the buff chant up-front. Idle and Guard are quick — no chant.
-  if (skill.kind === "buff" && skill.id !== "guard") sfx.castBuff();
 
   // Quick actions (idle / guard) skip the wind-up entirely — they resolve now.
   const isQuick = skill.id === "idle" || skill.id === "guard";
