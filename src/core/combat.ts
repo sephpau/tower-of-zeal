@@ -698,7 +698,29 @@ function runActionResolution(b: Battle, attacker: Combatant, skill: Skill, actio
   } else if (skill.targeting === "all_enemies") {
     const targets = b.combatants.filter(c => c.alive && c.side !== attacker.side);
     b.log.push(`${attacker.name} unleashes ${skill.name}!`);
-    for (const t of targets) { applyDamageRolls(b, attacker, t, skill, { aoe: true }); didDamage = true; }
+    // Per-target damage falloff. The first hit takes the AOE base damage,
+    // each subsequent target takes progressively less so a 5-mob floor can't
+    // be flattened by a single cast.
+    const FALLOFF = [1.0, 0.85, 0.7, 0.55, 0.4];
+    // CC cap: only AOE_CC_TARGET_LIMIT random targets receive on-hit effects
+    // (burn/freeze/stun/etc.). Keeps single-cast lockdowns out of the meta.
+    const AOE_CC_TARGET_LIMIT = 2;
+    const ccPool = [...targets];
+    const ccTargetIds = new Set<string>();
+    for (let i = 0; i < AOE_CC_TARGET_LIMIT && ccPool.length > 0; i++) {
+      const idx = Math.floor(b.rng.next() * ccPool.length);
+      ccTargetIds.add(ccPool.splice(idx, 1)[0].id);
+    }
+    for (let i = 0; i < targets.length; i++) {
+      const t = targets[i];
+      const damageMul = FALLOFF[Math.min(i, FALLOFF.length - 1)];
+      applyDamageRolls(b, attacker, t, skill, {
+        aoe: true,
+        damageMul,
+        suppressApplies: !ccTargetIds.has(t.id),
+      });
+      didDamage = true;
+    }
   } else {
     let target = b.combatants.find(c => c.id === action.targetId);
     if (!target || !target.alive) {
@@ -758,7 +780,7 @@ function findActiveTaunter(b: Battle, side: Side): Combatant | null {
   return null;
 }
 
-function applyDamageRolls(b: Battle, attacker: Combatant, target: Combatant, skill: Skill, ctx: { aoe?: boolean } = {}): void {
+function applyDamageRolls(b: Battle, attacker: Combatant, target: Combatant, skill: Skill, ctx: { aoe?: boolean; damageMul?: number; suppressApplies?: boolean } = {}): void {
   const hits = Math.max(1, skill.multiHit ?? 1);
   for (let i = 0; i < hits; i++) {
     if (!target.alive) break;
@@ -766,7 +788,7 @@ function applyDamageRolls(b: Battle, attacker: Combatant, target: Combatant, ski
   }
 }
 
-function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: Skill, ctx: { aoe?: boolean } = {}): void {
+function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: Skill, ctx: { aoe?: boolean; damageMul?: number; suppressApplies?: boolean } = {}): void {
   // Taunt redirect: if any ally of the original target has the "taunt" effect
   // active and is alive (and isn't the target themselves), the hit is rerouted
   // to that taunter. AOE iterates per-target, so each instance gets redirected
@@ -827,7 +849,13 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
     crit = result.crit;
   }
 
-  if (ctx.aoe) dmg = Math.max(1, Math.floor(dmg * 0.75));
+  // AOE base penalty: 50% of the single-target damage roll. Stacks with the
+  // per-target falloff multiplier passed in via ctx.damageMul (1st target
+  // takes full base, later targets take progressively less).
+  if (ctx.aoe) dmg = Math.max(1, Math.floor(dmg * 0.5));
+  if (typeof ctx.damageMul === "number" && ctx.damageMul !== 1) {
+    dmg = Math.max(1, Math.floor(dmg * ctx.damageMul));
+  }
   if (target.guarding) dmg = Math.max(1, Math.floor(dmg / 2));
   // Outgoing scaling on the attacker (e.g. boss = 3x).
   if (attacker.atkMultiplier && attacker.atkMultiplier !== 1) {
@@ -873,8 +901,11 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
     return;
   }
 
-  // Apply attached on-hit effects.
-  if (skill.applies && skill.applies.length > 0) {
+  // Apply attached on-hit effects (CC riders like burn/freeze/stun).
+  // For AOE skills we cap CC application to a small number of randomly-chosen
+  // targets so a single cast can't lock down the entire enemy line — see
+  // ctx.suppressApplies below, set by the all_enemies branch in executeAction.
+  if (!ctx.suppressApplies && skill.applies && skill.applies.length > 0) {
     for (const eff of skill.applies) maybeApplyEffect(b, attacker, target, eff);
   }
 }
