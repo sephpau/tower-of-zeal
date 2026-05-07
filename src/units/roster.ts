@@ -340,10 +340,11 @@ export const STORM_LORD: UnitTemplate = {
   unitBaseStats: { STR: 10, DEF: 12, AGI: 12, DEX: 14, VIT: 22, INT: 26 },
   startingSkills: ["basic_attack", "tidal_wave", "binding_shot", "frost_bite"],
   basicAttackKind: "magical",
-  overrideMaxHp: 480,
+  overrideMaxHp: 960,
   overrideMaxMp: 200,
   level: 17, xpReward: 540,
   atkMultiplier: 2,
+  resist: { magical: 0.5 },
 };
 
 // Floor 20 — physical brute boss.
