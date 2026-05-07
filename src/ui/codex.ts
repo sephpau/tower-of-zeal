@@ -13,6 +13,25 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
       <div class="codex-body">
 
         <section class="codex-section">
+          <h2 class="codex-h2">🎮 Game Modes</h2>
+          <p class="codex-intro">Three ways to play — pick what you're trying to accomplish.</p>
+          <div class="codex-list">
+            <div class="codex-mode mode-floor">
+              <div class="codex-mode-head">Normal Floor Run</div>
+              <p>The main progression loop. Pick a single floor (1–50) and battle through it. <strong>Where you level up your units</strong> — XP rewards are awarded at full multiplier. Floor 1 unlocks Floor 2 only on a successful clear; the tower opens up sequentially. 1 energy per attempt; 3 free retries per day on a defeat before energy is consumed again.</p>
+            </div>
+            <div class="codex-mode mode-survival">
+              <div class="codex-mode-head">Survival Mode</div>
+              <p>Start from Floor 1 and keep going as far as you can — every cleared floor carries your party's HP/MP/cooldowns into the next, no rest. Run ends the moment your whole party falls. <em>Prove you are the strongest.</em> XP earned in survival is heavily reduced (1/50× the floor mode rate) — this is a leaderboard mode, not a leveling mode.</p>
+            </div>
+            <div class="codex-mode mode-bossraid">
+              <div class="codex-mode-head">Boss Raid</div>
+              <p>Fight every solo boss in the tower back-to-back: Stone Sentinel → Wraith Lord → Tower Lord → Iron Behemoth → Storm Lord → Demon General → Witch Queen → Dragon Lord → Tower God → World Ender. Bosses are scaled up (~2× stats, +25% ATB) and you pick a boon between fights (Heal / Boost / Weaken). XP = 1/10× floor mode. Top times go on the Boss Raid leaderboard.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="codex-section">
           <h2 class="codex-h2">📊 Stats</h2>
           <p class="codex-intro">Each stat feeds multiple derived combat values.</p>
           <div class="codex-grid">

@@ -2652,3 +2652,28 @@ html, body {
 .codex-effect-buff   .codex-effect-name { color: #80b8ff; }
 .codex-effect-debuff { background: rgba(255, 80, 80, 0.05); }
 .codex-effect-debuff .codex-effect-name { color: #ff8080; }
+
+/* Codex — Game Modes section */
+.codex-mode {
+  background: var(--bg);
+  border-left: 3px solid var(--gold-bright);
+  border-radius: 4px;
+  padding: 10px 12px;
+}
+.codex-mode.mode-floor    { border-left-color: var(--gold-bright); }
+.codex-mode.mode-survival { border-left-color: #7cd5ff; }
+.codex-mode.mode-bossraid { border-left-color: #ff5050; }
+.codex-mode-head {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.codex-mode.mode-floor    .codex-mode-head { color: var(--gold-bright); }
+.codex-mode.mode-survival .codex-mode-head { color: #7cd5ff; }
+.codex-mode.mode-bossraid .codex-mode-head { color: #ff7070; }
+.codex-mode p { margin: 0; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+.codex-mode p strong { color: var(--text); }
+.codex-mode p em { color: var(--gold-bright); font-style: normal; font-weight: 600; }
