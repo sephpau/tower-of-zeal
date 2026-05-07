@@ -22,12 +22,51 @@ export interface FloatEvent {
 
 const queue: FloatEvent[] = [];
 
+/** Skill-id sets used for elemental/specialized hit-sound overrides. */
+const FIRE_SKILL_IDS = new Set([
+  "ignite_touch", "blazing_burst", "inferno_crash", "solar_flare",
+]);
+const WATER_SKILL_IDS = new Set([
+  "water_bolt", "hydro_bolt", "frost_bite", "vortex_stream", "tidal_wave", "navigators_wrath",
+]);
+const WIND_SKILL_IDS = new Set([
+  "horizon_strike", "needle_shot", "swift_jab", "shadow_step", "phantom_flurry",
+]);
+
+export interface HitSfxContext {
+  attackerTemplateId: string;
+  attackerClassId?: string;
+  skillId: string;
+  /** Target was guarding when hit landed → halved damage + clink sound. */
+  targetGuarding?: boolean;
+}
+
+function playHitSfx(kind: "physical" | "magical", range: "melee" | "range", ctx?: HitSfxContext): void {
+  // Guarded hit replaces every other hit sound.
+  if (ctx?.targetGuarding) { sfx.guardedHit(); return; }
+  if (ctx) {
+    if (FIRE_SKILL_IDS.has(ctx.skillId)) { sfx.hitFire(); return; }
+    if (WATER_SKILL_IDS.has(ctx.skillId)) { sfx.hitWater(); return; }
+    if (WIND_SKILL_IDS.has(ctx.skillId)) { sfx.hitWind(); return; }
+    if (ctx.attackerClassId === "sharpshooter") { sfx.hitSharpshooter(); return; }
+    const tid = ctx.attackerTemplateId;
+    if (tid === "slime" || tid === "slime_king") { sfx.slimeAttack(); return; }
+    if (tid.includes("wraith") || tid.includes("spectre")) { sfx.hitWraith(); return; }
+  }
+  // Generic fallback by damage kind.
+  if (kind === "physical" && range === "melee") sfx.physMelee();
+  else if (kind === "physical") sfx.physRange();
+  else if (kind === "magical" && range === "melee") sfx.magMelee();
+  else sfx.magRange();
+}
+
 export function pushDamage(
   targetId: string,
   amount: number,
   kind: "physical" | "magical",
   range: "melee" | "range",
   crit = false,
+  ctx?: HitSfxContext,
 ): void {
   const icon: DamageIcon =
     kind === "physical" ? (range === "melee" ? "sword" : "bow") :
@@ -40,10 +79,7 @@ export function pushDamage(
     crit,
   });
   if (crit) sfx.crit();
-  if (kind === "physical" && range === "melee") sfx.physMelee();
-  else if (kind === "physical") sfx.physRange();
-  else if (kind === "magical" && range === "melee") sfx.magMelee();
-  else sfx.magRange();
+  playHitSfx(kind, range, ctx);
 }
 
 export function pushMiss(targetId: string): void {

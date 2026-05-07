@@ -58,10 +58,19 @@ function chord(tones: Tone[]): void {
 const SAMPLE_SRC: Record<string, string> = {
   hitPhys: "/sfx/hit-physical.wav",
   hitMag: "/sfx/hit-magical.wav",
+  hitFire: "/sfx/hit-fire.mp3",
+  hitWater: "/sfx/hit-water.wav",
+  hitWind: "/sfx/hit-wind.wav",
+  hitSharpshooter: "/sfx/hit-sharpshooter.wav",
+  hitWraith: "/sfx/hit-wraith.wav",
+  slimeAttack: "/sfx/slime-attack.wav",
+  guardedHit: "/sfx/guarded-hit.wav",
   crit: "/sfx/crit.wav",
   miss: "/sfx/miss.mp3",
   atbReady: "/sfx/atb-ready.wav",
   castMagical: "/sfx/cast-magical.wav",
+  castBuff: "/sfx/cast-buff.wav",
+  clickBattle: "/sfx/click-battle.wav",
 };
 const sampleCache: Record<string, HTMLAudioElement> = {};
 function loadSample(key: string): HTMLAudioElement | null {
@@ -99,6 +108,15 @@ export const sfx = {
   miss: () => playSample("miss", 0.45),
   atbReady: () => playSample("atbReady", 0.35),
   castMagical: () => playSample("castMagical", 0.55),
+  castBuff: () => playSample("castBuff", 0.5),
+  hitFire: () => playSample("hitFire", 0.6),
+  hitWater: () => playSample("hitWater", 0.6),
+  hitWind: () => playSample("hitWind", 0.6),
+  hitSharpshooter: () => playSample("hitSharpshooter", 0.6),
+  hitWraith: () => playSample("hitWraith", 0.6),
+  slimeAttack: () => playSample("slimeAttack", 0.55),
+  guardedHit: () => playSample("guardedHit", 0.55),
+  clickBattle: () => playSample("clickBattle", 0.5),
   // Synth-only — no asset for these yet.
   heal: () => chord([
     { freq: 880, endFreq: 1320, type: "sine", durMs: 160, gain: 0.07 },
@@ -129,6 +147,9 @@ export function installGlobalClickSounds(): void {
     const t = e.target as HTMLElement | null;
     if (!t) return;
     const clickable = t.closest("button, [data-roster], [data-cell], .stage-tile, .home-tile, .roster-item, .class-pick-btn, .alloc-btn, .gear-btn, .back-btn");
-    if (clickable && !(clickable as HTMLButtonElement).disabled) sfx.click();
+    if (!clickable || (clickable as HTMLButtonElement).disabled) return;
+    // Inside a .battle screen → use the prerecorded battle click. Elsewhere → synth blip.
+    if (clickable.closest(".battle")) sfx.clickBattle();
+    else sfx.click();
   }, true);
 }

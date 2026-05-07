@@ -632,6 +632,7 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
       b.log.push(`${attacker.name} guards.`);
     } else if (skill.kind === "buff") {
       b.log.push(`${attacker.name} uses ${skill.name}.`);
+      sfx.castBuff();
       // Self-buffs and party buffs without an offensive target apply effects via
       // selfApplies (caster) and applies (each ally — see below).
       if (skill.applies && skill.applies.length > 0) {
@@ -800,7 +801,12 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
     target.damageTaken += dmg;
   }
 
-  pushDamage(target.id, dmg, effKind, range, crit);
+  pushDamage(target.id, dmg, effKind, range, crit, {
+    attackerTemplateId: attacker.templateId,
+    attackerClassId: attacker.classId,
+    skillId: skill.id,
+    targetGuarding: target.guarding,
+  });
 
   const tag = crit ? " CRIT" : "";
   const verb = skill.id === "basic_attack" ? "attacks" : `uses ${skill.name} on`;
