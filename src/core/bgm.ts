@@ -76,11 +76,13 @@ export function playBgm(): void {
   playTrack("home");
 }
 
-/** Pick the right battle track based on the floor being fought and the mode. */
-export function playBattleBgm(stageId: number, mode: "floor" | "survival" | "boss_raid", isSoloBoss: boolean): void {
-  if (stageId === 50) { playTrack("floor50"); return; }
-  if (mode === "boss_raid" || isSoloBoss) { playTrack("boss"); return; }
-  playTrack("battle");
+/** Pick the right battle track based on the floor being fought and the mode.
+ *  TEMPORARILY DISABLED — battle BGM is muted while the tracks get retuned.
+ *  We still stop any home BGM that may be playing so battles aren't drowned
+ *  out by the menu loop. To re-enable, restore the playTrack(...) calls. */
+export function playBattleBgm(_stageId: number, _mode: "floor" | "survival" | "boss_raid", _isSoloBoss: boolean): void {
+  void _stageId; void _mode; void _isSoloBoss;
+  stopBgm();
 }
 
 export function stopBgm(): void {
