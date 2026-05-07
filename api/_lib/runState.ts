@@ -110,6 +110,37 @@ export async function submitToLeaderboard(address: string, floor: number, ms: nu
   await zaddGt(lbKeyFor(mode), encodeScore(floor, ms), address.toLowerCase());
 }
 
+// ---- "First to Conquer the Tower" — first wallet to clear survival floor 50 ----
+// Single-record achievement persisted as JSON. SETNX ensures it can only be
+// written once per server lifetime.
+export const FIRST_CONQUER_KEY = "achievement:first_conquer:v1";
+export const SURVIVAL_FINAL_FLOOR = 50;
+
+export interface FirstConquerRecord {
+  address: string;
+  ms: number;
+  when: number;
+}
+
+export async function maybeSetFirstConquer(address: string, ms: number): Promise<boolean> {
+  return await setNxJson(FIRST_CONQUER_KEY, {
+    address: address.toLowerCase(),
+    ms,
+    when: Date.now(),
+  } as FirstConquerRecord);
+}
+
+export async function getFirstConquer(): Promise<FirstConquerRecord | null> {
+  return await getJson<FirstConquerRecord>(FIRST_CONQUER_KEY);
+}
+
+// SETNX with JSON value. Returns true if newly set.
+async function setNxJson<T>(key: string, value: T): Promise<boolean> {
+  const { setNxWithExpire } = await import("./redis.js");
+  // No expiry for permanent achievements: pass a very long TTL.
+  return await setNxWithExpire(key, JSON.stringify(value), 60 * 60 * 24 * 365 * 10);
+}
+
 // ---- Cheat-check audit: lifetime XP ceiling ----
 // Server tracks the maximum total XP this wallet could have earned across
 // every run it has ever completed. The client's claimed total XP (computed

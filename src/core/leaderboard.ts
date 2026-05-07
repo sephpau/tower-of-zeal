@@ -104,6 +104,27 @@ export async function fetchTop(mode: LbMode = "survival", limit = 50): Promise<L
   } catch { return []; }
 }
 
+export interface FirstConquerEntry {
+  address: string;
+  ign: string | null;
+  ms: number;
+  when: number;
+}
+
+export interface LeaderboardFetch {
+  entries: LbEntry[];
+  firstConquer: FirstConquerEntry | null;
+}
+
+export async function fetchTopWithExtras(mode: LbMode = "survival", limit = 50): Promise<LeaderboardFetch> {
+  try {
+    const r = await fetch(`/api/leaderboard/top?mode=${mode}&limit=${limit}&extras=1`);
+    if (!r.ok) return { entries: [], firstConquer: null };
+    const data = await r.json() as { entries: LbEntry[]; firstConquer: FirstConquerEntry | null };
+    return { entries: data.entries ?? [], firstConquer: data.firstConquer ?? null };
+  } catch { return { entries: [], firstConquer: null }; }
+}
+
 export function formatMs(ms: number): string {
   const s = Math.floor(ms / 1000);
   const h = Math.floor(s / 3600);

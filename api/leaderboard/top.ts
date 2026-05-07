@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { zrevrangeWithScores, hmget } from "../_lib/redis.js";
-import { lbKeyFor, IGN_HASH_KEY, decodeScore, isLbMode } from "../_lib/runState.js";
+import { lbKeyFor, IGN_HASH_KEY, decodeScore, isLbMode, getFirstConquer } from "../_lib/runState.js";
 
 // Public endpoint — no auth needed to read top scores.
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -16,6 +16,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const modeRaw = req.query.mode;
   const mode = isLbMode(modeRaw) ? modeRaw : "survival";
 
+  // Optional: include cross-board achievements in a single round trip.
+  const wantExtras = req.query.extras === "1";
+
   try {
     const rows = await zrevrangeWithScores(lbKeyFor(mode), 0, limit - 1);
     const igns = rows.length > 0 ? await hmget(IGN_HASH_KEY, rows.map(r => r.member)) : [];
@@ -23,8 +26,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       const { floor, ms } = decodeScore(r.score);
       return { rank: i + 1, address: r.member, ign: igns[i] ?? null, floor, ms };
     });
+
+    let firstConquer: { address: string; ign: string | null; ms: number; when: number } | null = null;
+    if (wantExtras) {
+      const rec = await getFirstConquer().catch(() => null);
+      if (rec) {
+        const [ign] = await hmget(IGN_HASH_KEY, [rec.address.toLowerCase()]).catch(() => [null]);
+        firstConquer = { address: rec.address, ign: ign ?? null, ms: rec.ms, when: rec.when };
+      }
+    }
+
     res.setHeader("Cache-Control", "public, max-age=10");
-    res.status(200).json({ entries });
+    res.status(200).json({ entries, firstConquer });
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
   }

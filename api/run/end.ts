@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifyRun } from "../_lib/jwt.js";
-import { getRun, saveRun, deleteRun, submitToLeaderboard, MIN_AVG_FLOOR_MS, sanitizeIgn, setIgnIfAllowed } from "../_lib/runState.js";
+import { getRun, saveRun, deleteRun, submitToLeaderboard, MIN_AVG_FLOOR_MS, sanitizeIgn, setIgnIfAllowed, maybeSetFirstConquer, SURVIVAL_FINAL_FLOOR } from "../_lib/runState.js";
 
 // Body: { runId: string }
 // The server uses its own clock for totalMs — client-supplied times are ignored.
@@ -37,6 +37,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         await submitToLeaderboard(state.address, floor, totalMs, state.mode);
         // Cooldown is intentionally silent here — keep the old name on conflict.
         if (ign) await setIgnIfAllowed(state.address, ign);
+        // First wallet to fully clear survival earns the permanent record.
+        if (state.mode === "survival" && floor >= SURVIVAL_FINAL_FLOOR) {
+          await maybeSetFirstConquer(state.address, totalMs).catch(() => false);
+        }
         submitted = true;
       }
     }
