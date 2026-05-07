@@ -844,7 +844,6 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
     target.queuedAction = null;
     if (attacker.side !== target.side) attacker.kills += 1;
     b.log.push(`${target.name} falls.`);
-    sfx.fall();
     return;
   }
 
