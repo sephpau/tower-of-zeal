@@ -1,5 +1,6 @@
-// Tiny Web Audio synth. No assets — just oscillator blips.
-// Honors loadSettings().sfxOn so sounds can be muted from settings.
+// Hybrid SFX: a few synth blips for menu/click and prerecorded WAV/MP3
+// samples for combat hits, crits, misses, and the ATB-ready chime.
+// Honors loadSettings().sfxOn so all sounds can be muted from settings.
 
 import { loadSettings } from "../ui/settings";
 
@@ -51,26 +52,52 @@ function chord(tones: Tone[]): void {
   for (const t of tones) blip(t);
 }
 
-// Public sounds.
+// ---- File-based samples ----
+// Pre-cached <audio> per sample. We clone on each play so rapid-fire SFX
+// can overlap (e.g. multiple hits in the same animation lock).
+const SAMPLE_SRC: Record<string, string> = {
+  hitPhys: "/sfx/hit-physical.wav",
+  hitMag: "/sfx/hit-magical.wav",
+  crit: "/sfx/crit.wav",
+  miss: "/sfx/miss.mp3",
+  atbReady: "/sfx/atb-ready.wav",
+};
+const sampleCache: Record<string, HTMLAudioElement> = {};
+function loadSample(key: string): HTMLAudioElement | null {
+  if (typeof window === "undefined") return null;
+  let cached = sampleCache[key];
+  if (cached) return cached;
+  const src = SAMPLE_SRC[key];
+  if (!src) return null;
+  cached = new Audio(src);
+  cached.preload = "auto";
+  sampleCache[key] = cached;
+  return cached;
+}
+
+function playSample(key: string, gain = 0.5): void {
+  if (!sfxAllowed()) return;
+  const src = SAMPLE_SRC[key];
+  if (!src) return;
+  // Pre-warm the cache; clone lets concurrent plays not cut each other off.
+  loadSample(key);
+  const a = new Audio(src);
+  a.volume = Math.max(0, Math.min(1, gain));
+  a.play().catch(() => undefined);
+}
+
+// Public sounds. File-backed for combat hits / crits / misses / atb-ready.
 export const sfx = {
   click: () => blip({ freq: 880, type: "square", durMs: 35, gain: 0.05 }),
   hover: () => blip({ freq: 660, type: "sine", durMs: 25, gain: 0.03 }),
-  physMelee: () => chord([
-    { freq: 220, endFreq: 80, type: "sawtooth", durMs: 110, gain: 0.10 },
-    { freq: 1200, endFreq: 200, type: "square", durMs: 60, gain: 0.04 },
-  ]),
-  physRange: () => chord([
-    { freq: 1500, endFreq: 600, type: "triangle", durMs: 90, gain: 0.06 },
-    { freq: 300, endFreq: 100, type: "square", durMs: 70, gain: 0.05 },
-  ]),
-  magMelee: () => chord([
-    { freq: 320, endFreq: 110, type: "sawtooth", durMs: 130, gain: 0.07 },
-    { freq: 880, endFreq: 1760, type: "sine", durMs: 130, gain: 0.05 },
-  ]),
-  magRange: () => chord([
-    { freq: 660, endFreq: 1320, type: "sine", durMs: 160, gain: 0.06 },
-    { freq: 220, endFreq: 880, type: "triangle", durMs: 160, gain: 0.04 },
-  ]),
+  physMelee: () => playSample("hitPhys", 0.6),
+  physRange: () => playSample("hitPhys", 0.6),
+  magMelee: () => playSample("hitMag", 0.55),
+  magRange: () => playSample("hitMag", 0.55),
+  crit: () => playSample("crit", 0.7),
+  miss: () => playSample("miss", 0.45),
+  atbReady: () => playSample("atbReady", 0.35),
+  // Synth-only — no asset for these yet.
   heal: () => chord([
     { freq: 880, endFreq: 1320, type: "sine", durMs: 160, gain: 0.07 },
     { freq: 1320, endFreq: 1760, type: "sine", durMs: 160, gain: 0.05 },
@@ -78,10 +105,6 @@ export const sfx = {
   manaHeal: () => chord([
     { freq: 660, endFreq: 990, type: "triangle", durMs: 160, gain: 0.06 },
   ]),
-  crit: () => chord([
-    { freq: 1760, endFreq: 220, type: "sawtooth", durMs: 200, gain: 0.10 },
-  ]),
-  miss: () => blip({ freq: 220, endFreq: 110, type: "triangle", durMs: 80, gain: 0.04 }),
   fall: () => blip({ freq: 200, endFreq: 60, type: "sawtooth", durMs: 240, gain: 0.10 }),
   victory: () => chord([
     { freq: 523, type: "square", durMs: 160, gain: 0.06 },

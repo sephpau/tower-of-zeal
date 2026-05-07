@@ -393,7 +393,17 @@ export function tick(b: Battle, dt: number): void {
   if (b.state.kind !== "ticking") return;
 
   // Always tick gauges so combat keeps flowing visually even mid-animation.
+  // Snapshot which players were ready before this tick so we can fire the
+  // atb-ready SFX only on the rising edge.
+  const playerReadyBefore: Record<string, boolean> = {};
+  for (const c of b.combatants) {
+    if (c.side === "player" && c.alive) playerReadyBefore[c.id] = c.gauge >= ATB_FULL;
+  }
   tickGauges(b.combatants, dt);
+  for (const c of b.combatants) {
+    if (c.side !== "player" || !c.alive) continue;
+    if (!playerReadyBefore[c.id] && c.gauge >= ATB_FULL) sfx.atbReady();
+  }
 
   // Animation lock — actions queue serially behind any in-flight animation.
   if (b.actionLock > 0) {
