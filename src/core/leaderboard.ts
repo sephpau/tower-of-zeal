@@ -63,7 +63,7 @@ export async function reportFloor(floor: number): Promise<boolean> {
   } catch { return false; }
 }
 
-export async function endRun(): Promise<{ floor: number; totalMs: number } | null> {
+export async function endRun(replay?: unknown): Promise<{ floor: number; totalMs: number } | null> {
   if (!live) return null;
   const cur = live;
   live = null;
@@ -72,7 +72,7 @@ export async function endRun(): Promise<{ floor: number; totalMs: number } | nul
     const r = await fetch("/api/run/end", {
       method: "POST",
       headers: { Authorization: `Bearer ${cur.token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ runId: cur.runId, ign }),
+      body: JSON.stringify({ runId: cur.runId, ign, ...(replay ? { replay } : {}) }),
     });
     if (!r.ok) return null;
     return await r.json() as { floor: number; totalMs: number };
@@ -178,10 +178,19 @@ export async function fetchTop(mode: LbMode = "survival", limit = 50): Promise<L
   } catch { return []; }
 }
 
+export interface FirstConquerPartyMember {
+  templateId: string;
+  classId?: string;
+  level: number;
+  customStats: Record<string, number>;
+  equippedSkills: string[];
+}
+
 export interface FirstConquerEntry {
   address: string;
   ign: string | null;
   when: number;
+  party?: FirstConquerPartyMember[];
 }
 
 export interface WorldEnderEntry { rank: number; address: string; ign: string | null; ms: number; }

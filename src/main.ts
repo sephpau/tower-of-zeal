@@ -14,7 +14,11 @@ import { fetchDailyStatus, getCachedDailyMultiplier } from "./core/daily";
 import { renderRunSummary, RunSummary, RunSummaryUnit, pickMvpId } from "./ui/runSummary";
 import { getProgress, setProgress } from "./core/progress";
 import { awardXp } from "./core/levels";
-import { startRecording, abortRecording, finalizeRecording, ReplayBlob, ReplayPlayer, REPLAY_VERSION } from "./core/replay";
+import {
+  startReplayRecording, abortRecording, finalizeReplay,
+  recordBattleStart, ReplayBlob, ReplayPlayer, REPLAY_VERSION,
+  ReplayPartyMember,
+} from "./core/replay";
 import { ATB_FULL } from "./core/timeline";
 import { recordClear } from "./core/clears";
 import { installGlobalClickSounds } from "./core/audio";
@@ -166,20 +170,43 @@ let replayPlayer: ReplayPlayer | null = null;
 let replayLabel = "";  // "Spectating: IGN" string for the header
 
 /** Begin watching a recorded replay. Reconstructs a deterministic battle from
- *  the blob and switches to the replay screen. */
+ *  the blob and switches to the replay screen. Multi-floor replays auto-advance
+ *  through each battle in order. */
 export function playReplay(blob: ReplayBlob): void {
   if (blob.v !== REPLAY_VERSION) {
     alert("This replay was recorded on a different game version and can't be played.");
     return;
   }
-  const stage = getStage(blob.stageId);
-  if (!stage) { alert("Replay references an unknown stage."); return; }
+  if (!blob.battles || blob.battles.length === 0) { alert("Empty replay."); return; }
 
-  // Reconstruct the party as PlayerSlot[] using the templates from PLAYER_ROSTER.
+  // Stop any in-progress runs / recordings.
+  abortLiveRun();
+  abortRecording();
+
+  replayPlayer = new ReplayPlayer(blob);
+  replayLabel = blob.ign ? `Spectating: ${blob.ign}` : "Spectating replay";
+  screen = "replay";
+  stopBgm();
+  recordedThisBattle = false;
+  battleConcluded = false;
+
+  if (!loadReplayBattle()) { showLeaderboard(); return; }
+  showReplayBanner(replayLabel);
+}
+
+/** Set up the current battle from the active replay player. Returns false if
+ *  the replay's stage / party can't be reconstructed. */
+function loadReplayBattle(): boolean {
+  if (!replayPlayer) return false;
+  const rb = replayPlayer.currentBattle();
+  if (!rb) return false;
+  const stage = getStage(rb.stageId);
+  if (!stage) { alert("Replay references an unknown stage."); return false; }
+
   const PLAYER_BY_ID = new Map(PLAYER_ROSTER.map(t => [t.id, t]));
   const players: SquadResult["players"] = [];
   const partyOverride: NonNullable<BattleOptions["partyOverride"]> = {};
-  blob.party.forEach((m, i) => {
+  rb.party.forEach((m, i) => {
     const t = PLAYER_BY_ID.get(m.templateId);
     if (!t) return;
     players.push({ template: t, position: { row: i, col: 0 } });
@@ -188,36 +215,34 @@ export function playReplay(blob: ReplayBlob): void {
       level: m.level,
       customStats: m.customStats,
       equippedSkills: m.equippedSkills,
+      hp: m.hp,
+      mp: m.mp,
+      gauge: m.gauge,
+      alive: m.alive,
+      skillCooldowns: m.skillCooldowns,
     };
   });
-  if (players.length === 0) { alert("Replay has no valid party."); return; }
+  if (players.length === 0) { alert("Replay has no valid party."); return false; }
 
-  // Stop any in-progress runs / recordings.
-  abortLiveRun();
-  abortRecording();
-
-  battle = startBattle(players, stage.enemies, blob.seed, {
-    xpMultiplier: 1, // not used in replay (no XP awarded)
+  battle = startBattle(players, stage.enemies, rb.seed, {
+    xpMultiplier: 1,
     partyOverride,
   });
   battle.replayMode = true;
-
-  replayPlayer = new ReplayPlayer(blob);
-  replayLabel = blob.ign ? `Spectating: ${blob.ign}` : "Spectating replay";
-  screen = "replay";
-  stopBgm();
-  recordedThisBattle = false;
-  battleConcluded = false;
-  currentBattleStageId = blob.stageId;
+  currentBattleStageId = rb.stageId;
   lastStateKind = battle.state.kind;
   lastCombatantCount = battle.combatants.length;
   lastAliveCount = battle.combatants.filter(c => c.alive).length;
-  playBattleBgm(blob.stageId, blob.mode === "boss_raid" ? "boss_raid" : blob.mode === "survival" ? "survival" : "floor", !!stage.soloBoss);
+  playBattleBgm(
+    rb.stageId,
+    replayPlayer.blob.mode === "boss_raid" ? "boss_raid" : replayPlayer.blob.mode === "survival" ? "survival" : "floor",
+    !!stage.soloBoss,
+  );
   renderBattle(root!, battle, () => undefined, () => showLeaderboard(), {
     showPostBattleButtons: false,
     slowMo: isSlowMoStage(),
   });
-  showReplayBanner(replayLabel);
+  return true;
 }
 
 function showReplayBanner(text: string): void {
@@ -295,7 +320,11 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
 
   if (runMode === "survival" || runMode === "boss_raid") {
     const startedAt = getLiveRun()?.startedAt ?? Date.now();
-    const result = await endRun();
+    // Finalize the multi-floor replay blob and ship it alongside the run-end
+    // call. The server only persists it if this run actually beat the wallet's
+    // prior best.
+    const replay = finalizeReplay();
+    const result = await endRun(replay ?? undefined);
     totalMs = result?.totalMs ?? Math.max(0, Date.now() - startedAt);
     submitted = !!result;
   } else {
@@ -382,6 +411,7 @@ function showHome(): void {
     void endRun();
   }
   abortLiveRun();
+  abortRecording();
   hideReplayBanner();
   replayPlayer = null;
   screen = "home";
@@ -488,12 +518,14 @@ async function startBattleFromSquad(squad: SquadResult): Promise<void> {
     survivalFloor = 1;
     survivalCarry = {};
     void startRun("survival", squad.players.map(p => p.template.id));
+    startReplayRecording("survival", loadSettings().playerName || null);
     runFloor(squad.players, 1, SURVIVAL_XP_MULT);
   } else if (mode === "boss_raid") {
     brParty = squad.players;
     brIndex = 0;
     brCarry = {};
     void startRun("boss_raid", squad.players.map(p => p.template.id));
+    startReplayRecording("boss_raid", loadSettings().playerName || null);
     const firstBoss = BOSS_RAID_FLOORS[0];
     if (firstBoss) runBossRaidFloor(squad.players, firstBoss.id);
   } else {
@@ -536,7 +568,14 @@ function runBossRaidFloor(party: SquadResult["players"], floorId: number): void 
   };
   if (Object.keys(brCarry).length > 0) opts.carryover = brCarry;
   brPendingHeal = false; // consumed
-  battle = startBattle(party, stage.enemies, undefined, opts);
+  const seed = (Date.now() & 0xffffffff) >>> 0;
+  battle = startBattle(party, stage.enemies, seed, opts);
+  recordBattleStart({
+    stageId: floorId,
+    seed: battle.seed,
+    enemies: stage.enemies.map(e => e.id),
+    party: snapshotPartyForReplay(party, brCarry),
+  });
   screen = "battle";
   recordedThisBattle = false;
   battleConcluded = false;
@@ -555,31 +594,23 @@ function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: 
   if (mode === "survival" && Object.keys(survivalCarry).length > 0) {
     opts.carryover = survivalCarry;
   }
-  // Phase 1 replay scope: record only floor-mode floor-50 (Fastest World Ender).
-  const recordThisBattle = mode === "floor" && floorId === 50;
+  // Replay scope:
+  //   - floor mode: only the floor-50 World Ender battle is recorded
+  //   - survival: every floor recorded (recording was started in startBattleFromSquad)
+  const recordThisBattle = (mode === "floor" && floorId === 50) || mode === "survival";
+  if (mode === "floor" && floorId === 50) {
+    // Floor-mode World Ender uses its own one-shot recording.
+    startReplayRecording("floor", loadSettings().playerName || null);
+  }
   const seed = recordThisBattle ? (Date.now() & 0xffffffff) >>> 0 : undefined;
   battle = startBattle(party, stage.enemies, seed, opts);
   if (recordThisBattle) {
-    startRecording({
+    recordBattleStart({
       stageId: floorId,
-      mode: "floor",
-      ign: loadSettings().playerName || null,
       seed: battle.seed,
       enemies: stage.enemies.map(e => e.id),
-      party: party.map(p => {
-        const prog = getProgress(p.template.id);
-        return {
-          templateId: p.template.id,
-          classId: prog.classId,
-          level: prog.level,
-          customStats: { ...prog.customStats },
-          equippedSkills: [...(prog.equippedSkills ?? [])],
-          hp: 0, mp: 0, // captured pre-battle; engine resets to maxHp/maxMp anyway for fresh floor mode
-        };
-      }),
+      party: snapshotPartyForReplay(party, mode === "survival" ? survivalCarry : undefined),
     });
-  } else {
-    abortRecording();
   }
   screen = "battle";
   recordedThisBattle = false;
@@ -591,6 +622,42 @@ function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: 
   lastAliveCount = battle.combatants.filter(c => c.alive).length;
   playBattleBgm(floorId, mode, !!stage.soloBoss);
   renderBattle(root!, battle, handleAction, onPostBattle, { slowMo: isSlowMoStage() });
+}
+
+/** Build per-template party state at floor start for the replay recorder.
+ *  Pulls from carry if present (mid-run), else from getProgress(). */
+function snapshotPartyForReplay(
+  party: SquadResult["players"],
+  carry?: Record<string, CarryEntry>,
+): ReplayPartyMember[] {
+  return party.map(p => {
+    const prog = getProgress(p.template.id);
+    const equippedSkills = [...(prog.equippedSkills ?? [])];
+    const co = carry?.[p.template.id];
+    if (co) {
+      return {
+        templateId: p.template.id,
+        classId: co.classId ?? prog.classId,
+        level: co.level,
+        customStats: { ...co.customStats },
+        equippedSkills,
+        hp: co.hp,
+        mp: co.mp,
+        gauge: typeof co.gauge === "number" ? co.gauge : 0,
+        alive: co.alive ?? true,
+        skillCooldowns: { ...(co.skillCooldowns ?? {}) },
+      };
+    }
+    // Fresh battle (no carry) — leave hp/mp undefined so the replay viewer
+    // starts the unit at full HP/MP via makeCombatant defaults.
+    return {
+      templateId: p.template.id,
+      classId: prog.classId,
+      level: prog.level,
+      customStats: { ...prog.customStats },
+      equippedSkills,
+    };
+  });
 }
 
 function shouldShowPostButtons(b: Battle): boolean {
@@ -660,6 +727,17 @@ function frame(t: number): void {
       lastStateKind = battle.state.kind;
       lastCombatantCount = battle.combatants.length;
       lastAliveCount = aliveNow;
+
+      // Multi-floor: when this battle resolves to a win and the recording has
+      // more floors, auto-advance after a short pause so the viewer sees the
+      // Victory banner before the next floor loads.
+      if (battle.state.kind === "victory" && replayPlayer && replayPlayer.hasMoreBattles()) {
+        setTimeout(() => {
+          if (screen !== "replay" || !replayPlayer) return;
+          replayPlayer.advanceBattle();
+          loadReplayBattle();
+        }, 1200);
+      }
     } else {
       updateLive(root!, battle);
     }
@@ -674,7 +752,7 @@ function frame(t: number): void {
       if (mode === "floor" && !recordedThisBattle) {
         recordClear(currentStageId);
         const elapsed = floorBattleStartedAt > 0 ? Date.now() - floorBattleStartedAt : 0;
-        const replay = currentStageId === 50 ? finalizeRecording() : null;
+        const replay = currentStageId === 50 ? finalizeReplay() : null;
         if (currentStageId !== 50) abortRecording();
         void reportFloorCleared(
           currentStageId,

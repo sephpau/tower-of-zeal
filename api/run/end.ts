@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifyRun } from "../_lib/jwt.js";
-import { getRun, saveRun, deleteRun, submitToLeaderboard, MIN_AVG_FLOOR_MS, sanitizeIgn, setIgnIfAllowed } from "../_lib/runState.js";
+import { getRun, saveRun, deleteRun, submitToLeaderboard, MIN_AVG_FLOOR_MS, sanitizeIgn, setIgnIfAllowed, saveReplayBlob } from "../_lib/runState.js";
 
 // Body: { runId: string }
 // The server uses its own clock for totalMs — client-supplied times are ignored.
@@ -9,10 +9,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) { res.status(401).json({ error: "no token" }); return; }
 
-  const body = (req.body ?? {}) as { runId?: unknown; ign?: unknown };
+  const body = (req.body ?? {}) as { runId?: unknown; ign?: unknown; replay?: unknown };
   const runId = typeof body.runId === "string" ? body.runId : null;
   if (!runId) { res.status(400).json({ error: "bad body" }); return; }
   const ign = sanitizeIgn(body.ign);
+  const replay = body.replay && typeof body.replay === "object" ? body.replay : null;
 
   let payload;
   try { payload = await verifyRun(auth.slice("Bearer ".length)); }
@@ -34,10 +35,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       if (avg < MIN_AVG_FLOOR_MS) {
         rejectedReason = "average floor time below threshold";
       } else {
-        await submitToLeaderboard(state.address, floor, totalMs, state.mode);
+        const lb = await submitToLeaderboard(state.address, floor, totalMs, state.mode);
         // Cooldown is intentionally silent here — keep the old name on conflict.
         if (ign) await setIgnIfAllowed(state.address, ign);
         submitted = true;
+        // Save the replay only when this run actually beat the wallet's PB.
+        if (lb.improved && replay) {
+          const scope = state.mode === "survival" ? "lb_survival" : "lb_bossraid";
+          await saveReplayBlob(scope, state.address, replay).catch(() => undefined);
+        }
       }
     }
 

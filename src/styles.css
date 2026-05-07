@@ -2330,3 +2330,75 @@ html, body {
   cursor: pointer;
 }
 .replay-banner .replay-banner-close:hover { background: rgba(0, 0, 0, 0.25); }
+
+/* ---------- First Conquer party display (Phase 3) ---------- */
+.lb-conquer-party {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.lb-conquer-card {
+  background: rgba(244, 211, 94, 0.05);
+  border: 1px solid rgba(244, 211, 94, 0.25);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lb-conquer-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.lb-conquer-unit {
+  font-weight: 700;
+  color: var(--gold-bright);
+  text-transform: capitalize;
+}
+.lb-conquer-class {
+  font-size: 10px;
+  text-transform: capitalize;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 6px;
+}
+.lb-conquer-stats {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.lb-stat {
+  font-size: 10px;
+  display: inline-flex;
+  gap: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.lb-stat-k { color: var(--text-dim); font-weight: 600; }
+.lb-stat-v { color: var(--gold-bright); font-weight: 700; }
+.lb-conquer-skills {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.lb-skill-chip {
+  font-size: 9px;
+  background: rgba(80, 200, 255, 0.1);
+  border: 1px solid rgba(80, 200, 255, 0.3);
+  color: #9cdcff;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: capitalize;
+}
+.lb-skill-chip.dim { color: var(--text-dim); border-color: var(--border); background: transparent; }

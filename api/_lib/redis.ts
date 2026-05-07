@@ -37,9 +37,11 @@ export async function del(key: string): Promise<void> {
   await call(["DEL", key]);
 }
 
-export async function zaddGt(key: string, score: number, member: string): Promise<void> {
+export async function zaddGt(key: string, score: number, member: string): Promise<number> {
   // GT: only update if new score is greater than existing.
-  await call(["ZADD", key, "GT", "CH", score, member]);
+  // CH returns the count of changed members: 1 if better, 0 otherwise.
+  const r = await call(["ZADD", key, "GT", "CH", score, member]);
+  return typeof r === "number" ? r : 0;
 }
 
 export async function zaddLt(key: string, score: number, member: string): Promise<number> {

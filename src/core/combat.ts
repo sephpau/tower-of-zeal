@@ -250,12 +250,20 @@ export interface BattleOptions {
     xpGainedTotal?: number;
   }>;
   /** Replay only: override player progress at battle start so the viewer's
-   *  localStorage doesn't influence the simulation. Keyed by template id. */
+   *  localStorage doesn't influence the simulation. Keyed by template id.
+   *  hp/mp/gauge/cooldowns capture mid-run carryover state for survival or
+   *  boss-raid replays; for fresh battles those fields are omitted and the
+   *  unit starts at full HP/MP. */
   partyOverride?: Record<string, {
     classId?: string;
     level: number;
     customStats: Stats;
     equippedSkills?: string[];
+    hp?: number;
+    mp?: number;
+    gauge?: number;
+    alive?: boolean;
+    skillCooldowns?: Record<string, number>;
   }>;
   /** XP multiplier applied at end-of-battle distribution. Default 1. Survival uses 1/50. */
   xpMultiplier?: number;
@@ -279,6 +287,16 @@ export function startBattle(
   const playerCombatants = players.map(p => {
     const ov = opts.partyOverride?.[p.template.id];
     const c = makeCombatant(p.template, "player", p.position, ov);
+    // Apply hp/mp/gauge from partyOverride (replay mode) before carryover.
+    if (ov && (ov.hp !== undefined || ov.mp !== undefined || ov.gauge !== undefined || ov.alive !== undefined || ov.skillCooldowns !== undefined)) {
+      if (typeof ov.hp === "number") c.hp = Math.min(c.maxHp, Math.max(0, ov.hp));
+      if (typeof ov.mp === "number") c.mp = Math.min(c.maxMp, Math.max(0, ov.mp));
+      if (typeof ov.gauge === "number") c.gauge = Math.max(0, Math.min(ATB_FULL, ov.gauge));
+      if (ov.skillCooldowns) c.skillCooldowns = { ...ov.skillCooldowns };
+      if (ov.alive === false || c.hp <= 0) {
+        c.alive = false; c.hp = 0; c.queuedAction = null;
+      }
+    }
     const co = opts.carryover?.[p.template.id];
     if (co) {
       c.hp = Math.min(c.maxHp, Math.max(0, co.hp));

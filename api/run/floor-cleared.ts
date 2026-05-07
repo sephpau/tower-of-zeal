@@ -136,7 +136,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     }
 
     // Track sequential floor-mode progress + first-to-conquer trophy.
-    const conquer = await recordFloorModeClear(address, stageId).catch(() => ({ newMax: 0, awardedConqueror: false }));
+    // The replay (if present) carries the party at floor-50 finish — we lift
+    // it into the conqueror record so the leaderboard can show stats / class /
+    // loadout for the first wallet to top out.
+    type PartyMemberMin = { templateId: string; classId?: string; level: number; customStats: Record<string, number>; equippedSkills: string[] };
+    let conquerParty: PartyMemberMin[] | undefined;
+    if (stageId === 50 && replay && Array.isArray((replay as { battles?: unknown }).battles)) {
+      const battles = (replay as { battles: { party?: PartyMemberMin[] }[] }).battles;
+      const last = battles[battles.length - 1];
+      if (last && Array.isArray(last.party)) {
+        conquerParty = last.party.map(p => ({
+          templateId: String(p.templateId),
+          classId: p.classId,
+          level: Number(p.level) || 1,
+          customStats: p.customStats ?? {},
+          equippedSkills: Array.isArray(p.equippedSkills) ? p.equippedSkills : [],
+        }));
+      }
+    }
+    const conquer = await recordFloorModeClear(address, stageId, conquerParty).catch(() => ({ newMax: 0, awardedConqueror: false }));
 
     res.status(200).json({
       ok: true,

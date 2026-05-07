@@ -58,16 +58,16 @@ export function renderLeaderboard(root: HTMLElement, onBack: () => void, onPlayR
   });
 
   // Survival board (with first-conquer + world-ender in same payload).
-  // Show up to 10 entries; replays available for top 3 once Phase 2 ships.
+  // Show up to 10 entries; replays available for top 3.
   void fetchTopWithExtras("survival", 10).then(({ entries, firstConquer, worldEnder }) => {
-    fillRows("lb-survival-rows", entries, myAddr, { replayTopN: 0, mode: "survival" });
+    fillRows("lb-survival-rows", entries, myAddr, { replayTopN: 3, mode: "survival" });
     fillFirstConquer("lb-conquer-rows", firstConquer, myAddr);
     fillWorldEnder("lb-fastest-rows", worldEnder, myAddr);
   });
 
   // Boss raid board (independent fetch). Up to 10 entries.
   void fetchTop("boss_raid", 10).then(entries => {
-    fillRows("lb-bossraid-rows", entries, myAddr, { replayTopN: 0, mode: "boss_raid" });
+    fillRows("lb-bossraid-rows", entries, myAddr, { replayTopN: 3, mode: "boss_raid" });
   });
 
   // Wire replay button clicks (delegated for buttons rendered later by async loaders).
@@ -140,6 +140,10 @@ function fillFirstConquer(elId: string, fc: FirstConquerEntry | null, myAddr: st
   }
   const isMe = myAddr !== null && fc.address.toLowerCase() === myAddr;
   const date = new Date(fc.when).toLocaleDateString();
+  // Phase 3: show the party on the floor-50 finish (no replay button).
+  const partyHtml = fc.party && fc.party.length > 0
+    ? `<div class="lb-conquer-party">${fc.party.map(conquerPartyCardHtml).join("")}</div>`
+    : "";
   el.innerHTML = `
     <div class="lb-row lb-conquer-row ${isMe ? "me" : ""}">
       <span class="lb-col rank">★</span>
@@ -148,7 +152,26 @@ function fillFirstConquer(elId: string, fc: FirstConquerEntry | null, myAddr: st
         <span class="lb-addr" title="${escapeHtml(fc.address)}">${shortAddr(fc.address)}</span>
         <span class="lb-conquer-date">${escapeHtml(date)}</span>
       </span>
-      ${replayBtnHtml(true)}
+    </div>
+    ${partyHtml}
+  `;
+}
+
+function conquerPartyCardHtml(m: { templateId: string; classId?: string; level: number; customStats: Record<string, number>; equippedSkills: string[] }): string {
+  const STAT_KEYS = ["STR", "DEF", "AGI", "DEX", "VIT", "INT"];
+  const statRow = STAT_KEYS.map(k => `<span class="lb-stat"><span class="lb-stat-k">${k}</span><span class="lb-stat-v">+${(m.customStats as Record<string, number>)[k] ?? 0}</span></span>`).join("");
+  const skills = m.equippedSkills.length > 0
+    ? m.equippedSkills.map(s => `<span class="lb-skill-chip">${escapeHtml(s)}</span>`).join("")
+    : `<span class="lb-skill-chip dim">(none)</span>`;
+  return `
+    <div class="lb-conquer-card">
+      <div class="lb-conquer-head">
+        <span class="lb-conquer-unit">${escapeHtml(m.templateId)}</span>
+        <span class="lv-inline">Lv${m.level}</span>
+        ${m.classId ? `<span class="lb-conquer-class">${escapeHtml(m.classId)}</span>` : ""}
+      </div>
+      <div class="lb-conquer-stats">${statRow}</div>
+      <div class="lb-conquer-skills">${skills}</div>
     </div>
   `;
 }

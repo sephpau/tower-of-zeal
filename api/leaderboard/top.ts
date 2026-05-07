@@ -27,13 +27,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       return { rank: i + 1, address: r.member, ign: igns[i] ?? null, floor, ms };
     });
 
-    let firstConquer: { address: string; ign: string | null; when: number } | null = null;
+    let firstConquer: { address: string; ign: string | null; when: number; party?: unknown } | null = null;
     let worldEnder: WorldEnderEntry[] = [];
     if (wantExtras) {
       const rec = await getFirstConquer().catch(() => null);
       if (rec) {
         const [ign] = await hmget(IGN_HASH_KEY, [rec.address.toLowerCase()]).catch(() => [null]);
-        firstConquer = { address: rec.address, ign: ign ?? null, when: rec.when };
+        firstConquer = { address: rec.address, ign: ign ?? null, when: rec.when, party: rec.party };
       }
       worldEnder = await getWorldEnderTop(3).catch(() => []);
     }

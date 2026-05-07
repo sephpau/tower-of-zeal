@@ -118,8 +118,9 @@ export function decodeScore(score: number): { floor: number; ms: number } {
   return { floor, ms };
 }
 
-export async function submitToLeaderboard(address: string, floor: number, ms: number, mode: LbMode = "survival"): Promise<void> {
-  await zaddGt(lbKeyFor(mode), encodeScore(floor, ms), address.toLowerCase());
+export async function submitToLeaderboard(address: string, floor: number, ms: number, mode: LbMode = "survival"): Promise<{ improved: boolean }> {
+  const changed = await zaddGt(lbKeyFor(mode), encodeScore(floor, ms), address.toLowerCase());
+  return { improved: changed > 0 };
 }
 
 // ---- "First to Conquer the Tower" — first wallet to clear floors 1..50 sequentially in floor mode ----
@@ -132,10 +133,20 @@ export const FIRST_CONQUER_KEY = "achievement:first_conquer:v1";
 export const TOWER_FINAL_FLOOR = 50;
 export const SURVIVAL_FINAL_FLOOR = 50;  // legacy export, unused
 
+export interface FirstConquerPartyMember {
+  templateId: string;
+  classId?: string;
+  level: number;
+  customStats: Record<string, number>;
+  equippedSkills: string[];
+}
+
 export interface FirstConquerRecord {
   address: string;
   /** Wallclock when the achievement was awarded (no run-time tracked). */
   when: number;
+  /** Party that was on the floor-50 clear that earned the trophy. Optional for back-compat with v1 records. */
+  party?: FirstConquerPartyMember[];
 }
 
 function maxFloorKey(address: string): string { return `maxfloor:${address.toLowerCase()}`; }
@@ -147,7 +158,7 @@ export async function getMaxFloorCleared(address: string): Promise<number> {
 /** Returns true if THIS clear advanced the max-cleared counter and minted the
  *  conqueror record. Only call from the floor-mode "clear" event after the
  *  client has reported a successful stageId clear. */
-export async function recordFloorModeClear(address: string, stageId: number): Promise<{ newMax: number; awardedConqueror: boolean }> {
+export async function recordFloorModeClear(address: string, stageId: number, party?: FirstConquerPartyMember[]): Promise<{ newMax: number; awardedConqueror: boolean }> {
   const cur = await getMaxFloorCleared(address);
   let newMax = cur;
   // Sequential rule: only bump if this is the next floor in line. Prevents
@@ -161,6 +172,7 @@ export async function recordFloorModeClear(address: string, stageId: number): Pr
     awardedConqueror = await setNxJson(FIRST_CONQUER_KEY, {
       address: address.toLowerCase(),
       when: Date.now(),
+      ...(party ? { party } : {}),
     } as FirstConquerRecord);
   }
   return { newMax, awardedConqueror };
