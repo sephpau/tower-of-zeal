@@ -4,7 +4,7 @@
 
 import { PLAYER_ROSTER, SLIME } from "../units/roster";
 import { CLASSES } from "../units/classes";
-import { Battle, startBattle, tick, queueAction, Combatant, PlayerSlot } from "../core/combat";
+import { Battle, startBattle, tickAccum, queueAction, Combatant, PlayerSlot } from "../core/combat";
 import { renderBattle, updateLive } from "./battle";
 import { renderUnitsScreen } from "./unitsScreen";
 import { getProgress, setProgress, resetAllProgress, snapshotAllProgress, restoreAllProgress } from "../core/progress";
@@ -167,7 +167,7 @@ function renderBattleStep(
     if (stopped) return;
     const dt = Math.min(0.1, (t - lastT) / 1000);
     lastT = t;
-    if (battle.state.kind === "ticking") tick(battle, dt);
+    if (battle.state.kind === "ticking") tickAccum(battle, dt);
 
     if (battle.state.kind !== lastStateKind || countAlive(battle) !== lastAlive) {
       lastStateKind = battle.state.kind;

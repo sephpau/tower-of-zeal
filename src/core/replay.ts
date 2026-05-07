@@ -12,7 +12,11 @@
 
 import { Stats } from "./stats";
 
-export const REPLAY_VERSION = 2;
+// v3: combat sim now uses a fixed timestep (SIM_STEP). Replays recorded under
+// the old variable-dt sim could pick a different actor when two combatants hit
+// full gauge in the same frame, diverging RNG consumption. Old replays refuse
+// to load.
+export const REPLAY_VERSION = 3;
 
 export interface ReplayPartyMember {
   templateId: string;

@@ -1,4 +1,4 @@
-import { Battle, startBattle, tick, queueAction, surrenderBattle, persistPartyProgress, distributeEndOfBattleXp, BattleOptions, Combatant } from "./core/combat";
+import { Battle, startBattle, tickAccum, queueAction, surrenderBattle, persistPartyProgress, distributeEndOfBattleXp, BattleOptions, Combatant } from "./core/combat";
 import { renderBattle, updateLive, PostBattleAction } from "./ui/battle";
 import { renderSquadSelect, SquadResult } from "./ui/squadSelect";
 import { renderHome, HomeAction } from "./ui/home";
@@ -751,7 +751,7 @@ function frame(t: number): void {
   if (screen === "replay" && battle) {
     if (battle.state.kind === "ticking") {
       injectReplayActions(battle);
-      tick(battle, dt);
+      tickAccum(battle, dt);
     }
     const aliveNow = battle.combatants.filter(c => c.alive).length;
     if (battle.state.kind !== lastStateKind || battle.combatants.length !== lastCombatantCount || aliveNow !== lastAliveCount) {
@@ -779,7 +779,7 @@ function frame(t: number): void {
   }
 
   if (screen === "battle" && battle) {
-    if (battle.state.kind === "ticking") tick(battle, dt);
+    if (battle.state.kind === "ticking") tickAccum(battle, dt);
 
     // Record clears + handle survival advancement once per battle conclusion.
     if (!battleConcluded && battle.state.kind === "victory") {

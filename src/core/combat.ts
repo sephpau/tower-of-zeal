@@ -103,6 +103,29 @@ export interface Battle {
   seed: number;
   /** True when this Battle is being driven by a recorded replay; suppresses recording / leaderboard / progress writes. */
   replayMode?: boolean;
+  /** Fixed-step accumulator. The frame loop calls tickAccum(realDt) which
+   *  consumes whole SIM_STEP slices from this accumulator and calls tick(SIM_STEP)
+   *  for each. This makes the simulation deterministic regardless of frame rate,
+   *  which is required for replay determinism. */
+  simAccum: number;
+}
+
+/** Fixed simulation step (seconds). Combat uses a fixed timestep so the same
+ *  seed reproduces the same outcome across machines and frame rates. */
+export const SIM_STEP = 1 / 60;
+const MAX_STEPS_PER_FRAME = 8;  // safety cap; keeps a slow tab from spiral-of-death.
+
+/** Accumulate real-frame dt and run as many fixed-step ticks as are owed.
+ *  Frame loops should call this instead of tick() directly. */
+export function tickAccum(b: Battle, realDt: number): void {
+  // Cap each frame's real time to avoid huge bursts after a tab regains focus.
+  b.simAccum += Math.min(realDt, MAX_STEPS_PER_FRAME * SIM_STEP);
+  let steps = 0;
+  while (b.simAccum >= SIM_STEP && steps < MAX_STEPS_PER_FRAME) {
+    tick(b, SIM_STEP);
+    b.simAccum -= SIM_STEP;
+    steps += 1;
+  }
 }
 
 export interface PlayerSlot {
@@ -360,6 +383,7 @@ export function startBattle(
     actionLock: 0,
     xpMultiplier: opts.xpMultiplier ?? 1,
     seed,
+    simAccum: 0,
   };
 }
 
