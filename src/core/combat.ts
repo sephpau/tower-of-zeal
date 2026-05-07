@@ -741,7 +741,14 @@ function finalizePostAction(b: Battle, attacker: Combatant, skill: Skill, didDam
   // Clear the player's queued action so they don't auto-repeat.
   if (attacker.side === "player") attacker.queuedAction = null;
 
-  attacker.gauge = 0;
+  // Idle as a tactical pump: instead of starting from 0, the gauge keeps
+  // 25% of full so the next action fires noticeably sooner. Useful for
+  // stalling a beat on a slow boss skill or letting a teammate go first.
+  if (skill.id === "idle") {
+    attacker.gauge = ATB_FULL * 0.25;
+  } else {
+    attacker.gauge = 0;
+  }
   retargetSurvivors(b);
   // Action lock gates the next combatant: longer if damage played a hit
   // animation, brief otherwise.
