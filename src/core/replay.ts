@@ -43,6 +43,15 @@ export interface ReplayBattle {
   enemies: string[];
   party: ReplayPartyMember[];
   actions: ReplayAction[];
+  /** Boss-raid options that were active when this battle started. Only set
+   *  for boss_raid runs; absent for floor / survival. Without these the
+   *  replay would run with un-scaled bosses and the recorded action stream
+   *  would diverge (idle-spam at end, wrong damage numbers, etc.). */
+  bossRaid?: {
+    bossStatReduction: number;
+    playerStatBoost: number;
+    pendingHeal: boolean;
+  };
 }
 
 export interface ReplayBlob {
@@ -76,18 +85,21 @@ export interface BattleStartMeta {
   seed: number;
   enemies: string[];           // ordered list of enemy templateIds (spawn order)
   party: ReplayPartyMember[];  // party state at the start of THIS battle
+  bossRaid?: ReplayBattle["bossRaid"];
 }
 
 /** Append a new battle to the recording and mark it active. */
 export function recordBattleStart(meta: BattleStartMeta): void {
   if (!recording) return;
-  recording.battles.push({
+  const battle: ReplayBattle = {
     stageId: meta.stageId,
     seed: meta.seed,
     enemies: meta.enemies,
     party: meta.party,
     actions: [],
-  });
+  };
+  if (meta.bossRaid) battle.bossRaid = { ...meta.bossRaid };
+  recording.battles.push(battle);
   recording.currentBattleIdx = recording.battles.length - 1;
 }
 

@@ -225,10 +225,21 @@ function loadReplayBattle(): boolean {
   });
   if (players.length === 0) { alert("Replay has no valid party."); return false; }
 
-  battle = startBattle(players, stage.enemies, rb.seed, {
+  // For boss-raid replays, apply the same scaling/boons that were active when
+  // the run was recorded. Without this the boss is unscaled, the fight diverges
+  // from the recording, and units run out of recorded actions early.
+  const startOpts: BattleOptions = {
     xpMultiplier: 1,
     partyOverride,
-  });
+  };
+  if (replayPlayer.blob.mode === "boss_raid") {
+    const br = rb.bossRaid;
+    startOpts.bossRaid = true;
+    startOpts.bossStatReduction = br?.bossStatReduction ?? 0;
+    startOpts.playerStatBoost = br?.playerStatBoost ?? 0;
+    startOpts.pendingHeal = br?.pendingHeal ?? false;
+  }
+  battle = startBattle(players, stage.enemies, rb.seed, startOpts);
   battle.replayMode = true;
   currentBattleStageId = rb.stageId;
   lastStateKind = battle.state.kind;
@@ -583,6 +594,13 @@ function runBossRaidFloor(party: SquadResult["players"], floorId: number): void 
     pendingHeal: brPendingHeal,
   };
   if (Object.keys(brCarry).length > 0) opts.carryover = brCarry;
+  // Snapshot the boon state BEFORE pendingHeal is consumed so the replay
+  // can reproduce it exactly.
+  const bossRaidSnapshot = {
+    bossStatReduction: brBossStatReduction,
+    playerStatBoost: brPlayerStatBoost,
+    pendingHeal: brPendingHeal,
+  };
   brPendingHeal = false; // consumed
   const seed = (Date.now() & 0xffffffff) >>> 0;
   battle = startBattle(party, stage.enemies, seed, opts);
@@ -591,6 +609,7 @@ function runBossRaidFloor(party: SquadResult["players"], floorId: number): void 
     seed: battle.seed,
     enemies: stage.enemies.map(e => e.id),
     party: snapshotPartyForReplay(party, brCarry),
+    bossRaid: bossRaidSnapshot,
   });
   screen = "battle";
   recordedThisBattle = false;
