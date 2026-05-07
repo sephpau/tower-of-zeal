@@ -586,7 +586,7 @@ export const APEX_ARBITER: UnitTemplate = {
 // Floor 50 — final-tier boss. Mild resist on every type + 4x damage.
 export const WORLD_ENDER: UnitTemplate = {
   id: "world_ender", name: "World Ender", portrait: "🌑🌌",
-  unitBaseStats: { STR: 36, DEF: 32, AGI: 24, DEX: 26, VIT: 44, INT: 36 },
+  unitBaseStats: { STR: 27, DEF: 32, AGI: 18, DEX: 20, VIT: 44, INT: 27 },
   startingSkills: [
     "basic_attack", "colossal_slam", "inferno_crash", "celestial_beam",
     "tidal_wave", "earthshaker", "mark_of_death", "phalanx_wall",
