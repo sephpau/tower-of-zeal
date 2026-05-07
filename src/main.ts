@@ -277,8 +277,12 @@ function injectReplayActions(b: Battle): void {
     if (c.gauge < ATB_FULL * 0.95) continue;  // wait until they're nearly ready
     const next = replayPlayer.pollAction(i);
     if (!next) {
-      // No more recorded actions — idle so the queue keeps moving.
-      c.queuedAction = { skillId: "idle", targetId: c.id };
+      // No more recorded actions for this unit. Leave queuedAction null so
+      // tick() skips them (it already does for players without a queue).
+      // Forcing idle here used to spam the action — idle keeps 25% gauge, so
+      // it'd refill in a few frames and spam the next idle, looking buggy.
+      // The battle will still resolve via other actors / enemies as it did at
+      // record time.
       continue;
     }
     let targetId = c.id;
