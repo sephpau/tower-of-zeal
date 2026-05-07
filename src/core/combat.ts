@@ -114,8 +114,6 @@ const TEMPLATE_LOOKUP: Record<string, UnitTemplate> = {
 
 // 75% slower than original: 0.55s → 2.2s.
 const ANIM_DURATION_S = 2.2;
-/** Wind-up phase before damage applies, so the cast SFX has room to breathe. */
-const WINDUP_S = 1.0;
 
 export function makeCombatant(t: UnitTemplate, side: Side, position: Position): Combatant {
   const progress: UnitProgress | null = side === "player" ? getProgress(t.id) : null;
@@ -607,36 +605,14 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
     attacker.hp = Math.max(1, attacker.hp - skill.hpCost);
   }
 
-  // Buff skills get a soft cast chant up-front. Idle and Guard are quick — no chant.
+  // Buff skills get a soft cast chant alongside the action. Idle and Guard skip it.
   if (skill.kind === "buff" && skill.id !== "guard") sfx.castBuff();
 
-  // Quick actions (idle / guard) skip the wind-up entirely — they resolve now.
-  const isQuick = skill.id === "idle" || skill.id === "guard";
-  if (isQuick) {
-    runActionResolution(b, attacker, skill, action);
-    finalizePostAction(b, attacker, skill, /*didDamage*/ false);
-    return;
-  }
-
-  // Wind-up: damage / effect application is deferred by WINDUP_S so the cast
-  // SFX has room to breathe and the target gets a visible "casting" beat.
-  attacker.casting = true;
-  // Set the long action lock now: windup + post-resolve animation.
-  // willDealDamage is approximate — we set the longer lock if damage is plausible.
-  const willDealDamage = skill.targeting === "enemy" || skill.targeting === "all_enemies";
-  b.actionLock = WINDUP_S + (willDealDamage ? ANIM_DURATION_S : 0.4);
-
-  setTimeout(() => {
-    attacker.casting = false;
-    if (b.state.kind !== "ticking") return;
-    if (!attacker.alive) {
-      // Still finalize cooldowns/gauge so the queue keeps moving.
-      finalizePostAction(b, attacker, skill, /*didDamage*/ false);
-      return;
-    }
-    const didDamage = runActionResolution(b, attacker, skill, action);
-    finalizePostAction(b, attacker, skill, didDamage);
-  }, WINDUP_S * 1000);
+  // Resolve the action immediately — no wind-up delay. The action lock that
+  // gates the next combatant is set inside finalizePostAction based on whether
+  // damage actually rolled.
+  const didDamage = runActionResolution(b, attacker, skill, action);
+  finalizePostAction(b, attacker, skill, didDamage);
 }
 
 /** Runs the body of the action — applies damage, summons, or buff effects.
@@ -716,10 +692,9 @@ function finalizePostAction(b: Battle, attacker: Combatant, skill: Skill, didDam
 
   attacker.gauge = 0;
   retargetSurvivors(b);
-  // For quick actions (idle/guard) the lock wasn't set in executeAction — set it here.
-  if (skill.id === "idle" || skill.id === "guard") {
-    b.actionLock = didDamage ? ANIM_DURATION_S : 0.2;
-  }
+  // Action lock gates the next combatant: longer if damage played a hit
+  // animation, brief otherwise.
+  b.actionLock = didDamage ? ANIM_DURATION_S : 0.2;
   checkEndConditions(b);
 }
 
