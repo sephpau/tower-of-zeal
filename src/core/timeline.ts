@@ -1,6 +1,6 @@
 import { atbSpeedMultiplier, ActiveEffect } from "./effects";
 
-export const ATB_PACE = 15;   // gauge units per (atbSpeed * second). 50% slower than original (30).
+export const ATB_PACE = 7.5; // gauge units per (atbSpeed * second). 50% slower than the previous 15 (which was already 50% off the original 30).
 export const ATB_FULL = 100;
 
 export interface Gauged {
