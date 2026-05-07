@@ -58,6 +58,7 @@ const SAMPLE_SRC: Record<string, string> = {
   hitPhys: "/sfx/hit-physical.wav",
   hitMag: "/sfx/hit-magical.wav",
   castBuff: "/sfx/cast-buff.wav",
+  victory: "/sfx/victory.mp3",
 };
 const sampleCache: Record<string, HTMLAudioElement> = {};
 function preloadSample(key: string): void {
@@ -100,11 +101,7 @@ export const sfx = {
   crit: () => playSample("crit", 0.32),
   miss: () => blip({ freq: 220, endFreq: 110, type: "triangle", durMs: 80, gain: 0.04 }),
   fall: () => blip({ freq: 200, endFreq: 60, type: "sawtooth", durMs: 240, gain: 0.10 }),
-  victory: () => chord([
-    { freq: 523, type: "square", durMs: 160, gain: 0.06 },
-    { freq: 659, type: "square", durMs: 160, gain: 0.06 },
-    { freq: 784, type: "square", durMs: 220, gain: 0.07 },
-  ]),
+  victory: () => playSample("victory", 0.5),
   defeat: () => chord([
     { freq: 392, type: "sawtooth", durMs: 220, gain: 0.06 },
     { freq: 311, type: "sawtooth", durMs: 320, gain: 0.07 },
