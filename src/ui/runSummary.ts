@@ -148,6 +148,8 @@ function showBattleLogModal(lines: string[], playerNames: string[], enemyNames: 
       const cls = players.has(name) ? "log-player" : "log-enemy";
       html = html.replace(re, `<span class="${cls}">${escapeHtml(name)}</span>`);
     }
+    // CRIT marker → gold.
+    html = html.replace(/\bCRIT\b/g, `<span class="log-crit">CRIT</span>`);
     return html;
   };
 

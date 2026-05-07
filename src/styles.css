@@ -2535,3 +2535,4 @@ html, body {
 /* ---------- Battle log name highlights ---------- */
 .rs-log-line .log-player { color: #80b8ff; font-weight: 600; }
 .rs-log-line .log-enemy  { color: #ff8080; font-weight: 600; }
+.rs-log-line .log-crit { color: var(--gold-bright); font-weight: 800; letter-spacing: 0.05em; }
