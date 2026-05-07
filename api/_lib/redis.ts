@@ -73,6 +73,17 @@ export async function zrevrangeWithScores(key: string, start: number, stop: numb
   return out;
 }
 
+export async function zrevrange(key: string, start: number, stop: number): Promise<string[]> {
+  const r = await call(["ZREVRANGE", key, start, stop]);
+  return Array.isArray(r) ? r.map(String) : [];
+}
+
+/** 0-indexed rank from the high end (best score = 0). Null if member missing. */
+export async function zrevrank(key: string, member: string): Promise<number | null> {
+  const r = await call(["ZREVRANK", key, member]);
+  return typeof r === "number" ? r : null;
+}
+
 export async function incrWithExpire(key: string, ttlSeconds: number): Promise<number> {
   const n = await call(["INCR", key]) as number;
   if (n === 1) await call(["EXPIRE", key, ttlSeconds]);

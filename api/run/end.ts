@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifyRun } from "../_lib/jwt.js";
-import { getRun, saveRun, deleteRun, submitToLeaderboard, MIN_AVG_FLOOR_MS, sanitizeIgn, setIgnIfAllowed, saveReplayBlob } from "../_lib/runState.js";
+import { getRun, saveRun, deleteRun, submitToLeaderboard, MIN_AVG_FLOOR_MS, sanitizeIgn, setIgnIfAllowed, syncTopReplays } from "../_lib/runState.js";
 
 // Body: { runId: string }
 // The server uses its own clock for totalMs — client-supplied times are ignored.
@@ -35,15 +35,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       if (avg < MIN_AVG_FLOOR_MS) {
         rejectedReason = "average floor time below threshold";
       } else {
-        const lb = await submitToLeaderboard(state.address, floor, totalMs, state.mode);
+        await submitToLeaderboard(state.address, floor, totalMs, state.mode);
         // Cooldown is intentionally silent here — keep the old name on conflict.
         if (ign) await setIgnIfAllowed(state.address, ign);
         submitted = true;
-        // Save the replay only when this run actually beat the wallet's PB.
-        if (lb.improved && replay) {
-          const scope = state.mode === "survival" ? "lb_survival" : "lb_bossraid";
-          await saveReplayBlob(scope, state.address, replay).catch(() => undefined);
-        }
+        // Save the replay if this run lands inside the kept top-N, and prune
+        // any replays that have fallen outside it (e.g., the player we just
+        // pushed off rank 3). Runs through this on every submission, even when
+        // ZADD didn't actually improve the score, so stale replays still get
+        // cleaned up.
+        await syncTopReplays(state.mode, state.address, replay ?? null).catch(() => undefined);
       }
     }
 

@@ -1,4 +1,4 @@
-import { getJson, setJson, del, zaddGt, zaddLt, zrangeWithScores, incrWithExpire, hset, hmget, incrBy, getNumber } from "./redis.js";
+import { getJson, setJson, del, zaddGt, zaddLt, zrangeWithScores, zrevrank, zrevrange, incrWithExpire, hset, hmget, incrBy, getNumber } from "./redis.js";
 
 // ---- Admin: leaderboard resets ----
 export type AdminResetScope = "survival" | "bossraid" | "we" | "conquer";
@@ -264,6 +264,50 @@ export async function saveReplayBlob(scope: string, address: string, blob: unkno
 }
 export async function loadReplayBlob<T = unknown>(scope: string, address: string): Promise<T | null> {
   return await getJson<T>(replayKey(scope, address));
+}
+export async function deleteReplayBlob(scope: string, address: string): Promise<void> {
+  await del(replayKey(scope, address));
+}
+
+/** Number of replays we keep per leaderboard. Anything outside the top N gets pruned. */
+export const REPLAY_TOP_N = 3;
+
+/** Replay-storage scope name for an LbMode (matches the client's scope strings). */
+export function replayScopeFor(mode: LbMode): string {
+  return mode === "survival" ? "lb_survival" : "lb_bossraid";
+}
+
+/**
+ * Save the replay for `address` if their CURRENT leaderboard rank is inside the
+ * top N, then delete every replay for ranks outside the top N. Call this after
+ * `submitToLeaderboard` so the rank reflects the just-submitted score.
+ *
+ * Idempotent: safe to call even when nothing changed (it'll just re-prune any
+ * stale replays beyond the cutoff).
+ */
+export async function syncTopReplays(
+  mode: LbMode,
+  address: string,
+  replay: unknown | null,
+): Promise<void> {
+  const lbKey = lbKeyFor(mode);
+  const scope = replayScopeFor(mode);
+  const addr = address.toLowerCase();
+
+  // 1. Save the new replay only if this address is currently in the top N.
+  if (replay) {
+    const rank = await zrevrank(lbKey, addr);  // 0-indexed; 0 = best
+    if (rank !== null && rank < REPLAY_TOP_N) {
+      await saveReplayBlob(scope, addr, replay).catch(() => undefined);
+    }
+  }
+
+  // 2. Drop replays for everyone outside the top N (e.g., the entry we just
+  //    pushed off the bottom of the keep window).
+  const outside = await zrevrange(lbKey, REPLAY_TOP_N, -1).catch(() => [] as string[]);
+  for (const m of outside) {
+    await deleteReplayBlob(scope, m).catch(() => undefined);
+  }
 }
 
 // ---- Cheat-check audit: lifetime XP ceiling ----
