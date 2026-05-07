@@ -7,6 +7,7 @@ import {
 } from "../_lib/runState.js";
 import { getCurrentMultiplier } from "../_lib/daily.js";
 import { isAdmin } from "../_lib/admin.js";
+import { adminGrantEnergy, adminFillEnergy, ENERGY_MAX } from "../_lib/energy.js";
 
 // Floor-mode battle event endpoint. Handles three operations to stay under
 // the Vercel Hobby 12-function cap:
@@ -31,12 +32,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     res.status(401).json({ error: "invalid session" }); return;
   }
 
-  // Admin reset doesn't need a stageId — handled before the stage validation.
+  // Admin ops don't need a stageId — handled before the stage validation.
   if (op === "admin_reset_leaderboards") {
     if (!isAdmin(address)) { res.status(403).json({ error: "admin only" }); return; }
     try {
       const keys = await adminClearAllLeaderboards();
       res.status(200).json({ ok: true, cleared: keys });
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+    }
+    return;
+  }
+  if (op === "admin_grant_energy" || op === "admin_fill_energy") {
+    if (!isAdmin(address)) { res.status(403).json({ error: "admin only" }); return; }
+    try {
+      let amount: number;
+      if (op === "admin_fill_energy") {
+        amount = await adminFillEnergy(address);
+      } else {
+        const delta = typeof (req.body as { delta?: unknown }).delta === "number"
+          ? Math.floor((req.body as { delta: number }).delta)
+          : 5;
+        if (Math.abs(delta) > 999) { res.status(400).json({ error: "delta too large" }); return; }
+        amount = await adminGrantEnergy(address, delta);
+      }
+      res.status(200).json({ ok: true, amount, max: ENERGY_MAX });
     } catch (e) {
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
     }

@@ -76,3 +76,23 @@ export async function consumeEnergy(address: string, cost: number): Promise<{ ok
 export function msUntilNextRefill(now = Date.now()): number {
   return lastResetBoundary(now) + 24 * 60 * 60 * 1000 - now;
 }
+
+/** Admin: add `delta` energy on top of current balance (delta < 0 also valid).
+ *  Caller must verify admin status before invoking. Returns new balance. */
+export async function adminGrantEnergy(address: string, delta: number): Promise<number> {
+  const cur = applyRefill(await read(address));
+  const next: EnergyState = {
+    amount: Math.max(0, Math.min(ENERGY_MAX, cur.amount + delta)),
+    lastReset: cur.lastReset,
+  };
+  await write(address, next);
+  return next.amount;
+}
+
+/** Admin: set the balance to ENERGY_MAX directly. */
+export async function adminFillEnergy(address: string): Promise<number> {
+  const cur = applyRefill(await read(address));
+  const next: EnergyState = { amount: ENERGY_MAX, lastReset: cur.lastReset };
+  await write(address, next);
+  return next.amount;
+}

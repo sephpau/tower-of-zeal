@@ -3,6 +3,7 @@ import { addEnergy, getEnergy, ENERGY_MAX, msUntilNextRefill } from "../core/ene
 import { isAdmin } from "../core/admin";
 import { scopedKey } from "../auth/scope";
 import { saveServerIgn, formatCooldown } from "../auth/ign";
+import { adminGrantServerEnergy, adminFillServerEnergy } from "../auth/energyApi";
 
 export interface Settings {
   playerName: string;
@@ -134,11 +135,15 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
     if (finalName === newName) onClose();
   });
 
-  root.querySelector<HTMLButtonElement>("#admin-add-energy")?.addEventListener("click", () => {
-    addEnergy(5); onClose(); renderSettings(root, onClose);
+  root.querySelector<HTMLButtonElement>("#admin-add-energy")?.addEventListener("click", async () => {
+    const amt = await adminGrantServerEnergy(5);
+    if (amt === null) { addEnergy(5); alert("Server unreachable — local-only +5 (won't persist)."); }
+    onClose(); renderSettings(root, onClose);
   });
-  root.querySelector<HTMLButtonElement>("#admin-fill-energy")?.addEventListener("click", () => {
-    addEnergy(ENERGY_MAX); onClose(); renderSettings(root, onClose);
+  root.querySelector<HTMLButtonElement>("#admin-fill-energy")?.addEventListener("click", async () => {
+    const amt = await adminFillServerEnergy();
+    if (amt === null) { addEnergy(ENERGY_MAX); alert("Server unreachable — local-only fill (won't persist)."); }
+    onClose(); renderSettings(root, onClose);
   });
 
   root.querySelector<HTMLButtonElement>("#link-wallet")?.addEventListener("click", () => {

@@ -27,6 +27,40 @@ export type ConsumeResult =
   | { ok: false; amount: number; max: number }
   | { ok: false; error: "network" };
 
+/** Admin only: grant N energy server-side. Returns the new balance, or null on failure. */
+export async function adminGrantServerEnergy(delta: number): Promise<number | null> {
+  const tok = token();
+  if (!tok) return null;
+  try {
+    const r = await fetch("/api/run/floor-cleared", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "admin_grant_energy", delta }),
+    });
+    if (!r.ok) return null;
+    const data = await r.json() as { amount: number };
+    if (typeof data.amount === "number") setEnergy(data.amount);
+    return data.amount;
+  } catch { return null; }
+}
+
+/** Admin only: fill server energy to MAX. Returns the new balance. */
+export async function adminFillServerEnergy(): Promise<number | null> {
+  const tok = token();
+  if (!tok) return null;
+  try {
+    const r = await fetch("/api/run/floor-cleared", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "admin_fill_energy" }),
+    });
+    if (!r.ok) return null;
+    const data = await r.json() as { amount: number };
+    if (typeof data.amount === "number") setEnergy(data.amount);
+    return data.amount;
+  } catch { return null; }
+}
+
 /** POST /api/energy/consume. Returns ok:false with the server's current amount on insufficient. */
 export async function consumeServerEnergy(cost: number): Promise<ConsumeResult> {
   const tok = token();
