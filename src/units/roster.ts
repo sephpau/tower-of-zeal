@@ -350,7 +350,7 @@ export const STORM_LORD: UnitTemplate = {
 // Floor 20 — physical brute boss.
 export const DEMON_GENERAL: UnitTemplate = {
   id: "demon_general", name: "Demon General", portrait: "😈",
-  unitBaseStats: { STR: 32, DEF: 18, AGI: 14, DEX: 14, VIT: 24, INT: 0 },
+  unitBaseStats: { STR: 32, DEF: 58, AGI: 14, DEX: 14, VIT: 24, INT: 0 },
   startingSkills: ["basic_attack", "colossal_slam", "earthshaker", "limit_break"],
   overrideMaxHp: 720,
   overrideMaxMp: 120,
