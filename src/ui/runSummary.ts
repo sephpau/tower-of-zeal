@@ -31,6 +31,8 @@ export interface RunSummary {
   mvpId?: string | null;
   /** Extra XP awarded to the MVP on top of their regular share. */
   mvpBonusXp?: number;
+  /** Full battle log lines from the last (or only) battle of the run. */
+  battleLog?: string[];
 }
 
 /** Highest score = damageDealt + 1000 × kills. Returns null if no candidates. */
@@ -108,6 +110,7 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
 
         <div class="rs-actions">
           ${actions.onRetry ? `<button class="confirm-btn" id="rs-retry" type="button">${escapeHtml(actions.retryLabel ?? "Retry")}</button>` : ""}
+          ${summary.battleLog && summary.battleLog.length > 0 ? `<button class="ghost-btn" id="rs-log" type="button">Review Battle Log</button>` : ""}
           <button class="${actions.onRetry ? "ghost-btn" : "confirm-btn"}" id="rs-home" type="button">Home</button>
         </div>
       </div>
@@ -118,6 +121,30 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
   if (actions.onRetry) {
     root.querySelector<HTMLButtonElement>("#rs-retry")?.addEventListener("click", actions.onRetry);
   }
+  if (summary.battleLog && summary.battleLog.length > 0) {
+    root.querySelector<HTMLButtonElement>("#rs-log")?.addEventListener("click", () => showBattleLogModal(summary.battleLog!));
+  }
+}
+
+function showBattleLogModal(lines: string[]): void {
+  // Drop any prior modal so re-clicks don't stack.
+  document.getElementById("rs-log-modal")?.remove();
+  const modal = document.createElement("div");
+  modal.id = "rs-log-modal";
+  modal.className = "rs-log-overlay";
+  modal.innerHTML = `
+    <div class="rs-log-card">
+      <div class="rs-log-head">
+        <span class="rs-log-title">Battle Log</span>
+        <button class="ghost-btn rs-log-close" id="rs-log-close" type="button">Close</button>
+      </div>
+      <div class="rs-log-body">${lines.map(l => `<div class="rs-log-line">${escapeHtml(l)}</div>`).join("")}</div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  const close = () => modal.remove();
+  modal.querySelector<HTMLButtonElement>("#rs-log-close")?.addEventListener("click", close);
+  modal.addEventListener("click", e => { if (e.target === modal) close(); });
 }
 
 function unitRowHtml(u: RunSummaryUnit, isMvp: boolean): string {

@@ -373,6 +373,7 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
     floorLabel,
     mvpId,
     mvpBonusXp,
+    battleLog: battle ? battle.log.slice() : undefined,
   };
 
   abortLiveRun();
