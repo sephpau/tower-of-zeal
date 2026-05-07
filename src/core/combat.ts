@@ -112,8 +112,9 @@ const TEMPLATE_LOOKUP: Record<string, UnitTemplate> = {
   slime_king: SLIME_KING,
 };
 
-// 75% slower than original: 0.55s → 2.2s.
-const ANIM_DURATION_S = 2.2;
+// Post-attack lock — how long the queue waits before the next combatant
+// can act on a damaging hit. Lower = snappier combat between actions.
+const ANIM_DURATION_S = 1.0;
 
 export function makeCombatant(t: UnitTemplate, side: Side, position: Position): Combatant {
   const progress: UnitProgress | null = side === "player" ? getProgress(t.id) : null;
