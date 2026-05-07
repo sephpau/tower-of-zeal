@@ -6,7 +6,6 @@ import { PLAYER_ROSTER } from "../units/roster";
 import { portraitInner, capeHtml } from "../units/art";
 import { getProgress } from "../core/progress";
 import { getCachedDailyMultiplier } from "../core/daily";
-import { sfx } from "../core/audio";
 
 export interface RunSummaryUnit {
   templateId: string;
@@ -68,9 +67,9 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
     ? (summary.mode === "floor" ? "Floor Cleared" : "Run Complete")
     : (summary.mode === "floor" ? "Floor Failed" : "Run Ended");
 
-  // Outcome SFX — celebrate the win, mark the loss.
-  if (summary.outcome === "victory") sfx.victory();
-  else sfx.defeat();
+  // Outcome SFX is fired by combat.ts the moment the battle resolves, so it
+  // already plays during the Victory/Defeat banner and continues into this
+  // panel. We deliberately don't re-trigger here.
 
   const bigBanner = summary.outcome === "victory"
     ? `<div class="rs-big-banner victory">VICTORY!</div>`

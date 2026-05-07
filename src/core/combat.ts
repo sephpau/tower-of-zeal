@@ -962,15 +962,19 @@ function checkEndConditions(b: Battle): void {
   if (!playersAlive) {
     b.state = { kind: "defeat" };
     b.log.push("Defeat...");
-    // Outcome SFX is owned by the run summary panel (plays once when it mounts).
     if (!b.replayMode) {
+      sfx.defeat();
       distributeEndOfBattleXp(b);
       persistPartyProgress(b);
     }
   } else if (!enemiesAlive) {
     b.state = { kind: "victory" };
     b.log.push("Victory!");
+    // Fire the victory SFX immediately so it plays during the brief Victory
+    // banner, carrying through into the run summary panel that fades in 1.5s
+    // later. The summary itself no longer triggers it to avoid overlap.
     if (!b.replayMode) {
+      sfx.victory();
       distributeEndOfBattleXp(b);
       persistPartyProgress(b);
     }
