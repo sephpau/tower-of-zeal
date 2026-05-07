@@ -138,7 +138,6 @@ function showBattleLogModal(lines: string[], playerNames: string[], enemyNames: 
   // Sort longest first so multi-word names like "Tower God" win over "Tower".
   // Player wins ties so a colliding name never reads as enemy.
   const players = new Set(playerNames);
-  const enemies = new Set(enemyNames);
   const allNames = [...new Set([...playerNames, ...enemyNames])].sort((a, b) => b.length - a.length);
 
   const colorize = (line: string): string => {
