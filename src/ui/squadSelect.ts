@@ -7,6 +7,7 @@ import { Stats, ZERO_STATS, STAT_KEYS, sumStats } from "../core/stats";
 import { classBaseAtLevel } from "../units/classes";
 import { hexStatSvg } from "./hexStat";
 import { portraitInner, capeHtml, isUnitLocked } from "../units/art";
+import { confirmModal } from "./confirmModal";
 
 // Effective stats = unit base@lvl + class base@lvl + allocated custom points.
 // Mirrors what makeCombatant does, so the roster preview matches battle reality.
@@ -126,10 +127,16 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
       });
     });
 
-    root.querySelector<HTMLButtonElement>("#confirm")?.addEventListener("click", () => {
+    root.querySelector<HTMLButtonElement>("#confirm")?.addEventListener("click", async () => {
       if (picks.length === 0) return;
       const partyNames = picks.map(p => p.name).join(", ");
-      if (!confirm(`Start the battle with ${picks.length} unit${picks.length === 1 ? "" : "s"} (${partyNames})?\n\nYou can't change your party once the battle begins.`)) return;
+      const ok = await confirmModal({
+        title: "Begin Battle?",
+        message: `Start the battle with <strong>${picks.length}</strong> unit${picks.length === 1 ? "" : "s"} — <strong>${escapeHtml(partyNames)}</strong>?<br><br>Your party is locked once the battle begins.`,
+        confirmLabel: "Begin",
+        cancelLabel: "Cancel",
+      });
+      if (!ok) return;
       const players: PlayerSlot[] = picks.map((t, i) => ({
         template: t,
         position: { row: i, col: 0 },

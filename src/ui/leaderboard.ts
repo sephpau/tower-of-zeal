@@ -3,6 +3,7 @@ import { topBarHtml } from "./settings";
 import { loadSession } from "../auth/session";
 import { isAdmin } from "../core/admin";
 import { ReplayBlob } from "../core/replay";
+import { confirmModal } from "./confirmModal";
 
 export function renderLeaderboard(root: HTMLElement, onBack: () => void, onPlayReplay?: (blob: ReplayBlob) => void): void {
   const myAddr = loadSession()?.address.toLowerCase() ?? null;
@@ -62,7 +63,14 @@ export function renderLeaderboard(root: HTMLElement, onBack: () => void, onPlayR
           we: "Fastest World Ender LB",
           conquer: "First to Conquer record",
         };
-        if (!confirm(`Wipe ${labels[scope]}? This can't be undone.`)) return;
+        const ok = await confirmModal({
+          title: "Wipe Leaderboard?",
+          message: `Permanently wipe <strong>${labels[scope]}</strong>?<br><br>This can't be undone.`,
+          confirmLabel: "Wipe",
+          cancelLabel: "Cancel",
+          danger: true,
+        });
+        if (!ok) return;
         btn.disabled = true;
         const r = await adminResetOneLeaderboard(scope);
         btn.disabled = false;

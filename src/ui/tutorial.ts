@@ -11,6 +11,7 @@ import { getProgress, setProgress, resetAllProgress, snapshotAllProgress, restor
 import { scopedKey } from "../auth/scope";
 import { topBarHtml } from "./settings";
 import { STAT_KEYS } from "../core/stats";
+import { confirmModal } from "./confirmModal";
 
 const FLAG_KEY = () => scopedKey("toz.tutorial.complete.v1");
 
@@ -115,8 +116,15 @@ function renderPickStep(root: HTMLElement, onConfirm: (unitId: string, classId: 
       setProgress(chosenUnit, { ...cur, classId: chosenClass });
       onConfirm(chosenUnit, chosenClass);
     });
-    root.querySelector<HTMLButtonElement>("#tutorial-skip")?.addEventListener("click", () => {
-      if (!confirm(skipConfirmMsg)) return;
+    root.querySelector<HTMLButtonElement>("#tutorial-skip")?.addEventListener("click", async () => {
+      const ok = await confirmModal({
+        title: isReplay ? "Exit Replay?" : "Skip Tutorial?",
+        message: skipConfirmMsg,
+        confirmLabel: isReplay ? "Exit" : "Skip",
+        cancelLabel: "Stay",
+        danger: !isReplay,
+      });
+      if (!ok) return;
       onSkip();
     });
   };

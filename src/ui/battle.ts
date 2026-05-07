@@ -5,6 +5,7 @@ import { drainEvents, FloatEvent, iconGlyph } from "../core/animations";
 import { effectIcon, effectName, isDebuff, isSkillBlockedBySilence, isSilenced } from "../core/effects";
 import { portraitInner, capeHtml } from "../units/art";
 import { runCheatCheck } from "../core/cheatCheck";
+import { confirmModal } from "./confirmModal";
 
 const BASE_SKILL_IDS = new Set(["idle", "basic_attack", "guard"]);
 type ActionTab = "basic" | "skills";
@@ -340,8 +341,15 @@ function wireSurrender(root: HTMLElement, b: Battle, onPost: PostBattleHandler):
     btn.disabled = true;
     return;
   }
-  btn.addEventListener("click", () => {
-    if (!confirm("Surrender this battle? You'll keep XP earned so far.")) return;
+  btn.addEventListener("click", async () => {
+    const ok = await confirmModal({
+      title: "Surrender?",
+      message: "Surrender this battle? You'll keep the XP earned so far.",
+      confirmLabel: "Surrender",
+      cancelLabel: "Keep Fighting",
+      danger: true,
+    });
+    if (!ok) return;
     onPost("surrender");
   });
 }

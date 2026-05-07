@@ -9,6 +9,7 @@ import { xpToNext, MAX_LEVEL } from "../core/levels";
 import { CLASS_SKILLS, CHARACTER_SKILLS, getSkill } from "../skills/registry";
 import { isAdmin } from "../core/admin";
 import { portraitInner, capeHtml, isUnitLocked } from "../units/art";
+import { confirmModal } from "./confirmModal";
 
 const LORE: Record<string, string> = {
   soda: "A fizzy elemental from the spring. Said to fight harder when shaken.",
@@ -393,12 +394,18 @@ function wireAllocModal(root: HTMLElement, redraw: () => void): void {
     redraw();
   });
 
-  root.querySelector<HTMLButtonElement>("#alloc-finalize")?.addEventListener("click", () => {
+  root.querySelector<HTMLButtonElement>("#alloc-finalize")?.addEventListener("click", async () => {
     const tid = allocatingFor!;
     const progress = getProgress(tid);
     const used = STAT_KEYS.reduce((sum, kk) => sum + Math.max(0, allocDraft![kk] - (progress.customStats[kk] ?? 0)), 0);
     if (used <= 0) return;
-    if (!confirm(`Spend ${used} stat point${used === 1 ? "" : "s"}? This is final.`)) return;
+    const ok = await confirmModal({
+      title: "Finalize Stat Points?",
+      message: `Spend <strong>${used}</strong> stat point${used === 1 ? "" : "s"}?<br><br>This allocation is final.`,
+      confirmLabel: "Spend",
+      cancelLabel: "Cancel",
+    });
+    if (!ok) return;
     const next: UnitProgress = {
       ...progress,
       customStats: { ...allocDraft! },
@@ -466,12 +473,19 @@ function wireAdminControls(root: HTMLElement, admin: boolean, redraw: () => void
     });
   });
   root.querySelectorAll<HTMLButtonElement>("[data-admin-reset-stats]").forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const tid = btn.dataset.adminResetStats!;
       const cur = getProgress(tid);
       const refund = STAT_KEYS.reduce((sum, k) => sum + (cur.customStats[k] ?? 0), 0);
       if (refund === 0 && cur.availablePoints === 0) return;
-      if (!confirm(`Refund ${refund} allocated point${refund === 1 ? "" : "s"} back to available? This zeroes out the unit's custom stat allocation.`)) return;
+      const ok = await confirmModal({
+        title: "Refund Stats?",
+        message: `Refund <strong>${refund}</strong> allocated point${refund === 1 ? "" : "s"} back to available?<br><br>This zeroes out the unit's custom stat allocation.`,
+        confirmLabel: "Refund",
+        cancelLabel: "Cancel",
+        danger: true,
+      });
+      if (!ok) return;
       setProgress(tid, {
         ...cur,
         customStats: { ...ZERO_STATS },
@@ -481,11 +495,18 @@ function wireAdminControls(root: HTMLElement, admin: boolean, redraw: () => void
     });
   });
   root.querySelectorAll<HTMLButtonElement>("[data-admin-reset-level]").forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const tid = btn.dataset.adminResetLevel!;
       const cur = getProgress(tid);
       if (cur.level <= 1) return;
-      if (!confirm(`Reset this unit to Lv 1? Clears XP, level progress, allocated stat points, and any unspent points. Equipped class and skills stay.`)) return;
+      const ok = await confirmModal({
+        title: "Reset to Lv 1?",
+        message: `Reset this unit to <strong>Lv 1</strong>?<br><br>Clears XP, level progress, allocated stat points, and any unspent points. Equipped class and skills stay.`,
+        confirmLabel: "Reset",
+        cancelLabel: "Cancel",
+        danger: true,
+      });
+      if (!ok) return;
       // Trim equipped skills back to those actually unlocked at level 1.
       const trimmedEquipped = (cur.equippedSkills ?? []).filter(id => {
         const s = getSkill(id);
