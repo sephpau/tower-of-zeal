@@ -1270,19 +1270,30 @@ html, body {
 .skill-btn.silenced { opacity: 0.4; }
 
 /* Status effect chips on combatants */
-.effect-chips { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: middle; }
+.effect-chips { display: inline-flex; gap: 4px; margin-left: 6px; vertical-align: middle; flex-wrap: wrap; }
 .effect-chip {
-  display: inline-flex; align-items: center; gap: 2px;
-  background: rgba(0,0,0,0.4);
+  display: inline-flex; align-items: center; gap: 3px;
+  background: rgba(0, 0, 0, 0.55);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 0 4px;
-  font-size: 10px;
-  line-height: 1.3;
+  padding: 1px 5px;
+  font-size: 12px;
+  line-height: 1.2;
 }
-.effect-chip.debuff { border-color: rgba(239, 68, 68, 0.6); }
-.effect-chip.buff { border-color: rgba(74, 222, 128, 0.6); }
-.effect-dur { color: var(--text-dim); font-size: 9px; margin-left: 1px; }
+.effect-chip.debuff {
+  border-color: rgba(255, 80, 80, 0.7);
+  background: rgba(255, 80, 80, 0.12);
+}
+.effect-chip.buff {
+  border-color: rgba(120, 220, 140, 0.7);
+  background: rgba(120, 220, 140, 0.12);
+}
+.effect-dur {
+  color: var(--gold-bright);
+  font-size: 9px;
+  font-weight: 700;
+  margin-left: 1px;
+}
 
 /* Custom cursors when targeting an enemy with a single-target skill */
 .enemy-cluster.cursor-sword,

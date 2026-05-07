@@ -122,6 +122,20 @@ export function updateLive(root: HTMLElement, b: Battle): void {
       el.classList.toggle("casting", !!c.casting);
       const badge = el.querySelector<HTMLElement>(".guard-badge");
       if (badge) badge.style.display = c.guarding ? "" : "none";
+      // Refresh the buff/debuff chip strip in place so freshly-applied effects
+      // appear and expired ones disappear without waiting for a full re-render.
+      const chipsHost = el.querySelector<HTMLElement>(".name .effect-chips");
+      const newChipsHtml = renderEffectChipsInner(c);
+      if (chipsHost) {
+        if (newChipsHtml === "") chipsHost.remove();
+        else if (chipsHost.innerHTML !== newChipsHtml) chipsHost.innerHTML = newChipsHtml;
+      } else if (newChipsHtml !== "") {
+        const span = document.createElement("span");
+        span.className = "effect-chips";
+        span.innerHTML = newChipsHtml;
+        const nameEl = el.querySelector<HTMLElement>(".name");
+        if (nameEl) nameEl.appendChild(span);
+      }
     }
 
     // Action-row vitals (player only) hold the ATB gauge.
@@ -528,13 +542,19 @@ function unitRowHtml(c: Combatant): string {
   `;
 }
 
-function renderEffectChips(c: Combatant): string {
+function renderEffectChipsInner(c: Combatant): string {
   if (c.effects.length === 0) return "";
-  return `<span class="effect-chips">${c.effects.map(e => {
+  return c.effects.map(e => {
     const icon = effectIcon(e.id);
     const cls = isDebuff(e.id) ? "effect-chip debuff" : "effect-chip buff";
     return `<span class="${cls}" title="${escapeAttr(effectName(e.id))} (${e.duration} actions)">${icon}<span class="effect-dur">${e.duration}</span></span>`;
-  }).join("")}</span>`;
+  }).join("");
+}
+
+function renderEffectChips(c: Combatant): string {
+  const inner = renderEffectChipsInner(c);
+  if (inner === "") return "";
+  return `<span class="effect-chips">${inner}</span>`;
 }
 
 function escapeHtml(s: string): string {
