@@ -119,6 +119,7 @@ export function updateLive(root: HTMLElement, b: Battle): void {
       if (c.side === "enemy") setBar(el, "atb", c.gauge, ATB_FULL, false);
       el.classList.toggle("dead", !c.alive);
       el.classList.toggle("ready", c.alive && c.gauge >= ATB_FULL);
+      el.classList.toggle("casting", !!c.casting);
       const badge = el.querySelector<HTMLElement>(".guard-badge");
       if (badge) badge.style.display = c.guarding ? "" : "none";
     }
@@ -372,10 +373,11 @@ function clusterPositions(n: number): { x: number; y: number }[] {
 function enemyChipHtml(c: Combatant, isBoss = false): string {
   const dead = !c.alive ? "dead" : "";
   const ready = c.alive && c.gauge >= ATB_FULL ? "ready" : "";
+  const casting = c.casting ? "casting" : "";
   const boss = isBoss ? "boss" : "";
   const guardStyle = c.guarding ? "" : "display:none";
   return `
-    <div class="combatant enemy split ${boss} ${dead} ${ready}" data-id="${escapeAttr(c.id)}">
+    <div class="combatant enemy split ${boss} ${dead} ${ready} ${casting}" data-id="${escapeAttr(c.id)}">
       <div class="info">
         <div class="name">
           <span class="lv-inline">Lv${c.level}</span> ${escapeHtml(c.name)}
@@ -405,9 +407,10 @@ function playerStackHtml(b: Battle): string {
 function playerChipHtml(c: Combatant): string {
   const dead = !c.alive ? "dead" : "";
   const ready = c.alive && c.gauge >= ATB_FULL ? "ready" : "";
+  const casting = c.casting ? "casting" : "";
   const guardStyle = c.guarding ? "" : "display:none";
   return `
-    <div class="combatant player split ${dead} ${ready}" data-id="${escapeAttr(c.id)}">
+    <div class="combatant player split ${dead} ${ready} ${casting}" data-id="${escapeAttr(c.id)}">
       <div class="info">
         <div class="name">
           <span class="lv-inline">Lv${c.level}</span> ${escapeHtml(c.name)}

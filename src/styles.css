@@ -2282,3 +2282,15 @@ html, body {
   color: #ff7070 !important;
 }
 .lb-admin-reset:hover { background: rgba(255, 50, 50, 0.08) !important; }
+
+/* ---------- Casting (wind-up) state ---------- */
+.combatant.casting .portrait {
+  animation: cast-pulse 1s ease-in-out;
+  border-color: #b6d4ff !important;
+  box-shadow: 0 0 22px rgba(182, 212, 255, 0.7);
+}
+@keyframes cast-pulse {
+  0%   { transform: scale(1.0); filter: brightness(1.0); }
+  35%  { transform: scale(1.08); filter: brightness(1.2); }
+  100% { transform: scale(1.0); filter: brightness(1.0); }
+}

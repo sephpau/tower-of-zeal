@@ -79,6 +79,8 @@ export interface Combatant {
   damageTaken: number;
   kills: number;
   xpGainedTotal: number;
+  /** True from the moment a windup-eligible action is committed until it resolves. */
+  casting: boolean;
 }
 
 export type BattleState =
@@ -112,6 +114,8 @@ const TEMPLATE_LOOKUP: Record<string, UnitTemplate> = {
 
 // 75% slower than original: 0.55s → 2.2s.
 const ANIM_DURATION_S = 2.2;
+/** Wind-up phase before damage applies, so the cast SFX has room to breathe. */
+const WINDUP_S = 1.0;
 
 export function makeCombatant(t: UnitTemplate, side: Side, position: Position): Combatant {
   const progress: UnitProgress | null = side === "player" ? getProgress(t.id) : null;
@@ -202,6 +206,7 @@ export function makeCombatant(t: UnitTemplate, side: Side, position: Position): 
     damageTaken: 0,
     kills: 0,
     xpGainedTotal: 0,
+    casting: false,
   };
 }
 
@@ -605,6 +610,7 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
     return;
   }
 
+  // Phase 1 — synchronous commitments + cast SFX. Always run regardless of windup.
   attacker.guarding = false;
   attacker.mp -= skill.mpCost;
   if (skill.hpCost !== undefined) {
@@ -618,7 +624,41 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
     (skill.kind === "magical" && (skill.targeting === "enemy" || skill.targeting === "all_enemies"))
     || (skill.id === "basic_attack" && attacker.basicAttackKind === "magical");
   if (magicalDamageIncoming) sfx.castMagical();
+  // Buff skills get the buff chant up-front. Idle and Guard are quick — no chant.
+  if (skill.kind === "buff" && skill.id !== "guard") sfx.castBuff();
 
+  // Quick actions (idle / guard) skip the wind-up entirely — they resolve now.
+  const isQuick = skill.id === "idle" || skill.id === "guard";
+  if (isQuick) {
+    runActionResolution(b, attacker, skill, action);
+    finalizePostAction(b, attacker, skill, /*didDamage*/ false);
+    return;
+  }
+
+  // Wind-up: damage / effect application is deferred by WINDUP_S so the cast
+  // SFX has room to breathe and the target gets a visible "casting" beat.
+  attacker.casting = true;
+  // Set the long action lock now: windup + post-resolve animation.
+  // willDealDamage is approximate — we set the longer lock if damage is plausible.
+  const willDealDamage = skill.targeting === "enemy" || skill.targeting === "all_enemies";
+  b.actionLock = WINDUP_S + (willDealDamage ? ANIM_DURATION_S : 0.4);
+
+  setTimeout(() => {
+    attacker.casting = false;
+    if (b.state.kind !== "ticking") return;
+    if (!attacker.alive) {
+      // Still finalize cooldowns/gauge so the queue keeps moving.
+      finalizePostAction(b, attacker, skill, /*didDamage*/ false);
+      return;
+    }
+    const didDamage = runActionResolution(b, attacker, skill, action);
+    finalizePostAction(b, attacker, skill, didDamage);
+  }, WINDUP_S * 1000);
+}
+
+/** Runs the body of the action — applies damage, summons, or buff effects.
+ *  Pre-conditions (MP/HP cost + cast SFX) must have already been committed. */
+function runActionResolution(b: Battle, attacker: Combatant, skill: Skill, action: QueuedAction): boolean {
   let didDamage = false;
 
   if (skill.id === "idle") {
@@ -632,9 +672,7 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
       b.log.push(`${attacker.name} guards.`);
     } else if (skill.kind === "buff") {
       b.log.push(`${attacker.name} uses ${skill.name}.`);
-      sfx.castBuff();
-      // Self-buffs and party buffs without an offensive target apply effects via
-      // selfApplies (caster) and applies (each ally — see below).
+      // castBuff was already played in Phase 1.
       if (skill.applies && skill.applies.length > 0) {
         const allies = b.combatants.filter(c => c.alive && c.side === attacker.side);
         for (const a of allies) {
@@ -672,6 +710,10 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
     }
   }
 
+  return didDamage;
+}
+
+function finalizePostAction(b: Battle, attacker: Combatant, skill: Skill, didDamage: boolean): void {
   if (skill.cooldown > 0) attacker.skillCooldowns[skill.id] = skill.cooldown;
   for (const id of Object.keys(attacker.skillCooldowns)) {
     if (id === skill.id) continue;
@@ -691,8 +733,10 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
 
   attacker.gauge = 0;
   retargetSurvivors(b);
-  // Set animation lock so subsequent ready combatants wait their turn.
-  b.actionLock = didDamage ? ANIM_DURATION_S : 0.2;
+  // For quick actions (idle/guard) the lock wasn't set in executeAction — set it here.
+  if (skill.id === "idle" || skill.id === "guard") {
+    b.actionLock = didDamage ? ANIM_DURATION_S : 0.2;
+  }
   checkEndConditions(b);
 }
 
