@@ -412,7 +412,9 @@ function showHome(): void {
   // If abandoning a live survival/boss-raid run mid-flight, finalize it so any
   // floors already cleared count toward the leaderboard.
   if ((mode === "survival" || mode === "boss_raid") && battle && battle.state.kind !== "victory" && battle.state.kind !== "defeat") {
-    void endRun();
+    // Ship whatever replay we have so floors already cleared get a playable blob.
+    const partial = finalizeReplay();
+    void endRun(partial ?? undefined);
   }
   abortLiveRun();
   abortRecording();
@@ -814,8 +816,10 @@ function frame(t: number): void {
 
     if (!battleConcluded && battle.state.kind === "defeat") {
       battleConcluded = true;
-      // No replay save on defeat — only personal-best clears get recorded.
-      abortRecording();
+      // Keep the recording alive — survival/boss-raid submit a leaderboard
+      // entry on defeat for the floors that WERE cleared, and we want a
+      // replay to accompany that entry. The server still decides whether
+      // to persist via its PB-improved gate.
       if (mode === "survival" || mode === "boss_raid") {
         const cleared = mode === "survival" ? Math.max(0, survivalFloor - 1) : brIndex;
         setTimeout(() => { void showRunSummary("defeat", cleared); }, 1800);
