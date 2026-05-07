@@ -108,6 +108,16 @@ export function renderLeaderboard(root: HTMLElement, onBack: () => void, onPlayR
   });
 }
 
+/** Prize tables per leaderboard. Values in RON. */
+const PRIZES_RUN: Record<number, number> = { 1: 120, 2: 75, 3: 45, 4: 30, 5: 30 };
+const PRIZES_WORLD_ENDER: Record<number, number> = { 1: 100, 2: 60, 3: 40 };
+const PRIZE_FIRST_CONQUER = 200;
+
+function prizeChip(amount: number | undefined): string {
+  if (!amount) return "";
+  return `<span class="lb-prize" title="Prize: ${amount} $RON">${amount} RON</span>`;
+}
+
 function fillWorldEnder(elId: string, entries: WorldEnderEntry[], myAddr: string | null): void {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -115,7 +125,7 @@ function fillWorldEnder(elId: string, entries: WorldEnderEntry[], myAddr: string
     el.innerHTML = `<div class="lb-empty">No floor 50 clears yet.</div>`;
     return;
   }
-  // Top 5 displayed; replays available for top 3.
+  // Top 5 displayed; replays available for top 3; prizes for top 3.
   const display = entries.slice(0, 5);
   el.innerHTML = display.map(e => {
     const isMe = myAddr !== null && e.address.toLowerCase() === myAddr;
@@ -125,6 +135,7 @@ function fillWorldEnder(elId: string, entries: WorldEnderEntry[], myAddr: string
         <span class="lb-col player">
           <span class="lb-ign">${escapeHtml(e.ign ?? "—")}</span>
           <span class="lb-addr" title="${escapeHtml(e.address)}">${shortAddr(e.address)}</span>
+          ${prizeChip(PRIZES_WORLD_ENDER[e.rank])}
         </span>
         <span class="lb-col time">${formatMs(e.ms)}</span>
         ${replayBtnHtml(e.rank <= 3, "we", e.address)}
@@ -169,6 +180,7 @@ function fillFirstConquer(elId: string, fc: FirstConquerEntry | null, myAddr: st
         <span class="lb-ign">${escapeHtml(fc.ign ?? "—")}</span>
         <span class="lb-addr" title="${escapeHtml(fc.address)}">${shortAddr(fc.address)}</span>
         <span class="lb-conquer-date">${escapeHtml(date)}</span>
+        ${prizeChip(PRIZE_FIRST_CONQUER)}
       </span>
     </div>
     ${partyHtml}
@@ -204,6 +216,7 @@ function rowHtml(e: LbEntry, myAddr: string | null, opts: FillOpts): string {
       <span class="lb-col player">
         <span class="lb-ign">${escapeHtml(name)}</span>
         <span class="lb-addr" title="${escapeHtml(e.address)}">${shortAddr(e.address)}</span>
+        ${prizeChip(PRIZES_RUN[e.rank])}
       </span>
       ${opts.hideFloor ? "" : `<span class="lb-col floor">${e.floor}</span>`}
       <span class="lb-col time">${formatMs(e.ms)}</span>

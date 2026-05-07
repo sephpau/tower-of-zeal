@@ -2424,3 +2424,19 @@ html, body {
   text-transform: capitalize;
 }
 .lb-skill-chip.dim { color: var(--text-dim); border-color: var(--border); background: transparent; }
+
+/* ---------- Prize chip ---------- */
+.lb-prize {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  background: linear-gradient(180deg, #f4d35e, #d4a738);
+  color: #181820;
+  border-radius: 3px;
+  padding: 1px 6px;
+  margin-top: 2px;
+  align-self: flex-start;
+  text-transform: uppercase;
+  box-shadow: 0 1px 4px rgba(244, 211, 94, 0.35);
+}
