@@ -328,9 +328,9 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
     totalMs = result?.totalMs ?? Math.max(0, Date.now() - startedAt);
     submitted = !!result;
   } else {
-    // Floor mode has no live run — fall back to per-battle elapsed time approximation
-    // and surface the stage name so the player knows which floor they cleared.
-    totalMs = 0;
+    // Floor mode: use the per-battle wall-clock elapsed time we tracked when
+    // the battle started, and surface the stage name in the headline.
+    totalMs = floorBattleStartedAt > 0 ? Math.max(0, Date.now() - floorBattleStartedAt) : 0;
     const stage = getStage(currentStageId);
     if (stage) floorLabel = stage.name;
   }
