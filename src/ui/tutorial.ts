@@ -172,9 +172,14 @@ function renderBattleStep(
 
     if (battle.state.kind === "victory") {
       stopped = true;
+      // Grant a tutorial level-up so the player has 4 points to spend on the next step.
+      const cur = getProgress(unitId);
+      if (cur.level < 2) {
+        setProgress(unitId, { ...cur, level: 2, xp: 0, availablePoints: (cur.availablePoints ?? 0) + 4 });
+      }
       showOverlay(
-        "Victory!",
-        "Nice work. Next, let's look at how to spend stat points after a level-up.",
+        "Victory! Level Up!",
+        "Nice work — your unit reached <strong>Lv 2</strong> and earned <strong>4 stat points</strong>. Let's spend them.",
         "Continue",
         () => {
           if (rafId !== null) cancelAnimationFrame(rafId);

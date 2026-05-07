@@ -2549,7 +2549,7 @@ html, body {
 .rs-log-line .log-crit,   .log-line .log-crit   { color: var(--gold-bright); font-weight: 800; letter-spacing: 0.05em; }
 
 /* ---------- Codex (Game Info) ---------- */
-.codex-btn { right: 136px; }  /* sits left of the ? tutorial button with breathing room */
+.codex-btn { right: 128px; }  /* sits left of the ? tutorial button, equal 12px gap */
 .codex-screen { padding: 16px; max-width: 960px; margin: 0 auto; }
 .codex-sticky-header {
   position: sticky; top: 0; z-index: 50;
