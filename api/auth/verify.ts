@@ -29,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  const message = `Ascension — sign in\n\nAddress: ${normalized}\nNonce: ${challenge.nonce}\n\nThis signature does not authorize any transaction.`;
+  const message = `The Gauntlet Tower — sign in\n\nAddress: ${normalized}\nNonce: ${challenge.nonce}\n\nThis signature does not authorize any transaction.`;
 
   const ok = await verifyMessage({ address: normalized, message, signature: signature as `0x${string}` });
   if (!ok) {
