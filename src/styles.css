@@ -2470,3 +2470,14 @@ html, body {
   60%  { transform: scale(1.12); opacity: 1; }
   100% { transform: scale(1.0); opacity: 1; }
 }
+
+/* ---------- Units screen — sticky header ---------- */
+.units-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--bg);
+  /* Soft fade at the bottom so cards scrolling underneath read clearly. */
+  padding-bottom: 6px;
+  box-shadow: 0 6px 14px -8px rgba(0, 0, 0, 0.7);
+}

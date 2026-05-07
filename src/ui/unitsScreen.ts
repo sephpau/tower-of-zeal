@@ -35,9 +35,11 @@ export function renderUnitsScreen(root: HTMLElement, onBack: () => void): void {
 
   const draw = () => {
     root.innerHTML = `
-      <div class="screen-frame">
-        ${topBarHtml("Units", true)}
-        ${hexLegendHtml()}
+      <div class="screen-frame units-screen">
+        <div class="units-sticky-header">
+          ${topBarHtml("Units", true)}
+          ${hexLegendHtml()}
+        </div>
         <div class="units-section">
           <div class="section-label">Player roster</div>
           <div class="units-grid">
