@@ -9,6 +9,7 @@ import { Skill } from "../skills/types";
 import { getSkill, CLASS_SKILLS, CHARACTER_SKILLS, SKILLS } from "../skills/registry";
 import { SLIME, SLIME_KING } from "../units/roster";
 import { awardXp, xpToNext, MAX_LEVEL } from "./levels";
+import { isRecording, recordAction } from "./replay";
 import { getProgress, setProgress, UnitProgress, autoEquipNewlyUnlocked } from "./progress";
 import { pushDamage, pushMiss } from "./animations";
 import { sfx } from "./audio";
@@ -98,6 +99,10 @@ export interface Battle {
   actionLock: number;
   /** XP multiplier applied at distribution time (survival = 0.5). */
   xpMultiplier: number;
+  /** Seed used to construct the rng — captured for replay recording. */
+  seed: number;
+  /** True when this Battle is being driven by a recorded replay; suppresses recording / leaderboard / progress writes. */
+  replayMode?: boolean;
 }
 
 export interface PlayerSlot {
@@ -116,11 +121,18 @@ const TEMPLATE_LOOKUP: Record<string, UnitTemplate> = {
 // can act on a damaging hit. Lower = snappier combat between actions.
 const ANIM_DURATION_S = 1.0;
 
-export function makeCombatant(t: UnitTemplate, side: Side, position: Position): Combatant {
-  const progress: UnitProgress | null = side === "player" ? getProgress(t.id) : null;
-  const classId = progress?.classId ?? t.classId;
-  const customStats = progress?.customStats ?? t.customStats ?? { ...ZERO_STATS };
-  const level = progress?.level ?? t.level ?? 1;
+export interface PartyOverride {
+  classId?: string;
+  level: number;
+  customStats: Stats;
+  equippedSkills?: string[];
+}
+
+export function makeCombatant(t: UnitTemplate, side: Side, position: Position, override?: PartyOverride): Combatant {
+  const progress: UnitProgress | null = side === "player" && !override ? getProgress(t.id) : null;
+  const classId = override?.classId ?? progress?.classId ?? t.classId;
+  const customStats = override?.customStats ?? progress?.customStats ?? t.customStats ?? { ...ZERO_STATS };
+  const level = override?.level ?? progress?.level ?? t.level ?? 1;
   const xp = progress?.xp ?? 0;
   const availablePoints = progress?.availablePoints ?? 0;
 
@@ -147,7 +159,7 @@ export function makeCombatant(t: UnitTemplate, side: Side, position: Position): 
   skills.add("basic_attack");
   skills.add("guard");
   if (side === "player") {
-    const equipped = [...(progress?.equippedSkills ?? [])];
+    const equipped = [...(override?.equippedSkills ?? progress?.equippedSkills ?? [])];
     // Top up any empty loadout slots with currently-unlocked skills the unit has
     // access to (starting + character-specific + class), preserving the player's
     // chosen order. Idempotent — already-equipped skills are skipped.
@@ -237,6 +249,14 @@ export interface BattleOptions {
     kills?: number;
     xpGainedTotal?: number;
   }>;
+  /** Replay only: override player progress at battle start so the viewer's
+   *  localStorage doesn't influence the simulation. Keyed by template id. */
+  partyOverride?: Record<string, {
+    classId?: string;
+    level: number;
+    customStats: Stats;
+    equippedSkills?: string[];
+  }>;
   /** XP multiplier applied at end-of-battle distribution. Default 1. Survival uses 1/50. */
   xpMultiplier?: number;
   /** Boss Raid: scale boss stats 3x and atb-speed 1.5x. Set per battle. */
@@ -257,7 +277,8 @@ export function startBattle(
 ): Battle {
   const rng = new Rng(seed);
   const playerCombatants = players.map(p => {
-    const c = makeCombatant(p.template, "player", p.position);
+    const ov = opts.partyOverride?.[p.template.id];
+    const c = makeCombatant(p.template, "player", p.position, ov);
     const co = opts.carryover?.[p.template.id];
     if (co) {
       c.hp = Math.min(c.maxHp, Math.max(0, co.hp));
@@ -320,6 +341,7 @@ export function startBattle(
     rng,
     actionLock: 0,
     xpMultiplier: opts.xpMultiplier ?? 1,
+    seed,
   };
 }
 
@@ -535,6 +557,16 @@ export function queueAction(b: Battle, unitId: string, skillId: string, targetId
   if (skill.targeting === "self" && target.id !== unit.id) return;
   if (skill.targeting === "enemy" && target.side === unit.side) return;
   unit.queuedAction = { skillId, targetId };
+  // Record the action for replay (no-op if not currently recording or in replay mode).
+  if (!b.replayMode && isRecording()) {
+    const players = b.combatants.filter(c => c.side === "player");
+    const enemies = b.combatants.filter(c => c.side === "enemy");
+    const attackerIdx = players.findIndex(c => c.id === unit.id);
+    const targetIdx = target.side === "enemy"
+      ? enemies.findIndex(c => c.id === target.id)
+      : -1;
+    recordAction(attackerIdx, skillId, targetIdx);
+  }
 }
 
 export function clearQueued(b: Battle, unitId: string): void {
@@ -546,7 +578,7 @@ export function surrenderBattle(b: Battle): void {
   if (b.state.kind !== "ticking") return;
   b.state = { kind: "defeat" };
   b.log.push("Surrendered.");
-  persistPartyProgress(b);
+  if (!b.replayMode) persistPartyProgress(b);
 }
 
 export function distributeEndOfBattleXp(b: Battle): void {
@@ -913,13 +945,17 @@ function checkEndConditions(b: Battle): void {
     b.state = { kind: "defeat" };
     b.log.push("Defeat...");
     sfx.defeat();
-    distributeEndOfBattleXp(b);
-    persistPartyProgress(b);
+    if (!b.replayMode) {
+      distributeEndOfBattleXp(b);
+      persistPartyProgress(b);
+    }
   } else if (!enemiesAlive) {
     b.state = { kind: "victory" };
     b.log.push("Victory!");
     sfx.victory();
-    distributeEndOfBattleXp(b);
-    persistPartyProgress(b);
+    if (!b.replayMode) {
+      distributeEndOfBattleXp(b);
+      persistPartyProgress(b);
+    }
   }
 }

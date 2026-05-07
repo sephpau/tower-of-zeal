@@ -5,7 +5,9 @@ import {
   bumpFloorRetry, readFloorRetries, FLOOR_RETRIES_PER_DAY,
   adminClearAllLeaderboards,
   recordFloorModeClear,
+  saveReplayBlob, loadReplayBlob,
 } from "../_lib/runState.js";
+import { getAddress } from "viem";
 import { getCurrentMultiplier } from "../_lib/daily.js";
 import { isAdmin } from "../_lib/admin.js";
 import { adminGrantEnergy, adminFillEnergy, ENERGY_MAX } from "../_lib/energy.js";
@@ -64,11 +66,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
+  // Replay fetch — public-ish, allows anyone to view another wallet's replay.
+  if (op === "get_replay") {
+    const scope = typeof (req.body as { scope?: unknown }).scope === "string" ? (req.body as { scope: string }).scope : "";
+    const targetRaw = typeof (req.body as { address?: unknown }).address === "string" ? (req.body as { address: string }).address : "";
+    if (!scope || !targetRaw) { res.status(400).json({ error: "scope and address required" }); return; }
+    if (!/^[a-zA-Z0-9_:-]{1,32}$/.test(scope)) { res.status(400).json({ error: "bad scope" }); return; }
+    let target: string;
+    try { target = getAddress(targetRaw); }
+    catch { res.status(400).json({ error: "bad address" }); return; }
+    try {
+      const blob = await loadReplayBlob(scope, target);
+      res.status(200).json({ ok: true, blob });
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+    }
+    return;
+  }
+
   const stageId = typeof body.stageId === "number" ? body.stageId : null;
   if (stageId === null || stageId < 1 || stageId > 50) {
     res.status(400).json({ error: "stageId out of range" }); return;
   }
   const ms = typeof body.ms === "number" && Number.isFinite(body.ms) ? Math.floor(body.ms) : null;
+  const replay = (req.body as { replay?: unknown }).replay && typeof (req.body as { replay?: unknown }).replay === "object"
+    ? (req.body as { replay: object }).replay
+    : null;
 
   try {
     if (op === "retry_status") {
@@ -100,8 +123,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const cap = await bumpXpCap(address, XP_CAP_PER_FLOOR.floor * dailyMul);
 
     let worldEnderSubmitted = false;
+    let worldEnderImproved = false;
     if (stageId === 50 && ms !== null) {
-      worldEnderSubmitted = await submitWorldEnderClear(address, ms).catch(() => false);
+      const we = await submitWorldEnderClear(address, ms).catch(() => ({ ok: false, improved: false }));
+      worldEnderSubmitted = we.ok;
+      worldEnderImproved = we.improved;
+    }
+    // Save replay blob alongside the LB entry only when this clear actually
+    // improved the wallet's PB — otherwise we'd churn Upstash for nothing.
+    if (stageId === 50 && replay && worldEnderImproved) {
+      await saveReplayBlob("we", address, replay).catch(() => undefined);
     }
 
     // Track sequential floor-mode progress + first-to-conquer trophy.

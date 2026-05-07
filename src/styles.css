@@ -2296,3 +2296,37 @@ html, body {
   35%  { transform: scale(1.08); filter: brightness(1.2); }
   100% { transform: scale(1.0); filter: brightness(1.0); }
 }
+
+/* ---------- Replay spectator banner ---------- */
+.replay-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 6000;
+  background: linear-gradient(180deg, rgba(180, 220, 255, 0.92), rgba(120, 170, 230, 0.85));
+  color: #06091e;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.5);
+}
+.replay-banner .replay-banner-text { flex: 1; text-align: center; }
+.replay-banner .replay-banner-close {
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  color: #06091e;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.replay-banner .replay-banner-close:hover { background: rgba(0, 0, 0, 0.25); }

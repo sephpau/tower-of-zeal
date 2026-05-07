@@ -83,17 +83,38 @@ export function abortLiveRun(): void { live = null; }
 
 /** Single-floor (non-leaderboard) battle completed. Tells the server to credit
  *  the wallet's anti-cheat XP ceiling. For floor 50, also submits clear time
- *  to the Fastest World Ender leaderboard. Fail-soft. */
-export async function reportFloorCleared(stageId: number, ms?: number): Promise<void> {
+ *  to the Fastest World Ender leaderboard and (optionally) the recorded replay
+ *  blob. Fail-soft. */
+export async function reportFloorCleared(stageId: number, ms?: number, replay?: unknown): Promise<void> {
   const sess = sessionToken();
   if (!sess) return;
   try {
     await fetch("/api/run/floor-cleared", {
       method: "POST",
       headers: { Authorization: `Bearer ${sess}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ stageId, op: "clear", ...(typeof ms === "number" ? { ms } : {}) }),
+      body: JSON.stringify({
+        stageId,
+        op: "clear",
+        ...(typeof ms === "number" ? { ms } : {}),
+        ...(replay ? { replay } : {}),
+      }),
     });
   } catch { /* ignore */ }
+}
+
+export async function fetchReplayBlob<T = unknown>(scope: string, address: string): Promise<T | null> {
+  const sess = sessionToken();
+  if (!sess) return null;
+  try {
+    const r = await fetch("/api/run/floor-cleared", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${sess}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "get_replay", scope, address }),
+    });
+    if (!r.ok) return null;
+    const data = await r.json() as { blob: T | null };
+    return data.blob ?? null;
+  } catch { return null; }
 }
 
 export interface FloorRetryStatus { used: number; remaining: number; max: number; }

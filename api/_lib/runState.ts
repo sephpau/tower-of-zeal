@@ -217,11 +217,11 @@ export const WORLD_ENDER_LB_KEY = "lb:world_ender_fastest:v1";
 export const MIN_WORLD_ENDER_MS = 10_000;
 export const MAX_WORLD_ENDER_MS = 30 * 60 * 1000; // 30 min, sanity cap.
 
-export async function submitWorldEnderClear(address: string, ms: number): Promise<boolean> {
-  if (ms < MIN_WORLD_ENDER_MS || ms > MAX_WORLD_ENDER_MS) return false;
+export async function submitWorldEnderClear(address: string, ms: number): Promise<{ ok: boolean; improved: boolean }> {
+  if (ms < MIN_WORLD_ENDER_MS || ms > MAX_WORLD_ENDER_MS) return { ok: false, improved: false };
   // LT: only persist if this is a faster time than the wallet's current best.
-  await zaddLt(WORLD_ENDER_LB_KEY, ms, address.toLowerCase());
-  return true;
+  const changed = await zaddLt(WORLD_ENDER_LB_KEY, ms, address.toLowerCase());
+  return { ok: true, improved: changed > 0 };
 }
 
 export interface WorldEnderEntry { rank: number; address: string; ign: string | null; ms: number; }
@@ -231,6 +231,18 @@ export async function getWorldEnderTop(limit = 3): Promise<WorldEnderEntry[]> {
   if (rows.length === 0) return [];
   const igns = await hmget(IGN_HASH_KEY, rows.map(r => r.member));
   return rows.map((r, i) => ({ rank: i + 1, address: r.member, ign: igns[i] ?? null, ms: r.score }));
+}
+
+// ---- Replay storage ----
+const REPLAY_TTL_SECONDS = 60 * 60 * 24 * 365;  // 1 year — replays for a permanent leaderboard
+export function replayKey(scope: string, address: string): string {
+  return `replay:${scope}:${address.toLowerCase()}`;
+}
+export async function saveReplayBlob(scope: string, address: string, blob: unknown): Promise<void> {
+  await setJson(replayKey(scope, address), blob, REPLAY_TTL_SECONDS);
+}
+export async function loadReplayBlob<T = unknown>(scope: string, address: string): Promise<T | null> {
+  return await getJson<T>(replayKey(scope, address));
 }
 
 // ---- Cheat-check audit: lifetime XP ceiling ----

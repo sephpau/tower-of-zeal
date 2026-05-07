@@ -42,9 +42,11 @@ export async function zaddGt(key: string, score: number, member: string): Promis
   await call(["ZADD", key, "GT", "CH", score, member]);
 }
 
-export async function zaddLt(key: string, score: number, member: string): Promise<void> {
+export async function zaddLt(key: string, score: number, member: string): Promise<number> {
   // LT: only update if new score is less than existing (used for "fastest" boards).
-  await call(["ZADD", key, "LT", "CH", score, member]);
+  // CH returns the count of changed elements: 1 if the score got better, 0 otherwise.
+  const r = await call(["ZADD", key, "LT", "CH", score, member]);
+  return typeof r === "number" ? r : 0;
 }
 
 export async function zrangeWithScores(key: string, start: number, stop: number): Promise<ZEntry[]> {
