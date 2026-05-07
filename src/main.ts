@@ -133,6 +133,10 @@ let mode: "floor" | "survival" | "boss_raid" = "floor";
 let survivalFloor = 1;
 let survivalParty: SquadResult["players"] | null = null;
 let survivalCarry: Record<string, CarryEntry> = {};
+// Floor mode state — used to power the free-retry-on-defeat flow.
+let floorParty: SquadResult["players"] | null = null;
+let floorRetriesUsed = 0;
+const FLOOR_FREE_RETRIES = 3;
 
 // Boss Raid state.
 let brIndex = 0;                              // index into BOSS_RAID_FLOORS, 0 = first boss
@@ -228,7 +232,14 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
   screen = "run_summary";
   battle = null;
   playBgm();
-  renderRunSummary(root!, summary, showHome);
+
+  // Floor-mode defeats get up to 3 free retries before having to spend energy.
+  const canRetry = runMode === "floor" && outcome === "defeat" && floorRetriesUsed < FLOOR_FREE_RETRIES;
+  const retriesLeft = FLOOR_FREE_RETRIES - floorRetriesUsed;
+  renderRunSummary(root!, summary, showHome, canRetry ? {
+    onRetry: retryCurrentFloor,
+    retryLabel: `Retry (${retriesLeft} free left)`,
+  } : {});
 }
 
 function handleAction(unitId: string, skillId: string, targetId: string): void {
@@ -353,8 +364,19 @@ async function startBattleFromSquad(squad: SquadResult): Promise<void> {
     const firstBoss = BOSS_RAID_FLOORS[0];
     if (firstBoss) runBossRaidFloor(squad.players, firstBoss.id);
   } else {
+    floorParty = squad.players;
+    floorRetriesUsed = 0;
     runFloor(squad.players, currentStageId, 1.0);
   }
+}
+
+/** Re-run the current floor without consuming energy. Caps at FLOOR_FREE_RETRIES. */
+function retryCurrentFloor(): void {
+  if (mode !== "floor" || !floorParty) { showHome(); return; }
+  if (floorRetriesUsed >= FLOOR_FREE_RETRIES) { showHome(); return; }
+  floorRetriesUsed += 1;
+  // Reuse the same stage + party. Skip energy consume — retries are free.
+  runFloor(floorParty, currentStageId, 1.0);
 }
 
 function applyBossRaidReward(r: BossRaidReward): void {

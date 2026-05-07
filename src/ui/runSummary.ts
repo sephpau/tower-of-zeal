@@ -45,7 +45,14 @@ export function pickMvpId(units: RunSummaryUnit[]): string | null {
   return bestId;
 }
 
-export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose: () => void): void {
+export interface RunSummaryActions {
+  /** If provided, render a "Retry" button. Used for floor-mode defeats with free retries left. */
+  onRetry?: () => void;
+  /** Label for the retry button, e.g. "Retry (1/3 free)". */
+  retryLabel?: string;
+}
+
+export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose: () => void, actions: RunSummaryActions = {}): void {
   const mvpId = summary.mvpId ?? pickMvpId(summary.units);
   const dailyMul = getCachedDailyMultiplier();
   const totalDamageDealt = summary.units.reduce((s, u) => s + u.damageDealt, 0);
@@ -90,13 +97,17 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
         ${summary.submitted ? `<div class="rs-submitted">✓ Submitted to leaderboard</div>` : ""}
 
         <div class="rs-actions">
-          <button class="confirm-btn" id="rs-home" type="button">Home</button>
+          ${actions.onRetry ? `<button class="confirm-btn" id="rs-retry" type="button">${escapeHtml(actions.retryLabel ?? "Retry")}</button>` : ""}
+          <button class="${actions.onRetry ? "ghost-btn" : "confirm-btn"}" id="rs-home" type="button">Home</button>
         </div>
       </div>
     </div>
   `;
 
   root.querySelector<HTMLButtonElement>("#rs-home")?.addEventListener("click", onClose);
+  if (actions.onRetry) {
+    root.querySelector<HTMLButtonElement>("#rs-retry")?.addEventListener("click", actions.onRetry);
+  }
 }
 
 function unitRowHtml(u: RunSummaryUnit, isMvp: boolean): string {
