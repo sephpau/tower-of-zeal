@@ -50,11 +50,17 @@ export function pushDamage(
     color: "#ef4444",
     crit,
   });
-  if (crit) sfx.crit();
-  if (kind === "physical" && range === "melee") sfx.physMelee();
-  else if (kind === "physical") sfx.physRange();
-  else if (kind === "magical" && range === "melee") sfx.magMelee();
-  else sfx.magRange();
+  if (crit) {
+    sfx.crit();
+  } else if (kind === "physical" && range === "melee") {
+    sfx.physMelee();
+  } else if (kind === "physical") {
+    sfx.physRange();
+  } else if (kind === "magical" && range === "melee") {
+    sfx.magMelee();
+  } else {
+    sfx.magRange();
+  }
 }
 
 export function pushMiss(targetId: string): void {
