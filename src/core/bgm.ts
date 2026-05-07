@@ -1,19 +1,31 @@
-// Looping background music for non-combat screens.
+// Background music. One pre-cached <audio> element per track so switching
+// between home → battle → boss is instant and doesn't re-download.
 
 import { loadSettings } from "../ui/settings";
 
-const SRC = "/bgm-home.weba";
+export type BgmTrack = "home" | "battle" | "boss" | "floor50";
+
+const SRC: Record<BgmTrack, string> = {
+  home: "/bgm-home.weba",
+  battle: "/bgm-battle.mp3",
+  boss: "/bgm-boss.mp3",
+  floor50: "/floor-50.mp3",
+};
+
 const VOL_KEY = "toz.bgm.volume";
 
-let audio: HTMLAudioElement | null = null;
+const cache: Partial<Record<BgmTrack, HTMLAudioElement>> = {};
+let activeTrack: BgmTrack | null = null;
 
-function getAudio(): HTMLAudioElement {
-  if (audio) return audio;
-  audio = new Audio(SRC);
-  audio.loop = true;
-  audio.preload = "auto";
-  audio.volume = readVolume();
-  return audio;
+function getAudio(track: BgmTrack): HTMLAudioElement {
+  let a = cache[track];
+  if (a) return a;
+  a = new Audio(SRC[track]);
+  a.loop = true;
+  a.preload = "auto";
+  a.volume = readVolume();
+  cache[track] = a;
+  return a;
 }
 
 function readVolume(): number {
@@ -28,29 +40,52 @@ function readVolume(): number {
 export function setBgmVolume(v: number): void {
   const clamped = Math.max(0, Math.min(1, v));
   try { localStorage.setItem(VOL_KEY, String(clamped)); } catch { /* ignore */ }
-  if (audio) audio.volume = clamped;
+  for (const t of Object.keys(cache) as BgmTrack[]) {
+    const el = cache[t];
+    if (el) el.volume = clamped;
+  }
 }
 
 export function getBgmVolume(): number {
   return readVolume();
 }
 
-export function playBgm(): void {
+/** Play a track, stopping any other track that's currently playing. */
+export function playTrack(track: BgmTrack): void {
   if (!loadSettings().bgmOn) {
-    // If user disabled BGM, make sure any prior playback is stopped.
-    if (audio && !audio.paused) {
-      audio.pause();
-      audio.currentTime = 0;
-    }
+    stopBgm();
     return;
   }
-  const a = getAudio();
-  if (!a.paused) return;
+  if (activeTrack === track) {
+    const cur = cache[track];
+    if (cur && cur.paused) cur.play().catch(() => undefined);
+    return;
+  }
+  // Stop the previous track.
+  if (activeTrack) {
+    const prev = cache[activeTrack];
+    if (prev) { prev.pause(); prev.currentTime = 0; }
+  }
+  activeTrack = track;
+  const a = getAudio(track);
   a.play().catch(() => { /* autoplay may be blocked until interaction */ });
 }
 
+/** Resume / play the home (non-combat) track. Kept for legacy call sites. */
+export function playBgm(): void {
+  playTrack("home");
+}
+
+/** Pick the right battle track based on the floor being fought and the mode. */
+export function playBattleBgm(stageId: number, mode: "floor" | "survival" | "boss_raid", isSoloBoss: boolean): void {
+  if (stageId === 50) { playTrack("floor50"); return; }
+  if (mode === "boss_raid" || isSoloBoss) { playTrack("boss"); return; }
+  playTrack("battle");
+}
+
 export function stopBgm(): void {
-  if (!audio) return;
-  audio.pause();
-  audio.currentTime = 0;
+  if (!activeTrack) return;
+  const cur = cache[activeTrack];
+  if (cur) { cur.pause(); cur.currentTime = 0; }
+  activeTrack = null;
 }

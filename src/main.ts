@@ -27,7 +27,7 @@ import { renderTutorial, isTutorialComplete } from "./ui/tutorial";
 import { renderLeaderboard } from "./ui/leaderboard";
 import { fetchServerIgn, saveServerIgn } from "./auth/ign";
 import { showBossRaidReward, BossRaidReward } from "./ui/bossRaidReward";
-import { playBgm, stopBgm } from "./core/bgm";
+import { playBgm, stopBgm, playBattleBgm } from "./core/bgm";
 import { startRun, reportFloor, endRun, abortLiveRun, reportFloorCleared, getLiveRun, fetchFloorRetryStatus, claimFloorRetry } from "./core/leaderboard";
 
 const root = document.getElementById("app");
@@ -423,13 +423,13 @@ function runBossRaidFloor(party: SquadResult["players"], floorId: number): void 
   brPendingHeal = false; // consumed
   battle = startBattle(party, stage.enemies, undefined, opts);
   screen = "battle";
-  stopBgm();
   recordedThisBattle = false;
   battleConcluded = false;
   currentBattleStageId = floorId;
   lastStateKind = battle.state.kind;
   lastCombatantCount = battle.combatants.length;
   lastAliveCount = battle.combatants.filter(c => c.alive).length;
+  playBattleBgm(floorId, "boss_raid", !!stage.soloBoss);
   renderBattle(root!, battle, handleAction, onPostBattle, { slowMo: isSlowMoStage() });
 }
 
@@ -442,7 +442,6 @@ function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: 
   }
   battle = startBattle(party, stage.enemies, undefined, opts);
   screen = "battle";
-  stopBgm();
   recordedThisBattle = false;
   battleConcluded = false;
   currentBattleStageId = floorId;
@@ -450,6 +449,7 @@ function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: 
   lastStateKind = battle.state.kind;
   lastCombatantCount = battle.combatants.length;
   lastAliveCount = battle.combatants.filter(c => c.alive).length;
+  playBattleBgm(floorId, mode, !!stage.soloBoss);
   renderBattle(root!, battle, handleAction, onPostBattle, { slowMo: isSlowMoStage() });
 }
 
