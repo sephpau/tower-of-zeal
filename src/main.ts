@@ -139,6 +139,13 @@ let survivalCarry: Record<string, CarryEntry> = {};
 let floorParty: SquadResult["players"] | null = null;
 let floorRetriesRemaining: number | null = null; // last known server value
 
+/** Stage id of the floor currently being fought. Used by the slow-mo gate. */
+let currentBattleStageId = 0;
+/** Floors 31+ render in slow motion (75% speed) for added drama. */
+const SLOWMO_STAGE_THRESHOLD = 31;
+const SLOWMO_FACTOR = 0.75;
+function isSlowMoStage(): boolean { return currentBattleStageId >= SLOWMO_STAGE_THRESHOLD; }
+
 // Boss Raid state.
 let brIndex = 0;                              // index into BOSS_RAID_FLOORS, 0 = first boss
 let brParty: SquadResult["players"] | null = null;
@@ -419,10 +426,11 @@ function runBossRaidFloor(party: SquadResult["players"], floorId: number): void 
   stopBgm();
   recordedThisBattle = false;
   battleConcluded = false;
+  currentBattleStageId = floorId;
   lastStateKind = battle.state.kind;
   lastCombatantCount = battle.combatants.length;
   lastAliveCount = battle.combatants.filter(c => c.alive).length;
-  renderBattle(root!, battle, handleAction, onPostBattle);
+  renderBattle(root!, battle, handleAction, onPostBattle, { slowMo: isSlowMoStage() });
 }
 
 function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: number): void {
@@ -437,11 +445,12 @@ function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: 
   stopBgm();
   recordedThisBattle = false;
   battleConcluded = false;
+  currentBattleStageId = floorId;
   if (mode === "floor") floorBattleStartedAt = Date.now();
   lastStateKind = battle.state.kind;
   lastCombatantCount = battle.combatants.length;
   lastAliveCount = battle.combatants.filter(c => c.alive).length;
-  renderBattle(root!, battle, handleAction, onPostBattle);
+  renderBattle(root!, battle, handleAction, onPostBattle, { slowMo: isSlowMoStage() });
 }
 
 function shouldShowPostButtons(b: Battle): boolean {
@@ -491,8 +500,11 @@ function onPostBattle(a: PostBattleAction): void {
 }
 
 function frame(t: number): void {
-  const dt = Math.min(0.1, (t - lastT) / 1000);
+  const realDt = Math.min(0.1, (t - lastT) / 1000);
   lastT = t;
+  // Slow-mo scaling for floors 31+. Affects gauge fill + actionLock decay so
+  // animations and turn cadence both stretch proportionally to the CSS slowdown.
+  const dt = isSlowMoStage() ? realDt * SLOWMO_FACTOR : realDt;
 
   if (screen === "battle" && battle) {
     if (battle.state.kind === "ticking") tick(battle, dt);
@@ -561,7 +573,7 @@ function frame(t: number): void {
 
     const aliveNow = battle.combatants.filter(c => c.alive).length;
     if (battle.state.kind !== lastStateKind || battle.combatants.length !== lastCombatantCount || aliveNow !== lastAliveCount) {
-      renderBattle(root!, battle, handleAction, onPostBattle, { showPostBattleButtons: shouldShowPostButtons(battle) });
+      renderBattle(root!, battle, handleAction, onPostBattle, { showPostBattleButtons: shouldShowPostButtons(battle), slowMo: isSlowMoStage() });
       lastStateKind = battle.state.kind;
       lastCombatantCount = battle.combatants.length;
       lastAliveCount = aliveNow;

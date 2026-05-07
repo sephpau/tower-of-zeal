@@ -28,6 +28,8 @@ let targeting: Targeting | null = null;
 export interface RenderBattleOpts {
   /** When false, victory/defeat suppress the Return-to-Home / Tower-Stages buttons (used between survival floors). */
   showPostBattleButtons?: boolean;
+  /** Floors 31+ render in slow motion — adds a CSS class that stretches all animation durations. */
+  slowMo?: boolean;
 }
 
 export function renderBattle(
@@ -39,10 +41,12 @@ export function renderBattle(
 ): void {
   targeting = null;
   const showPost = opts.showPostBattleButtons !== false;
+  const slowMo = !!opts.slowMo;
   root.innerHTML = `
-    <div class="battle">
+    <div class="battle${slowMo ? " slowmo" : ""}">
       <div class="battle-toolbar">
         <button class="surrender-btn" id="surrender-btn" type="button">Surrender</button>
+        ${slowMo ? `<span class="slowmo-tag">SLOW MOTION</span>` : ""}
       </div>
 
       <div class="battle-field" id="battle-field">

@@ -2249,3 +2249,26 @@ html, body {
   padding: 6px 10px;
   letter-spacing: 0.04em;
 }
+
+/* ---------- Slow-motion battle (floors 31+) ---------- */
+/* Multiplier: 1 / 0.75 ≈ 1.333. Original duration values copied below for clarity. */
+.battle.slowmo .combatant.hit-flash .portrait { animation-duration: 2.13s; }
+.battle.slowmo .combatant.targetable { animation-duration: 1.46s; }
+.battle.slowmo .combatant.ready .bar.atb .fill { animation-duration: 1.6s; }
+.battle.slowmo .float-event,
+.battle.slowmo .float-text { animation-duration: 2.66s; }
+.battle.slowmo .bar .fill { transition-duration: 0.08s; }
+/* Subtle visual cue: bluish ATB bars + a corner badge so the slow-mo state is obvious. */
+.battle.slowmo { filter: saturate(0.92) hue-rotate(-3deg); }
+.slowmo-tag {
+  margin-left: 8px;
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  background: rgba(120, 180, 255, 0.18);
+  color: #b6d4ff;
+  border: 1px solid rgba(180, 220, 255, 0.5);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
