@@ -1,13 +1,19 @@
-import { fetchTop, fetchTopWithExtras, formatMs, LbEntry, FirstConquerEntry, WorldEnderEntry } from "../core/leaderboard";
+import { fetchTop, fetchTopWithExtras, formatMs, LbEntry, FirstConquerEntry, WorldEnderEntry, adminResetLeaderboards } from "../core/leaderboard";
 import { topBarHtml } from "./settings";
 import { loadSession } from "../auth/session";
+import { isAdmin } from "../core/admin";
 
 export function renderLeaderboard(root: HTMLElement, onBack: () => void): void {
   const myAddr = loadSession()?.address.toLowerCase() ?? null;
 
+  const adminControls = isAdmin()
+    ? `<div class="lb-admin-controls"><button class="ghost-btn lb-admin-reset" id="lb-admin-reset" type="button">Admin: Reset All Leaderboards</button></div>`
+    : "";
+
   root.innerHTML = `
     <div class="screen-frame lb-screen">
       ${topBarHtml("Leaderboard", true)}
+      ${adminControls}
       <div class="lb-grid">
         <div class="lb-board lb-survival">
           <div class="lb-board-title">Survival</div>
@@ -39,6 +45,16 @@ export function renderLeaderboard(root: HTMLElement, onBack: () => void): void {
     </div>
   `;
   root.querySelector<HTMLButtonElement>("#back-btn")?.addEventListener("click", onBack);
+  root.querySelector<HTMLButtonElement>("#lb-admin-reset")?.addEventListener("click", async () => {
+    if (!confirm("Wipe Survival, Boss Raid, World Ender LBs and First Conquer? This can't be undone.")) return;
+    const r = await adminResetLeaderboards();
+    if (r.ok) {
+      alert(`Cleared:\n${(r.cleared ?? []).join("\n")}`);
+      renderLeaderboard(root, onBack);
+    } else {
+      alert(`Reset failed: ${r.error ?? "unknown"}`);
+    }
+  });
 
   // Survival board (with first-conquer + world-ender in same payload).
   void fetchTopWithExtras("survival", 50).then(({ entries, firstConquer, worldEnder }) => {

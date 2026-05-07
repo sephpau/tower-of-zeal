@@ -2272,3 +2272,13 @@ html, body {
   padding: 2px 8px;
   border-radius: 4px;
 }
+
+.lb-admin-controls {
+  text-align: center;
+  margin: 12px 0 0;
+}
+.lb-admin-reset {
+  border-color: #ff5050 !important;
+  color: #ff7070 !important;
+}
+.lb-admin-reset:hover { background: rgba(255, 50, 50, 0.08) !important; }

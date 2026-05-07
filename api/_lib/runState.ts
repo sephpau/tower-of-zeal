@@ -1,5 +1,17 @@
 import { getJson, setJson, del, zaddGt, zaddLt, zrangeWithScores, incrWithExpire, hset, hmget, incrBy, getNumber } from "./redis.js";
 
+// ---- Admin: bulk-clear all leaderboards and the First Conquer record ----
+export async function adminClearAllLeaderboards(): Promise<string[]> {
+  const keys = [
+    LB_KEYS.survival,
+    LB_KEYS.boss_raid,
+    WORLD_ENDER_LB_KEY,
+    FIRST_CONQUER_KEY,
+  ];
+  for (const k of keys) await del(k).catch(() => undefined);
+  return keys;
+}
+
 // A live survival run. Stored at Redis key `run:{runId}` with a TTL.
 export interface RunState {
   address: string;

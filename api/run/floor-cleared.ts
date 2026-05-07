@@ -3,8 +3,10 @@ import { verifySession } from "../_lib/jwt.js";
 import {
   bumpXpCap, XP_CAP_PER_FLOOR, submitWorldEnderClear,
   bumpFloorRetry, readFloorRetries, FLOOR_RETRIES_PER_DAY,
+  adminClearAllLeaderboards,
 } from "../_lib/runState.js";
 import { getCurrentMultiplier } from "../_lib/daily.js";
+import { isAdmin } from "../_lib/admin.js";
 
 // Floor-mode battle event endpoint. Handles three operations to stay under
 // the Vercel Hobby 12-function cap:
@@ -19,11 +21,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   if (!auth || !auth.startsWith("Bearer ")) { res.status(401).json({ error: "no token" }); return; }
 
   const body = (req.body ?? {}) as { stageId?: unknown; ms?: unknown; op?: unknown };
-  const stageId = typeof body.stageId === "number" ? body.stageId : null;
-  if (stageId === null || stageId < 1 || stageId > 50) {
-    res.status(400).json({ error: "stageId out of range" }); return;
-  }
-  const ms = typeof body.ms === "number" && Number.isFinite(body.ms) ? Math.floor(body.ms) : null;
   const op = typeof body.op === "string" ? body.op : "clear";
 
   let address: string;
@@ -33,6 +30,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   } catch {
     res.status(401).json({ error: "invalid session" }); return;
   }
+
+  // Admin reset doesn't need a stageId — handled before the stage validation.
+  if (op === "admin_reset_leaderboards") {
+    if (!isAdmin(address)) { res.status(403).json({ error: "admin only" }); return; }
+    try {
+      const keys = await adminClearAllLeaderboards();
+      res.status(200).json({ ok: true, cleared: keys });
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+    }
+    return;
+  }
+
+  const stageId = typeof body.stageId === "number" ? body.stageId : null;
+  if (stageId === null || stageId < 1 || stageId > 50) {
+    res.status(400).json({ error: "stageId out of range" }); return;
+  }
+  const ms = typeof body.ms === "number" && Number.isFinite(body.ms) ? Math.floor(body.ms) : null;
 
   try {
     if (op === "retry_status") {
