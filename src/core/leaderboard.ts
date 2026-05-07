@@ -135,15 +135,17 @@ export async function fetchFloorRetryStatus(stageId: number): Promise<FloorRetry
   } catch { return null; }
 }
 
-/** Admin: wipe all leaderboard zsets and the First Conquer record. */
-export async function adminResetLeaderboards(): Promise<{ ok: boolean; cleared?: string[]; error?: string }> {
+export type AdminLbScope = "survival" | "bossraid" | "we" | "conquer";
+
+/** Admin: wipe a single leaderboard. */
+export async function adminResetOneLeaderboard(scope: AdminLbScope): Promise<{ ok: boolean; cleared?: string[]; error?: string }> {
   const sess = sessionToken();
   if (!sess) return { ok: false, error: "no session" };
   try {
     const r = await fetch("/api/run/floor-cleared", {
       method: "POST",
       headers: { Authorization: `Bearer ${sess}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ op: "admin_reset_leaderboards" }),
+      body: JSON.stringify({ op: "admin_reset_lb", scope }),
     });
     if (r.status === 403) return { ok: false, error: "admin only" };
     if (!r.ok) return { ok: false, error: `http ${r.status}` };

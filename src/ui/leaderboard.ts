@@ -1,4 +1,4 @@
-import { fetchTop, fetchTopWithExtras, formatMs, LbEntry, FirstConquerEntry, WorldEnderEntry, adminResetLeaderboards, fetchReplayBlob } from "../core/leaderboard";
+import { fetchTop, fetchTopWithExtras, formatMs, LbEntry, FirstConquerEntry, WorldEnderEntry, adminResetOneLeaderboard, AdminLbScope, fetchReplayBlob } from "../core/leaderboard";
 import { topBarHtml } from "./settings";
 import { loadSession } from "../auth/session";
 import { isAdmin } from "../core/admin";
@@ -7,36 +7,40 @@ import { ReplayBlob } from "../core/replay";
 export function renderLeaderboard(root: HTMLElement, onBack: () => void, onPlayReplay?: (blob: ReplayBlob) => void): void {
   const myAddr = loadSession()?.address.toLowerCase() ?? null;
 
-  const adminControls = isAdmin()
-    ? `<div class="lb-admin-controls"><button class="ghost-btn lb-admin-reset" id="lb-admin-reset" type="button">Admin: Reset All Leaderboards</button></div>`
-    : "";
+  const admin = isAdmin();
+  const titleHtml = (label: string, scope: AdminLbScope): string =>
+    admin
+      ? `<div class="lb-board-title-row">
+           <span class="lb-board-title">${escapeHtml(label)}</span>
+           <button class="lb-admin-reset" type="button" data-reset-scope="${scope}" title="Admin: reset this board">Reset</button>
+         </div>`
+      : `<div class="lb-board-title">${escapeHtml(label)}</div>`;
 
   root.innerHTML = `
     <div class="screen-frame lb-screen">
       ${topBarHtml("Leaderboard", true)}
-      ${adminControls}
       <div class="lb-grid">
         <div class="lb-board lb-survival">
-          <div class="lb-board-title">Survival</div>
+          ${titleHtml("Survival", "survival")}
           <div class="lb-rows" id="lb-survival-rows">
             <div class="lb-empty">Loading…</div>
           </div>
         </div>
         <div class="lb-board lb-bossraid">
-          <div class="lb-board-title">Boss Raid</div>
+          ${titleHtml("Boss Raid", "bossraid")}
           <div class="lb-rows" id="lb-bossraid-rows">
             <div class="lb-empty">Loading…</div>
           </div>
         </div>
         <div class="lb-side">
           <div class="lb-board lb-conquer">
-            <div class="lb-board-title">First to Conquer the Tower</div>
+            ${titleHtml("First to Conquer the Tower", "conquer")}
             <div class="lb-rows" id="lb-conquer-rows">
               <div class="lb-empty">Loading…</div>
             </div>
           </div>
           <div class="lb-board lb-fastest">
-            <div class="lb-board-title">Fastest to Kill World Ender</div>
+            ${titleHtml("Fastest to Kill World Ender", "we")}
             <div class="lb-rows" id="lb-fastest-rows">
               <div class="lb-empty">Loading…</div>
             </div>
@@ -46,16 +50,30 @@ export function renderLeaderboard(root: HTMLElement, onBack: () => void, onPlayR
     </div>
   `;
   root.querySelector<HTMLButtonElement>("#back-btn")?.addEventListener("click", onBack);
-  root.querySelector<HTMLButtonElement>("#lb-admin-reset")?.addEventListener("click", async () => {
-    if (!confirm("Wipe Survival, Boss Raid, World Ender LBs and First Conquer? This can't be undone.")) return;
-    const r = await adminResetLeaderboards();
-    if (r.ok) {
-      alert(`Cleared:\n${(r.cleared ?? []).join("\n")}`);
-      renderLeaderboard(root, onBack);
-    } else {
-      alert(`Reset failed: ${r.error ?? "unknown"}`);
-    }
-  });
+
+  if (admin) {
+    root.querySelectorAll<HTMLButtonElement>(".lb-admin-reset").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const scope = btn.dataset.resetScope as AdminLbScope | undefined;
+        if (!scope) return;
+        const labels: Record<AdminLbScope, string> = {
+          survival: "Survival LB",
+          bossraid: "Boss Raid LB",
+          we: "Fastest World Ender LB",
+          conquer: "First to Conquer record",
+        };
+        if (!confirm(`Wipe ${labels[scope]}? This can't be undone.`)) return;
+        btn.disabled = true;
+        const r = await adminResetOneLeaderboard(scope);
+        btn.disabled = false;
+        if (r.ok) {
+          renderLeaderboard(root, onBack, onPlayReplay);
+        } else {
+          alert(`Reset failed: ${r.error ?? "unknown"}`);
+        }
+      });
+    });
+  }
 
   // Survival board (with first-conquer + world-ender in same payload).
   // Show up to 10 entries; replays available for top 3.

@@ -3,7 +3,7 @@ import { verifySession } from "../_lib/jwt.js";
 import {
   bumpXpCap, XP_CAP_PER_FLOOR, submitWorldEnderClear,
   bumpFloorRetry, readFloorRetries, FLOOR_RETRIES_PER_DAY,
-  adminClearAllLeaderboards,
+  adminClearAllLeaderboards, adminClearLeaderboard, AdminResetScope,
   recordFloorModeClear,
   saveReplayBlob, loadReplayBlob,
 } from "../_lib/runState.js";
@@ -40,6 +40,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     if (!isAdmin(address)) { res.status(403).json({ error: "admin only" }); return; }
     try {
       const keys = await adminClearAllLeaderboards();
+      res.status(200).json({ ok: true, cleared: keys });
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+    }
+    return;
+  }
+  if (op === "admin_reset_lb") {
+    if (!isAdmin(address)) { res.status(403).json({ error: "admin only" }); return; }
+    const scope = (req.body as { scope?: unknown }).scope;
+    if (scope !== "survival" && scope !== "bossraid" && scope !== "we" && scope !== "conquer") {
+      res.status(400).json({ error: "bad scope" }); return;
+    }
+    try {
+      const keys = await adminClearLeaderboard(scope as AdminResetScope);
       res.status(200).json({ ok: true, cleared: keys });
     } catch (e) {
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });

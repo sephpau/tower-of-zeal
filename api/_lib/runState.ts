@@ -1,14 +1,23 @@
 import { getJson, setJson, del, zaddGt, zaddLt, zrangeWithScores, incrWithExpire, hset, hmget, incrBy, getNumber } from "./redis.js";
 
-// ---- Admin: bulk-clear all leaderboards and the First Conquer record ----
-export async function adminClearAllLeaderboards(): Promise<string[]> {
-  const keys = [
-    LB_KEYS.survival,
-    LB_KEYS.boss_raid,
-    WORLD_ENDER_LB_KEY,
-    FIRST_CONQUER_KEY,
-  ];
+// ---- Admin: leaderboard resets ----
+export type AdminResetScope = "survival" | "bossraid" | "we" | "conquer";
+
+export async function adminClearLeaderboard(scope: AdminResetScope): Promise<string[]> {
+  const keys: string[] = [];
+  if (scope === "survival") keys.push(LB_KEYS.survival);
+  else if (scope === "bossraid") keys.push(LB_KEYS.boss_raid);
+  else if (scope === "we") keys.push(WORLD_ENDER_LB_KEY);
+  else if (scope === "conquer") keys.push(FIRST_CONQUER_KEY);
   for (const k of keys) await del(k).catch(() => undefined);
+  return keys;
+}
+
+/** Bulk wipe — kept for emergencies but the UI now exposes per-board buttons. */
+export async function adminClearAllLeaderboards(): Promise<string[]> {
+  const all: AdminResetScope[] = ["survival", "bossraid", "we", "conquer"];
+  const keys: string[] = [];
+  for (const s of all) keys.push(...await adminClearLeaderboard(s));
   return keys;
 }
 

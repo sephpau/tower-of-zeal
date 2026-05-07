@@ -2275,15 +2275,37 @@ html, body {
   border-radius: 4px;
 }
 
-.lb-admin-controls {
-  text-align: center;
-  margin: 12px 0 0;
+.lb-board-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid rgba(244, 211, 94, 0.3);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+.lb-board-title-row .lb-board-title {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+  flex: 1;
 }
 .lb-admin-reset {
-  border-color: #ff5050 !important;
-  color: #ff7070 !important;
+  background: rgba(255, 50, 50, 0.08);
+  color: #ff8080;
+  border: 1px solid #ff5050;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
 }
-.lb-admin-reset:hover { background: rgba(255, 50, 50, 0.08) !important; }
+.lb-admin-reset:hover:not(:disabled) { background: rgba(255, 50, 50, 0.16); }
+.lb-admin-reset:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ---------- Casting (wind-up) state ---------- */
 .combatant.casting .portrait {
