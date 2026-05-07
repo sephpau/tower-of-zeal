@@ -94,7 +94,6 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
           <div class="codex-effects">
             ${effectRow("⚔", "Atk Up", "buff", "+X% physical or magical attack for N actions.")}
             ${effectRow("⬆", "Stat Up", "buff", "+X% to a specific stat (STR/DEF/AGI/etc.) for N actions.")}
-            ${effectRow("💚", "Regen", "buff", "Heal X HP at the start of each of your actions for N actions.")}
             ${effectRow("💚", "Heal", "buff", "Instant heal — restores HP at cast time, no duration.")}
             ${effectRow("💨", "Haste", "buff", "ATB gauge fills X% faster for N actions.")}
             ${effectRow("🛡", "Shield", "buff", "Reduce incoming damage by X% for N actions.")}
