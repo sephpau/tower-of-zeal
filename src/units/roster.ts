@@ -344,7 +344,7 @@ export const STORM_LORD: UnitTemplate = {
   overrideMaxMp: 200,
   level: 17, xpReward: 540,
   atkMultiplier: 2,
-  resist: { magical: 0.5 },
+  resist: { magical: 0.2 },
 };
 
 // Floor 20 — physical brute boss.
@@ -356,7 +356,7 @@ export const DEMON_GENERAL: UnitTemplate = {
   overrideMaxMp: 120,
   level: 20, xpReward: 700,
   atkMultiplier: 2,
-  resist: { physical: 0.5 },
+  resist: { physical: 0.2 },
 };
 
 // Floor 23 — debuff stacker boss.
@@ -369,7 +369,7 @@ export const WITCH_QUEEN: UnitTemplate = {
   overrideMaxMp: 240,
   level: 23, xpReward: 900,
   atkMultiplier: 2,
-  resist: { magical: 0.5 },
+  resist: { magical: 0.2 },
 };
 
 // Floor 26 — fire/burn boss.
@@ -382,7 +382,7 @@ export const DRAGON_LORD: UnitTemplate = {
   overrideMaxMp: 240,
   level: 26, xpReward: 1100,
   atkMultiplier: 2,
-  resist: { melee: 0.5 },
+  resist: { melee: 0.2 },
 };
 
 // Floor 30 — final boss, balanced and scariest.
