@@ -188,7 +188,7 @@ html, body {
 .combatant .bar { width: 100%; }
 .combatant .info { width: 116px; flex: none; }
 .combatant.enemy .info { width: 108px; }
-.combatant .name { font-size: 11px; }
+.combatant .name { font-size: 11px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; justify-content: center; }
 .combatant .bar { height: 9px; }
 .combatant .bar-text { font-size: 8px; }
 .combatant .portrait { width: 38px; height: 38px; font-size: 22px; }
