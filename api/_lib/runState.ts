@@ -141,6 +141,37 @@ async function setNxJson<T>(key: string, value: T): Promise<boolean> {
   return await setNxWithExpire(key, JSON.stringify(value), 60 * 60 * 24 * 365 * 10);
 }
 
+// ---- Floor-mode free retries — capped per wallet per PH day ----
+export const FLOOR_RETRIES_PER_DAY = 3;
+const PH_OFFSET_MS = 8 * 60 * 60 * 1000;
+const RESET_HOUR = 8;
+
+function phDayBoundary(now = Date.now()): number {
+  const phNow = new Date(now + PH_OFFSET_MS);
+  const phY = phNow.getUTCFullYear();
+  const phM = phNow.getUTCMonth();
+  const phD = phNow.getUTCDate();
+  const phH = phNow.getUTCHours();
+  const dayOffset = phH < RESET_HOUR ? -1 : 0;
+  return Date.UTC(phY, phM, phD + dayOffset, RESET_HOUR) - PH_OFFSET_MS;
+}
+
+function retriesKey(address: string): string {
+  return `retries:floor:${address.toLowerCase()}:${phDayBoundary()}`;
+}
+
+/** Atomic increment with TTL set to the next PH boundary. Returns the new count. */
+export async function bumpFloorRetry(address: string): Promise<number> {
+  const remainingMs = phDayBoundary() + 24 * 60 * 60 * 1000 - Date.now();
+  const ttl = Math.max(60, Math.floor(remainingMs / 1000));
+  return await incrWithExpire(retriesKey(address), ttl);
+}
+
+/** Read current count without incrementing. */
+export async function readFloorRetries(address: string): Promise<number> {
+  return await getNumber(retriesKey(address));
+}
+
 // ---- "Fastest to Kill World Ender" — floor-50 single-battle clears ----
 // Tracked separately from the survival/boss-raid leaderboards because this
 // is specifically about the standalone Floor 50 fight in normal floor mode.

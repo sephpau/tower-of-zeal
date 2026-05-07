@@ -28,7 +28,7 @@ import { renderLeaderboard } from "./ui/leaderboard";
 import { fetchServerIgn, saveServerIgn } from "./auth/ign";
 import { showBossRaidReward, BossRaidReward } from "./ui/bossRaidReward";
 import { playBgm, stopBgm } from "./core/bgm";
-import { startRun, reportFloor, endRun, abortLiveRun, reportFloorCleared, getLiveRun } from "./core/leaderboard";
+import { startRun, reportFloor, endRun, abortLiveRun, reportFloorCleared, getLiveRun, fetchFloorRetryStatus, claimFloorRetry } from "./core/leaderboard";
 
 const root = document.getElementById("app");
 if (!root) throw new Error("#app not found");
@@ -134,9 +134,10 @@ let survivalFloor = 1;
 let survivalParty: SquadResult["players"] | null = null;
 let survivalCarry: Record<string, CarryEntry> = {};
 // Floor mode state — used to power the free-retry-on-defeat flow.
+// Retry cap is enforced server-side per wallet per PH day so refreshing the
+// page or starting another fresh battle can't grant more retries.
 let floorParty: SquadResult["players"] | null = null;
-let floorRetriesUsed = 0;
-const FLOOR_FREE_RETRIES = 3;
+let floorRetriesRemaining: number | null = null; // last known server value
 
 // Boss Raid state.
 let brIndex = 0;                              // index into BOSS_RAID_FLOORS, 0 = first boss
@@ -233,13 +234,23 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
   battle = null;
   playBgm();
 
-  // Floor-mode defeats get up to 3 free retries before having to spend energy.
-  const canRetry = runMode === "floor" && outcome === "defeat" && floorRetriesUsed < FLOOR_FREE_RETRIES;
-  const retriesLeft = FLOOR_FREE_RETRIES - floorRetriesUsed;
-  renderRunSummary(root!, summary, showHome, canRetry ? {
-    onRetry: retryCurrentFloor,
-    retryLabel: `Retry (${retriesLeft} free left)`,
-  } : {});
+  // Floor-mode defeats can offer free retries, capped per wallet per PH day on
+  // the server. Read the current quota before rendering so the button shows
+  // the accurate remaining count.
+  if (runMode === "floor" && outcome === "defeat") {
+    const status = await fetchFloorRetryStatus(currentStageId);
+    const remaining = status?.remaining ?? floorRetriesRemaining ?? 0;
+    floorRetriesRemaining = remaining;
+    if (remaining > 0) {
+      renderRunSummary(root!, summary, showHome, {
+        onRetry: () => { void retryCurrentFloor(); },
+        retryLabel: `Retry (${remaining} free left)`,
+      });
+      return;
+    }
+  }
+
+  renderRunSummary(root!, summary, showHome);
 }
 
 function handleAction(unitId: string, skillId: string, targetId: string): void {
@@ -365,17 +376,23 @@ async function startBattleFromSquad(squad: SquadResult): Promise<void> {
     if (firstBoss) runBossRaidFloor(squad.players, firstBoss.id);
   } else {
     floorParty = squad.players;
-    floorRetriesUsed = 0;
     runFloor(squad.players, currentStageId, 1.0);
   }
 }
 
-/** Re-run the current floor without consuming energy. Caps at FLOOR_FREE_RETRIES. */
-function retryCurrentFloor(): void {
+/** Re-run the current floor without consuming energy. Server enforces the
+ *  per-wallet, per-day retry cap. */
+async function retryCurrentFloor(): Promise<void> {
   if (mode !== "floor" || !floorParty) { showHome(); return; }
-  if (floorRetriesUsed >= FLOOR_FREE_RETRIES) { showHome(); return; }
-  floorRetriesUsed += 1;
-  // Reuse the same stage + party. Skip energy consume — retries are free.
+  const claim = await claimFloorRetry(currentStageId);
+  if (!claim) { alert("Couldn't reach the server. Try again."); return; }
+  if (!claim.ok) {
+    alert("No free retries left for today. Come back after 8 AM PH.");
+    floorRetriesRemaining = 0;
+    showHome();
+    return;
+  }
+  floorRetriesRemaining = claim.remaining;
   runFloor(floorParty, currentStageId, 1.0);
 }
 

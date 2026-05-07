@@ -91,9 +91,44 @@ export async function reportFloorCleared(stageId: number, ms?: number): Promise<
     await fetch("/api/run/floor-cleared", {
       method: "POST",
       headers: { Authorization: `Bearer ${sess}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ stageId, ...(typeof ms === "number" ? { ms } : {}) }),
+      body: JSON.stringify({ stageId, op: "clear", ...(typeof ms === "number" ? { ms } : {}) }),
     });
   } catch { /* ignore */ }
+}
+
+export interface FloorRetryStatus { used: number; remaining: number; max: number; }
+
+/** Read remaining free retries for today. Returns null on network failure. */
+export async function fetchFloorRetryStatus(stageId: number): Promise<FloorRetryStatus | null> {
+  const sess = sessionToken();
+  if (!sess) return null;
+  try {
+    const r = await fetch("/api/run/floor-cleared", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${sess}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ stageId, op: "retry_status" }),
+    });
+    if (!r.ok) return null;
+    const data = await r.json() as { used: number; remaining: number; max: number };
+    return data;
+  } catch { return null; }
+}
+
+/** Atomically consume one free retry. Returns the new state, or { ok: false, ... } on cap. */
+export async function claimFloorRetry(stageId: number): Promise<{ ok: boolean; remaining: number } | null> {
+  const sess = sessionToken();
+  if (!sess) return null;
+  try {
+    const r = await fetch("/api/run/floor-cleared", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${sess}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ stageId, op: "retry_claim" }),
+    });
+    const data = await r.json().catch(() => ({})) as { ok?: boolean; remaining?: number };
+    if (r.status === 429) return { ok: false, remaining: 0 };
+    if (!r.ok) return null;
+    return { ok: !!data.ok, remaining: typeof data.remaining === "number" ? data.remaining : 0 };
+  } catch { return null; }
 }
 
 export async function fetchTop(mode: LbMode = "survival", limit = 50): Promise<LbEntry[]> {
