@@ -61,6 +61,7 @@ const SAMPLE_SRC: Record<string, string> = {
   crit: "/sfx/crit.wav",
   miss: "/sfx/miss.mp3",
   atbReady: "/sfx/atb-ready.wav",
+  castMagical: "/sfx/cast-magical.wav",
 };
 const sampleCache: Record<string, HTMLAudioElement> = {};
 function loadSample(key: string): HTMLAudioElement | null {
@@ -97,6 +98,7 @@ export const sfx = {
   crit: () => playSample("crit", 0.7),
   miss: () => playSample("miss", 0.45),
   atbReady: () => playSample("atbReady", 0.35),
+  castMagical: () => playSample("castMagical", 0.55),
   // Synth-only — no asset for these yet.
   heal: () => chord([
     { freq: 880, endFreq: 1320, type: "sine", durMs: 160, gain: 0.07 },

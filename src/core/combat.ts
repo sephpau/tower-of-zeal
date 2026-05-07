@@ -611,6 +611,14 @@ function executeAction(b: Battle, attacker: Combatant, action: QueuedAction): vo
     attacker.hp = Math.max(1, attacker.hp - skill.hpCost);
   }
 
+  // Magical damage skills get a "casting/chant" SFX up-front so the hit lands
+  // after the chant. Fires for any skill that will roll magical damage —
+  // including basic_attack on a unit with basicAttackKind === "magical".
+  const magicalDamageIncoming =
+    (skill.kind === "magical" && (skill.targeting === "enemy" || skill.targeting === "all_enemies"))
+    || (skill.id === "basic_attack" && attacker.basicAttackKind === "magical");
+  if (magicalDamageIncoming) sfx.castMagical();
+
   let didDamage = false;
 
   if (skill.id === "idle") {
