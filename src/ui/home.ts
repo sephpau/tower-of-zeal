@@ -26,7 +26,7 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
       </div>
       <div class="home-tiles">
         <button class="home-tile primary" data-action="tower" type="button">
-          <div class="tile-title">Explore!</div>
+          <div class="tile-title">Ascend!</div>
         </button>
         <button class="home-tile" data-action="units" type="button">
           <div class="tile-title">Units</div>
