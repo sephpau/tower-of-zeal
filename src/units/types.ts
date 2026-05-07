@@ -11,7 +11,7 @@ export interface UnitTemplate {
   unitBaseStats: Stats;
   /** Per-level growth applied to the unit base layer on level-up. */
   unitGrowth?: Stats;
-  /** Optional class assignment (unlocks at Lv2). Adds the class's baseStats layer. */
+  /** Optional class assignment (available from Lv1). Adds the class's baseStats layer. */
   classId?: string;
   /** Player-allocated stat points (the yellow layer). Default zero. */
   customStats?: Stats;

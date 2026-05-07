@@ -65,7 +65,7 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
             </div>
             <div class="codex-source class">
               <div class="codex-source-head">Class Base</div>
-              <p>Layer added when a class is assigned at Lv 2. Grows with level on top of the unit's base.</p>
+              <p>Layer added when a class is assigned (available from Lv 1). Grows with level on top of the unit's base.</p>
             </div>
             <div class="codex-source custom">
               <div class="codex-source-head">Custom (Allocatable)</div>

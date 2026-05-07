@@ -238,7 +238,7 @@ function renderStatsStep(root: HTMLElement, _unitId: string, onConfirm: () => vo
 
   showOverlay(
     "Stats & Class",
-    `This is the <strong>Units</strong> screen. Tap your unit to expand it — you'll see a class picker (you can change classes at Lv2+) and a <strong>+</strong> button next to each stat to spend your <strong>4 points per level</strong>.<br><br>${statRows}<br>When you're ready to wrap up, tap the <strong>back arrow</strong> in the header to finish the tutorial.`,
+    `This is the <strong>Units</strong> screen. Tap your unit to expand it — you'll see a class picker (pick one starting at Lv1) and a <strong>+</strong> button next to each stat to spend your <strong>4 points per level</strong>.<br><br>${statRows}<br>When you're ready to wrap up, tap the <strong>back arrow</strong> in the header to finish the tutorial.`,
     "Got it",
   );
 }
