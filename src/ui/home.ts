@@ -22,7 +22,7 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
       <div class="daily-slot" id="daily-slot"></div>
       <div class="home-header">
         <div class="home-greeting">Welcome, ${escapeHtml(s.playerName)}</div>
-        <h1 class="home-title">Tower of Zeal</h1>
+        <h1 class="home-title">Ascension</h1>
       </div>
       <div class="home-tiles">
         <button class="home-tile primary" data-action="tower" type="button">

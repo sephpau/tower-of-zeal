@@ -67,7 +67,7 @@ function renderPickStep(root: HTMLElement, onConfirm: (unitId: string, classId: 
     : "Skip the tutorial? It will be marked complete and your progress will be reset, just like finishing it normally.";
   const intro = isReplay
     ? "Tutorial replay. Pick one unit and one class. <strong>Your real progress is preserved — anything you do here is discarded when you exit.</strong>"
-    : "Welcome to Tower of Zeal! Let's start with a quick walkthrough. Pick one unit and one class. <strong>All progress made during this tutorial will reset when it ends.</strong>";
+    : "Welcome to Ascension! Let's start with a quick walkthrough. Pick one unit and one class. <strong>All progress made during this tutorial will reset when it ends.</strong>";
 
   const draw = () => {
     root.innerHTML = `
