@@ -126,7 +126,6 @@ function fillFirstConquer(elId: string, fc: FirstConquerEntry | null, myAddr: st
         <span class="lb-addr" title="${escapeHtml(fc.address)}">${shortAddr(fc.address)}</span>
         <span class="lb-conquer-date">${escapeHtml(date)}</span>
       </span>
-      <span class="lb-col time">${formatMs(fc.ms)}</span>
       ${replayBtnHtml(true)}
     </div>
   `;

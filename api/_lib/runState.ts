@@ -122,24 +122,48 @@ export async function submitToLeaderboard(address: string, floor: number, ms: nu
   await zaddGt(lbKeyFor(mode), encodeScore(floor, ms), address.toLowerCase());
 }
 
-// ---- "First to Conquer the Tower" — first wallet to clear survival floor 50 ----
-// Single-record achievement persisted as JSON. SETNX ensures it can only be
-// written once per server lifetime.
+// ---- "First to Conquer the Tower" — first wallet to clear floors 1..50 sequentially in floor mode ----
+// Tracking: maxFloorCleared:{addr} stores the highest contiguous floor cleared.
+// We only bump it when the new clear is exactly maxCleared + 1, so claiming
+// floor 50 without clearing the prior ones doesn't count. The achievement
+// itself is a single record persisted via SETNX so only the first wallet to
+// reach 50 wins.
 export const FIRST_CONQUER_KEY = "achievement:first_conquer:v1";
-export const SURVIVAL_FINAL_FLOOR = 50;
+export const TOWER_FINAL_FLOOR = 50;
+export const SURVIVAL_FINAL_FLOOR = 50;  // legacy export, unused
 
 export interface FirstConquerRecord {
   address: string;
-  ms: number;
+  /** Wallclock when the achievement was awarded (no run-time tracked). */
   when: number;
 }
 
-export async function maybeSetFirstConquer(address: string, ms: number): Promise<boolean> {
-  return await setNxJson(FIRST_CONQUER_KEY, {
-    address: address.toLowerCase(),
-    ms,
-    when: Date.now(),
-  } as FirstConquerRecord);
+function maxFloorKey(address: string): string { return `maxfloor:${address.toLowerCase()}`; }
+
+export async function getMaxFloorCleared(address: string): Promise<number> {
+  return await getNumber(maxFloorKey(address));
+}
+
+/** Returns true if THIS clear advanced the max-cleared counter and minted the
+ *  conqueror record. Only call from the floor-mode "clear" event after the
+ *  client has reported a successful stageId clear. */
+export async function recordFloorModeClear(address: string, stageId: number): Promise<{ newMax: number; awardedConqueror: boolean }> {
+  const cur = await getMaxFloorCleared(address);
+  let newMax = cur;
+  // Sequential rule: only bump if this is the next floor in line. Prevents
+  // someone clearing floor 5 from being credited as having cleared 1-4.
+  if (stageId === cur + 1) {
+    newMax = stageId;
+    await setJson(maxFloorKey(address), newMax, 60 * 60 * 24 * 365 * 5);
+  }
+  let awardedConqueror = false;
+  if (newMax >= TOWER_FINAL_FLOOR) {
+    awardedConqueror = await setNxJson(FIRST_CONQUER_KEY, {
+      address: address.toLowerCase(),
+      when: Date.now(),
+    } as FirstConquerRecord);
+  }
+  return { newMax, awardedConqueror };
 }
 
 export async function getFirstConquer(): Promise<FirstConquerRecord | null> {

@@ -160,7 +160,6 @@ export async function fetchTop(mode: LbMode = "survival", limit = 50): Promise<L
 export interface FirstConquerEntry {
   address: string;
   ign: string | null;
-  ms: number;
   when: number;
 }
 

@@ -4,6 +4,7 @@ import {
   bumpXpCap, XP_CAP_PER_FLOOR, submitWorldEnderClear,
   bumpFloorRetry, readFloorRetries, FLOOR_RETRIES_PER_DAY,
   adminClearAllLeaderboards,
+  recordFloorModeClear,
 } from "../_lib/runState.js";
 import { getCurrentMultiplier } from "../_lib/daily.js";
 import { isAdmin } from "../_lib/admin.js";
@@ -103,7 +104,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       worldEnderSubmitted = await submitWorldEnderClear(address, ms).catch(() => false);
     }
 
-    res.status(200).json({ ok: true, cap, worldEnderSubmitted });
+    // Track sequential floor-mode progress + first-to-conquer trophy.
+    const conquer = await recordFloorModeClear(address, stageId).catch(() => ({ newMax: 0, awardedConqueror: false }));
+
+    res.status(200).json({
+      ok: true,
+      cap,
+      worldEnderSubmitted,
+      maxFloorCleared: conquer.newMax,
+      awardedConqueror: conquer.awardedConqueror,
+    });
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
   }
