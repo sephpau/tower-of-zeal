@@ -787,7 +787,11 @@ body:has(.battle) {
 }
 .home-tiles { display: flex; flex-direction: column; gap: 16px; width: 320px; max-width: 90vw; }
 .home-tile {
-  background: var(--panel);
+  /* Translucent fill so the tower silhouette shows through; a slight blur
+     keeps the gold text from clashing with high-contrast pixels behind. */
+  background: rgba(15, 20, 50, 0.35);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: 2px solid var(--border);
   border-radius: 18px;
   padding: 28px 16px;
@@ -797,16 +801,18 @@ body:has(.battle) {
   transition: background 0.12s, border-color 0.12s, transform 0.05s, box-shadow 0.15s;
 }
 .home-tile:hover {
-  background: var(--panel-2);
+  background: rgba(30, 40, 80, 0.45);
   border-color: var(--border-strong);
   box-shadow: 0 0 18px rgba(212, 169, 62, 0.10);
 }
 .home-tile:active { transform: translateY(1px); }
 .home-tile.primary {
   border-color: var(--gold-bright);
-  background: linear-gradient(180deg, #2a2200, #1a1500);
+  background: linear-gradient(180deg, rgba(42, 34, 0, 0.55), rgba(26, 21, 0, 0.55));
 }
-.home-tile.primary:hover { background: linear-gradient(180deg, #3a3000, #2a2200); }
+.home-tile.primary:hover {
+  background: linear-gradient(180deg, rgba(58, 48, 0, 0.65), rgba(42, 34, 0, 0.65));
+}
 .tile-title {
   font-family: "Cinzel", "Times New Roman", serif;
   font-size: 26px; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.08em;
