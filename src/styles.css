@@ -880,6 +880,19 @@ body:has(.battle) {
 }
 /* Each tile must claim an equal share — flex:1 grows them; min-width:0 stops
    the button's intrinsic min-content from blocking growth. */
+/* Locked-mode hint badge (Survival/Boss Raid before Lv 5). */
+.mode-tile-lock {
+  margin-top: 8px;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--text);
+  opacity: 0.85;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+.mode-tile-lock strong { color: var(--gold-bright); }
+.survival-tile.locked, .bossraid-tile.locked { filter: grayscale(0.55) brightness(0.7); }
+.survival-tile.locked:disabled, .bossraid-tile.locked:disabled { cursor: not-allowed; }
+
 .mode-picker > .campaign-tile,
 .mode-picker > .survival-tile,
 .mode-picker > .bossraid-tile {

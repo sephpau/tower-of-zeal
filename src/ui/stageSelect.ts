@@ -1,11 +1,23 @@
 import { topBarHtml } from "./settings";
 import { getEnergy, ENERGY_MAX, msUntilNextRefill } from "../core/energy";
-import { STAGE_DEFS, StageEnemyDef } from "../units/roster";
+import { STAGE_DEFS, StageEnemyDef, PLAYER_ROSTER } from "../units/roster";
 import { getMaxCleared } from "../core/clears";
 import { UnitTemplate, DamageResistance } from "../units/types";
+import { getProgress } from "../core/progress";
 
 export const SURVIVAL_ENERGY_COST: number = 3;
 export const BOSS_RAID_ENERGY_COST: number = 3;
+/** Minimum unit level (anywhere in the roster) to unlock Survival + Boss Raid. */
+export const ENDLESS_MODE_UNLOCK_LEVEL: number = 5;
+
+function highestRosterLevel(): number {
+  let max = 0;
+  for (const t of PLAYER_ROSTER) {
+    const lvl = getProgress(t.id).level ?? 1;
+    if (lvl > max) max = lvl;
+  }
+  return max;
+}
 
 export type StagePick =
   | { kind: "floor"; id: number }
@@ -16,6 +28,11 @@ export type StagePick =
  *  Campaign opens the floor grid sub-screen; the other two start a run. */
 export function renderStageSelect(root: HTMLElement, onPick: (pick: StagePick) => void, onBack: () => void): void {
   const energy = getEnergy();
+  const topLevel = highestRosterLevel();
+  const endlessUnlocked = topLevel >= ENDLESS_MODE_UNLOCK_LEVEL;
+  const survivalDisabled = !endlessUnlocked || energy < SURVIVAL_ENERGY_COST;
+  const bossRaidDisabled = !endlessUnlocked || energy < BOSS_RAID_ENERGY_COST;
+  const lockHint = `<div class="mode-tile-lock">🔒 Reach <strong>Lv ${ENDLESS_MODE_UNLOCK_LEVEL}</strong> on any unit to unlock</div>`;
 
   const draw = (): void => {
     root.innerHTML = `
@@ -33,20 +50,22 @@ export function renderStageSelect(root: HTMLElement, onPick: (pick: StagePick) =
               <div class="campaign-sub">Climb floors 1 → 50 · 1 energy per floor</div>
             </div>
           </button>
-          <button class="survival-tile" id="mode-survival" type="button" ${energy < SURVIVAL_ENERGY_COST ? "disabled" : ""}>
+          <button class="survival-tile ${endlessUnlocked ? "" : "locked"}" id="mode-survival" type="button" ${survivalDisabled ? "disabled" : ""}>
             <div class="survival-art"></div>
             <div class="survival-overlay">
               <div class="survival-title">Survival Mode!</div>
               <div class="survival-sub">(${SURVIVAL_ENERGY_COST} energy spent per run)</div>
+              ${endlessUnlocked ? "" : lockHint}
             </div>
           </button>
-          <button class="bossraid-tile" id="mode-bossraid" type="button" ${energy < BOSS_RAID_ENERGY_COST ? "disabled" : ""}>
+          <button class="bossraid-tile ${endlessUnlocked ? "" : "locked"}" id="mode-bossraid" type="button" ${bossRaidDisabled ? "disabled" : ""}>
             <div class="bossraid-art">
               <img class="bossraid-img" src="/boss-raid.png" alt="" draggable="false" />
             </div>
             <div class="bossraid-overlay">
               <div class="bossraid-title">Boss Raid</div>
               <div class="bossraid-sub">(${BOSS_RAID_ENERGY_COST} energy spent per run)</div>
+              ${endlessUnlocked ? "" : lockHint}
             </div>
           </button>
         </div>
@@ -57,11 +76,11 @@ export function renderStageSelect(root: HTMLElement, onPick: (pick: StagePick) =
       renderCampaignFloors(root, onPick, () => renderStageSelect(root, onPick, onBack));
     });
     root.querySelector<HTMLButtonElement>("#mode-survival")?.addEventListener("click", () => {
-      if (getEnergy() < SURVIVAL_ENERGY_COST) return;
+      if (survivalDisabled) return;
       onPick({ kind: "survival" });
     });
     root.querySelector<HTMLButtonElement>("#mode-bossraid")?.addEventListener("click", () => {
-      if (getEnergy() < BOSS_RAID_ENERGY_COST) return;
+      if (bossRaidDisabled) return;
       onPick({ kind: "boss_raid" });
     });
 
