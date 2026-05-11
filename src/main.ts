@@ -253,6 +253,7 @@ function loadReplayBattle(): boolean {
   renderBattle(root!, battle, () => undefined, () => showLeaderboard(), {
     showPostBattleButtons: false,
     slowMo: isSlowMoStage(),
+    stageId: currentBattleStageId,
   });
   return true;
 }
@@ -619,7 +620,7 @@ function runBossRaidFloor(party: SquadResult["players"], floorId: number): void 
   lastCombatantCount = battle.combatants.length;
   lastAliveCount = battle.combatants.filter(c => c.alive).length;
   playBattleBgm(floorId, "boss_raid", !!stage.soloBoss);
-  renderBattle(root!, battle, handleAction, onPostBattle, { slowMo: isSlowMoStage() });
+  renderBattle(root!, battle, handleAction, onPostBattle, { slowMo: isSlowMoStage(), stageId: floorId });
 }
 
 function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: number): void {
@@ -656,7 +657,7 @@ function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: 
   lastCombatantCount = battle.combatants.length;
   lastAliveCount = battle.combatants.filter(c => c.alive).length;
   playBattleBgm(floorId, mode, !!stage.soloBoss);
-  renderBattle(root!, battle, handleAction, onPostBattle, { slowMo: isSlowMoStage() });
+  renderBattle(root!, battle, handleAction, onPostBattle, { slowMo: isSlowMoStage(), stageId: floorId });
 }
 
 /** Build per-template party state at floor start for the replay recorder.
@@ -760,6 +761,7 @@ function frame(t: number): void {
       renderBattle(root!, battle, () => undefined, () => showLeaderboard(), {
         showPostBattleButtons: false,
         slowMo: isSlowMoStage(),
+        stageId: currentBattleStageId,
       });
       lastStateKind = battle.state.kind;
       lastCombatantCount = battle.combatants.length;
@@ -857,7 +859,7 @@ function frame(t: number): void {
 
     const aliveNow = battle.combatants.filter(c => c.alive).length;
     if (battle.state.kind !== lastStateKind || battle.combatants.length !== lastCombatantCount || aliveNow !== lastAliveCount) {
-      renderBattle(root!, battle, handleAction, onPostBattle, { showPostBattleButtons: shouldShowPostButtons(battle), slowMo: isSlowMoStage() });
+      renderBattle(root!, battle, handleAction, onPostBattle, { showPostBattleButtons: shouldShowPostButtons(battle), slowMo: isSlowMoStage(), stageId: currentBattleStageId });
       lastStateKind = battle.state.kind;
       lastCombatantCount = battle.combatants.length;
       lastAliveCount = aliveNow;

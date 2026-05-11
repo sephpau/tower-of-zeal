@@ -31,6 +31,8 @@ export interface RenderBattleOpts {
   showPostBattleButtons?: boolean;
   /** Floors 31+ render in slow motion — adds a CSS class that stretches all animation durations. */
   slowMo?: boolean;
+  /** Current stage id — drives the per-tier battle-field background image. Omit for tutorial / replay if you don't want it. */
+  stageId?: number;
 }
 
 export function renderBattle(
@@ -43,8 +45,11 @@ export function renderBattle(
   targeting = null;
   const showPost = opts.showPostBattleButtons !== false;
   const slowMo = !!opts.slowMo;
+  // Map stage → tier so CSS can pick the right background. Tiers correspond
+  // to the floor-X-Y.png/.jpg assets in /public.
+  const tier = stageTier(opts.stageId);
   root.innerHTML = `
-    <div class="battle${slowMo ? " slowmo" : ""}">
+    <div class="battle${slowMo ? " slowmo" : ""}"${tier ? ` data-tier="${tier}"` : ""}>
       <div class="battle-toolbar">
         <button class="surrender-btn" id="surrender-btn" type="button">Surrender</button>
         ${slowMo ? `<span class="slowmo-tag">SLOW MOTION</span>` : ""}
@@ -88,6 +93,16 @@ export function renderBattle(
       mountCheaterOverlay(root, result.claimed, result.cap);
     }
   });
+}
+
+/** Map stage id to its 10-floor tier label. Returns null for out-of-range / undefined. */
+function stageTier(stageId: number | undefined): string | null {
+  if (typeof stageId !== "number" || stageId < 1 || stageId > 50) return null;
+  if (stageId <= 10) return "1-10";
+  if (stageId <= 20) return "11-20";
+  if (stageId <= 30) return "21-30";
+  if (stageId <= 40) return "31-40";
+  return "41-50";
 }
 
 function mountCheaterOverlay(root: HTMLElement, claimed: number, cap: number): void {
