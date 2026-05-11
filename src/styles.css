@@ -877,6 +877,8 @@ body:has(.battle) {
   max-width: 1200px;
   margin: 24px auto 0;
 }
+/* Buttons inside the grid don't stretch automatically — force fill. */
+.mode-picker > button { width: 100%; }
 
 /* Campaign tile — gold-bordered with a stylized stacked-floors silhouette. */
 .campaign-tile {
