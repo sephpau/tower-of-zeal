@@ -866,6 +866,66 @@ body:has(.battle) {
   grid-template-columns: repeat(5, 1fr);
   gap: 12px;
 }
+.stage-grid.full-width { max-width: 1200px; margin: 0 auto; }
+
+/* Three-tile mode picker (Campaign / Survival / Boss Raid). */
+.mode-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  max-width: 1100px;
+  margin: 24px auto 0;
+}
+.mode-tile {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  background: rgba(15, 20, 50, 0.45);
+  border: 2px solid var(--border-strong);
+  border-radius: 16px;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  padding: 24px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  text-align: center;
+  overflow: hidden;
+  transition: background 0.12s, border-color 0.12s, transform 0.05s, box-shadow 0.15s;
+}
+.mode-tile:hover:not(:disabled) {
+  background: rgba(30, 40, 80, 0.6);
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 22px rgba(244, 211, 94, 0.18);
+  transform: translateY(-2px);
+}
+.mode-tile:disabled { opacity: 0.45; cursor: not-allowed; }
+.mode-tile.campaign { border-color: var(--gold); }
+.mode-tile.survival { border-color: #facc15; }
+.mode-tile.bossraid { border-color: #ef4444; }
+.mode-tile-art {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+.mode-tile-art img {
+  max-width: 70%;
+  max-height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 18px rgba(0,0,0,0.55));
+}
+.mode-tile-title {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--gold-bright);
+  margin-top: 14px;
+}
+.mode-tile-sub { font-size: 12px; opacity: 0.75; margin-top: 6px; letter-spacing: 0.04em; }
 .stage-tile {
   /* Translucent so the tower background reads through. NOTE: do NOT add
      backdrop-filter here — it creates a stacking context, which causes
