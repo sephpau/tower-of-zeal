@@ -43,6 +43,13 @@ body {
   background-repeat: no-repeat, no-repeat;
   background-attachment: fixed, fixed;
 }
+/* Battle screen: drop the tower background so the battle field is the focus.
+   Falls back to the original radial-gradient look. */
+body:has(.battle) {
+  background-image:
+    radial-gradient(ellipse at top, rgba(212, 169, 62, 0.05), transparent 50%),
+    radial-gradient(ellipse at bottom, rgba(232, 121, 249, 0.04), transparent 60%);
+}
 #app {
   /* Sized to use the full width of a normal 1080p (1920×1080) monitor with
      comfortable side gutters and minimal vertical padding so the home screen
