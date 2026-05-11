@@ -872,13 +872,20 @@ body:has(.battle) {
    Reuses existing .survival-tile and .bossraid-tile art treatments. */
 .mode-picker {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 24px;
   max-width: 1200px;
   margin: 24px auto 0;
 }
-/* Buttons inside the grid don't stretch automatically — force fill. */
-.mode-picker > button { width: 100%; }
+/* Grid items need explicit width/min-width on buttons or they collapse to
+   their (absolute-positioned, zero-width) content. */
+.mode-picker > .campaign-tile,
+.mode-picker > .survival-tile,
+.mode-picker > .bossraid-tile {
+  width: 100%;
+  min-width: 0;
+  display: block;
+}
 
 /* Campaign tile — gold-bordered with a stylized stacked-floors silhouette. */
 .campaign-tile {
