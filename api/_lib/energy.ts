@@ -27,7 +27,10 @@ function lastResetBoundary(now = Date.now()): number {
 async function read(address: string): Promise<EnergyState> {
   const raw = await getJson<EnergyState>(key(address));
   if (raw && Number.isFinite(raw.amount) && Number.isFinite(raw.lastReset)) {
-    return { amount: Math.max(0, Math.min(ENERGY_MAX, Math.floor(raw.amount))), lastReset: raw.lastReset };
+    // Floor at 0 but do NOT cap at ENERGY_MAX: daily-streak claims grant
+    // bonus energy on top of a full pool (ENERGY_MAX + reward.energy) and
+    // capping here would silently delete that bonus on the next read.
+    return { amount: Math.max(0, Math.floor(raw.amount)), lastReset: raw.lastReset };
   }
   // First-time wallets: full pool, anchored to the current boundary so refill arithmetic is correct.
   return { amount: ENERGY_MAX, lastReset: lastResetBoundary() };
@@ -41,7 +44,8 @@ async function write(address: string, s: EnergyState): Promise<void> {
 function applyRefill(s: EnergyState): EnergyState {
   const boundary = lastResetBoundary();
   if (s.lastReset < boundary) {
-    return { amount: ENERGY_MAX, lastReset: boundary };
+    // Top up to ENERGY_MAX but preserve any bonus overflow from daily claims.
+    return { amount: Math.max(s.amount, ENERGY_MAX), lastReset: boundary };
   }
   return s;
 }
@@ -82,7 +86,8 @@ export function msUntilNextRefill(now = Date.now()): number {
 export async function adminGrantEnergy(address: string, delta: number): Promise<number> {
   const cur = applyRefill(await read(address));
   const next: EnergyState = {
-    amount: Math.max(0, Math.min(ENERGY_MAX, cur.amount + delta)),
+    // No upper cap — admin grants are intentional, same as daily bonus.
+    amount: Math.max(0, cur.amount + delta),
     lastReset: cur.lastReset,
   };
   await write(address, next);

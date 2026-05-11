@@ -27,7 +27,11 @@ function maybeRefill(): void {
     const lastReset = lastResetRaw ? Number(lastResetRaw) : 0;
     const boundary = lastResetBoundary();
     if (lastReset < boundary) {
-      localStorage.setItem(KEY(), String(ENERGY_MAX));
+      // Top up to ENERGY_MAX but preserve any bonus overflow from daily claims.
+      const rawCur = localStorage.getItem(KEY());
+      const cur = rawCur === null ? ENERGY_MAX : Math.max(0, Math.floor(Number(rawCur)));
+      const after = Math.max(Number.isFinite(cur) ? cur : ENERGY_MAX, ENERGY_MAX);
+      localStorage.setItem(KEY(), String(after));
       localStorage.setItem(RESET_KEY(), String(boundary));
     }
   } catch { /* ignore */ }
@@ -38,7 +42,9 @@ export function getEnergy(): number {
   try {
     const raw = localStorage.getItem(KEY());
     if (raw === null) return ENERGY_MAX;
-    const n = Math.max(0, Math.min(ENERGY_MAX, Math.floor(Number(raw))));
+    // No upper cap — server can grant daily bonuses above ENERGY_MAX and the
+    // pill happily displays "23 / 20".
+    const n = Math.max(0, Math.floor(Number(raw)));
     return Number.isFinite(n) ? n : ENERGY_MAX;
   } catch {
     return ENERGY_MAX;
@@ -46,7 +52,7 @@ export function getEnergy(): number {
 }
 
 export function setEnergy(n: number): void {
-  const clamped = Math.max(0, Math.min(ENERGY_MAX, Math.floor(n)));
+  const clamped = Math.max(0, Math.floor(n));
   try { localStorage.setItem(KEY(), String(clamped)); } catch { /* ignore */ }
 }
 
