@@ -2354,9 +2354,12 @@ body:has(.battle) {
 .rs-actions {
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
   margin-top: 4px;
 }
 .rs-actions .confirm-btn { min-width: 160px; }
+.rs-actions .ghost-btn { min-width: 160px; }
 
 .rs-mvp-banner {
   text-align: center;
