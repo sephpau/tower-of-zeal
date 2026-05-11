@@ -28,11 +28,20 @@ const LORE: Record<string, string> = {
 let allocatingFor: string | null = null;       // template id currently in alloc modal
 let allocDraft: Stats | null = null;             // pending custom stats during modal
 
-export function renderUnitsScreen(root: HTMLElement, onBack: () => void): void {
+export interface RenderUnitsScreenOpts {
+  /** When set, restrict the roster grid to a single template id. Used by the
+   *  tutorial stats step so the player only sees the unit they just chose. */
+  onlyUnitId?: string;
+}
+
+export function renderUnitsScreen(root: HTMLElement, onBack: () => void, opts: RenderUnitsScreenOpts = {}): void {
   const pickingFor = new Set<string>();
   const editingSkillsFor = new Set<string>();
   const settings = loadSettings();
   const admin = isAdmin();
+  const roster = opts.onlyUnitId
+    ? PLAYER_ROSTER.filter(t => t.id === opts.onlyUnitId)
+    : PLAYER_ROSTER;
 
   const draw = () => {
     root.innerHTML = `
@@ -44,7 +53,7 @@ export function renderUnitsScreen(root: HTMLElement, onBack: () => void): void {
         <div class="units-section">
           <div class="section-label">Player roster</div>
           <div class="units-grid">
-            ${PLAYER_ROSTER.map(t => unitCardHtml(t, pickingFor.has(t.id), settings.devUnlockClass || admin, admin, editingSkillsFor.has(t.id))).join("")}
+            ${roster.map(t => unitCardHtml(t, pickingFor.has(t.id), settings.devUnlockClass || admin, admin, editingSkillsFor.has(t.id))).join("")}
           </div>
         </div>
       </div>

@@ -12,6 +12,7 @@ import { scopedKey } from "../auth/scope";
 import { topBarHtml } from "./settings";
 import { STAT_KEYS } from "../core/stats";
 import { confirmModal } from "./confirmModal";
+import { portraitInner } from "../units/art";
 
 const FLAG_KEY = () => scopedKey("toz.tutorial.complete.v1");
 
@@ -80,7 +81,7 @@ function renderPickStep(root: HTMLElement, onConfirm: (unitId: string, classId: 
           <div class="tutorial-grid units">
             ${PLAYER_ROSTER.map(t => `
               <button class="tutorial-card unit ${chosenUnit === t.id ? "selected" : ""}" data-unit="${t.id}" type="button">
-                <div class="portrait">${t.portrait}</div>
+                <div class="portrait">${portraitInner(t.id, t.portrait)}</div>
                 <div class="card-name">${escapeHtml(t.name)}</div>
               </button>
             `).join("")}
@@ -230,7 +231,7 @@ function countAlive(b: Battle): number {
 
 // ---------- Step 3: stat-allocation explainer ----------
 
-function renderStatsStep(root: HTMLElement, _unitId: string, onConfirm: () => void): void {
+function renderStatsStep(root: HTMLElement, unitId: string, onConfirm: () => void): void {
   const explainers: Record<string, string> = {
     STR: "Strength — boosts physical attack damage.",
     DEF: "Defense — reduces incoming physical damage.",
@@ -241,8 +242,9 @@ function renderStatsStep(root: HTMLElement, _unitId: string, onConfirm: () => vo
   };
 
   // Render the real Units screen so the player can experience class change +
-  // stat allocation in-place. The screen's "back" callback finishes the tutorial.
-  renderUnitsScreen(root, onConfirm);
+  // stat allocation in-place. Filter to ONLY the tutorial unit so the player
+  // isn't distracted by the rest of the roster. Back closes the tutorial.
+  renderUnitsScreen(root, onConfirm, { onlyUnitId: unitId });
 
   // Floating one-time overlay above the screen explaining what to try.
   const statRows = STAT_KEYS.map(k =>
