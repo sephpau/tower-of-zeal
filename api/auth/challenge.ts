@@ -27,5 +27,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 }
 
 function buildMessage(address: string, nonce: string): string {
-  return `The Gauntlet Tower — sign in\n\nAddress: ${address}\nNonce: ${nonce}\n\nThis signature does not authorize any transaction.`;
+  return `Gauntlet Tower — sign in\n\nAddress: ${address}\nNonce: ${nonce}\n\nThis signature does not authorize any transaction.`;
 }

@@ -5,7 +5,7 @@ import { setUserScope } from "../auth/scope";
 export function renderWalletGate(root: HTMLElement, onAuthenticated: (s: Session) => void): void {
   root.innerHTML = `
     <div class="wallet-gate">
-      <h1>The Gauntlet Tower</h1>
+      <h1>Gauntlet Tower</h1>
       <p class="wallet-gate__desc">Connect your Ronin wallet to verify NFT ownership and play.</p>
       <button id="wg-connect" class="wallet-gate__btn">Connect Ronin Wallet</button>
       <p id="wg-status" class="wallet-gate__status"></p>

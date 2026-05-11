@@ -18,7 +18,7 @@ export function renderStageSelect(root: HTMLElement, onPick: (pick: StagePick) =
 
   root.innerHTML = `
     <div class="screen-frame stage-select-screen">
-      ${topBarHtml("The Gauntlet Tower", true)}
+      ${topBarHtml("Gauntlet Tower", true)}
       <div class="energy-pill standalone" title="Energy">
         <span class="energy-icon">⚡</span><span>${energy} / ${ENERGY_MAX}</span>
         <span class="energy-hint">refills in <span id="energy-refill-timer">${formatCountdown(msUntilNextRefill())}</span></span>
