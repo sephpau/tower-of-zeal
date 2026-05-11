@@ -81,7 +81,7 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
           <div class="codex-list">
             <div class="codex-action">
               <div class="codex-action-head">Idle</div>
-              <p>Wait this action. No MP cost, no damage. Your ATB gauge keeps <strong>25% of full</strong> instead of resetting to 0, so your next turn fires noticeably sooner. Useful for stalling a beat on a slow boss skill, letting a teammate act first, or syncing turns.</p>
+              <p>Wait this action. No MP cost, no damage. Recovers <strong>2% max HP</strong> and <strong>3% max MP</strong>, and your ATB gauge keeps <strong>25% of full</strong> instead of resetting to 0 — so your next turn fires noticeably sooner. Useful for stalling a beat on a slow boss skill, topping off resources, letting a teammate act first, or syncing turns.</p>
             </div>
             <div class="codex-action">
               <div class="codex-action-head">Attack</div>

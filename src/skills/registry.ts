@@ -9,7 +9,7 @@ export const SKILLS: Record<string, Skill> = {
     id: "idle", name: "Idle",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 0, cooldown: 0,
-    description: "Wait this action. ATB gauge keeps 25% of full instead of resetting, so your next turn comes sooner.",
+    description: "Wait this action. Recovers 2% max HP and 3% max MP, and ATB gauge keeps 25% of full instead of resetting, so your next turn comes sooner.",
   },
   basic_attack: {
     id: "basic_attack", name: "Attack",

@@ -702,7 +702,20 @@ function runActionResolution(b: Battle, attacker: Combatant, skill: Skill, actio
   let didDamage = false;
 
   if (skill.id === "idle") {
-    b.log.push(`${attacker.name} waits.`);
+    // Recover a small slice of HP/MP — rewards stalling without trivializing it.
+    const hpGain = Math.max(1, Math.floor(attacker.maxHp * 0.02));
+    const mpGain = Math.max(1, Math.floor(attacker.maxMp * 0.03));
+    const hpBefore = attacker.hp;
+    const mpBefore = attacker.mp;
+    attacker.hp = Math.min(attacker.maxHp, attacker.hp + hpGain);
+    attacker.mp = Math.min(attacker.maxMp, attacker.mp + mpGain);
+    const hpHealed = attacker.hp - hpBefore;
+    const mpHealed = attacker.mp - mpBefore;
+    if (hpHealed > 0 || mpHealed > 0) {
+      b.log.push(`${attacker.name} waits and recovers ${hpHealed} HP / ${mpHealed} MP.`);
+    } else {
+      b.log.push(`${attacker.name} waits.`);
+    }
     sfx.idle();
   } else if (skill.targeting === "self") {
     if (skill.kind === "summon" && skill.summon) {

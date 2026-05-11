@@ -12,11 +12,13 @@
 
 import { Stats } from "./stats";
 
+// v4: idle now heals 2% maxHp / 3% maxMp. Idle was previously a no-op, so any
+//     v3 replay would diverge once a unit idled (extra HP/MP changing later
+//     damage rolls).
 // v3: combat sim now uses a fixed timestep (SIM_STEP). Replays recorded under
-// the old variable-dt sim could pick a different actor when two combatants hit
-// full gauge in the same frame, diverging RNG consumption. Old replays refuse
-// to load.
-export const REPLAY_VERSION = 3;
+//     the old variable-dt sim could pick a different actor when two combatants
+//     hit full gauge in the same frame, diverging RNG consumption.
+export const REPLAY_VERSION = 4;
 
 export interface ReplayPartyMember {
   templateId: string;
