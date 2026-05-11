@@ -28,7 +28,7 @@ const ENEMY_TILE_FILES: Record<string, string> = {
   skeleton: "Skeleton.png",
   wraith: "Wraith.png",
   skeleton_knight: "Skeleton knight.png",
-  // elite_wraith — no tile yet, falls back to emoji
+  elite_wraith: "Elite Wraith.png",
   cleric: "Cleric.png",
   cantor: "Cantor.png",
   archon: "Archon.png",
