@@ -25,13 +25,23 @@
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
-  background:
-    radial-gradient(ellipse at top, rgba(212, 169, 62, 0.05), transparent 50%),
-    radial-gradient(ellipse at bottom, rgba(232, 121, 249, 0.04), transparent 60%),
-    var(--bg);
   color: var(--text);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   min-height: 100vh;
+}
+/* Full-bleed tower background. Layers (back-to-front):
+   1. Base color so the page never flashes white during image load
+   2. Dim overlay (top→bottom) so the gold UI text stays readable
+   3. The tower image, fixed so it doesn't parallax with scroll */
+body {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(180deg, rgba(6, 9, 30, 0.55) 0%, rgba(6, 9, 30, 0.7) 60%, rgba(6, 9, 30, 0.85) 100%),
+    url("/bg-tower.png");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  background-attachment: fixed, fixed;
 }
 #app {
   /* Sized to use the full width of a normal 1080p (1920×1080) monitor with
