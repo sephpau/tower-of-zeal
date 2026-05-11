@@ -1479,19 +1479,19 @@ body:has(.battle) {
   min-width: 0;
   height: 380px;
   border-radius: 14px;
-  border: 2px solid #facc15;
+  border: 2px solid #f97316;       /* caution orange */
   overflow: hidden;
   cursor: pointer;
   background: linear-gradient(180deg, #1a1d3e 0%, #06091e 100%);
   padding: 0;
   font-family: inherit;
   color: var(--text);
-  box-shadow: 0 0 28px rgba(244, 204, 21, 0.35);
+  box-shadow: 0 0 28px rgba(249, 115, 22, 0.35);
 }
 .survival-tile:disabled { opacity: 0.5; cursor: not-allowed; }
 .survival-tile:hover:not(:disabled) {
-  border-color: #fde047;
-  box-shadow: 0 0 36px rgba(253, 224, 71, 0.55);
+  border-color: #fb923c;
+  box-shadow: 0 0 36px rgba(251, 146, 60, 0.55);
 }
 .survival-art {
   position: absolute; inset: 0;
@@ -1510,12 +1510,12 @@ body:has(.battle) {
   clip-path: polygon(20% 100%, 0% 100%, 8% 90%, 8% 30%, 30% 18%, 50% 12%, 70% 18%, 92% 30%, 92% 90%, 100% 100%, 80% 100%, 80% 25%, 50% 18%, 20% 25%);
 }
 .survival-art::after {
-  /* lightning bolt */
+  /* lightning bolt — caution orange */
   right: 12%; top: 30%;
   width: 16px; height: 80px;
   clip-path: polygon(40% 0, 100% 30%, 60% 45%, 100% 60%, 30% 100%, 50% 60%, 0% 50%);
-  background: linear-gradient(180deg, #fde047, #facc15);
-  opacity: 0.8;
+  background: linear-gradient(180deg, #fb923c, #f97316);
+  opacity: 0.9;
 }
 .survival-overlay {
   position: absolute;
@@ -1526,16 +1526,16 @@ body:has(.battle) {
   font-family: "Cinzel", "Times New Roman", serif;
   font-size: 26px;
   font-weight: 800;
-  color: #fde047;
+  color: #fb923c;
   letter-spacing: 0.08em;
   text-shadow:
-    0 0 18px rgba(253, 224, 71, 0.55),
+    0 0 18px rgba(249, 115, 22, 0.55),
     0 2px 4px rgba(0, 0, 0, 0.95),
     0 0 2px rgba(0, 0, 0, 1);
 }
 .survival-sub {
   font-size: 13px;
-  color: #fde047;
+  color: #fb923c;
   margin-top: 4px;
   text-shadow: 0 2px 8px rgba(0,0,0,0.8);
 }
