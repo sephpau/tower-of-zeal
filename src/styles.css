@@ -890,6 +890,9 @@ body:has(.battle) {
 /* Campaign tile — gold-bordered with a stylized stacked-floors silhouette. */
 .campaign-tile {
   position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
   height: 380px;
   border-radius: 14px;
   border: 2px solid var(--gold);
@@ -1471,6 +1474,9 @@ body:has(.battle) {
 }
 .survival-tile {
   position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
   height: 380px;
   border-radius: 14px;
   border: 2px solid #facc15;
@@ -1942,6 +1948,9 @@ body:has(.battle) {
 /* ---------- Boss Raid tile ---------- */
 .bossraid-tile {
   position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
   height: 380px;          /* match survival tile height */
   border-radius: 14px;
   border: 2px solid #ff5050;
