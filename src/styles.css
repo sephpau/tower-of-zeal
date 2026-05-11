@@ -871,20 +871,20 @@ body:has(.battle) {
 /* Three-tile mode picker (Campaign / Survival / Boss Raid).
    Reuses existing .survival-tile and .bossraid-tile art treatments. */
 .mode-picker {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-direction: row;
   gap: 24px;
   max-width: 1200px;
   margin: 24px auto 0;
+  width: 100%;
 }
-/* Grid items need explicit width/min-width on buttons or they collapse to
-   their (absolute-positioned, zero-width) content. */
+/* Each tile must claim an equal share — flex:1 grows them; min-width:0 stops
+   the button's intrinsic min-content from blocking growth. */
 .mode-picker > .campaign-tile,
 .mode-picker > .survival-tile,
 .mode-picker > .bossraid-tile {
-  width: 100%;
+  flex: 1 1 0;
   min-width: 0;
-  display: block;
 }
 
 /* Campaign tile — gold-bordered with a stylized stacked-floors silhouette. */
