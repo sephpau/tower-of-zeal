@@ -132,13 +132,16 @@ function prizeChip(amount: number | undefined): string {
 function fillWorldEnder(elId: string, entries: WorldEnderEntry[], myAddr: string | null): void {
   const el = document.getElementById(elId);
   if (!el) return;
-  if (entries.length === 0) {
-    el.innerHTML = `<div class="lb-empty">No floor 50 clears yet.</div>`;
-    return;
-  }
   // Top 5 displayed; replays available for top 3; prizes for top 3.
-  const display = entries.slice(0, 5);
-  el.innerHTML = display.map(e => {
+  // Pad to 5 rows so empty slots still display the rank + RON reward (top 3).
+  const SLOT_COUNT = 5;
+  const display: (WorldEnderEntry | null)[] = [];
+  for (let i = 0; i < SLOT_COUNT; i++) {
+    display.push(entries[i] ?? null);
+  }
+  el.innerHTML = display.map((e, idx) => {
+    const rank = idx + 1;
+    if (!e) return emptySlotRowHtml(rank, PRIZES_WORLD_ENDER[rank]);
     const isMe = myAddr !== null && e.address.toLowerCase() === myAddr;
     return `
       <div class="lb-row ${isMe ? "me" : ""}">
@@ -164,18 +167,47 @@ interface FillOpts {
 function fillRows(elId: string, entries: LbEntry[], myAddr: string | null, opts: FillOpts): void {
   const el = document.getElementById(elId);
   if (!el) return;
-  if (entries.length === 0) {
-    el.innerHTML = `<div class="lb-empty">No runs yet — be the first!</div>`;
-    return;
+  // Pad to 10 rows so empty slots still display rank + RON reward (top 5).
+  const SLOT_COUNT = 10;
+  const display: (LbEntry | null)[] = [];
+  for (let i = 0; i < SLOT_COUNT; i++) {
+    display.push(entries[i] ?? null);
   }
-  el.innerHTML = entries.map(e => rowHtml(e, myAddr, opts)).join("");
+  el.innerHTML = display.map((e, idx) => {
+    const rank = idx + 1;
+    if (!e) return emptySlotRowHtml(rank, PRIZES_RUN[rank], opts.hideFloor);
+    return rowHtml(e, myAddr, opts);
+  }).join("");
+}
+
+/** Empty-rank row: shows the rank and (if any) RON reward, nothing else. */
+function emptySlotRowHtml(rank: number, prize: number | undefined, hideFloor?: boolean): string {
+  return `
+    <div class="lb-row lb-row-empty">
+      <span class="lb-col rank">${rank}</span>
+      <span class="lb-col player">
+        <span class="lb-ign dim">—</span>
+        ${prizeChip(prize)}
+      </span>
+      ${hideFloor ? "" : `<span class="lb-col floor dim">—</span>`}
+      <span class="lb-col time dim">—:—</span>
+    </div>
+  `;
 }
 
 function fillFirstConquer(elId: string, fc: FirstConquerEntry | null, myAddr: string | null): void {
   const el = document.getElementById(elId);
   if (!el) return;
   if (!fc) {
-    el.innerHTML = `<div class="lb-empty">No conqueror yet.</div>`;
+    el.innerHTML = `
+      <div class="lb-row lb-conquer-row lb-row-empty">
+        <span class="lb-col rank">★</span>
+        <span class="lb-col player">
+          <span class="lb-ign dim">No conqueror yet</span>
+          ${prizeChip(PRIZE_FIRST_CONQUER)}
+        </span>
+      </div>
+    `;
     return;
   }
   const isMe = myAddr !== null && fc.address.toLowerCase() === myAddr;
