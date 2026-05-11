@@ -868,64 +868,84 @@ body:has(.battle) {
 }
 .stage-grid.full-width { max-width: 1200px; margin: 0 auto; }
 
-/* Three-tile mode picker (Campaign / Survival / Boss Raid). */
+/* Three-tile mode picker (Campaign / Survival / Boss Raid).
+   Reuses existing .survival-tile and .bossraid-tile art treatments. */
 .mode-picker {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 24px;
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 24px auto 0;
 }
-.mode-tile {
+
+/* Campaign tile — gold-bordered with a stylized stacked-floors silhouette. */
+.campaign-tile {
   position: relative;
-  aspect-ratio: 3 / 4;
-  background: rgba(15, 20, 50, 0.45);
-  border: 2px solid var(--border-strong);
-  border-radius: 16px;
-  color: var(--text);
-  cursor: pointer;
-  font-family: inherit;
-  padding: 24px 18px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  text-align: center;
+  height: 380px;
+  border-radius: 14px;
+  border: 2px solid var(--gold);
   overflow: hidden;
-  transition: background 0.12s, border-color 0.12s, transform 0.05s, box-shadow 0.15s;
+  cursor: pointer;
+  background: linear-gradient(180deg, #1a1d3e 0%, #06091e 100%);
+  padding: 0;
+  font-family: inherit;
+  color: var(--text);
+  box-shadow: 0 0 28px rgba(212, 169, 62, 0.30);
 }
-.mode-tile:hover:not(:disabled) {
-  background: rgba(30, 40, 80, 0.6);
+.campaign-tile:disabled { opacity: 0.5; cursor: not-allowed; }
+.campaign-tile:hover:not(:disabled) {
   border-color: var(--gold-bright);
-  box-shadow: 0 0 22px rgba(244, 211, 94, 0.18);
-  transform: translateY(-2px);
+  box-shadow: 0 0 36px rgba(244, 211, 94, 0.5);
 }
-.mode-tile:disabled { opacity: 0.45; cursor: not-allowed; }
-.mode-tile.campaign { border-color: var(--gold); }
-.mode-tile.survival { border-color: #facc15; }
-.mode-tile.bossraid { border-color: #ef4444; }
-.mode-tile-art {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
+.campaign-art {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(212, 169, 62, 0.25), transparent 60%),
+    linear-gradient(180deg, #1c2440 0%, #0a0d22 100%);
 }
-.mode-tile-art img {
-  max-width: 70%;
-  max-height: 100%;
-  object-fit: contain;
-  filter: drop-shadow(0 8px 18px rgba(0,0,0,0.55));
+/* Stacked-floors / spiral-staircase silhouette built from layered triangles. */
+.campaign-art::before, .campaign-art::after {
+  content: "";
+  position: absolute;
+  background: linear-gradient(180deg, #4a5266, #1f2434);
 }
-.mode-tile-title {
+.campaign-art::before {
+  /* tall tiered tower silhouette */
+  left: 28%; right: 28%; top: 14%; bottom: 0;
+  clip-path: polygon(
+    40% 100%, 0% 100%, 0% 88%, 15% 88%, 15% 70%, 5% 70%, 5% 58%,
+    20% 58%, 20% 40%, 10% 40%, 10% 30%, 30% 30%, 50% 8%, 70% 30%,
+    90% 30%, 90% 40%, 80% 40%, 80% 58%, 95% 58%, 95% 70%, 85% 70%,
+    85% 88%, 100% 88%, 100% 100%, 60% 100%
+  );
+}
+.campaign-art::after {
+  /* up-arrow / ascension marker */
+  right: 16%; top: 24%;
+  width: 18px; height: 70px;
+  clip-path: polygon(50% 0, 100% 35%, 70% 35%, 70% 100%, 30% 100%, 30% 35%, 0% 35%);
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  opacity: 0.85;
+}
+.campaign-overlay {
+  position: absolute;
+  bottom: 36px; left: 0; right: 0;
+  text-align: center;
+}
+.campaign-title {
   font-family: "Cinzel", "Times New Roman", serif;
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: 26px;
+  font-weight: 800;
   color: var(--gold-bright);
-  margin-top: 14px;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 18px rgba(244, 211, 94, 0.5), 0 0 4px rgba(0, 0, 0, 0.6);
 }
-.mode-tile-sub { font-size: 12px; opacity: 0.75; margin-top: 6px; letter-spacing: 0.04em; }
+.campaign-sub {
+  font-size: 11px;
+  opacity: 0.7;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
 .stage-tile {
   /* Translucent so the tower background reads through. NOTE: do NOT add
      backdrop-filter here — it creates a stacking context, which causes

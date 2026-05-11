@@ -26,19 +26,28 @@ export function renderStageSelect(root: HTMLElement, onPick: (pick: StagePick) =
           <span class="energy-hint">refills in <span id="energy-refill-timer">${formatCountdown(msUntilNextRefill())}</span></span>
         </div>
         <div class="mode-picker">
-          <button class="mode-tile campaign" id="mode-campaign" type="button">
-            <div class="mode-tile-title">Campaign</div>
-            <div class="mode-tile-sub">Climb floors 1 → 50 · 1 energy per floor</div>
+          <button class="campaign-tile" id="mode-campaign" type="button">
+            <div class="campaign-art"></div>
+            <div class="campaign-overlay">
+              <div class="campaign-title">Campaign</div>
+              <div class="campaign-sub">Climb floors 1 → 50 · 1 energy per floor</div>
+            </div>
           </button>
-          <button class="mode-tile survival" id="mode-survival" type="button" ${energy < SURVIVAL_ENERGY_COST ? "disabled" : ""}>
-            <div class="mode-tile-art"></div>
-            <div class="mode-tile-title">Survival</div>
-            <div class="mode-tile-sub">Endless run · ${SURVIVAL_ENERGY_COST} energy per attempt</div>
+          <button class="survival-tile" id="mode-survival" type="button" ${energy < SURVIVAL_ENERGY_COST ? "disabled" : ""}>
+            <div class="survival-art"></div>
+            <div class="survival-overlay">
+              <div class="survival-title">Survival Mode!</div>
+              <div class="survival-sub">(${SURVIVAL_ENERGY_COST} energy spent per run)</div>
+            </div>
           </button>
-          <button class="mode-tile bossraid" id="mode-bossraid" type="button" ${energy < BOSS_RAID_ENERGY_COST ? "disabled" : ""}>
-            <div class="mode-tile-art"><img class="bossraid-img" src="/boss-raid.png" alt="" draggable="false" /></div>
-            <div class="mode-tile-title">Boss Raid</div>
-            <div class="mode-tile-sub">All bosses back-to-back · ${BOSS_RAID_ENERGY_COST} energy per attempt</div>
+          <button class="bossraid-tile" id="mode-bossraid" type="button" ${energy < BOSS_RAID_ENERGY_COST ? "disabled" : ""}>
+            <div class="bossraid-art">
+              <img class="bossraid-img" src="/boss-raid.png" alt="" draggable="false" />
+            </div>
+            <div class="bossraid-overlay">
+              <div class="bossraid-title">Boss Raid</div>
+              <div class="bossraid-sub">(${BOSS_RAID_ENERGY_COST} energy spent per run)</div>
+            </div>
           </button>
         </div>
       </div>
