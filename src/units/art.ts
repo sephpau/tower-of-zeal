@@ -16,8 +16,68 @@ const CLASS_CAPE_IDS = new Set([
   "fighter", "fire_mage", "water_mage", "sharpshooter", "scout", "defender", "warden",
 ]);
 
+// Enemy art is dropped under /public/tiles. Keys are roster template ids;
+// values are the exact filenames on disk (spaces preserved, original case).
+// Add a new line here whenever a new tile is added.
+const ENEMY_TILE_FILES: Record<string, string> = {
+  slime: "slime.png",
+  slime_king: "slime king.png",
+  wolf: "wolf.png",
+  bandit: "bandit.png",
+  acolyte: "acolyte.png",
+  skeleton: "Skeleton.png",
+  wraith: "Wraith.png",
+  skeleton_knight: "Skeleton knight.png",
+  // elite_wraith — no tile yet, falls back to emoji
+  cleric: "Cleric.png",
+  cantor: "Cantor.png",
+  archon: "Archon.png",
+  hexer: "Hexer.png",
+  plague_bearer: "plague bearer.png",
+  jinx: "Jink.png",
+  gravelock: "Gravelock.png",
+  dark_knight: "Dark knight.png",
+  lich: "lich.png",
+  berserker: "Berserker.png",
+  night_hag: "night hag.png",
+  gargoyle: "Gargoyle.png",
+  demon_hound: "Demon hound.png",
+  stone_sentinel: "Stone Sentinel.png",
+  wraith_lord: "Wraith Lord.png",
+  tower_lord: "Tower Lord.png",
+  iron_behemoth: "Iron Behemoth.png",
+  storm_lord: "Storm Lord.png",
+  demon_general: "Demon General.png",
+  witch_queen: "Witch Queen.png",
+  dragon_lord: "Dragon Lord.png",
+  tower_god: "Tower God.png",
+  null_guardian: "Null Guardian.png",
+  void_knight: "Void knight.png",
+  spectre: "Spectre.png",
+  stormcaller: "Storm Caller.png",
+  air_dancer: "Air Dancer.png",
+  floating_eye: "Floating eye.png",
+  bulwark_bear: "Bulwark Bear.png",
+  spiked_shell: "Spiked Shell.png",
+  null_hierophant: "Null Hierophant.png",
+  the_untouched: "The Untouched.png",
+  shield_priest: "Shield Priest.png",
+  warding_paladin: "Warding Paladin.png",
+  wraith_hexer: "Wraith Hexer.png",
+  storm_oracle: "Storm Oracle.png",
+  dust_djinn: "Dust Djinn.png",
+  mirror_sprite: "Mirror Sprite.png",
+  husk_titan: "hust Titan.png",
+  carapace_matron: "Carapace Matron.png",
+  apex_arbiter: "Apex Arbiter.png",
+  world_ender: "World Ender.png",
+};
+
 export function unitArtUrl(unitId: string): string | null {
-  return UNIT_ART_IDS.has(unitId) ? `/units/${unitId}.webp` : null;
+  if (UNIT_ART_IDS.has(unitId)) return `/units/${unitId}.webp`;
+  const tile = ENEMY_TILE_FILES[unitId];
+  if (tile) return `/tiles/${encodeURIComponent(tile)}`;
+  return null;
 }
 
 export function classCapeUrl(classId: string | undefined): string | null {
