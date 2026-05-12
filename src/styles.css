@@ -1,3 +1,7 @@
+/* MoTZ webfont stack — must precede any CSS rules per @import spec.
+   Loaded for migrated components; legacy components still use Cinzel/mono. */
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 /* Gauntlet Tower — Cambria-inspired dark RPG dashboard.
    Palette: deep navy bg, gold accents, lime for positive, red for danger,
    magenta + cyan as secondary highlights.
@@ -26,33 +30,115 @@
   --blue: #60a5fa;
 
   /* ============================================================
-   * MoTZ design system tokens (source: MoTZ brand Claude project)
+   * MoTZ design system tokens (source: MoTZ brand design system zip
+   * — colors_and_type.css + README.md). All tokens are prefixed
+   * --motz-* to avoid colliding with the legacy palette above.
+   * Components are migrated to these tokens incrementally; until
+   * a component is migrated, it keeps using the legacy vars.
    * ============================================================ */
 
   /* --- Primary palette --- */
-  --motz-red: #FF2A55;            /* MoTZ Red */
-  --motz-gold: #FBBF24;            /* Winner Gold */
-  --motz-purple: #7800FF;          /* Electric Purple */
-  --motz-void: #0F0518;            /* Void Black */
+  --motz-red:            #FF2A55;   /* signature / primary action */
+  --motz-red-deep:       #D91A45;   /* hover / button gradient end */
+  --motz-gold:           #FBBF24;   /* Winner Gold — achievement / rewards */
+  --motz-gold-deep:      #F59E0B;
+  --motz-purple:         #7000FF;   /* Electric Purple — energy / secondary */
+  --motz-purple-deep:    #5A00D6;
+  --motz-void:           #0F0518;   /* Void Black — base background */
+  --motz-mavis-blue:     #0E7DE9;   /* secondary info (sparing) */
 
   /* --- Semantic palette --- */
   --motz-success: #2FD27A;
-  --motz-warning: #FFB828;
+  --motz-warning: #FFB020;
   --motz-error:   #FF5A6B;
   --motz-info:    #4DA3FF;
 
-  /* --- Surface palette (translucent overlays meant to layer on Void Black) --- */
-  --motz-surface:        rgba(255, 255, 255, 0.03);  /* base surface */
-  --motz-surface-hover:  rgba(255, 255, 255, 0.06);  /* hovered surface */
-  --motz-glass-bg:       rgba(255, 255, 255, 0.05);  /* glass effect background */
-  --motz-glass-blur:     8px;                         /* paired backdrop-filter blur */
-  --motz-bg-s1:          #180B26;                    /* alternate surface tier */
+  /* --- Layered backgrounds (darkest → most-elevated) --- */
+  --motz-bg-base:        #0F0518;
+  --motz-bg-s1:          #180B26;
+  --motz-bg-s2:          #221133;
+  --motz-bg-elev:        #2B1640;
+  --motz-border-sub:     #3A2155;
+  --motz-border-strong:  #55307A;
+
+  /* --- Glass / surface tiers (translucent white on void) --- */
+  --motz-surface:           rgba(255, 255, 255, 0.03);
+  --motz-surface-hover:     rgba(255, 255, 255, 0.06);
+  --motz-surface-strong:    rgba(255, 255, 255, 0.08);
+  --motz-glass:             rgba(255, 255, 255, 0.05);
+  --motz-glass-border:      rgba(255, 255, 255, 0.08);
+  --motz-glass-border-hi:   rgba(255, 255, 255, 0.15);
+  --motz-glass-blur:        8px;    /* paired backdrop-filter blur */
+
+  /* --- Text tiers --- */
+  --motz-text-primary: #F5F5F4;
+  --motz-text-muted:   #A8A29E;
+  --motz-text-dim:     #78716C;
+  --motz-text-accent:  #F8EEFF;   /* purple-tinted variant */
 
   /* --- Gradients --- */
-  --motz-gradient-primary:  linear-gradient(135deg, var(--motz-red) 0%, var(--motz-purple) 100%);
-  --motz-gradient-gold:     linear-gradient(135deg, #FFD24A 0%, var(--motz-gold) 100%);
-  --motz-gradient-cta-red:  linear-gradient(180deg, #FF4D75 0%, var(--motz-red) 100%);
-  --motz-gradient-purple:   linear-gradient(180deg, #9A3DFF 0%, var(--motz-purple) 100%);
+  --motz-grad-primary:  linear-gradient(135deg, #FF2A55 0%, #7000FF 100%);
+  --motz-grad-button:   linear-gradient(135deg, #FF2A55 0%, #D91A45 100%);
+  --motz-grad-gold:     linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%);
+  --motz-grad-purple:   linear-gradient(135deg, #7000FF 0%, #5A00D6 100%);
+  --motz-grad-text:     linear-gradient(135deg, #FF2A55 0%, #7000FF 100%);
+  --motz-grad-surface:  linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025));
+  --motz-grad-glow-page:
+      radial-gradient(circle at 80% 0%, rgba(122,92,255,0.16), transparent 40%),
+      radial-gradient(circle at 0% 100%, rgba(45,226,230,0.12), transparent 40%);
+
+  /* --- Radii scale --- */
+  --motz-r-xs:   6px;
+  --motz-r-sm:   8px;
+  --motz-r-md:   12px;
+  --motz-r-lg:   16px;
+  --motz-r-xl:   22px;
+  --motz-r-pill: 999px;
+
+  /* --- Spacing scale --- */
+  --motz-sp-1: 4px;
+  --motz-sp-2: 8px;
+  --motz-sp-3: 12px;
+  --motz-sp-4: 16px;
+  --motz-sp-5: 24px;
+  --motz-sp-6: 32px;
+  --motz-sp-7: 48px;
+  --motz-sp-8: 64px;
+
+  /* --- Shadow system --- */
+  --motz-sh-card:      0 8px 26px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.05);
+  --motz-sh-lift:      0 16px 48px rgba(0,0,0,0.46), 0 0 30px rgba(255,42,85,0.12);
+  --motz-sh-cta:       0 4px 24px rgba(255,42,85,0.25);
+  --motz-sh-cta-hi:    0 8px 32px rgba(255,42,85,0.35);
+  --motz-sh-gold:      0 12px 30px rgba(251,191,36,0.40);
+  --motz-sh-glow-red:  0 0 30px rgba(255,42,85,0.50);
+  --motz-sh-glow-gold: 0 0 20px rgba(251,191,36,0.50);
+
+  /* --- Type families --- */
+  --motz-font-display: 'Fredoka', 'Yourmate', system-ui, sans-serif;
+  --motz-font-heading: 'Fredoka', 'Yourmate', system-ui, sans-serif;
+  --motz-font-body:    'Inter', 'Roc Grotesk', system-ui, sans-serif;
+  --motz-font-ui:      'Onest', 'Inter', system-ui, sans-serif;
+  --motz-font-mono:    'JetBrains Mono', ui-monospace, monospace;
+
+  /* --- Type — semantic sizes (size / line-height) --- */
+  --motz-t-h1-size: 36px; --motz-t-h1-line: 48px; --motz-t-h1-weight: 700;
+  --motz-t-h2-size: 30px; --motz-t-h2-line: 36px; --motz-t-h2-weight: 700;
+  --motz-t-h3-size: 24px; --motz-t-h3-line: 32px; --motz-t-h3-weight: 600;
+  --motz-t-h4-size: 20px; --motz-t-h4-line: 28px; --motz-t-h4-weight: 500;
+  --motz-t-body-lg-size: 18px; --motz-t-body-lg-line: 28px;
+  --motz-t-body-size:    16px; --motz-t-body-line:    24px;
+  --motz-t-caption-size: 14px; --motz-t-caption-line: 20px;
+  --motz-t-overline-size:12px; --motz-t-overline-line:16px; --motz-t-overline-track: 0.10em;
+  --motz-t-mono-size:    13px; --motz-t-mono-line:    20px;
+
+  /* --- Motion (easing + durations) --- */
+  --motz-ease-out:  cubic-bezier(.2, .7, .2, 1);
+  --motz-ease-back: cubic-bezier(.34, 1.56, .64, 1);
+  --motz-dur-fast:  120ms;
+  --motz-dur:       200ms;
+  --motz-dur-slow:  240ms;
+  --motz-dur-hero:  400ms;
 }
 
 * { box-sizing: border-box; }
