@@ -2276,6 +2276,61 @@ body:has(.battle) {
 .tutorial-card .card-name { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
 .tutorial-card .card-sub { font-size: 10px; color: var(--motz-text-dim); }
 .tutorial-card.selected .card-name { color: var(--motz-gold); }
+
+/* ============================================================
+ * Per-class accent colors — keyed off the cape art for each
+ * class so the chip you pick matches what the unit will wear.
+ * Both the tutorial pick step (.tutorial-card.class[data-class])
+ * and the units-screen class picker (.class-pick-btn[data-pick-class])
+ * inherit from a shared --class-accent variable.
+ * ============================================================ */
+[data-class="fighter"],       [data-pick-class="fighter"]       { --class-accent: #94a3b8; --class-accent-rgb: 148, 163, 184; } /* slate-silver */
+[data-class="fire_mage"],     [data-pick-class="fire_mage"]     { --class-accent: #ef4444; --class-accent-rgb: 239, 68, 68; }   /* crimson */
+[data-class="water_mage"],    [data-pick-class="water_mage"]    { --class-accent: #3aa0ff; --class-accent-rgb: 58, 160, 255; }  /* sky */
+[data-class="sharpshooter"],  [data-pick-class="sharpshooter"]  { --class-accent: #22c55e; --class-accent-rgb: 34, 197, 94; }   /* emerald */
+[data-class="scout"],         [data-pick-class="scout"]         { --class-accent: #a855f7; --class-accent-rgb: 168, 85, 247; }  /* violet */
+[data-class="defender"],      [data-pick-class="defender"]      { --class-accent: #d4a93e; --class-accent-rgb: 212, 169, 62; }  /* bronze gold */
+[data-class="warden"],        [data-pick-class="warden"]        { --class-accent: #f1ead0; --class-accent-rgb: 241, 234, 208; } /* ivory */
+
+/* Class chip idle state: a 3px left edge in the cape color. Reads at a
+   glance even before hover. The .tutorial-card.class scope keeps unit
+   chips (also tutorial-card) using their existing gold treatment. */
+.tutorial-card.class[data-class] {
+  border-left: 3px solid var(--class-accent);
+}
+.tutorial-card.class[data-class]:hover:not(:disabled):not(.selected) {
+  border-color: var(--class-accent);
+  background: rgba(var(--class-accent-rgb), 0.08);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.40), 0 0 18px rgba(var(--class-accent-rgb), 0.22);
+}
+.tutorial-card.class[data-class].selected {
+  border-color: var(--class-accent);
+  background: linear-gradient(180deg, rgba(var(--class-accent-rgb), 0.18), rgba(var(--class-accent-rgb), 0.05));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 0 1px var(--class-accent),
+    0 0 24px rgba(var(--class-accent-rgb), 0.40);
+}
+.tutorial-card.class[data-class].selected .card-name {
+  color: var(--class-accent);
+}
+
+/* Units-screen class picker chips get the same treatment. */
+.class-pick-btn[data-pick-class] {
+  border-left: 3px solid var(--class-accent);
+}
+.class-pick-btn[data-pick-class]:hover {
+  border-color: var(--class-accent);
+  background: rgba(var(--class-accent-rgb), 0.10);
+}
+.class-pick-btn[data-pick-class].current {
+  border-color: var(--class-accent);
+  background: linear-gradient(180deg, rgba(var(--class-accent-rgb), 0.18), rgba(var(--class-accent-rgb), 0.05));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1px var(--class-accent),
+    0 0 18px rgba(var(--class-accent-rgb), 0.32);
+}
 .tutorial-actions {
   display: flex;
   justify-content: flex-end;
