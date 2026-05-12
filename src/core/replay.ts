@@ -12,6 +12,8 @@
 
 import { Stats } from "./stats";
 
+// v8: Slime King HP bumped from 75 → 220 (was lower than its minions).
+//     v7 replays of stage 1 would diverge once the King took damage.
 // v7: heal effects now add `percentMaxHp` on top of flat power so heals stay
 //     proportional at endgame. v6 replays where any heal fired (Soda Pop,
 //     Tidal Mending, Siren's Sanctuary) would diverge.
@@ -28,7 +30,7 @@ import { Stats } from "./stats";
 // v3: combat sim now uses a fixed timestep (SIM_STEP). Replays recorded under
 //     the old variable-dt sim could pick a different actor when two combatants
 //     hit full gauge in the same frame, diverging RNG consumption.
-export const REPLAY_VERSION = 7;
+export const REPLAY_VERSION = 8;
 
 export interface ReplayPartyMember {
   templateId: string;
