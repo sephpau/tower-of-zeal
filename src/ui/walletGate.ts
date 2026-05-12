@@ -19,9 +19,17 @@ export function renderWalletGate(root: HTMLElement, onAuthenticated: (s: Session
   const btn = root.querySelector<HTMLButtonElement>("#wg-connect")!;
   const status = root.querySelector<HTMLElement>("#wg-status")!;
 
+  // Helper that swaps the status node's semantic state class so the right
+  // color (info / success / error) is applied via CSS.
+  const setStatus = (text: string, state: "info" | "success" | "error" | "idle" = "idle"): void => {
+    status.textContent = text;
+    status.classList.remove("is-info", "is-success", "is-error");
+    if (state !== "idle") status.classList.add(`is-${state}`);
+  };
+
   btn.addEventListener("click", async () => {
     btn.disabled = true;
-    status.textContent = "Connecting...";
+    setStatus("Connecting…", "info");
     try {
       const { token, address } = await performAuthFlow();
       // Dev build: gate sign-in to allowlisted wallets only. Reject anyone
@@ -29,7 +37,7 @@ export function renderWalletGate(root: HTMLElement, onAuthenticated: (s: Session
       // by editing localStorage.
       if (!isAllowedOnDev(address)) {
         clearSession();
-        status.textContent = "This wallet is not on the dev tester allowlist. Use the live build instead.";
+        setStatus("This wallet is not on the dev tester allowlist. Use the live build instead.", "error");
         btn.disabled = false;
         return;
       }
@@ -37,13 +45,13 @@ export function renderWalletGate(root: HTMLElement, onAuthenticated: (s: Session
       saveSession(session);
       // Scope must be set so any later IGN write lands in the wallet's namespace.
       setUserScope(address);
-      status.textContent = "Authenticated.";
+      setStatus("Authenticated.", "success");
       // proceedAfterAuth() in main.ts decides whether to show the IGN gate
       // (new wallet) or load the server-saved IGN (returning wallet).
       onAuthenticated(session);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      status.textContent = `Failed: ${msg}`;
+      setStatus(`Failed: ${msg}`, "error");
       btn.disabled = false;
     }
   });

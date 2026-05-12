@@ -1932,40 +1932,182 @@ body:has(.battle) {
 .toggle { display: flex; gap: 8px; align-items: center; font-size: 13px; cursor: pointer; }
 .setting-actions { display: flex; justify-content: flex-end; }
 
-/* Wallet gate */
+/* ============================================================
+ * Wallet gate + IGN gate — MoTZ design system
+ * Uses --motz-* tokens. Glassmorphic card on the existing tower
+ * background, Fredoka headings with red→purple gradient text,
+ * red-gradient primary CTA with sheen + lift, JetBrains Mono
+ * overlines for labels/status, semantic colors for state.
+ * ============================================================ */
 .wallet-gate {
-  max-width: 480px; margin: 80px auto; padding: 32px;
-  background: var(--panel); border: 1px solid var(--border-strong); border-radius: 12px;
-  text-align: center; color: var(--text);
+  position: relative;
+  max-width: 460px;
+  width: min(92vw, 460px);
+  margin: 80px auto;
+  padding: 36px 32px 32px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--motz-glass-border);
+  border-radius: var(--motz-r-xl);
+  text-align: center;
+  color: var(--motz-text-primary);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--motz-sh-card), 0 24px 60px rgba(0, 0, 0, 0.45);
+  font-family: var(--motz-font-body);
+  isolation: isolate;
 }
-.wallet-gate h1 { color: var(--gold-bright); margin-top: 0; letter-spacing: 1px; }
-.wallet-gate__dev-banner {
-  background: linear-gradient(180deg, #4a1a1a, #2a0a0a);
-  border: 1px solid #f97316;
-  color: #fb923c;
-  font-size: 12px;
+/* Subtle gradient hairline at the top of the card to nod to the brand. */
+.wallet-gate::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 18px; right: 18px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 42, 85, 0.5), rgba(112, 0, 255, 0.5), transparent);
+}
+.wallet-gate h1 {
+  font-family: var(--motz-font-display);
+  font-size: 32px;
+  line-height: 1.1;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  padding: 8px 14px;
-  border-radius: 6px;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+  background: var(--motz-grad-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.wallet-gate__dev-banner {
+  display: inline-block;
+  font-family: var(--motz-font-mono);
+  background: linear-gradient(180deg, rgba(255, 42, 85, 0.18), rgba(255, 42, 85, 0.08));
+  border: 1px solid rgba(255, 42, 85, 0.45);
+  color: var(--motz-red);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  padding: 6px 14px;
+  border-radius: var(--motz-r-pill);
   margin-bottom: 18px;
   text-transform: uppercase;
+  box-shadow: 0 0 18px rgba(255, 42, 85, 0.18);
 }
-.wallet-gate__desc { color: var(--text-dim); margin-bottom: 24px; }
+.wallet-gate__desc {
+  color: var(--motz-text-muted);
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 0 0 24px;
+}
 .wallet-gate__btn {
-  background: var(--gold); color: var(--bg); border: none; border-radius: 8px;
-  padding: 12px 28px; font-size: 15px; font-weight: 600; cursor: pointer;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: var(--motz-font-display);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  color: #fff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 45%),
+    linear-gradient(180deg, #FF3D63 0%, var(--motz-red) 50%, var(--motz-red-deep) 100%);
+  border: none;
+  border-radius: var(--motz-r-lg);
+  padding: 14px 30px;
+  cursor: pointer;
+  isolation: isolate;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 1px 0 rgba(255, 255, 255, 0.08),
+    0 6px 14px rgba(255, 42, 85, 0.28),
+    0 14px 36px rgba(255, 42, 85, 0.32);
+  transition:
+    transform var(--motz-dur) var(--motz-ease-back),
+    box-shadow var(--motz-dur) var(--motz-ease-out),
+    filter var(--motz-dur) var(--motz-ease-out);
 }
-.wallet-gate__btn:hover { background: var(--gold-bright); }
-.wallet-gate__btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.wallet-gate__status { margin-top: 16px; font-size: 13px; color: var(--text-dim); min-height: 1em; }
-.wallet-gate__label { display: block; text-align: left; font-size: 11px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px; }
+/* Sheen sweep on hover — taken from MoTZ button system. */
+.wallet-gate__btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.18) 45%, transparent 60%);
+  transform: translateX(-120%);
+  transition: transform 0.6s var(--motz-ease-out);
+  pointer-events: none;
+}
+.wallet-gate__btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 10px 22px rgba(255, 42, 85, 0.35),
+    0 22px 50px rgba(255, 42, 85, 0.45);
+}
+.wallet-gate__btn:hover:not(:disabled)::after { transform: translateX(120%); }
+.wallet-gate__btn:active:not(:disabled) { transform: translateY(1px) scale(0.99); }
+.wallet-gate__btn:disabled {
+  cursor: not-allowed;
+  color: var(--motz-text-dim);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  filter: none;
+}
+.wallet-gate__btn:disabled::after { display: none; }
+
+.wallet-gate__status {
+  margin-top: 18px;
+  font-family: var(--motz-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--motz-text-muted);
+  min-height: 1.2em;
+}
+/* Semantic state tints — set via JS by adding a state class to the status node. */
+.wallet-gate__status.is-error { color: var(--motz-error); }
+.wallet-gate__status.is-success { color: var(--motz-success); }
+.wallet-gate__status.is-info { color: var(--motz-info); }
+
+.wallet-gate__label {
+  display: block;
+  text-align: left;
+  font-family: var(--motz-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--motz-text-dim);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin: 0 0 18px;
+}
 .wallet-gate__input {
-  display: block; width: 100%; margin-top: 6px; padding: 10px 12px;
-  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
-  color: var(--text); font-size: 14px;
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px 14px;
+  font-family: var(--motz-font-body);
+  font-size: 15px;
+  color: var(--motz-text-primary);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--motz-glass-border);
+  border-radius: var(--motz-r-md);
+  transition:
+    border-color var(--motz-dur) var(--motz-ease-out),
+    box-shadow var(--motz-dur) var(--motz-ease-out),
+    background var(--motz-dur) var(--motz-ease-out);
 }
-.wallet-gate__input:focus { outline: none; border-color: var(--gold); }
+.wallet-gate__input::placeholder { color: var(--motz-text-dim); }
+.wallet-gate__input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 42, 85, 0.55);
+  box-shadow: 0 0 0 3px rgba(255, 42, 85, 0.12);
+}
 
 .energy-timer {
   margin-left: 8px;
