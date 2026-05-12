@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getAddress, verifyMessage } from "viem";
 import { verifyChallenge, signSession } from "../_lib/jwt.js";
 import { holdsAnyGatedNft } from "../_lib/ronin.js";
+import { buildSignMessage } from "../_lib/signMessage.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== "POST") {
@@ -29,7 +30,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  const message = `Gauntlet Tower — sign in\n\nAddress: ${normalized}\nNonce: ${challenge.nonce}\n\nThis signature does not authorize any transaction.`;
+  const message = buildSignMessage({
+    address: normalized,
+    nonce: challenge.nonce,
+    ts: challenge.ts,
+    domain: challenge.domain,
+  });
 
   const ok = await verifyMessage({ address: normalized, message, signature: signature as `0x${string}` });
   if (!ok) {

@@ -8,6 +8,12 @@ export interface ChallengePayload {
   kind: "challenge";
   address: string;
   nonce: string;
+  /** ISO timestamp the message was issued at; baked into the signed message
+   *  so the wallet sees a time and verify can reconstruct the exact string. */
+  ts: string;
+  /** Domain (Host header) the challenge was issued from; shown in the sign
+   *  prompt so phishing on a different domain is visible to the user. */
+  domain: string;
 }
 
 export interface SessionPayload {
@@ -15,8 +21,8 @@ export interface SessionPayload {
   address: string;
 }
 
-export async function signChallenge(address: string, nonce: string): Promise<string> {
-  return new SignJWT({ kind: "challenge", address, nonce })
+export async function signChallenge(address: string, nonce: string, ts: string, domain: string): Promise<string> {
+  return new SignJWT({ kind: "challenge", address, nonce, ts, domain })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("5m")
@@ -25,10 +31,22 @@ export async function signChallenge(address: string, nonce: string): Promise<str
 
 export async function verifyChallenge(token: string): Promise<ChallengePayload> {
   const { payload } = await jwtVerify(token, SECRET);
-  if (payload.kind !== "challenge" || typeof payload.address !== "string" || typeof payload.nonce !== "string") {
+  if (
+    payload.kind !== "challenge"
+    || typeof payload.address !== "string"
+    || typeof payload.nonce !== "string"
+    || typeof payload.ts !== "string"
+    || typeof payload.domain !== "string"
+  ) {
     throw new Error("invalid challenge token");
   }
-  return { kind: "challenge", address: payload.address, nonce: payload.nonce };
+  return {
+    kind: "challenge",
+    address: payload.address,
+    nonce: payload.nonce,
+    ts: payload.ts,
+    domain: payload.domain,
+  };
 }
 
 export async function signSession(address: string): Promise<string> {

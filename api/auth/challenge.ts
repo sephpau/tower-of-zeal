@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomUUID } from "node:crypto";
 import { getAddress } from "viem";
 import { signChallenge } from "../_lib/jwt.js";
+import { buildSignMessage, requestDomain } from "../_lib/signMessage.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== "POST") {
@@ -21,11 +22,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
   const nonce = randomUUID();
-  const token = await signChallenge(normalized, nonce);
-  const message = buildMessage(normalized, nonce);
+  const ts = new Date().toISOString();
+  const domain = requestDomain(req);
+  const token = await signChallenge(normalized, nonce, ts, domain);
+  const message = buildSignMessage({ address: normalized, nonce, ts, domain });
   res.status(200).json({ message, token });
-}
-
-function buildMessage(address: string, nonce: string): string {
-  return `Gauntlet Tower — sign in\n\nAddress: ${address}\nNonce: ${nonce}\n\nThis signature does not authorize any transaction.`;
 }
