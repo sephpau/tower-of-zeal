@@ -3,6 +3,7 @@ import { getAddress, verifyMessage } from "viem";
 import { verifyChallenge, signSession } from "../_lib/jwt.js";
 import { holdsAnyGatedNft } from "../_lib/ronin.js";
 import { buildSignMessage } from "../_lib/signMessage.js";
+import { isDevBypassWallet } from "../_lib/devBypass.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== "POST") {
@@ -43,10 +44,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  const holds = await holdsAnyGatedNft(normalized);
-  if (!holds) {
-    res.status(403).json({ error: "wallet does not hold required NFT" });
-    return;
+  // Dev tester wallets bypass the NFT-gate check on dev environments only.
+  if (!isDevBypassWallet(normalized)) {
+    const holds = await holdsAnyGatedNft(normalized);
+    if (!holds) {
+      res.status(403).json({ error: "wallet does not hold required NFT" });
+      return;
+    }
   }
 
   const session = await signSession(normalized);

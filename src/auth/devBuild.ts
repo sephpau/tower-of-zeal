@@ -12,7 +12,9 @@
 export const DEV_TESTERS: ReadonlySet<string> = new Set<string>([
   // Admin wallet (also has admin powers on prod).
   "0x7c5b15e5e361e7b91d2648256ac50bc561979f3c",
-  // Add additional dev tester addresses here, lowercased.
+  // Tester #1 — full game access on dev without NFTs / MoTZ Key (server
+  // mirrors this bypass in api/_lib/devBypass.ts).
+  "0xdfc340da8a174f20c80f42767ebe1a59a960c1c3",
 ]);
 
 /** True if this build was compiled with VITE_DEV_BUILD=1. */

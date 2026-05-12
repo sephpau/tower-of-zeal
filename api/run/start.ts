@@ -4,6 +4,7 @@ import { getAddress } from "viem";
 import { verifySession, signRun } from "../_lib/jwt.js";
 import { saveRun, bumpStartCounter, MAX_STARTS_PER_HOUR, isLbMode } from "../_lib/runState.js";
 import { holdsMotzKey } from "../_lib/ronin.js";
+import { isDevBypassWallet } from "../_lib/devBypass.js";
 
 const MOTZ_KEY_LOCKED_UNITS = new Set(["hera", "nova", "oge", "shego"]);
 /** Hard cap — must match src/units/roster.ts MAX_PARTY_SIZE. */
@@ -52,7 +53,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const party = rawParty;
 
     // Reject runs that include MoTZ-locked units when the wallet doesn't hold the key.
-    if (party.some(id => MOTZ_KEY_LOCKED_UNITS.has(id))) {
+    // Dev tester wallets bypass this check on dev environments only.
+    if (party.some(id => MOTZ_KEY_LOCKED_UNITS.has(id)) && !isDevBypassWallet(address)) {
       const holds = await holdsMotzKey(getAddress(address)).catch(() => false);
       if (!holds) { res.status(403).json({ error: "wallet does not hold MoTZ Vault Key required for selected unit" }); return; }
     }
