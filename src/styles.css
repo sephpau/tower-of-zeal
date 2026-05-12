@@ -676,6 +676,52 @@ body:has(.battle) {
   border-radius: 12px;
   padding: 14px;
 }
+.enemy-config { display: flex; flex-direction: column; }
+.squad-actions-side {
+  margin-top: auto;
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+}
+.squad-actions-side .confirm-btn {
+  width: 100%;
+  font-size: 18px;
+  padding: 14px 18px;
+  letter-spacing: 0.08em;
+}
+
+/* Header row with party count + warning */
+.squad-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.squad-header-text { flex: 1; min-width: 0; }
+.squad-header-title {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gold-bright);
+  letter-spacing: 0.04em;
+}
+.squad-header-sub {
+  font-size: 13px;
+  opacity: 0.85;
+  margin-top: 4px;
+}
+.squad-warn {
+  color: #fb923c;
+  font-weight: 600;
+  margin-left: 6px;
+}
+.squad-ready {
+  color: #4ade80;
+  font-weight: 600;
+  margin-left: 6px;
+}
 .roster-list {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

@@ -60,11 +60,23 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
     const placed = picks.length;
     const atCap = placed >= MAX_PARTY_SIZE;
     const sorted = sortRoster(PLAYER_ROSTER, lastSortKey, lastSortDir);
+    const underCap = placed < MAX_PARTY_SIZE;
+    const partyLabel = placed === 0
+      ? `<span class="squad-warn">No units selected — pick up to ${MAX_PARTY_SIZE}.</span>`
+      : underCap
+        ? `<span class="squad-warn">${placed}/${MAX_PARTY_SIZE} selected — you can still add ${MAX_PARTY_SIZE - placed} more.</span>`
+        : `<span class="squad-ready">Full party of ${MAX_PARTY_SIZE} — ready to launch.</span>`;
+
     root.innerHTML = `
       <div class="squad-screen">
         ${topBarHtml(`Floor ${stage.id} · ${stage.name}`, true)}
-        <div class="party-count-row">Party <span class="party-count">${placed}/${MAX_PARTY_SIZE}</span></div>
-        <p class="screen-sub">Pick up to ${MAX_PARTY_SIZE} units. Click a roster card to add or remove.</p>
+        <div class="squad-header">
+          <div class="squad-header-text">
+            <div class="squad-header-title">Pick up to ${MAX_PARTY_SIZE} units</div>
+            <div class="squad-header-sub">Click a roster card to add or remove. ${partyLabel}</div>
+          </div>
+          <div class="party-count-row">Party <span class="party-count">${placed}/${MAX_PARTY_SIZE}</span></div>
+        </div>
 
         <div class="squad-layout-flat">
           <div class="roster">
@@ -93,13 +105,12 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
             <div class="stage-info">
               ${enemyChipsHtml(stage.enemies, !!stage.soloBoss)}
             </div>
+            <div class="squad-actions-side">
+              <button class="confirm-btn" id="confirm" ${placed === 0 ? "disabled" : ""}>
+                Start Battle (${placed} unit${placed === 1 ? "" : "s"})
+              </button>
+            </div>
           </div>
-        </div>
-
-        <div class="squad-actions">
-          <button class="confirm-btn" id="confirm" ${placed === 0 ? "disabled" : ""}>
-            Start Battle (${placed} unit${placed === 1 ? "" : "s"})
-          </button>
         </div>
       </div>
     `;
