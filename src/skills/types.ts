@@ -49,4 +49,8 @@ export interface Skill {
   selfApplies?: EffectApplication[];
   /** Adds (stat × weight × power) to the damage formula for damaging skills. */
   scalesWith?: SkillScaling[];
+  /** Divisor for buff power scaling from stats. Default 200 (see combat.ts).
+   *  Set higher (e.g. 300) for skills whose buff power should grow more slowly
+   *  with the caster's stats — keeps Lv 30 from blowing past intended caps. */
+  buffScaleDivisor?: number;
 }

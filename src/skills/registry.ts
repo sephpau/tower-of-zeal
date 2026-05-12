@@ -322,6 +322,7 @@ export const SKILLS: Record<string, Skill> = {
       { id: "stat_buff", duration: 2, power: 0.25, target: "VIT" },
     ],
     scalesWith: [{ stat: "VIT" }, { stat: "DEF" }],
+    buffScaleDivisor: 300,
   },
   bastions_call: {
     id: "bastions_call", name: "Bastion's Call",
@@ -334,8 +335,8 @@ export const SKILLS: Record<string, Skill> = {
     id: "unyielding_heart", name: "Unyielding Heart",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 20, cooldown: 6, unlockLevel: 5,
-    description: "Massive self damage reduction; allies phys+mag atk up for 3 actions (scales with VIT/DEF).",
-    selfApplies: [{ id: "dmg_reduction", duration: 3, power: 0.8 }],
+    description: "Heavy self damage reduction (cap 90%); allies phys+mag atk up for 3 actions (scales with VIT/DEF).",
+    selfApplies: [{ id: "dmg_reduction", duration: 3, power: 0.8, maxPower: 0.90 }],
     applies: [
       { id: "atk_buff", duration: 3, power: 0.2, target: "phys" },
       { id: "atk_buff", duration: 3, power: 0.2, target: "mag" },
@@ -514,6 +515,7 @@ export const SKILLS: Record<string, Skill> = {
       { id: "damage_reflect", duration: 2, power: 0.10 },
     ],
     scalesWith: [{ stat: "VIT" }, { stat: "DEF" }],
+    buffScaleDivisor: 300,
   },
   iron_prophecy: {
     id: "iron_prophecy", name: "Iron Prophecy",
@@ -525,21 +527,23 @@ export const SKILLS: Record<string, Skill> = {
       { id: "damage_reflect", duration: 2, power: 0.20 },
     ],
     scalesWith: [{ stat: "VIT" }, { stat: "DEF" }],
+    buffScaleDivisor: 300,
   },
   fates_rebound: {
     id: "fates_rebound", name: "Fate's Rebound",
     kind: "buff", targeting: "self",
     power: 0, mpCost: 20, cooldown: 6, unlockLevel: 5,
-    description: "Massive damage reduction + reflect on self, ally atk buff (scales with VIT/DEF). 3 actions.",
+    description: "Heavy damage reduction (cap 80%) + reflect (cap 70%) on self, ally atk buff (scales with VIT/DEF). 3 actions.",
     selfApplies: [
-      { id: "dmg_reduction", duration: 3, power: 0.50 },
-      { id: "damage_reflect", duration: 3, power: 0.50 },
+      { id: "dmg_reduction", duration: 3, power: 0.50, maxPower: 0.80 },
+      { id: "damage_reflect", duration: 3, power: 0.50, maxPower: 0.70 },
     ],
     applies: [
       { id: "atk_buff", duration: 3, power: 0.25, target: "phys" },
       { id: "atk_buff", duration: 3, power: 0.25, target: "mag" },
     ],
     scalesWith: [{ stat: "VIT" }, { stat: "DEF" }],
+    buffScaleDivisor: 300,
   },
 };
 

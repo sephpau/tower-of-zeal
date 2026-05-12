@@ -963,16 +963,16 @@ function healScaleBonus(caster: Combatant, scaling: NonNullable<Skill["scalesWit
 }
 
 /** Percentage bonus added to effect.power for buff/debuff effects.
- *  Each contributing stat adds (stat * weight) / 200 → VIT 15 + DEF 15 = +0.15.
- *  At Lv 30 with full tank growth ((60+60)/200 = +0.60) a tank's reflect or
- *  damage-reduction becomes meaningfully oppressive — capped per call site. */
-const BUFF_SCALE_DIVISOR = 200;
-function buffScaleBonus(caster: Combatant, scaling: NonNullable<Skill["scalesWith"]>): number {
+ *  Each contributing stat adds (stat * weight) / divisor — divisor defaults to
+ *  200, can be overridden per-skill via Skill.buffScaleDivisor. Higher divisor
+ *  = slower scaling (tuned for late-level pacing). */
+const DEFAULT_BUFF_SCALE_DIVISOR = 200;
+function buffScaleBonus(caster: Combatant, scaling: NonNullable<Skill["scalesWith"]>, divisor: number): number {
   let bonus = 0;
   for (const s of scaling) {
     const weight = s.weight ?? 1;
     const stat = caster.stats[s.stat] ?? 0;
-    bonus += (stat * weight) / BUFF_SCALE_DIVISOR;
+    bonus += (stat * weight) / divisor;
   }
   return bonus;
 }
@@ -984,18 +984,20 @@ const SCALABLE_BUFF_IDS = new Set<string>([
 ]);
 
 /** Returns a copy of `eff` with power scaled by the caster's stats when
- *  appropriate. Caps reductions/reflects at 0.95, atk_buff at 2.0 so a
- *  Shego at Lv 30 doesn't reach 100% reflect/immunity. Heal scaling stays
- *  on its own additive path via healScaleBonus. */
+ *  appropriate. Default caps: 0.95 for reductions/reflects, 2.0 for atk/stat
+ *  buffs. Per-effect `maxPower` (set on EffectApplication) overrides the cap.
+ *  Heal scaling stays on its own additive path via healScaleBonus. */
 function scaleEffectIfRelevant(caster: Combatant, skill: Skill, eff: EffectApplication): EffectApplication {
   if (!skill.scalesWith || skill.scalesWith.length === 0) return eff;
   if (eff.id === "heal") {
     return { ...eff, power: eff.power + healScaleBonus(caster, skill.scalesWith) };
   }
   if (!SCALABLE_BUFF_IDS.has(eff.id)) return eff;
-  const bonus = buffScaleBonus(caster, skill.scalesWith);
+  const divisor = skill.buffScaleDivisor ?? DEFAULT_BUFF_SCALE_DIVISOR;
+  const bonus = buffScaleBonus(caster, skill.scalesWith, divisor);
   let power = eff.power + bonus;
-  const cap = eff.id === "atk_buff" || eff.id === "stat_buff" || eff.id === "vulnerability" ? 2.0 : 0.95;
+  const defaultCap = eff.id === "atk_buff" || eff.id === "stat_buff" || eff.id === "vulnerability" ? 2.0 : 0.95;
+  const cap = eff.maxPower !== undefined ? eff.maxPower : defaultCap;
   if (power > cap) power = cap;
   return { ...eff, power };
 }

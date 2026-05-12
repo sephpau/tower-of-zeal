@@ -50,6 +50,9 @@ export interface EffectApplication {
   target?: EffectTarget;
   /** 0..1 chance to apply per damage roll. Defaults to 1. */
   chance?: number;
+  /** Hard cap on the final scaled power. Used to prevent specific buffs (e.g.
+   *  Fate's Rebound dmg_reduction) from reaching the global 0.95 cap. */
+  maxPower?: number;
 }
 
 const EFFECT_NAMES: Record<EffectId, string> = {
