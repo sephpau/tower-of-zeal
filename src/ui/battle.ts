@@ -536,7 +536,14 @@ function unitRowHtml(c: Combatant): string {
     const cost = skill.mpCost > 0 ? `<span class="cost">${skill.mpCost} MP</span>` : "";
     const hp = skill.hpCost ? `<span class="cost hp">${skill.hpCost}HP</span>` : "";
     const cdBadge = `<span class="cd-badge">${onCd ? cd : ""}</span>`;
-    const tip = `<span class="skill-tip"><span class="skill-tip-name">${escapeHtml(skill.name)}</span><span class="skill-tip-desc">${escapeHtml(skill.description)}</span></span>`;
+    // For basic_attack, the static "phys" description is wrong for units with
+    // basicAttackKind: "magical" (Shego, Nova, Hera, Calypso). Rewrite the
+    // tooltip text on the fly so it matches the actual damage type.
+    let desc = skill.description;
+    if (id === "basic_attack" && c.basicAttackKind === "magical") {
+      desc = desc.replace(/melee phys/i, "melee magical").replace(/\bphys\b/i, "magical");
+    }
+    const tip = `<span class="skill-tip"><span class="skill-tip-name">${escapeHtml(skill.name)}</span><span class="skill-tip-desc">${escapeHtml(desc)}</span></span>`;
     const disabled = unaffordable || onCd || blockedBySilence;
     return `<button class="${cls}" data-unit-id="${escapeAttr(c.id)}" data-skill="${escapeAttr(id)}" ${disabled ? "disabled" : ""}><span class="skill-label">${escapeHtml(skill.name)}</span>${cost}${hp}${cdBadge}${tip}</button>`;
   };
