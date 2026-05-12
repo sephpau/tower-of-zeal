@@ -775,6 +775,8 @@ body:has(.battle) {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 16px;
+  /* Roster on the left can grow tall and scroll; right panel pins to top. */
+  align-items: start;
 }
 .screen-title {
   font-family: "Cinzel", "Times New Roman", serif;
@@ -803,7 +805,16 @@ body:has(.battle) {
   border-radius: 12px;
   padding: 14px;
 }
-.enemy-config { display: flex; flex-direction: column; }
+.enemy-config {
+  display: flex;
+  flex-direction: column;
+  /* Stay visible while the roster scrolls past on the left. The 16px offset
+     keeps a small gap below the top bar / page padding. */
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
 .squad-actions-side {
   margin-top: auto;
   padding-top: 16px;
