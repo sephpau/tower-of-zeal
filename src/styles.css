@@ -1446,6 +1446,15 @@ body:has(.battle) {
   font-weight: 700;
   margin-left: 1px;
 }
+.effect-pct {
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 1px;
+  opacity: 0.92;
+}
+.effect-chip.debuff .effect-pct { color: #ffb0b0; }
+.effect-chip.buff .effect-pct { color: #b8efc6; }
 
 /* Custom cursors when targeting an enemy with a single-target skill */
 .enemy-cluster.cursor-sword,

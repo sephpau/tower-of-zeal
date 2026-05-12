@@ -565,12 +565,23 @@ function unitRowHtml(c: Combatant): string {
   `;
 }
 
+/** Effect ids whose `power` is a fraction worth displaying as a percentage on
+ *  the chip (lets the player see whether a 10% Gaze reflect or a 70% Fate's
+ *  Rebound reflect is currently active). */
+const PERCENT_EFFECT_IDS = new Set([
+  "dmg_reduction", "damage_reflect", "vulnerability",
+  "atk_buff", "stat_buff", "haste", "freeze",
+]);
+
 function renderEffectChipsInner(c: Combatant): string {
   if (c.effects.length === 0) return "";
   return c.effects.map(e => {
     const icon = effectIcon(e.id);
     const cls = isDebuff(e.id) ? "effect-chip debuff" : "effect-chip buff";
-    return `<span class="${cls}" title="${escapeAttr(effectName(e.id))} (${e.duration} actions)">${icon}<span class="effect-dur">${e.duration}</span></span>`;
+    const pct = PERCENT_EFFECT_IDS.has(e.id) ? Math.round(e.power * 100) : null;
+    const pctHtml = pct !== null ? `<span class="effect-pct">${pct}%</span>` : "";
+    const tooltipDetail = pct !== null ? `${pct}% · ${e.duration} actions` : `${e.duration} actions`;
+    return `<span class="${cls}" title="${escapeAttr(effectName(e.id))} (${tooltipDetail})">${icon}${pctHtml}<span class="effect-dur">${e.duration}</span></span>`;
   }).join("");
 }
 
