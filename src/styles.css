@@ -1392,8 +1392,8 @@ body:has(.battle) {
 }
 .xp-row .bar { flex: 1; height: 10px; }
 
-.hex-wrap { display: grid; place-items: center; padding: 0; }
-.hex-wrap svg { max-width: 100%; height: auto; }
+.hex-wrap { display: grid; place-items: center; padding: 14px 4px 8px; }
+.hex-wrap svg { max-width: 100%; height: auto; overflow: visible; }
 .hex-stat { display: block; }
 .hex-legend {
   display: flex; gap: 14px; justify-content: center;

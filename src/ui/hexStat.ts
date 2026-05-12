@@ -76,21 +76,18 @@ export function hexStatSvg(inp: HexInputs): string {
   const classPoly = polyFor(sumStats(inp.unit, cls), CLASS_COLOR, 0.40);
   const unitPoly = polyFor(inp.unit, UNIT_COLOR, 0.55);
 
+  // Combined "STR (5)" labels next to each axis tip — bold key + dim
+  // parenthesized value in one tspan group, kept inside the SVG so it scales
+  // with the chart. The separate floating-tick rendering used to drop the
+  // values at random-looking screen positions; this puts them tied to the
+  // label for the same axis.
   const labels = STAT_KEYS.map(k => {
     const slot = SLOT_FOR_KEY[k];
     const a = SLOT_ANGLES[slot];
-    const lx = cx + Math.cos(a) * (radius + 14);
-    const ly = cy + Math.sin(a) * (radius + 14) + 4;
-    return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" font-size="11" fill="#d6d2ff" font-weight="700">${k}</text>`;
-  }).join("");
-
-  const ticks = STAT_KEYS.map(k => {
-    const slot = SLOT_FOR_KEY[k];
-    const a = SLOT_ANGLES[slot];
-    const v = summed[k];
-    const tx = cx + Math.cos(a) * (radius + 30);
-    const ty = cy + Math.sin(a) * (radius + 30) + 4;
-    return `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" text-anchor="middle" font-size="9" fill="#8b89b3">${v.toFixed(0)}</text>`;
+    const lx = cx + Math.cos(a) * (radius + 16);
+    const ly = cy + Math.sin(a) * (radius + 16) + 4;
+    const v = Math.round(summed[k]);
+    return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" font-size="11" fill="#d6d2ff" font-weight="700">${k}<tspan fill="#8b89b3" font-weight="500"> (${v})</tspan></text>`;
   }).join("");
 
   return `
@@ -101,7 +98,6 @@ export function hexStatSvg(inp: HexInputs): string {
       ${classPoly}
       ${unitPoly}
       ${labels}
-      ${ticks}
     </svg>
   `;
 }
