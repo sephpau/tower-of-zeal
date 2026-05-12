@@ -36,6 +36,7 @@ import { fetchServerIgn, saveServerIgn } from "./auth/ign";
 import { showBossRaidReward, BossRaidReward } from "./ui/bossRaidReward";
 import { playBgm, stopBgm, playBattleBgm } from "./core/bgm";
 import { startRun, reportFloor, endRun, abortLiveRun, reportFloorCleared, getLiveRun, fetchFloorRetryStatus, claimFloorRetry } from "./core/leaderboard";
+import { isAllowedOnDev } from "./auth/devBuild";
 
 const root = document.getElementById("app");
 if (!root) throw new Error("#app not found");
@@ -47,17 +48,23 @@ void bootstrap();
 async function bootstrap(): Promise<void> {
   const existing = loadSession();
   if (existing) {
-    const v = await validateSession(existing.token);
-    if (v) {
-      currentSession = existing;
-      setVerifiedAddress(v.address);
-      setVerifiedPerks(v.perks);
-      setUserScope(v.address);
-      ensureWalletInSettings(v.address);
-      void proceedAfterAuth();
-      return;
+    // Dev build: re-check allowlist on every boot so removing a tester actually
+    // locks them out, even if they have a stored session.
+    if (!isAllowedOnDev(existing.address)) {
+      clearSession();
+    } else {
+      const v = await validateSession(existing.token);
+      if (v) {
+        currentSession = existing;
+        setVerifiedAddress(v.address);
+        setVerifiedPerks(v.perks);
+        setUserScope(v.address);
+        ensureWalletInSettings(v.address);
+        void proceedAfterAuth();
+        return;
+      }
+      clearSession();
     }
-    clearSession();
   }
   renderWalletGate(root!, async s => {
     currentSession = s;

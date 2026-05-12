@@ -1820,6 +1820,18 @@ body:has(.battle) {
   text-align: center; color: var(--text);
 }
 .wallet-gate h1 { color: var(--gold-bright); margin-top: 0; letter-spacing: 1px; }
+.wallet-gate__dev-banner {
+  background: linear-gradient(180deg, #4a1a1a, #2a0a0a);
+  border: 1px solid #f97316;
+  color: #fb923c;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 8px 14px;
+  border-radius: 6px;
+  margin-bottom: 18px;
+  text-transform: uppercase;
+}
 .wallet-gate__desc { color: var(--text-dim); margin-bottom: 24px; }
 .wallet-gate__btn {
   background: var(--gold); color: var(--bg); border: none; border-radius: 8px;
