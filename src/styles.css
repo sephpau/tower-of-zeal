@@ -2315,21 +2315,30 @@ body:has(.battle) {
   color: var(--class-accent);
 }
 
-/* Units-screen class picker chips get the same treatment. */
+/* Units-screen class picker chips get the same treatment, plus a subtle
+   always-on background tint so the class color reads immediately. */
 .class-pick-btn[data-pick-class] {
-  border-left: 3px solid var(--class-accent);
+  border-left: 4px solid var(--class-accent);
+  background: linear-gradient(135deg, rgba(var(--class-accent-rgb), 0.08), rgba(var(--class-accent-rgb), 0.02));
 }
 .class-pick-btn[data-pick-class]:hover {
   border-color: var(--class-accent);
-  background: rgba(var(--class-accent-rgb), 0.10);
+  background: linear-gradient(135deg, rgba(var(--class-accent-rgb), 0.18), rgba(var(--class-accent-rgb), 0.05));
+  box-shadow: 0 0 14px rgba(var(--class-accent-rgb), 0.22);
 }
 .class-pick-btn[data-pick-class].current {
   border-color: var(--class-accent);
-  background: linear-gradient(180deg, rgba(var(--class-accent-rgb), 0.18), rgba(var(--class-accent-rgb), 0.05));
+  background: linear-gradient(180deg, rgba(var(--class-accent-rgb), 0.22), rgba(var(--class-accent-rgb), 0.06));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
     0 0 0 1px var(--class-accent),
-    0 0 18px rgba(var(--class-accent-rgb), 0.32);
+    0 0 18px rgba(var(--class-accent-rgb), 0.40);
+}
+/* Class-name text picks up the accent so the chip reads as the class color
+   even before the gold "selected" highlight kicks in. */
+.class-pick-btn[data-pick-class] .class-name {
+  color: var(--class-accent);
+  font-weight: 700;
 }
 .tutorial-actions {
   display: flex;
