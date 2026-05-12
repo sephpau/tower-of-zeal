@@ -1,9 +1,13 @@
 /* Gauntlet Tower — Cambria-inspired dark RPG dashboard.
    Palette: deep navy bg, gold accents, lime for positive, red for danger,
    magenta + cyan as secondary highlights.
+   --motz-* tokens come from the MoTZ brand design system and are introduced
+   incrementally per direction — existing component classes still reference
+   the legacy tokens until each section is migrated.
 */
 
 :root {
+  /* ====== Legacy Gauntlet Tower tokens (in use, migrated incrementally) ====== */
   --bg: #06091e;
   --bg-2: #0d1232;
   --panel: #131838;
@@ -20,6 +24,35 @@
   --red: #ef4444;
   --red-soft: #f87171;
   --blue: #60a5fa;
+
+  /* ============================================================
+   * MoTZ design system tokens (source: MoTZ brand Claude project)
+   * ============================================================ */
+
+  /* --- Primary palette --- */
+  --motz-red: #FF2A55;            /* MoTZ Red */
+  --motz-gold: #FBBF24;            /* Winner Gold */
+  --motz-purple: #7800FF;          /* Electric Purple */
+  --motz-void: #0F0518;            /* Void Black */
+
+  /* --- Semantic palette --- */
+  --motz-success: #2FD27A;
+  --motz-warning: #FFB828;
+  --motz-error:   #FF5A6B;
+  --motz-info:    #4DA3FF;
+
+  /* --- Surface palette (translucent overlays meant to layer on Void Black) --- */
+  --motz-surface:        rgba(255, 255, 255, 0.03);  /* base surface */
+  --motz-surface-hover:  rgba(255, 255, 255, 0.06);  /* hovered surface */
+  --motz-glass-bg:       rgba(255, 255, 255, 0.05);  /* glass effect background */
+  --motz-glass-blur:     8px;                         /* paired backdrop-filter blur */
+  --motz-bg-s1:          #180B26;                    /* alternate surface tier */
+
+  /* --- Gradients --- */
+  --motz-gradient-primary:  linear-gradient(135deg, var(--motz-red) 0%, var(--motz-purple) 100%);
+  --motz-gradient-gold:     linear-gradient(135deg, #FFD24A 0%, var(--motz-gold) 100%);
+  --motz-gradient-cta-red:  linear-gradient(180deg, #FF4D75 0%, var(--motz-red) 100%);
+  --motz-gradient-purple:   linear-gradient(180deg, #9A3DFF 0%, var(--motz-purple) 100%);
 }
 
 * { box-sizing: border-box; }
