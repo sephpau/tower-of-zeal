@@ -2,6 +2,29 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifyRun } from "../_lib/jwt.js";
 import { getRun, saveRun, deleteRun, submitToLeaderboard, MIN_AVG_FLOOR_MS, sanitizeIgn, setIgnIfAllowed, syncTopReplays } from "../_lib/runState.js";
 
+const MAX_PARTY_SIZE = 3;
+
+/** Walk a submitted replay blob and reject if any battle has a party that
+ *  exceeds the cap, contains duplicates, or has invalid entries. Returns
+ *  true if the blob is safe to persist, false otherwise. Defensive — silently
+ *  accepts anything we don't recognize as a battle list. */
+function isReplayPartyValid(blob: unknown): boolean {
+  if (!blob || typeof blob !== "object") return true;
+  const battles = (blob as { battles?: unknown }).battles;
+  if (!Array.isArray(battles)) return true;
+  for (const battle of battles) {
+    if (!battle || typeof battle !== "object") continue;
+    const party = (battle as { party?: unknown }).party;
+    if (!Array.isArray(party)) continue;
+    if (party.length > MAX_PARTY_SIZE) return false;
+    const ids = party
+      .map(p => (p && typeof p === "object" ? (p as { templateId?: unknown }).templateId : null))
+      .filter((x): x is string => typeof x === "string");
+    if (new Set(ids).size !== ids.length) return false;
+  }
+  return true;
+}
+
 // Body: { runId: string }
 // The server uses its own clock for totalMs — client-supplied times are ignored.
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -14,6 +37,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   if (!runId) { res.status(400).json({ error: "bad body" }); return; }
   const ign = sanitizeIgn(body.ign);
   const replay = body.replay && typeof body.replay === "object" ? body.replay : null;
+  // Reject replays that pack more than the legal party size — these would
+  // place an unfair score on the leaderboard.
+  const replayForSave = replay && isReplayPartyValid(replay) ? replay : null;
 
   let payload;
   try { payload = await verifyRun(auth.slice("Bearer ".length)); }
@@ -44,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         // pushed off rank 3). Runs through this on every submission, even when
         // ZADD didn't actually improve the score, so stale replays still get
         // cleaned up.
-        await syncTopReplays(state.mode, state.address, replay ?? null).catch(() => undefined);
+        await syncTopReplays(state.mode, state.address, replayForSave ?? null).catch(() => undefined);
       }
     }
 

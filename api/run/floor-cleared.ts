@@ -7,6 +7,26 @@ import {
   recordFloorModeClear,
   saveReplayBlob, loadReplayBlob,
 } from "../_lib/runState.js";
+
+const MAX_PARTY_SIZE = 3;
+/** Reject replays whose battles report >MAX_PARTY_SIZE units or duplicates —
+ *  blocks DevTools-manipulated submissions from landing on the leaderboard. */
+function isReplayPartyValid(blob: unknown): boolean {
+  if (!blob || typeof blob !== "object") return true;
+  const battles = (blob as { battles?: unknown }).battles;
+  if (!Array.isArray(battles)) return true;
+  for (const battle of battles) {
+    if (!battle || typeof battle !== "object") continue;
+    const party = (battle as { party?: unknown }).party;
+    if (!Array.isArray(party)) continue;
+    if (party.length > MAX_PARTY_SIZE) return false;
+    const ids = party
+      .map(p => (p && typeof p === "object" ? (p as { templateId?: unknown }).templateId : null))
+      .filter((x): x is string => typeof x === "string");
+    if (new Set(ids).size !== ids.length) return false;
+  }
+  return true;
+}
 import { getAddress } from "viem";
 import { getCurrentMultiplier } from "../_lib/daily.js";
 import { isAdmin } from "../_lib/admin.js";
@@ -145,7 +165,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     }
     // Save replay blob alongside the LB entry only when this clear actually
     // improved the wallet's PB — otherwise we'd churn Upstash for nothing.
-    if (stageId === 50 && replay && worldEnderImproved) {
+    // Also rejects replays whose recorded party violates the size cap.
+    if (stageId === 50 && replay && worldEnderImproved && isReplayPartyValid(replay)) {
       await saveReplayBlob("we", address, replay).catch(() => undefined);
     }
 
@@ -155,11 +176,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     // loadout for the first wallet to top out.
     type PartyMemberMin = { templateId: string; classId?: string; level: number; customStats: Record<string, number>; equippedSkills: string[] };
     let conquerParty: PartyMemberMin[] | undefined;
-    if (stageId === 50 && replay && Array.isArray((replay as { battles?: unknown }).battles)) {
+    if (stageId === 50 && replay && isReplayPartyValid(replay) && Array.isArray((replay as { battles?: unknown }).battles)) {
       const battles = (replay as { battles: { party?: PartyMemberMin[] }[] }).battles;
       const last = battles[battles.length - 1];
       if (last && Array.isArray(last.party)) {
-        conquerParty = last.party.map(p => ({
+        // Truncate to MAX_PARTY_SIZE as a defense in depth — isReplayPartyValid
+        // already rejects oversize parties, but this guarantees the conqueror
+        // record can never store > MAX_PARTY_SIZE entries.
+        conquerParty = last.party.slice(0, MAX_PARTY_SIZE).map(p => ({
           templateId: String(p.templateId),
           classId: p.classId,
           level: Number(p.level) || 1,

@@ -5,7 +5,12 @@ import { verifySession, signRun } from "../_lib/jwt.js";
 import { saveRun, bumpStartCounter, MAX_STARTS_PER_HOUR, isLbMode } from "../_lib/runState.js";
 import { holdsMotzKey } from "../_lib/ronin.js";
 
-const MOTZ_KEY_LOCKED_UNITS = new Set(["hera", "nova", "oge"]);
+const MOTZ_KEY_LOCKED_UNITS = new Set(["hera", "nova", "oge", "shego"]);
+/** Hard cap — must match src/units/roster.ts MAX_PARTY_SIZE. */
+const MAX_PARTY_SIZE = 3;
+const VALID_UNIT_IDS = new Set([
+  "soda", "ego", "gruyere", "calypso", "calico", "nova", "hera", "aspen", "oge", "shego",
+]);
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== "POST") { res.status(405).json({ error: "method" }); return; }
@@ -27,8 +32,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const body = (req.body ?? {}) as { mode?: unknown; party?: unknown };
     const mode = isLbMode(body.mode) ? body.mode : "survival";
 
+    // Sanitize the submitted party — reject anything that violates the party
+    // size cap, duplicates a unit, or names a unit that isn't in the roster.
+    // This is the server's last line of defense against DevTools-manipulated
+    // clients pushing >MAX_PARTY_SIZE units.
+    const rawParty: string[] = Array.isArray(body.party) ? body.party.filter((x): x is string => typeof x === "string") : [];
+    if (rawParty.length > MAX_PARTY_SIZE) {
+      res.status(400).json({ error: `party exceeds the ${MAX_PARTY_SIZE}-unit cap` });
+      return;
+    }
+    if (new Set(rawParty).size !== rawParty.length) {
+      res.status(400).json({ error: "duplicate units in party" });
+      return;
+    }
+    if (rawParty.some(id => !VALID_UNIT_IDS.has(id))) {
+      res.status(400).json({ error: "unknown unit id in party" });
+      return;
+    }
+    const party = rawParty;
+
     // Reject runs that include MoTZ-locked units when the wallet doesn't hold the key.
-    const party: string[] = Array.isArray(body.party) ? body.party.filter((x): x is string => typeof x === "string") : [];
     if (party.some(id => MOTZ_KEY_LOCKED_UNITS.has(id))) {
       const holds = await holdsMotzKey(getAddress(address)).catch(() => false);
       if (!holds) { res.status(403).json({ error: "wallet does not hold MoTZ Vault Key required for selected unit" }); return; }

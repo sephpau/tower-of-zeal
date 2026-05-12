@@ -130,16 +130,27 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
       const id = el.dataset.roster!;
       el.addEventListener("click", () => {
         if (isUnitLocked(id)) return;
-        const t = PLAYER_ROSTER.find(x => x.id === id)!;
+        const t = PLAYER_ROSTER.find(x => x.id === id);
+        if (!t) return;
         const idx = picks.findIndex(p => p.id === t.id);
-        if (idx >= 0) picks.splice(idx, 1);
-        else if (picks.length < MAX_PARTY_SIZE) picks.push(t);
+        if (idx >= 0) {
+          picks.splice(idx, 1);
+        } else if (picks.length < MAX_PARTY_SIZE) {
+          picks.push(t);
+        }
+        // Hard guard against any external mutation of `picks` — never let it
+        // exceed the cap regardless of how it got there.
+        if (picks.length > MAX_PARTY_SIZE) picks.length = MAX_PARTY_SIZE;
         draw();
       });
     });
 
     root.querySelector<HTMLButtonElement>("#confirm")?.addEventListener("click", async () => {
       if (picks.length === 0) return;
+      // Final defensive truncation — even if the array was mutated externally,
+      // the party that gets sent to the server is capped here. The server
+      // re-validates and rejects oversize parties.
+      if (picks.length > MAX_PARTY_SIZE) picks.length = MAX_PARTY_SIZE;
       const partyNames = picks.map(p => p.name).join(", ");
       const ok = await confirmModal({
         title: "Begin Battle?",
