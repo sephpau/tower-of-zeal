@@ -1,6 +1,8 @@
-/* MoTZ webfont stack — must precede any CSS rules per @import spec.
-   Loaded for migrated components; legacy components still use Cinzel/mono. */
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* Web font stack — must precede any CSS rules per @import spec.
+   MoTZ system: Fredoka (display alt), Inter (body), Onest (UI), JetBrains Mono (HUD).
+   Gauntlet Tower-specific: Cinzel — kept for fantasy headings (game title,
+   stage names) since it matches the dark-fantasy mood. */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800;900&family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* Gauntlet Tower — Cambria-inspired dark RPG dashboard.
    Palette: deep navy bg, gold accents, lime for positive, red for danger,
@@ -11,23 +13,29 @@
 */
 
 :root {
-  /* ====== Legacy Gauntlet Tower tokens (in use, migrated incrementally) ====== */
-  --bg: #06091e;
-  --bg-2: #0d1232;
-  --panel: #131838;
-  --panel-2: #1a204a;
-  --border: #2a3170;
-  --border-strong: #3a458f;
-  --text: #e7e6ff;
-  --text-dim: #9c9bc7;
-  --gold: #d4a93e;
-  --gold-bright: #f4d35e;
-  --lime: #4ade80;
-  --cyan: #22d3ee;
-  --magenta: #e879f9;
-  --red: #ef4444;
-  --red-soft: #f87171;
-  --blue: #60a5fa;
+  /* ====== Legacy Gauntlet Tower tokens — now MoTZ-aliased ======
+   * Every legacy token below has been re-mapped to a MoTZ value so existing
+   * CSS classes that still reference --gold / --bg / --text-dim / etc. get
+   * the new palette automatically. Component-level overrides still win when
+   * a specific tweak is needed. The MoTZ system uses a warmer void palette
+   * (purples + warm stones) instead of the cool navy + cool purples the
+   * original GT scheme used. */
+  --bg:            #0F0518;                 /* MoTZ void */
+  --bg-2:          #180B26;                 /* MoTZ bg-s1 */
+  --panel:         #221133;                 /* MoTZ bg-s2 */
+  --panel-2:       #2B1640;                 /* MoTZ bg-elev */
+  --border:        rgba(255, 255, 255, 0.08); /* MoTZ glass-border */
+  --border-strong: rgba(255, 255, 255, 0.15); /* MoTZ glass-border-hi */
+  --text:          #F5F5F4;                 /* MoTZ text-primary */
+  --text-dim:      #A8A29E;                 /* MoTZ text-muted */
+  --gold:          #FBBF24;                 /* MoTZ winner gold */
+  --gold-bright:   #FFD970;                 /* MoTZ light-end gold */
+  --lime:          #2FD27A;                 /* MoTZ success */
+  --cyan:          #22d3ee;                 /* GT-specific accent — kept */
+  --magenta:       #e879f9;                 /* GT-specific accent (admin) — kept */
+  --red:           #FF5A6B;                 /* MoTZ error */
+  --red-soft:      #FF7A87;
+  --blue:          #4DA3FF;                 /* MoTZ info */
 
   /* ============================================================
    * MoTZ design system tokens (source: MoTZ brand design system zip
@@ -145,7 +153,9 @@
 html, body {
   margin: 0; padding: 0;
   color: var(--text);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--motz-font-body);
+  font-size: 14px;
+  line-height: 1.5;
   min-height: 100vh;
 }
 /* Full-bleed tower background. Layers (back-to-front):
@@ -155,7 +165,7 @@ html, body {
 body {
   background-color: var(--bg);
   background-image:
-    linear-gradient(180deg, rgba(6, 9, 30, 0.55) 0%, rgba(6, 9, 30, 0.7) 60%, rgba(6, 9, 30, 0.85) 100%),
+    linear-gradient(180deg, rgba(15, 5, 24, 0.55) 0%, rgba(15, 5, 24, 0.7) 60%, rgba(15, 5, 24, 0.88) 100%),
     url("/bg-tower.png");
   background-size: cover, cover;
   background-position: center, center;
@@ -201,32 +211,32 @@ body:has(.battle) {
    enemy/player portraits still pop and the gold log/HP text stays legible. */
 .battle[data-tier="1-10"] .battle-field {
   background:
-    linear-gradient(180deg, rgba(6, 9, 30, 0.45) 0%, rgba(6, 9, 30, 0.7) 100%),
+    linear-gradient(180deg, rgba(15, 5, 24, 0.45) 0%, rgba(15, 5, 24, 0.7) 100%),
     url("/floor 1-10.png") center / cover no-repeat;
 }
 .battle[data-tier="11-20"] .battle-field {
   background:
-    linear-gradient(180deg, rgba(6, 9, 30, 0.45) 0%, rgba(6, 9, 30, 0.7) 100%),
+    linear-gradient(180deg, rgba(15, 5, 24, 0.45) 0%, rgba(15, 5, 24, 0.7) 100%),
     url("/floor 11-20.jpg") center / cover no-repeat;
 }
 .battle[data-tier="21-30"] .battle-field {
   background:
-    linear-gradient(180deg, rgba(6, 9, 30, 0.45) 0%, rgba(6, 9, 30, 0.7) 100%),
+    linear-gradient(180deg, rgba(15, 5, 24, 0.45) 0%, rgba(15, 5, 24, 0.7) 100%),
     url("/floor 21-30.jpg") center / cover no-repeat;
 }
 .battle[data-tier="31-40"] .battle-field {
   background:
-    linear-gradient(180deg, rgba(6, 9, 30, 0.45) 0%, rgba(6, 9, 30, 0.7) 100%),
+    linear-gradient(180deg, rgba(15, 5, 24, 0.45) 0%, rgba(15, 5, 24, 0.7) 100%),
     url("/floor 31-40.png") center / cover no-repeat;
 }
 .battle[data-tier="41-49"] .battle-field {
   background:
-    linear-gradient(180deg, rgba(6, 9, 30, 0.45) 0%, rgba(6, 9, 30, 0.7) 100%),
+    linear-gradient(180deg, rgba(15, 5, 24, 0.45) 0%, rgba(15, 5, 24, 0.7) 100%),
     url("/floor 41-49.png") center / cover no-repeat;
 }
 .battle[data-tier="50"] .battle-field {
   background:
-    linear-gradient(180deg, rgba(20, 4, 4, 0.40) 0%, rgba(6, 9, 30, 0.7) 100%),
+    linear-gradient(180deg, rgba(20, 4, 4, 0.40) 0%, rgba(15, 5, 24, 0.7) 100%),
     url("/floor 50.png") center / cover no-repeat;
 }
 
@@ -748,7 +758,7 @@ body:has(.battle) {
   letter-spacing: 0.15em;
   padding: 24px 56px;
   border-radius: 16px;
-  background: rgba(6, 9, 30, 0.96);
+  background: rgba(15, 5, 24, 0.96);
   border: 2px solid;
   text-align: center;
   z-index: 10;
@@ -1037,7 +1047,7 @@ body:has(.battle) {
 .home-tile {
   /* Translucent fill so the tower silhouette shows through; a slight blur
      keeps the gold text from clashing with high-contrast pixels behind. */
-  background: rgba(15, 20, 50, 0.35);
+  background: rgba(34, 17, 51, 0.35);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   border: 2px solid var(--border);
@@ -1049,7 +1059,7 @@ body:has(.battle) {
   transition: background 0.12s, border-color 0.12s, transform 0.05s, box-shadow 0.15s;
 }
 .home-tile:hover {
-  background: rgba(30, 40, 80, 0.45);
+  background: rgba(43, 22, 64, 0.45);
   border-color: var(--border-strong);
   box-shadow: 0 0 18px rgba(212, 169, 62, 0.10);
 }
@@ -1205,7 +1215,7 @@ body:has(.battle) {
   /* Translucent so the tower background reads through. NOTE: do NOT add
      backdrop-filter here — it creates a stacking context, which causes
      hover tooltips from the row above to render BEHIND later-DOM tiles. */
-  background: rgba(15, 20, 50, 0.5);
+  background: rgba(34, 17, 51, 0.5);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 18px 8px;
@@ -1217,7 +1227,7 @@ body:has(.battle) {
   position: relative;
 }
 .stage-tile.unlocked:hover {
-  background: rgba(30, 40, 80, 0.65);
+  background: rgba(43, 22, 64, 0.65);
   border-color: var(--gold-bright);
   box-shadow: 0 0 14px rgba(244, 211, 94, 0.20);
 }
@@ -1225,12 +1235,12 @@ body:has(.battle) {
 .stage-tile.unlocked { border-color: var(--border-strong); }
 .stage-tile.boss.unlocked {
   border-color: var(--gold);
-  background: linear-gradient(180deg, rgba(42, 23, 0, 0.55), rgba(15, 20, 50, 0.45));
+  background: linear-gradient(180deg, rgba(42, 23, 0, 0.55), rgba(34, 17, 51, 0.45));
 }
 .stage-tile.locked {
   opacity: 0.4;
   cursor: not-allowed;
-  background: rgba(6, 9, 30, 0.55);
+  background: rgba(15, 5, 24, 0.55);
 }
 .stage-num {
   font-family: "Cinzel", "Times New Roman", serif;
@@ -2270,7 +2280,7 @@ body:has(.battle) {
 .tutorial-stat-desc { color: var(--text); font-size: 12px; }
 
 .tutorial-overlay {
-  position: fixed; inset: 0; background: rgba(6, 9, 30, 0.75);
+  position: fixed; inset: 0; background: rgba(15, 5, 24, 0.75);
   display: grid; place-items: center; z-index: 1000;
 }
 .tutorial-overlay-card {
@@ -2286,7 +2296,7 @@ body:has(.battle) {
 /* ---------- Game-styled confirm modal (replaces window.confirm) ---------- */
 .game-confirm-overlay {
   position: fixed; inset: 0; z-index: 2000;
-  background: rgba(6, 9, 30, 0.78);
+  background: rgba(15, 5, 24, 0.78);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
   display: grid; place-items: center;
@@ -2506,7 +2516,7 @@ body:has(.battle) {
 /* ---------- Boss Raid reward modal ---------- */
 .br-reward-overlay {
   position: fixed; inset: 0;
-  background: rgba(6, 9, 30, 0.85);
+  background: rgba(15, 5, 24, 0.85);
   display: grid; place-items: center; z-index: 1100;
 }
 .br-reward-card {
@@ -3218,7 +3228,7 @@ body:has(.battle) {
 .rs-log-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(6, 9, 30, 0.85);
+  background: rgba(15, 5, 24, 0.85);
   display: grid;
   place-items: center;
   z-index: 5500;
