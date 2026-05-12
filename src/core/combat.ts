@@ -1007,7 +1007,11 @@ function maybeApplyEffect(b: Battle, source: Combatant, target: Combatant, eff: 
   if (chance < 1 && b.rng.next() > chance) return;
   if (eff.id === "heal") {
     if (!target.alive) return;
-    const amount = Math.max(1, Math.floor(eff.power));
+    // Heal = floor(power) flat + floor(maxHp * percentMaxHp). The percent
+    // component keeps healing meaningful at endgame when target HP is huge.
+    const flat = Math.max(0, Math.floor(eff.power));
+    const pct = eff.percentMaxHp ? Math.floor(target.maxHp * eff.percentMaxHp) : 0;
+    const amount = Math.max(1, flat + pct);
     const before = target.hp;
     target.hp = Math.min(target.maxHp, target.hp + amount);
     b.log.push(`${target.name} heals ${target.hp - before} HP.`);

@@ -53,6 +53,10 @@ export interface EffectApplication {
   /** Hard cap on the final scaled power. Used to prevent specific buffs (e.g.
    *  Fate's Rebound dmg_reduction) from reaching the global 0.95 cap. */
   maxPower?: number;
+  /** Heal-only: extra healing equal to this fraction of the target's maxHp.
+   *  Keeps heals proportional at endgame when flat numbers fall behind HP
+   *  growth. 0.10 → +10% of the recipient's max HP. */
+  percentMaxHp?: number;
 }
 
 const EFFECT_NAMES: Record<EffectId, string> = {
