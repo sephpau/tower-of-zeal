@@ -1591,9 +1591,17 @@ body:has(.battle) {
   cursor: default;
 }
 .skill-chip.equipped { border-color: var(--gold); color: var(--gold-bright); }
-.skill-chip.locked { opacity: 0.55; border-style: dashed; }
+/* Use a dimmed color/border instead of `opacity: < 1` — opacity creates a
+   new stacking context, which would trap the tooltip below sibling chips. */
+.skill-chip.locked {
+  border-style: dashed;
+  border-color: rgba(118, 130, 168, 0.55);
+  color: rgba(231, 234, 247, 0.55);
+  background: rgba(12, 16, 35, 0.6);
+}
 .skill-chip:hover .skill-tip { display: block; }
-.skill-chip .skill-tip { width: 240px; }
+.skill-chip:hover { z-index: 60; }
+.skill-chip .skill-tip { width: 240px; z-index: 100; }
 .skill-tip-meta { display: block; opacity: 0.7; margin-top: 4px; font-size: 10px; }
 .skill-loadout-sub {
   font-size: 10px; color: var(--text-dim); letter-spacing: 0.7px;
