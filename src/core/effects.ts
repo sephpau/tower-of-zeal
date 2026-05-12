@@ -20,6 +20,7 @@ export type EffectId =
   | "vulnerability" // +X% damage taken
   | "dmg_reduction" // -X% damage taken
   | "taunt"         // damage to allies on this side is redirected to the tauntER (incl. each AOE hit)
+  | "damage_reflect" // returns power% of damage taken to the attacker, even on death
   // Stat / attack buffs
   | "stat_buff"     // +X% to one stat (target = StatKey)
   | "atk_buff"      // +X% phys.atk or mag.atk (target = "phys" | "mag")
@@ -64,6 +65,7 @@ const EFFECT_NAMES: Record<EffectId, string> = {
   vulnerability: "Vulnerable",
   dmg_reduction: "Shield",
   taunt: "Drawing Fire",
+  damage_reflect: "Retribution",
   stat_buff: "Stat Up",
   atk_buff: "Atk Up",
   regen: "Regen",
@@ -83,6 +85,7 @@ const EFFECT_ICONS: Record<EffectId, string> = {
   vulnerability: "💢",
   dmg_reduction: "🛡",
   taunt: "🎯",
+  damage_reflect: "🪞",
   stat_buff: "⬆",
   atk_buff: "⚔",
   regen: "💚",
@@ -177,6 +180,16 @@ export function incomingDamageMultiplier(target: EffectCarrier): number {
     if (e.id === "vulnerability") mult *= (1 + e.power);
   }
   return Math.max(0, mult);
+}
+
+/** Total reflect fraction from all damage_reflect effects on the defender.
+ *  Returns 0 if none. Stacks additively (multiple sources of reflect sum). */
+export function damageReflectPct(target: EffectCarrier): number {
+  let pct = 0;
+  for (const e of target.effects) {
+    if (e.id === "damage_reflect") pct += e.power;
+  }
+  return pct;
 }
 
 /** Hit-chance modifier on the attacker (blind reduces accuracy). Returns delta to subtract. */

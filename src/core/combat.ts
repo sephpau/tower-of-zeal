@@ -25,6 +25,7 @@ import {
   isSkillBlockedBySilence,
   tickEffectDurations,
   blindHitPenalty,
+  damageReflectPct,
 } from "./effects";
 
 export type Side = "player" | "enemy";
@@ -914,6 +915,29 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
   const tag = crit ? " CRIT" : "";
   const verb = skill.id === "basic_attack" ? "attacks" : `uses ${skill.name} on`;
   b.log.push(`${attacker.name} ${verb} ${target.name}: ${dmg}${tag}`);
+
+  // Damage reflect: defender returns a % of damage taken to the attacker even
+  // if the defender died from the hit. Skip cross-reflect (no infinite loops).
+  const reflectPct = damageReflectPct(target);
+  if (reflectPct > 0 && attacker.side !== target.side && attacker.alive && dmg > 0) {
+    const reflectDmg = Math.max(1, Math.floor(dmg * reflectPct));
+    attacker.hp = Math.max(0, attacker.hp - reflectDmg);
+    target.damageDealt += reflectDmg;
+    attacker.damageTaken += reflectDmg;
+    pushDamage(attacker.id, reflectDmg, effKind, "melee", false, {
+      attackerTemplateId: target.templateId,
+      attackerClassId: target.classId,
+      skillId: "damage_reflect",
+      targetGuarding: false,
+    });
+    b.log.push(`${target.name} reflects ${reflectDmg} back to ${attacker.name}.`);
+    if (attacker.hp <= 0) {
+      attacker.alive = false;
+      attacker.queuedAction = null;
+      target.kills += 1;
+      b.log.push(`${attacker.name} falls to reflected damage.`);
+    }
+  }
 
   if (target.hp <= 0) {
     target.alive = false;

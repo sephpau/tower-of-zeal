@@ -500,6 +500,42 @@ export const SKILLS: Record<string, Skill> = {
     description: "Very High single range magical (scales m.atk + INT).",
     scalesWith: [{ stat: "INT" }],
   },
+
+  // ---- Shego (tank / retribution caster) ----
+  gaze_of_retribution: {
+    id: "gaze_of_retribution", name: "Gaze of Retribution",
+    kind: "buff", targeting: "self",
+    power: 0, mpCost: 0, cooldown: 1, unlockLevel: 1,
+    description: "+15% damage reduction for 2 actions. Returns 10% of damage taken to attackers, even on death.",
+    selfApplies: [
+      { id: "dmg_reduction", duration: 2, power: 0.15 },
+      { id: "damage_reflect", duration: 2, power: 0.10 },
+    ],
+  },
+  iron_prophecy: {
+    id: "iron_prophecy", name: "Iron Prophecy",
+    kind: "buff", targeting: "self",
+    power: 0, mpCost: 5, cooldown: 1, unlockLevel: 2,
+    description: "Taunt all enemies for 2 actions. Returns 20% of damage taken to attackers, even on death.",
+    selfApplies: [
+      { id: "taunt", duration: 2, power: 1 },
+      { id: "damage_reflect", duration: 2, power: 0.20 },
+    ],
+  },
+  fates_rebound: {
+    id: "fates_rebound", name: "Fate's Rebound",
+    kind: "buff", targeting: "self",
+    power: 0, mpCost: 20, cooldown: 6, unlockLevel: 5,
+    description: "-50% damage taken for 3 actions. Allies gain +25% phys/mag attack for 3 actions. Returns 50% of damage taken to attackers, even on death.",
+    selfApplies: [
+      { id: "dmg_reduction", duration: 3, power: 0.50 },
+      { id: "damage_reflect", duration: 3, power: 0.50 },
+    ],
+    applies: [
+      { id: "atk_buff", duration: 3, power: 0.25, target: "phys" },
+      { id: "atk_buff", duration: 3, power: 0.25, target: "mag" },
+    ],
+  },
 };
 
 export function getSkill(id: string): Skill {
@@ -530,4 +566,5 @@ export const CHARACTER_SKILLS: Record<string, string[]> = {
   calypso: ["siphon_pulse", "tidal_mending", "sirens_sanctuary"],
   calico: ["horizon_strike", "needle_shot", "mark_of_death"],
   nova: ["water_bolt", "frost_bite", "navigators_wrath"],
+  shego: ["gaze_of_retribution", "iron_prophecy", "fates_rebound"],
 };
