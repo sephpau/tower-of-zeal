@@ -1,6 +1,11 @@
 const UNIT_ART_IDS = new Set([
   "soda", "ego", "gruyere", "calypso", "calico", "nova", "hera", "aspen", "oge", "shego",
 ]);
+/** Override the default `.webp` extension per unit id. Add here if an asset
+ *  is uploaded as something other than .webp. */
+const UNIT_ART_EXT: Record<string, string> = {
+  shego: "png",
+};
 
 /** Player units that require holding the MoTZ Vault Key to use. */
 export const MOTZ_KEY_LOCKED_UNITS = new Set(["hera", "nova", "oge", "shego"]);
@@ -74,7 +79,10 @@ const ENEMY_TILE_FILES: Record<string, string> = {
 };
 
 export function unitArtUrl(unitId: string): string | null {
-  if (UNIT_ART_IDS.has(unitId)) return `/units/${unitId}.webp`;
+  if (UNIT_ART_IDS.has(unitId)) {
+    const ext = UNIT_ART_EXT[unitId] ?? "webp";
+    return `/units/${unitId}.${ext}`;
+  }
   const tile = ENEMY_TILE_FILES[unitId];
   if (tile) return `/tiles/${encodeURIComponent(tile)}`;
   return null;
