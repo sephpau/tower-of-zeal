@@ -2840,7 +2840,7 @@ body:has(.battle) {
 .daily-slot {
   position: absolute;
   top: 110px;
-  right: 16px;
+  right: 0;          /* matches .energy-pill and .gear-btn right edge */
   z-index: 4;
 }
 .daily-card {
