@@ -90,8 +90,13 @@ export function hexStatSvg(inp: HexInputs): string {
     return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" font-size="11" fill="#d6d2ff" font-weight="700">${k}<tspan fill="#8b89b3" font-weight="500"> (${v})</tspan></text>`;
   }).join("");
 
+  // Expand the viewBox horizontally so the wider "AGI (21)" / "DEX (13)"
+  // labels on the left/right axes have room — otherwise a parent card with
+  // overflow:hidden clips their leading letter.
+  const padX = 28;
+  const padY = 8;
   return `
-    <svg class="hex-stat" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+    <svg class="hex-stat" viewBox="${-padX} ${-padY} ${size + padX * 2} ${size + padY * 2}" width="${size + padX * 2}" height="${size + padY * 2}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
       ${ringPolys.join("")}
       ${axisLines}
       ${customPoly}
