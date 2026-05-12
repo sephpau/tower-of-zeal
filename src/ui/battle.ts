@@ -95,14 +95,16 @@ export function renderBattle(
   });
 }
 
-/** Map stage id to its 10-floor tier label. Returns null for out-of-range / undefined. */
+/** Map stage id to its 10-floor tier label. Returns null for out-of-range / undefined.
+ *  Floor 50 (World Ender) is its own tier so it can use a dedicated background. */
 function stageTier(stageId: number | undefined): string | null {
   if (typeof stageId !== "number" || stageId < 1 || stageId > 50) return null;
+  if (stageId === 50) return "50";
   if (stageId <= 10) return "1-10";
   if (stageId <= 20) return "11-20";
   if (stageId <= 30) return "21-30";
   if (stageId <= 40) return "31-40";
-  return "41-50";
+  return "41-49";
 }
 
 function mountCheaterOverlay(root: HTMLElement, claimed: number, cap: number): void {

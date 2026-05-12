@@ -100,10 +100,15 @@ body:has(.battle) {
     linear-gradient(180deg, rgba(6, 9, 30, 0.45) 0%, rgba(6, 9, 30, 0.7) 100%),
     url("/floor 31-40.png") center / cover no-repeat;
 }
-.battle[data-tier="41-50"] .battle-field {
+.battle[data-tier="41-49"] .battle-field {
   background:
     linear-gradient(180deg, rgba(6, 9, 30, 0.45) 0%, rgba(6, 9, 30, 0.7) 100%),
     url("/floor 41-49.png") center / cover no-repeat;
+}
+.battle[data-tier="50"] .battle-field {
+  background:
+    linear-gradient(180deg, rgba(20, 4, 4, 0.40) 0%, rgba(6, 9, 30, 0.7) 100%),
+    url("/floor 50.png") center / cover no-repeat;
 }
 
 .battle-log-panel {
