@@ -1,4 +1,4 @@
-import { getJson, setJson, del, zaddGt, zaddLt, zrangeWithScores, zrevrank, zrevrange, incrWithExpire, hset, hmget, incrBy, getNumber } from "./redis.js";
+import { getJson, setJson, del, zaddGt, zaddLt, zrangeWithScores, zrevrank, zrevrange, incrWithExpire, hset, hmget, incrBy, getNumber, isPrefixedEnvironment, scanAllPrefixed, delManyRaw } from "./redis.js";
 
 // ---- Admin: leaderboard resets ----
 export type AdminResetScope = "survival" | "bossraid" | "we" | "conquer";
@@ -19,6 +19,19 @@ export async function adminClearAllLeaderboards(): Promise<string[]> {
   const keys: string[] = [];
   for (const s of all) keys.push(...await adminClearLeaderboard(s));
   return keys;
+}
+
+/** DEV-ONLY: wipe every Redis key under the current KEY_PREFIX. Returns
+ *  { ok, deleted, scanned }. Hard-refuses to run when no KEY_PREFIX is set
+ *  (production), so this can never accidentally nuke live data. */
+export async function adminWipeDevData(): Promise<{ ok: boolean; reason?: string; scanned: number; deleted: number }> {
+  if (!isPrefixedEnvironment()) {
+    return { ok: false, reason: "KEY_PREFIX not set — refusing to wipe an un-prefixed (likely production) keyspace.", scanned: 0, deleted: 0 };
+  }
+  const keys = await scanAllPrefixed();
+  if (keys.length === 0) return { ok: true, scanned: 0, deleted: 0 };
+  const deleted = await delManyRaw(keys);
+  return { ok: true, scanned: keys.length, deleted };
 }
 
 // A live survival run. Stored at Redis key `run:{runId}` with a TTL.

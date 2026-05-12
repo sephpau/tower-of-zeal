@@ -132,3 +132,60 @@ export async function hmget(key: string, fields: string[]): Promise<(string | nu
   if (!Array.isArray(r)) return fields.map(() => null);
   return r.map(v => (typeof v === "string" ? v : null));
 }
+
+/** True when the runtime is configured with a non-empty KEY_PREFIX — used as
+ *  the "are we on a non-prod environment?" check for destructive admin ops. */
+export function isPrefixedEnvironment(): boolean {
+  return KEY_PREFIX.length > 0;
+}
+
+/** SCAN the entire keyspace (under KEY_PREFIX, since the prefix is added to
+ *  the MATCH pattern) and return every matching key. Used for the dev wipe
+ *  operation. NOTE: bypasses withPrefix() because SCAN's key-of-interest is
+ *  in MATCH, not at args[1] (which is the cursor). */
+export async function scanAllPrefixed(): Promise<string[]> {
+  if (!KEY_PREFIX) return [];
+  const pattern = `${KEY_PREFIX}*`;
+  const all: string[] = [];
+  let cursor = "0";
+  // Safety cap: 1000 SCAN iterations × ~500 keys = 500k keys before we bail.
+  for (let i = 0; i < 1000; i++) {
+    // Build the SCAN args manually so the cursor isn't double-prefixed.
+    const args = ["SCAN", cursor, "MATCH", pattern, "COUNT", "500"];
+    const r = await fetch(URL!, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify(args),
+    });
+    if (!r.ok) throw new Error(`upstash SCAN ${r.status}: ${await r.text()}`);
+    const data = await r.json() as { result?: [string, string[]]; error?: string };
+    if (data.error) throw new Error(`upstash SCAN: ${data.error}`);
+    if (!data.result || !Array.isArray(data.result)) break;
+    const [nextCursor, batch] = data.result;
+    for (const k of batch) all.push(k);
+    cursor = String(nextCursor);
+    if (cursor === "0") break;
+  }
+  return all;
+}
+
+/** Bulk delete N keys, batched 200-at-a-time so we don't blow past Upstash's
+ *  per-request limit. Pass keys that already include the prefix (e.g. from
+ *  scanAllPrefixed). Returns the number actually deleted. */
+export async function delManyRaw(keys: string[]): Promise<number> {
+  if (keys.length === 0) return 0;
+  let deleted = 0;
+  for (let i = 0; i < keys.length; i += 200) {
+    const batch = keys.slice(i, i + 200);
+    const r = await fetch(URL!, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify(["DEL", ...batch]),
+    });
+    if (!r.ok) throw new Error(`upstash DEL ${r.status}: ${await r.text()}`);
+    const data = await r.json() as { result?: number; error?: string };
+    if (data.error) throw new Error(`upstash DEL: ${data.error}`);
+    deleted += typeof data.result === "number" ? data.result : 0;
+  }
+  return deleted;
+}

@@ -6,6 +6,7 @@ import {
   adminClearAllLeaderboards, adminClearLeaderboard, AdminResetScope,
   recordFloorModeClear,
   saveReplayBlob, loadReplayBlob,
+  adminWipeDevData,
 } from "../_lib/runState.js";
 
 const MAX_PARTY_SIZE = 3;
@@ -75,6 +76,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     try {
       const keys = await adminClearLeaderboard(scope as AdminResetScope);
       res.status(200).json({ ok: true, cleared: keys });
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+    }
+    return;
+  }
+  if (op === "admin_wipe_dev") {
+    if (!isAdmin(address)) { res.status(403).json({ error: "admin only" }); return; }
+    try {
+      const r = await adminWipeDevData();
+      if (!r.ok) { res.status(400).json({ error: r.reason ?? "wipe refused" }); return; }
+      res.status(200).json({ ok: true, scanned: r.scanned, deleted: r.deleted });
     } catch (e) {
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
     }

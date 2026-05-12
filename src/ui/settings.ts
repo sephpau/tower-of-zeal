@@ -3,7 +3,10 @@ import { addEnergy, getEnergy, ENERGY_MAX, msUntilNextRefill } from "../core/ene
 import { isAdmin } from "../core/admin";
 import { scopedKey } from "../auth/scope";
 import { saveServerIgn, formatCooldown } from "../auth/ign";
-import { adminGrantServerEnergy, adminFillServerEnergy } from "../auth/energyApi";
+import { adminGrantServerEnergy, adminFillServerEnergy, adminWipeDevServerData } from "../auth/energyApi";
+import { isDevBuild } from "../auth/devBuild";
+import { confirmModal } from "./confirmModal";
+import { clearSession } from "../auth/session";
 
 export interface Settings {
   playerName: string;
@@ -88,6 +91,12 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
               <input type="checkbox" id="setting-dev-class" ${s.devUnlockClass ? "checked" : ""} />
               <span>Allow class re-pick anytime</span>
             </label>
+            ${isDevBuild() ? `
+              <div class="admin-row" style="margin-top: 8px;">
+                <span class="admin-info">⚠ Dev build only — wipes EVERY wallet's data on this dev environment.</span>
+                <button class="ghost-btn" id="admin-wipe-dev" type="button" style="border-color:#ff5a6b;color:#ff5a6b;">Wipe All Dev Data</button>
+              </div>
+            ` : ""}
           </div>
         ` : ""}
 
@@ -144,6 +153,28 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
     const amt = await adminFillServerEnergy();
     if (amt === null) { addEnergy(ENERGY_MAX); alert("Server unreachable — local-only fill (won't persist)."); }
     onClose(); renderSettings(root, onClose);
+  });
+  root.querySelector<HTMLButtonElement>("#admin-wipe-dev")?.addEventListener("click", async () => {
+    const ok = await confirmModal({
+      title: "Wipe All Dev Data?",
+      message: `This deletes EVERY wallet's run / energy / leaderboard / replay / progress entry from the dev Redis (KEY_PREFIX=dev:).<br><br>Live data is untouched. After the wipe, the page will reload — you'll need to sign in again.`,
+      confirmLabel: "Wipe Everything",
+      cancelLabel: "Cancel",
+      danger: true,
+    });
+    if (!ok) return;
+    const r = await adminWipeDevServerData();
+    if (!r.ok) {
+      alert(`Wipe failed: ${r.error ?? "unknown"}`);
+      return;
+    }
+    // Also nuke localStorage so the current player isn't left with stale
+    // cached state (saved IGN, energy, progress, etc.) that contradicts the
+    // empty server.
+    try { localStorage.clear(); } catch { /* ignore */ }
+    clearSession();
+    alert(`Dev wipe complete — scanned ${r.scanned}, deleted ${r.deleted} keys. Reloading…`);
+    location.reload();
   });
 
   root.querySelector<HTMLButtonElement>("#link-wallet")?.addEventListener("click", () => {
