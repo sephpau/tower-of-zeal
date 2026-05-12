@@ -60,6 +60,7 @@ async function bootstrap(): Promise<void> {
         setVerifiedPerks(v.perks);
         setUserScope(v.address);
         ensureWalletInSettings(v.address);
+        startSessionRevalidator();
         void proceedAfterAuth();
         return;
       }
@@ -74,8 +75,40 @@ async function bootstrap(): Promise<void> {
     // Fetch perks immediately after fresh auth so the gate is correct on first render.
     const v = await validateSession(s.token);
     if (v) setVerifiedPerks(v.perks);
+    startSessionRevalidator();
     void proceedAfterAuth();
   });
+}
+
+/** Periodic re-validation. The server's /api/auth/me re-checks both the JWT
+ *  signature AND that the wallet still holds the gated NFT. If the player
+ *  transfers/sells their NFT mid-session, this catches it within REVALIDATE_MS
+ *  and forces them back to the wallet gate. Also catches server-side session
+ *  revocation (e.g. JWT_SECRET rotation). */
+const REVALIDATE_MS = 5 * 60 * 1000; // 5 min
+let revalidateTimer: ReturnType<typeof setInterval> | null = null;
+function startSessionRevalidator(): void {
+  if (revalidateTimer) clearInterval(revalidateTimer);
+  revalidateTimer = setInterval(async () => {
+    if (!currentSession) return;
+    const v = await validateSession(currentSession.token);
+    if (v) {
+      // Refresh perks in case key holding changed (sold/bought MoTZ Key).
+      setVerifiedPerks(v.perks);
+      return;
+    }
+    // Session invalidated server-side — wallet sold NFT, JWT expired, or
+    // secret rotated. Hard-clear and route back to the gate.
+    forceReauth();
+  }, REVALIDATE_MS);
+}
+
+function forceReauth(): void {
+  if (revalidateTimer) { clearInterval(revalidateTimer); revalidateTimer = null; }
+  currentSession = null;
+  clearSession();
+  // Wipe screen state and force the wallet gate. Reload is the safest reset.
+  location.reload();
 }
 
 async function proceedAfterAuth(): Promise<void> {
