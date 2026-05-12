@@ -1,9 +1,9 @@
 const UNIT_ART_IDS = new Set([
-  "soda", "ego", "gruyere", "calypso", "calico", "nova", "hera", "aspen", "oge",
+  "soda", "ego", "gruyere", "calypso", "calico", "nova", "hera", "aspen", "oge", "shego",
 ]);
 
 /** Player units that require holding the MoTZ Vault Key to use. */
-export const MOTZ_KEY_LOCKED_UNITS = new Set(["hera", "nova", "oge"]);
+export const MOTZ_KEY_LOCKED_UNITS = new Set(["hera", "nova", "oge", "shego"]);
 
 import { getVerifiedPerks } from "../auth/session";
 

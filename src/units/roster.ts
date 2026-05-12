@@ -96,9 +96,16 @@ export const OGE: UnitTemplate = {
   unitGrowth:    { STR: 0.5, DEF: 1.5, AGI: 0.2, DEX: 0.3, VIT: 1.5, INT: 0.0 },
   startingSkills: ["idle"],
 };
+export const SHEGO: UnitTemplate = {
+  id: "shego", name: "Shego", portrait: "🌿",
+  unitBaseStats: { STR: 2, DEF: 15, AGI: 4, DEX: 3, VIT: 15, INT: 1 },
+  unitGrowth:    { STR: 0.2, DEF: 1.5, AGI: 0.4, DEX: 0.3, VIT: 1.5, INT: 0.1 },
+  startingSkills: ["idle"],
+  basicAttackKind: "magical",
+};
 
 export const PLAYER_ROSTER: UnitTemplate[] = [
-  SODA, EGO, GRUYERE, CALYPSO, CALICO, NOVA, HERA, ASPEN, OGE,
+  SODA, EGO, GRUYERE, CALYPSO, CALICO, NOVA, HERA, ASPEN, OGE, SHEGO,
 ];
 
 export const MAX_PARTY_SIZE = 3;
