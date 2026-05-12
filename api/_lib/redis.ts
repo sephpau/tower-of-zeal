@@ -2,12 +2,26 @@
 // Env vars (set in Vercel project settings):
 //   UPSTASH_REDIS_REST_URL
 //   UPSTASH_REDIS_REST_TOKEN
+//   KEY_PREFIX                  — optional. Prepended to every key (e.g. "dev:")
+//                                 so dev + prod can share one Upstash database
+//                                 without colliding. Production: leave unset.
 
 const URL = process.env.UPSTASH_REDIS_REST_URL;
 const TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+const KEY_PREFIX = process.env.KEY_PREFIX ?? "";
 
 function ensureConfigured(): void {
   if (!URL || !TOKEN) throw new Error("Upstash Redis not configured (UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN)");
+}
+
+/** Apply the KEY_PREFIX to args[1] (every Redis command in this file places
+ *  the target key in slot 1: SET key …, ZADD key …, GET key, etc.). When
+ *  KEY_PREFIX is empty, args pass through unchanged (production behavior). */
+function withPrefix(args: (string | number)[]): (string | number)[] {
+  if (!KEY_PREFIX || args.length < 2 || typeof args[1] !== "string") return args;
+  const next = args.slice();
+  next[1] = `${KEY_PREFIX}${args[1]}`;
+  return next;
 }
 
 async function call(args: (string | number)[]): Promise<unknown> {
@@ -15,7 +29,7 @@ async function call(args: (string | number)[]): Promise<unknown> {
   const r = await fetch(URL!, {
     method: "POST",
     headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
-    body: JSON.stringify(args),
+    body: JSON.stringify(withPrefix(args)),
   });
   if (!r.ok) throw new Error(`upstash ${r.status}: ${await r.text()}`);
   const data = await r.json() as { result?: unknown; error?: string };
