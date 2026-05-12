@@ -12,13 +12,16 @@
 
 import { Stats } from "./stats";
 
+// v5: tank skills (Shego's set + Oge's set) now scale buff power with VIT/DEF.
+//     A v4 replay where Oge used Iron Bulwark would diverge because the
+//     stat_buff now applies a larger boost in v5.
 // v4: idle now heals 2% maxHp / 3% maxMp. Idle was previously a no-op, so any
 //     v3 replay would diverge once a unit idled (extra HP/MP changing later
 //     damage rolls).
 // v3: combat sim now uses a fixed timestep (SIM_STEP). Replays recorded under
 //     the old variable-dt sim could pick a different actor when two combatants
 //     hit full gauge in the same frame, diverging RNG consumption.
-export const REPLAY_VERSION = 4;
+export const REPLAY_VERSION = 5;
 
 export interface ReplayPartyMember {
   templateId: string;

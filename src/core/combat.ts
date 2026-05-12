@@ -731,10 +731,7 @@ function runActionResolution(b: Battle, attacker: Combatant, skill: Skill, actio
         const allies = b.combatants.filter(c => c.alive && c.side === attacker.side);
         for (const a of allies) {
           for (const eff of skill.applies) {
-            const scaled = eff.id === "heal" && skill.scalesWith && skill.scalesWith.length > 0
-              ? { ...eff, power: eff.power + healScaleBonus(attacker, skill.scalesWith) }
-              : eff;
-            maybeApplyEffect(b, attacker, a, scaled);
+            maybeApplyEffect(b, attacker, a, scaleEffectIfRelevant(attacker, skill, eff));
           }
         }
       }
@@ -776,7 +773,9 @@ function finalizePostAction(b: Battle, attacker: Combatant, skill: Skill, didDam
 
   // Self-buff applications (e.g., Guardian Wall on caster).
   if (skill.selfApplies && skill.selfApplies.length > 0) {
-    for (const eff of skill.selfApplies) maybeApplyEffect(b, attacker, attacker, eff);
+    for (const eff of skill.selfApplies) {
+      maybeApplyEffect(b, attacker, attacker, scaleEffectIfRelevant(attacker, skill, eff));
+    }
   }
 
   // Decrement effects on the actor at end of their action.
@@ -961,6 +960,44 @@ function healScaleBonus(caster: Combatant, scaling: NonNullable<Skill["scalesWit
     bonus += (stat * weight) / 10;
   }
   return Math.floor(bonus);
+}
+
+/** Percentage bonus added to effect.power for buff/debuff effects.
+ *  Each contributing stat adds (stat * weight) / 200 → VIT 15 + DEF 15 = +0.15.
+ *  At Lv 30 with full tank growth ((60+60)/200 = +0.60) a tank's reflect or
+ *  damage-reduction becomes meaningfully oppressive — capped per call site. */
+const BUFF_SCALE_DIVISOR = 200;
+function buffScaleBonus(caster: Combatant, scaling: NonNullable<Skill["scalesWith"]>): number {
+  let bonus = 0;
+  for (const s of scaling) {
+    const weight = s.weight ?? 1;
+    const stat = caster.stats[s.stat] ?? 0;
+    bonus += (stat * weight) / BUFF_SCALE_DIVISOR;
+  }
+  return bonus;
+}
+
+/** Effect ids whose `power` is a fraction in [0..1] (or ~0..2 for atk_buff) and
+ *  benefits from being scaled by caster stats when the skill declares scalesWith. */
+const SCALABLE_BUFF_IDS = new Set<string>([
+  "dmg_reduction", "damage_reflect", "atk_buff", "stat_buff", "vulnerability",
+]);
+
+/** Returns a copy of `eff` with power scaled by the caster's stats when
+ *  appropriate. Caps reductions/reflects at 0.95, atk_buff at 2.0 so a
+ *  Shego at Lv 30 doesn't reach 100% reflect/immunity. Heal scaling stays
+ *  on its own additive path via healScaleBonus. */
+function scaleEffectIfRelevant(caster: Combatant, skill: Skill, eff: EffectApplication): EffectApplication {
+  if (!skill.scalesWith || skill.scalesWith.length === 0) return eff;
+  if (eff.id === "heal") {
+    return { ...eff, power: eff.power + healScaleBonus(caster, skill.scalesWith) };
+  }
+  if (!SCALABLE_BUFF_IDS.has(eff.id)) return eff;
+  const bonus = buffScaleBonus(caster, skill.scalesWith);
+  let power = eff.power + bonus;
+  const cap = eff.id === "atk_buff" || eff.id === "stat_buff" || eff.id === "vulnerability" ? 2.0 : 0.95;
+  if (power > cap) power = cap;
+  return { ...eff, power };
 }
 
 function maybeApplyEffect(b: Battle, source: Combatant, target: Combatant, eff: EffectApplication): void {
