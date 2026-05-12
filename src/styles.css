@@ -1336,8 +1336,8 @@ body:has(.battle) {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 14px;
-  display: flex; flex-direction: column; gap: 10px;
+  padding: 10px 12px 12px;
+  display: flex; flex-direction: column; gap: 8px;
   position: relative;
 }
 .unit-card.locked-card { opacity: 0.55; filter: grayscale(0.4); }
@@ -1371,18 +1371,19 @@ body:has(.battle) {
   border-radius: 4px;
   z-index: 3;
 }
-.unit-card-head { display: flex; gap: 12px; align-items: center; }
+.unit-card-head { display: flex; gap: 10px; align-items: center; }
 .unit-card-head .portrait {
-  font-size: 30px;
-  width: 56px; height: 56px;
+  font-size: 26px;
+  width: 46px; height: 46px;
 }
 .unit-card-name {
   font-family: "Cinzel", "Times New Roman", serif;
-  font-weight: 700; font-size: 18px;
-  letter-spacing: 0.06em;
+  font-weight: 700; font-size: 16px;
+  letter-spacing: 0.05em;
   color: var(--gold-bright);
+  line-height: 1.1;
 }
-.unit-card-hp { font-size: 11px; opacity: 0.75; margin-top: 2px; }
+.unit-card-hp { font-size: 10px; opacity: 0.75; margin-top: 2px; }
 
 .xp-row { display: flex; gap: 8px; align-items: center; }
 .xp-row-label {
@@ -1391,7 +1392,8 @@ body:has(.battle) {
 }
 .xp-row .bar { flex: 1; height: 10px; }
 
-.hex-wrap { display: grid; place-items: center; padding: 4px 0; }
+.hex-wrap { display: grid; place-items: center; padding: 0; }
+.hex-wrap svg { max-width: 100%; height: auto; }
 .hex-stat { display: block; }
 .hex-legend {
   display: flex; gap: 14px; justify-content: center;
@@ -1406,26 +1408,27 @@ body:has(.battle) {
 .derived-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
+  gap: 3px;
 }
 .pill {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 6px;
+  border-radius: 5px;
+  padding: 3px 4px;
   display: flex; flex-direction: column;
-  align-items: center; gap: 1px;
+  align-items: center; gap: 0;
 }
-.pill-label { font-size: 9px; opacity: 0.6; letter-spacing: 0.05em; text-transform: uppercase; }
-.pill-value { font-size: 13px; font-weight: 700; color: var(--gold-bright); }
+.pill-label { font-size: 8px; opacity: 0.55; letter-spacing: 0.06em; text-transform: uppercase; }
+.pill-value { font-size: 12px; font-weight: 700; color: var(--gold-bright); line-height: 1.2; }
 
 .unit-card-lore {
-  font-size: 12px;
+  font-size: 11px;
   font-style: italic;
-  opacity: 0.7;
+  opacity: 0.6;
   border-top: 1px dashed var(--border);
-  padding-top: 8px;
-  line-height: 1.4;
+  padding-top: 6px;
+  line-height: 1.35;
+  margin-top: 2px;
 }
 
 /* Stat allocation */

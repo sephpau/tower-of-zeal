@@ -118,7 +118,7 @@ function unitCardHtml(t: UnitTemplate, isPicking: boolean, devUnlock: boolean, a
 
       ${isPlayer ? classRowHtml(t, classId, isPicking, devUnlock) : ""}
 
-      <div class="hex-wrap">${hexStatSvg({ unit, classBase: cls, custom: cust, size: 220 })}</div>
+      <div class="hex-wrap">${hexStatSvg({ unit, classBase: cls, custom: cust, size: 150 })}</div>
 
       ${isPlayer ? statSummaryHtml(t.id, cust, points) : ""}
 
@@ -305,12 +305,22 @@ function skillLoadoutHtml(t: UnitTemplate, classId: string | undefined, level: n
 }
 
 function statSummaryHtml(templateId: string, custom: Stats, points: number): string {
-  const allocated = STAT_KEYS.map(k => `<span class="stat-mini">${k} +${custom[k]}</span>`).join("");
+  // Show the per-stat allocation chips only when there's something to look at —
+  // either the player has put points in OR has points to spend. A roster of
+  // "STR +0 DEF +0 AGI +0 …" chips for every Lv 1 unit is pure noise.
+  const totalAllocated = STAT_KEYS.reduce((sum, k) => sum + (custom[k] ?? 0), 0);
+  const showChips = totalAllocated > 0;
+  const chips = showChips
+    ? STAT_KEYS.filter(k => (custom[k] ?? 0) > 0)
+        .map(k => `<span class="stat-mini">${k} +${custom[k]}</span>`).join("")
+    : "";
+  // Skip the row entirely when nothing to allocate AND nothing already spent.
+  if (!showChips && points <= 0) return "";
   return `
     <div class="stat-alloc-row">
-      <div class="stat-mini-grid">${allocated}</div>
+      <div class="stat-mini-grid">${chips}</div>
       <button class="alloc-open-btn" data-open-alloc="${escapeAttr(templateId)}" type="button" ${points <= 0 ? "disabled" : ""}>
-        Stat Point Allocation${points > 0 ? ` · ${points} pt${points === 1 ? "" : "s"}` : ""}
+        ${points > 0 ? `Allocate · ${points} pt${points === 1 ? "" : "s"}` : "Allocated"}
       </button>
     </div>
   `;
