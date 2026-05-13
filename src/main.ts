@@ -725,7 +725,12 @@ async function onStagePicked(pick: StagePick): Promise<void> {
 function showSquadSelect(): void {
   screen = "squad_select";
   battle = null;
-  renderSquadSelect(root!, currentStageId, startBattleFromSquad, showStageSelect);
+  // Campaign buffs are floor-mode only — pass the active mode so the buff
+  // selector is hidden on Survival / Boss Raid.
+  const ssMode = mode === "survival" ? "survival"
+              : mode === "boss_raid" ? "boss_raid"
+              : "floor";
+  renderSquadSelect(root!, currentStageId, startBattleFromSquad, showStageSelect, ssMode);
 }
 
 function showUnits(): void {

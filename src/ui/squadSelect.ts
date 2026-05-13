@@ -56,7 +56,15 @@ function sortRoster(roster: UnitTemplate[], key: SortKey, dir: "asc" | "desc"): 
   return out;
 }
 
-export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm: (r: SquadResult) => void, onBack: () => void): void {
+export type SquadSelectMode = "floor" | "survival" | "boss_raid";
+
+export function renderSquadSelect(
+  root: HTMLElement,
+  stageId: number,
+  onConfirm: (r: SquadResult) => void,
+  onBack: () => void,
+  mode: SquadSelectMode = "floor",
+): void {
   const picks: UnitTemplate[] = [];
   const stage = getStage(stageId) ?? STAGE_DEFS[0];
   // Reset cached inventory so re-entering the screen re-fetches the live state
@@ -113,12 +121,14 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
               ${enemyChipsHtml(stage.enemies, !!stage.soloBoss)}
             </div>
             <div class="squad-actions-side">
-              <div class="buff-slot-row" id="buff-slot-row">
-                <div class="buff-slot-label">Campaign Buff <span class="buff-slot-rule">— pick ONE for this floor</span></div>
-                <div class="buff-slot-icons" id="buff-slot-icons">
-                  <div class="buff-slot-empty">Loading…</div>
+              ${mode === "floor" ? `
+                <div class="buff-slot-row" id="buff-slot-row">
+                  <div class="buff-slot-label">Campaign Buff <span class="buff-slot-rule">— pick ONE for this floor</span></div>
+                  <div class="buff-slot-icons" id="buff-slot-icons">
+                    <div class="buff-slot-empty">Loading…</div>
+                  </div>
                 </div>
-              </div>
+              ` : ""}
               <button class="confirm-btn" id="confirm" ${placed === 0 ? "disabled" : ""}>
                 Start Battle (${placed} unit${placed === 1 ? "" : "s"})
               </button>
@@ -130,10 +140,16 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
 
     root.querySelector("#back-btn")?.addEventListener("click", onBack);
 
-    // Mount the buff selector once per draw — async fetch can finish after
-    // re-renders, so we always re-target the current DOM node by id.
-    // Floor 50 (World Ender) disables all buffs and shows a notice in their place.
-    void mountBuffSelector(root, stage.id === 50);
+    // Mount the buff selector only on Campaign (floor) mode — Survival and
+    // Boss Raid don't use campaign buffs. Floor 50 disables them and shows
+    // a notice in place of the chip row.
+    if (mode === "floor") {
+      void mountBuffSelector(root, stage.id === 50);
+    } else if (getPendingBuff()) {
+      // If a buff is somehow left chosen from a previous floor run, clear it
+      // so it isn't auto-consumed when starting an endless-mode run.
+      setPendingBuff(null);
+    }
 
     root.querySelector<HTMLSelectElement>("#roster-sort-key")?.addEventListener("change", e => {
       lastSortKey = (e.target as HTMLSelectElement).value as SortKey;
