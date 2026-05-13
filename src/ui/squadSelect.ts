@@ -339,11 +339,18 @@ async function mountBuffSelector(root: HTMLElement, isFloor50: boolean): Promise
   fresh.innerHTML = owned.map(({ def, count }) => `
     <button class="buff-icon-btn ${pending === def.id ? "slotted" : ""}"
             data-buff="${def.id}"
-            title="${escapeAttr(def.name + " — " + def.description)}"
             type="button">
       <span class="buff-icon-glyph">${iconGlyphFor(def.id)}</span>
       <span class="buff-icon-count">${count}</span>
       <span class="buff-icon-name">${escapeHtml(def.name)}</span>
+      <div class="buff-icon-tooltip" role="tooltip">
+        <div class="buff-tip-head">
+          <span class="buff-tip-icon">${iconGlyphFor(def.id)}</span>
+          <span class="buff-tip-title">${escapeHtml(def.name)}</span>
+        </div>
+        <div class="buff-tip-desc">${escapeHtml(def.description)}</div>
+        <div class="buff-tip-meta">⚠ Not usable on Floor 50 (World Ender)</div>
+      </div>
     </button>
   `).join("");
 

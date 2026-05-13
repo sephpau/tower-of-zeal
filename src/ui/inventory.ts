@@ -9,7 +9,6 @@ import {
   SHOP_CATALOG, ShopItemDef, ShopItemId,
   fetchShopStatus, useEnergyItem,
 } from "../core/shop";
-import { setPendingBuff, getPendingBuff } from "../main";
 
 export async function renderInventory(root: HTMLElement, onBack: () => void): Promise<void> {
   root.innerHTML = `
@@ -98,15 +97,7 @@ async function draw(root: HTMLElement): Promise<void> {
     });
   });
 
-  // Wire buff "Slot for next run" buttons.
-  body.querySelectorAll<HTMLButtonElement>("[data-slot-buff]").forEach(btn => {
-    const id = btn.dataset.slotBuff as ShopItemId;
-    btn.addEventListener("click", () => {
-      const cur = getPendingBuff();
-      setPendingBuff(cur === id ? null : id);
-      void draw(root);
-    });
-  });
+  // Buffs are chosen from Squad Select now — no buff button handler here.
 }
 
 function tempKeyCardHtml(expiresAt: number): string {
@@ -141,17 +132,18 @@ function tempKeyCardHtml(expiresAt: number): string {
 
 function itemRowHtml(def: ShopItemDef, count: number): string {
   const icon = iconFor(def.id);
-  const slotted = def.category === "buff" && getPendingBuff() === def.id;
   let action = "";
   if (def.category === "energy") {
     action = `<button class="confirm-btn inv-use-btn" data-use-energy="${def.id}" type="button">Use</button>`;
   } else if (def.category === "buff") {
-    action = `<button class="ghost-btn inv-slot-btn ${slotted ? "slotted" : ""}" data-slot-buff="${def.id}" type="button">${slotted ? "Chosen ✓" : "Choose for next run"}</button>`;
+    // Buffs are chosen from the Squad Select screen before a battle starts,
+    // not from here. We just show the count + a pointer.
+    action = `<div class="inv-action-hint">Choose before a battle on the <strong>Squad Select</strong> screen.</div>`;
   } else {
     action = `<div class="inv-action-hint">Spend on the <strong>Units</strong> screen</div>`;
   }
   return `
-    <div class="inv-item ${slotted ? "inv-item-slotted" : ""}">
+    <div class="inv-item">
       <div class="inv-item-icon">${icon}</div>
       <div class="inv-item-body">
         <div class="inv-item-head">

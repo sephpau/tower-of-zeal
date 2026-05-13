@@ -894,6 +894,7 @@ body:has(.battle) {
 }
 .buff-slot-blocked strong { color: #ffd0d0; }
 .buff-icon-btn {
+  position: relative; /* anchor for the hover tooltip */
   display: flex;
   align-items: center;
   gap: 6px;
@@ -907,10 +908,12 @@ body:has(.battle) {
   cursor: pointer;
   transition: border-color 0.12s ease, background 0.12s ease, transform 0.06s ease;
 }
-.buff-icon-btn:hover {
+.buff-icon-btn:hover,
+.buff-icon-btn:focus-visible {
   border-color: rgba(251, 191, 36, 0.55);
   background: rgba(251, 191, 36, 0.07);
   transform: translateY(-1px);
+  z-index: 30; /* let the tooltip clear sibling chips */
 }
 .buff-icon-btn.slotted {
   border-color: rgba(251, 191, 36, 0.85);
@@ -941,6 +944,65 @@ body:has(.battle) {
 .buff-icon-name {
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+/* Buff chip hover tooltip — MoTZ glass card anchored below the chip. Mirrors
+   the stage-tile tooltip pattern (no backdrop-filter so z-index isn't trapped). */
+.buff-icon-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  min-width: 240px;
+  max-width: 300px;
+  padding: 10px 12px;
+  background: rgba(8, 10, 24, 0.97);
+  border: 1px solid var(--gold-bright);
+  border-radius: 10px;
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.14s ease-out;
+  z-index: 50;
+  font-family: inherit;
+  white-space: normal;
+}
+.buff-icon-btn:hover .buff-icon-tooltip,
+.buff-icon-btn:focus-visible .buff-icon-tooltip {
+  opacity: 1;
+}
+.buff-tip-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+.buff-tip-icon { font-size: 16px; line-height: 1; }
+.buff-tip-title {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--gold-bright);
+}
+.buff-tip-desc {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.buff-tip-meta {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #ff9c9c;
 }
 
 /* Header row with party count + warning */
