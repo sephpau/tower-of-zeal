@@ -3,12 +3,13 @@ import { PlayerSlot } from "../core/combat";
 import { PLAYER_ROSTER, MAX_PARTY_SIZE, getStage, STAGE_DEFS, unitBaseAtLevel } from "../units/roster";
 import { topBarHtml } from "./settings";
 import { getProgress } from "../core/progress";
-import { Stats, ZERO_STATS, STAT_KEYS, sumStats } from "../core/stats";
+import { Stats, ZERO_STATS, sumStats } from "../core/stats";
 import { classBaseAtLevel } from "../units/classes";
 import { hexStatSvg } from "./hexStat";
 import { portraitInner, capeHtml, isUnitLocked } from "../units/art";
 import { confirmModal } from "./confirmModal";
 import { playBattleStartAnimation } from "./battleStartAnim";
+import { getSkill } from "../skills/registry";
 
 // Effective stats = unit base@lvl + class base@lvl + allocated custom points.
 // Mirrors what makeCombatant does, so the roster preview matches battle reality.
@@ -235,7 +236,21 @@ function rosterItemHtml(t: UnitTemplate, picks: UnitTemplate[], atCap: boolean):
   const unitBase = unitBaseAtLevel(t, lvl);
   const classBase = classBaseAtLevel(classId, lvl);
   const s = sumStats(unitBase, classBase, custom);
-  const statRows = STAT_KEYS.map(k => `<span class="rs-stat"><span class="rs-stat-k">${k}</span><span class="rs-stat-v">${Math.round(s[k])}</span></span>`).join("");
+  // Reference s so its type stays in-scope (hex chart already consumes the
+  // breakdown). Kept for future tooltips on the chips row.
+  void s;
+  const equipped = progress.equippedSkills ?? [];
+  const skillChips = equipped.length > 0
+    ? equipped.map(id => {
+        try {
+          const sk = getSkill(id);
+          return `<span class="rs-skill-chip" title="${escapeAttr(sk.name)}">${escapeHtml(sk.name)}</span>`;
+        } catch {
+          // Skill id from older save / removed skill — skip silently.
+          return "";
+        }
+      }).filter(Boolean).join("")
+    : `<span class="rs-skill-empty">No skills equipped</span>`;
   return `
     <div class="${cls}" data-roster="${escapeAttr(t.id)}">
       ${motzLocked ? `<div class="rs-locked-overlay" title="Requires MoTZ Vault Key">🔒</div>` : ""}
@@ -245,7 +260,7 @@ function rosterItemHtml(t: UnitTemplate, picks: UnitTemplate[], atCap: boolean):
         ${selected ? `<div class="placed-tag">Selected</div>` : ""}
       </div>
       <div class="rs-hex">${hexStatSvg({ unit: unitBase, classBase, custom, size: 140 })}</div>
-      <div class="rs-stat-row">${statRows}</div>
+      <div class="rs-skill-row">${skillChips}</div>
     </div>
   `;
 }
