@@ -3127,6 +3127,18 @@ body:has(.battle) {
   padding: 6px 10px;
   letter-spacing: 0.05em;
 }
+
+.rs-refund-banner {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #7fd0ff;
+  background: rgba(127, 208, 255, 0.10);
+  border: 1px solid rgba(127, 208, 255, 0.55);
+  border-radius: 6px;
+  padding: 6px 10px;
+  letter-spacing: 0.04em;
+}
 .rs-totals {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

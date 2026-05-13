@@ -18,7 +18,7 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
           <div class="codex-list">
             <div class="codex-mode mode-floor">
               <div class="codex-mode-head">Normal Floor Run</div>
-              <p>The main progression loop. Pick a single floor (1–50) and battle through it. <strong>Where you level up your units</strong> — XP rewards are awarded at full multiplier. Floor 1 unlocks Floor 2 only on a successful clear; the tower opens up sequentially. 1 energy per attempt; 3 free retries per day on a defeat before energy is consumed again.</p>
+              <p>The main progression loop. Pick a single floor (1–50) and battle through it. <strong>Where you level up your units</strong> — XP rewards are awarded at full multiplier. Floor 1 unlocks Floor 2 only on a successful clear; the tower opens up sequentially. 1 energy per attempt; on a defeat the server refunds +1 energy back, up to 3 times per PH day.</p>
             </div>
             <div class="codex-mode mode-survival">
               <div class="codex-mode-head">Survival Mode</div>

@@ -51,10 +51,9 @@ export function pickMvpId(units: RunSummaryUnit[]): string | null {
 }
 
 export interface RunSummaryActions {
-  /** If provided, render a "Retry" button. Used for floor-mode defeats with free retries left. */
-  onRetry?: () => void;
-  /** Label for the retry button, e.g. "Retry (1/3 free)". */
-  retryLabel?: string;
+  /** If provided, render a banner letting the player know they got +1 energy
+   *  refunded for the defeat (server-granted, daily-capped). */
+  refundNotice?: string;
   /** If provided, render a "Next Floor" button. Used for floor-mode victories
    *  when the next floor is unlocked and the player has energy. */
   onNextFloor?: () => void;
@@ -102,6 +101,7 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
 
         ${dailyMul > 1 ? `<div class="rs-multiplier-banner">🔥 Daily streak active · ${dailyMul}× XP</div>` : ""}
         ${summary.mvpBonusXp && summary.mvpBonusXp > 0 ? `<div class="rs-mvp-banner">⭐ MVP bonus · +${summary.mvpBonusXp.toLocaleString()} XP (1.2×)</div>` : ""}
+        ${actions.refundNotice ? `<div class="rs-refund-banner">⚡ ${escapeHtml(actions.refundNotice)}</div>` : ""}
 
         <div class="rs-totals">
           <div class="rs-total"><span class="rs-total-label">Damage Dealt</span><span class="rs-total-value">${totalDamageDealt.toLocaleString()}</span></div>
@@ -117,7 +117,6 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
         ${summary.submitted ? `<div class="rs-submitted">✓ Submitted to leaderboard</div>` : ""}
 
         <div class="rs-actions">
-          ${actions.onRetry ? `<button class="confirm-btn" id="rs-retry" type="button">${escapeHtml(actions.retryLabel ?? "Retry")}</button>` : ""}
           ${summary.battleLog && summary.battleLog.length > 0 ? `<button class="ghost-btn" id="rs-log" type="button">Review Battle Log</button>` : ""}
           <button class="ghost-btn" id="rs-home" type="button">Home</button>
           ${actions.onNextFloor ? `<button class="confirm-btn" id="rs-next" type="button">${escapeHtml(actions.nextFloorLabel ?? "Next Floor")}</button>` : ""}
@@ -127,9 +126,6 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
   `;
 
   root.querySelector<HTMLButtonElement>("#rs-home")?.addEventListener("click", onClose);
-  if (actions.onRetry) {
-    root.querySelector<HTMLButtonElement>("#rs-retry")?.addEventListener("click", actions.onRetry);
-  }
   if (actions.onNextFloor) {
     root.querySelector<HTMLButtonElement>("#rs-next")?.addEventListener("click", actions.onNextFloor);
   }
