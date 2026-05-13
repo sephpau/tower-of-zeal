@@ -12,7 +12,7 @@ import {
   readBoughtToday, markBoughtToday, consumeBuff,
   SHOP_BUFF_IDS, ShopItemId, BUFF_GRANT_SIZE,
   grantTempMotzKey, readTempMotzKey,
-  readBron, rollBronForKills,
+  rollBronForKills,
   MAX_KILLS_PER_ROLL, MAX_BOSS_KILLS_PER_ROLL, MAX_WORLD_ENDER_KILLS_PER_ROLL,
 } from "../_lib/runState.js";
 
@@ -137,22 +137,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  // ---- bRON voucher balance ----
-  // bron_status: read the wallet's current balance.
-  // bron_roll:   client reports per-battle kill counts; server rolls drops
-  //              with crypto RNG, credits the balance, returns the breakdown.
-  //              All drop randomness is server-side, so devtools cannot mint
-  //              vouchers. Boss kills get a 2× multiplier on each tier's chance.
-  if (op === "bron_status") {
-    try {
-      const balance = await readBron(address);
-      res.status(200).json({ ok: true, balance });
-      return;
-    } catch (e) {
-      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
-      return;
-    }
-  }
+  // ---- bRON voucher drops ----
+  // bron_roll: client reports per-battle kill counts; server rolls drops with
+  //            crypto RNG and deposits per-tier vouchers into the wallet's
+  //            shop inventory. There is no longer a running bRON "balance" —
+  //            each tier voucher is its own inventory item, redeemed at end
+  //            of season. Multipliers: mob 1×, boss 2×, world_ender 4×.
   if (op === "bron_roll") {
     const killsRaw = (req.body as { kills?: unknown }).kills;
     const bossRaw = (req.body as { bossKills?: unknown }).bossKills;
@@ -170,7 +160,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       res.status(200).json({
         ok: true,
         drops: result.drops,
-        balance: result.newBalance,
         killsCounted: result.killsCounted,
         bossKillsCounted: result.bossKillsCounted,
         worldEnderKillsCounted: result.worldEnderKillsCounted,

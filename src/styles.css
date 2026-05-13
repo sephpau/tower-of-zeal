@@ -2287,26 +2287,6 @@ body:has(.battle) {
 }
 .energy-hint { font-size: 10px; opacity: 0.55; font-weight: 400; }
 
-/* bRON voucher balance pill on the home screen. Sits below the energy pill. */
-.bron-pill {
-  position: absolute;
-  top: 110px; right: 0;
-  display: inline-flex; align-items: center; gap: 6px;
-  background:
-    linear-gradient(180deg, rgba(251, 191, 36, 0.10) 0%, rgba(251, 191, 36, 0.02) 100%),
-    var(--panel);
-  border: 1px solid rgba(251, 191, 36, 0.55);
-  border-radius: 8px;
-  padding: 6px 12px;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--gold-bright);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-.bron-icon { font-size: 13px; }
-.bron-label { font-size: 9px; opacity: 0.75; font-weight: 600; letter-spacing: 0.10em; }
 
 /* ---------- Battle: surrender + post ---------- */
 .battle-toolbar { display: flex; justify-content: flex-end; }
@@ -4346,8 +4326,7 @@ body:has(.battle) {
   justify-content: center;
   margin-top: 12px;
 }
-.inv-energy-pill,
-.inv-bron-pill {
+.inv-energy-pill {
   display: inline-block;
   padding: 5px 14px;
   border-radius: 999px;
@@ -4359,6 +4338,68 @@ body:has(.battle) {
   font-weight: 700;
   letter-spacing: 0.06em;
 }
+
+/* Voucher section — grid of tier cards, each colored by tier. */
+.inv-section-aside {
+  margin-left: 10px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  text-transform: none;
+}
+.inv-section-aside strong { color: var(--gold-bright); }
+.inv-voucher-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.inv-voucher {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--vchr-color);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--vchr-color) 16%, transparent) 0%, transparent 100%),
+    rgba(8, 11, 28, 0.65);
+  box-shadow: var(--motz-sh-card);
+}
+.inv-voucher-icon { font-size: 22px; }
+.inv-voucher-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.inv-voucher-name {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--vchr-color);
+  letter-spacing: 0.03em;
+}
+.inv-voucher-count {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--motz-glass-border-hi);
+  border-radius: 999px;
+  padding: 1px 7px;
+  letter-spacing: 0.04em;
+}
+.inv-voucher-meta {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.inv-voucher-meta strong { color: var(--gold-bright); font-weight: 700; }
 .inv-loading {
   text-align: center;
   padding: 40px 0;

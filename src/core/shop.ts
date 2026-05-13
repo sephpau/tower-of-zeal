@@ -46,7 +46,10 @@ export const SHOP_CATALOG: ShopItemDef[] = [
 ];
 
 export interface ShopStatus {
-  inventory: { buffs: Partial<Record<ShopItemId, number>> };
+  inventory: {
+    buffs: Partial<Record<ShopItemId, number>>;
+    vouchers?: { t1?: number; t2?: number; t3?: number; t4?: number; t5?: number };
+  };
   boughtToday: Partial<Record<ShopItemId, boolean>>;
   /** State of the seasonal pass — if active, expiresAt is a UTC timestamp. */
   tempMotzKey: { active: boolean; expiresAt?: number };
@@ -63,7 +66,10 @@ export async function fetchShopStatus(): Promise<ShopStatus | null> {
     });
     if (!r.ok) return null;
     const data = await r.json() as {
-      inventory: { buffs: Partial<Record<ShopItemId, number>> };
+      inventory: {
+        buffs: Partial<Record<ShopItemId, number>>;
+        vouchers?: { t1?: number; t2?: number; t3?: number; t4?: number; t5?: number };
+      };
       boughtToday: Partial<Record<ShopItemId, boolean>>;
       tempMotzKey?: { active: boolean; expiresAt?: number };
     };
@@ -134,26 +140,10 @@ export async function consumeShopItem(item: ShopItemId): Promise<boolean> {
   } catch { return false; }
 }
 
-// ---- bRON voucher balance ----
-
-export async function fetchBronBalance(): Promise<number | null> {
-  const tok = token();
-  if (!tok) return null;
-  try {
-    const r = await fetch("/api/run/floor-cleared", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ op: "bron_status" }),
-    });
-    if (!r.ok) return null;
-    const data = await r.json() as { balance: number };
-    return typeof data.balance === "number" ? data.balance : null;
-  } catch { return null; }
-}
+// ---- bRON voucher drops ----
 
 export interface BronRollResult {
   drops: { t1: number; t2: number; t3: number; t4: number; t5: number; total: number };
-  balance: number;
   killsCounted: number;
   bossKillsCounted: number;
 }

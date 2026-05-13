@@ -317,33 +317,12 @@ export async function hasActiveTempMotzKey(address: string): Promise<boolean> {
   return !!cur && cur.expiresAt > Date.now();
 }
 
-// ---- bRON voucher balance (in-game currency) ----
-// Persistent ledger per wallet. Earned via mob drops mid-battle; spent on shop
-// items; cashed out at end of season. Stored as a plain number under bron:<wallet>
-// with a long TTL so a wallet that goes inactive doesn't lose its balance.
-const BRON_TTL_SECONDS = 60 * 60 * 24 * 365 * 5; // 5 years
-/** Safety cap for a single bron_credit call. The client sends the per-battle
- *  total; this stops a tampered client from minting millions in one call. */
-export const MAX_BRON_CREDIT_PER_CALL = 2000;
-
-function bronKey(address: string): string { return `bron:${address.toLowerCase()}`; }
-
-interface BronState { amount: number; }
-
-export async function readBron(address: string): Promise<number> {
-  const raw = await getJson<BronState>(bronKey(address));
-  return raw && Number.isFinite(raw.amount) ? Math.max(0, Math.floor(raw.amount)) : 0;
-}
-/** Atomically add `delta` bRON to the wallet (clamped to MAX_BRON_CREDIT_PER_CALL).
- *  TTL is re-armed on every write so an active wallet's balance won't expire. */
-export async function creditBron(address: string, delta: number): Promise<number> {
-  const safe = Math.max(0, Math.min(MAX_BRON_CREDIT_PER_CALL, Math.floor(delta)));
-  const cur = await readBron(address);
-  if (safe === 0) return cur;
-  const next = cur + safe;
-  await setJson(bronKey(address), { amount: next }, BRON_TTL_SECONDS);
-  return next;
-}
+// ---- bRON vouchers ----
+// Dropped via rollBronForKills and stored in the wallet's shop inventory as
+// per-tier voucher counts (inventory.vouchers.{t1..t5}). There is no separate
+// running "balance" — players redeem the tier vouchers at end of season for
+// their bRON value. The previous balance ledger was removed because we want
+// the player to see what they actually own, not an aggregated total.
 
 // ---- Server-authoritative bRON drop roller ----
 // All drop randomness lives on the server. The client reports kill events
@@ -377,7 +356,6 @@ export const WORLD_ENDER_DROP_MULTIPLIER = 4.0;
 
 export interface BronRollResult {
   drops: { t1: number; t2: number; t3: number; t4: number; t5: number; total: number };
-  newBalance: number;
   killsCounted: number;
   bossKillsCounted: number;
   worldEnderKillsCounted: number;
@@ -385,8 +363,9 @@ export interface BronRollResult {
 
 /** Server-side roll: takes the claimed kill counts by tier (mob/boss/world_ender),
  *  applies caps, rolls each kill independently with Node's crypto RNG using the
- *  tier's drop multiplier, credits the total to the wallet, and returns the
- *  per-tier breakdown. */
+ *  tier's drop multiplier, deposits the resulting vouchers into the wallet's
+ *  shop inventory, and returns the per-tier breakdown. There is no running
+ *  bRON "balance" anymore — each tier voucher is its own inventory item. */
 export async function rollBronForKills(
   address: string,
   kills: number,
@@ -413,13 +392,20 @@ export async function rollBronForKills(
   for (let i = 0; i < safeBoss; i++) rollOnce(BOSS_DROP_MULTIPLIER);
   for (let i = 0; i < safeWE; i++)   rollOnce(WORLD_ENDER_DROP_MULTIPLIER);
 
-  const newBalance = drops.total > 0
-    ? await creditBron(address, drops.total)
-    : await readBron(address);
+  // Deposit vouchers into the wallet's shop inventory (single write).
+  if (drops.t1 + drops.t2 + drops.t3 + drops.t4 + drops.t5 > 0) {
+    const inv = await readShopInventory(address);
+    inv.vouchers = inv.vouchers ?? {};
+    inv.vouchers.t1 = (inv.vouchers.t1 ?? 0) + drops.t1;
+    inv.vouchers.t2 = (inv.vouchers.t2 ?? 0) + drops.t2;
+    inv.vouchers.t3 = (inv.vouchers.t3 ?? 0) + drops.t3;
+    inv.vouchers.t4 = (inv.vouchers.t4 ?? 0) + drops.t4;
+    inv.vouchers.t5 = (inv.vouchers.t5 ?? 0) + drops.t5;
+    await writeShopInventory(address, inv);
+  }
 
   return {
     drops,
-    newBalance,
     killsCounted: safeMob,
     bossKillsCounted: safeBoss,
     worldEnderKillsCounted: safeWE,
@@ -447,6 +433,9 @@ interface ShopInventory {
   /** Map of buff id → count owned (un-consumed). Buffs are 1/day buy, so the
    *  daily-bought key prevents re-purchase, while count tracks unused stock. */
   buffs: Partial<Record<ShopItemId, number>>;
+  /** Per-tier bRON voucher stash. Server is the only writer (via rollBronForKills).
+   *  Held until end-of-season redemption. Missing → all zero. */
+  vouchers?: { t1?: number; t2?: number; t3?: number; t4?: number; t5?: number };
 }
 
 function shopBoughtKey(itemId: ShopItemId, address: string): string {
@@ -459,9 +448,11 @@ const SHOP_INV_TTL = 60 * 60 * 24 * 365; // 1 year — inventory persists indefi
 
 export async function readShopInventory(address: string): Promise<ShopInventory> {
   const raw = await getJson<ShopInventory>(shopInventoryKey(address));
-  return raw && typeof raw === "object" && raw.buffs && typeof raw.buffs === "object"
-    ? { buffs: raw.buffs }
-    : { buffs: {} };
+  if (raw && typeof raw === "object" && raw.buffs && typeof raw.buffs === "object") {
+    const vouchers = raw.vouchers && typeof raw.vouchers === "object" ? raw.vouchers : {};
+    return { buffs: raw.buffs, vouchers };
+  }
+  return { buffs: {}, vouchers: {} };
 }
 export async function writeShopInventory(address: string, inv: ShopInventory): Promise<void> {
   await setJson(shopInventoryKey(address), inv, SHOP_INV_TTL);
