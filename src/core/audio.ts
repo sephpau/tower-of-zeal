@@ -18,6 +18,23 @@ function sfxAllowed(): boolean {
   try { return loadSettings().sfxOn; } catch { return true; }
 }
 
+// User-facing SFX volume (0..1). Independent from the bgm volume slider.
+// Each individual sound source applies its own gain on top of this master.
+const SFX_VOL_KEY = "toz.sfx.volume";
+function readSfxVolume(): number {
+  try {
+    const raw = localStorage.getItem(SFX_VOL_KEY);
+    if (raw === null) return 0.8;
+    const n = Number(raw);
+    return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0.8;
+  } catch { return 0.8; }
+}
+export function getSfxVolume(): number { return readSfxVolume(); }
+export function setSfxVolume(v: number): void {
+  const clamped = Math.max(0, Math.min(1, v));
+  try { localStorage.setItem(SFX_VOL_KEY, String(clamped)); } catch { /* ignore */ }
+}
+
 interface Tone {
   freq: number;
   type?: OscillatorType;
@@ -39,7 +56,8 @@ function blip(t: Tone): void {
   if (t.endFreq !== undefined) {
     o.frequency.linearRampToValueAtTime(t.endFreq, a.currentTime + dur);
   }
-  const peak = t.gain ?? 0.08;
+  // Scale per-sound peak gain by the user's SFX volume slider.
+  const peak = (t.gain ?? 0.08) * readSfxVolume();
   g.gain.setValueAtTime(0, a.currentTime);
   g.gain.linearRampToValueAtTime(peak, a.currentTime + 0.005);
   g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
@@ -59,6 +77,7 @@ const SAMPLE_SRC: Record<string, string> = {
   hitMag: "/sfx/hit-magical.wav",
   castBuff: "/sfx/cast-buff.wav",
   victory: "/sfx/victory.mp3",
+  swordClash: "/sfx/sword sound.m4a",
 };
 const sampleCache: Record<string, HTMLAudioElement> = {};
 function preloadSample(key: string): void {
@@ -70,7 +89,7 @@ function preloadSample(key: string): void {
   a.preload = "auto";
   sampleCache[key] = a;
 }
-function playSample(key: string, gain: number): void {
+function playSample(key: string, gain: number, startAtSec = 0): void {
   if (!sfxAllowed()) return;
   if (typeof window === "undefined") return;
   const src = SAMPLE_SRC[key];
@@ -78,7 +97,15 @@ function playSample(key: string, gain: number): void {
   preloadSample(key);
   // Fresh Audio per call so rapid hits don't cut each other off.
   const a = new Audio(src);
-  a.volume = Math.max(0, Math.min(1, gain));
+  a.volume = Math.max(0, Math.min(1, gain * readSfxVolume()));
+  if (startAtSec > 0) {
+    // Some browsers need metadata loaded before currentTime sticks; set both
+    // eagerly and again on loadedmetadata as a safety net.
+    try { a.currentTime = startAtSec; } catch { /* ignore */ }
+    a.addEventListener("loadedmetadata", () => {
+      try { a.currentTime = startAtSec; } catch { /* ignore */ }
+    }, { once: true });
+  }
   a.play().catch(() => undefined);
 }
 
@@ -102,6 +129,9 @@ export const sfx = {
   miss: () => blip({ freq: 220, endFreq: 110, type: "triangle", durMs: 80, gain: 0.04 }),
   fall: () => blip({ freq: 200, endFreq: 60, type: "sawtooth", durMs: 240, gain: 0.10 }),
   victory: () => playSample("victory", 0.5),
+  /** Sword-clash sound for the begin-battle transition. Plays the dedicated
+   *  sword-clash sample at full volume scaled by the user's SFX slider. */
+  skirmish: () => playSample("swordClash", 0.8, 2.5),
   defeat: () => chord([
     { freq: 392, type: "sawtooth", durMs: 220, gain: 0.06 },
     { freq: 311, type: "sawtooth", durMs: 320, gain: 0.07 },

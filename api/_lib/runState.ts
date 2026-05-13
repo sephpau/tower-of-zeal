@@ -246,9 +246,12 @@ export async function readFloorRetries(address: string): Promise<number> {
 // Tracked separately from the survival/boss-raid leaderboards because this
 // is specifically about the standalone Floor 50 fight in normal floor mode.
 export const WORLD_ENDER_LB_KEY = "lb:world_ender_fastest:v1";
-// Minimum acceptable clear time (server side anti-cheat). World Ender on Lv30
-// with 1400 HP and ~6× damage taken multiplier won't fall in less than this.
-export const MIN_WORLD_ENDER_MS = 10_000;
+// Minimum acceptable clear time (server side anti-cheat). Lowered to 2s after
+// World End! (50% AOE instant-kill) + reflect builds made sub-10s clears
+// legitimately possible — anything well under 2s is almost certainly tampered.
+// At the same time the boss's "instant_kill" skill can itself one-shot players,
+// so fights ARE genuinely fast when the rolls go right.
+export const MIN_WORLD_ENDER_MS = 2_000;
 export const MAX_WORLD_ENDER_MS = 30 * 60 * 1000; // 30 min, sanity cap.
 
 export async function submitWorldEnderClear(address: string, ms: number): Promise<{ ok: boolean; improved: boolean }> {

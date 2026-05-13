@@ -119,7 +119,8 @@ export async function fetchReplayBlob<T = unknown>(scope: string, address: strin
 
 export interface FloorRetryStatus { used: number; remaining: number; max: number; }
 
-/** Read remaining free retries for today. Returns null on network failure. */
+/** Read remaining defeat-refund slots for today. Returns null on network failure.
+ *  (Internally still called "retry_status" — same daily counter, repurposed.) */
 export async function fetchFloorRetryStatus(stageId: number): Promise<FloorRetryStatus | null> {
   const sess = sessionToken();
   if (!sess) return null;
@@ -154,20 +155,25 @@ export async function adminResetOneLeaderboard(scope: AdminLbScope): Promise<{ o
   } catch { return { ok: false, error: "network" }; }
 }
 
-/** Atomically consume one free retry. Returns the new state, or { ok: false, ... } on cap. */
-export async function claimFloorRetry(stageId: number): Promise<{ ok: boolean; remaining: number } | null> {
+/** Atomically claim a defeat-refund: server bumps the daily counter and grants
+ *  +1 energy, returning the new state. Returns { ok: false } on cap reached. */
+export async function claimDefeatRefund(stageId: number): Promise<{ ok: boolean; remaining: number; energy?: number } | null> {
   const sess = sessionToken();
   if (!sess) return null;
   try {
     const r = await fetch("/api/run/floor-cleared", {
       method: "POST",
       headers: { Authorization: `Bearer ${sess}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ stageId, op: "retry_claim" }),
+      body: JSON.stringify({ stageId, op: "defeat_refund" }),
     });
-    const data = await r.json().catch(() => ({})) as { ok?: boolean; remaining?: number };
+    const data = await r.json().catch(() => ({})) as { ok?: boolean; remaining?: number; energy?: number };
     if (r.status === 429) return { ok: false, remaining: 0 };
     if (!r.ok) return null;
-    return { ok: !!data.ok, remaining: typeof data.remaining === "number" ? data.remaining : 0 };
+    return {
+      ok: !!data.ok,
+      remaining: typeof data.remaining === "number" ? data.remaining : 0,
+      energy: typeof data.energy === "number" ? data.energy : undefined,
+    };
   } catch { return null; }
 }
 

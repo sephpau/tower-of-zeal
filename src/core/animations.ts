@@ -3,6 +3,22 @@
 
 import { sfx } from "./audio";
 
+// Multi-hit skills (Phantom Flurry, Double Tap, etc.) and AOE skills fire N
+// damage rolls in the same synchronous combat tick. Without staggering, all N
+// `new Audio` sources start at ~0ms offset and overlap into one big fat sound
+// instead of reading as a rapid sequence. We schedule subsequent hits a short
+// delay apart so they audibly trill.
+let nextHitSfxAt = 0;
+const HIT_STAGGER_MS = 70; // ≈14 hits/sec ceiling — fast enough to read as machine-gun, slow enough to count individual hits
+function playStaggeredHitSfx(play: () => void): void {
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const fireAt = Math.max(now, nextHitSfxAt);
+  const delay = fireAt - now;
+  nextHitSfxAt = fireAt + HIT_STAGGER_MS;
+  if (delay <= 0) play();
+  else setTimeout(play, delay);
+}
+
 export type DamageIcon =
   | "sword"        // melee phys
   | "bow"          // range phys
@@ -50,16 +66,18 @@ export function pushDamage(
     color: "#ef4444",
     crit,
   });
+  // Stagger rapid back-to-back hit SFX so multi-hit / AOE skills play as a
+  // sequence ("tat-tat-tat") instead of one piled-up thud.
   if (crit) {
-    sfx.crit();
+    playStaggeredHitSfx(() => sfx.crit());
   } else if (kind === "physical" && range === "melee") {
-    sfx.physMelee();
+    playStaggeredHitSfx(() => sfx.physMelee());
   } else if (kind === "physical") {
-    sfx.physRange();
+    playStaggeredHitSfx(() => sfx.physRange());
   } else if (kind === "magical" && range === "melee") {
-    sfx.magMelee();
+    playStaggeredHitSfx(() => sfx.magMelee());
   } else {
-    sfx.magRange();
+    playStaggeredHitSfx(() => sfx.magRange());
   }
 }
 

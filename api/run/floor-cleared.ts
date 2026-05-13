@@ -8,6 +8,7 @@ import {
   saveReplayBlob, loadReplayBlob,
   adminWipeDevData,
 } from "../_lib/runState.js";
+import { adminGrantEnergy } from "../_lib/energy.js";
 
 const MAX_PARTY_SIZE = 3;
 /** Reject replays whose battles report >MAX_PARTY_SIZE units or duplicates —
@@ -36,8 +37,8 @@ import { adminGrantEnergy, adminFillEnergy, ENERGY_MAX } from "../_lib/energy.js
 // Floor-mode battle event endpoint. Handles three operations to stay under
 // the Vercel Hobby 12-function cap:
 //   op: "clear"     (default) — successful clear; bump XP ceiling (+ optional World Ender time)
-//   op: "retry_status"        — read the wallet's remaining free-retry count for today
-//   op: "retry_claim"         — atomically consume one free retry; 429 if cap reached
+//   op: "retry_status"        — read the wallet's remaining defeat-refund count for today
+//   op: "defeat_refund"       — atomically consume one refund slot AND grant +1 energy; 429 if cap reached
 //
 // Body: { stageId: number, op?: string, ms?: number }
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -147,20 +148,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       return;
     }
 
-    if (op === "retry_claim") {
+    if (op === "defeat_refund") {
+      // Atomic: check the per-wallet daily counter, bump it, then grant +1 energy.
+      // Counter shares the same Redis key the old "retry" feature used (PH-day TTL)
+      // so the cap can't be hacked from devtools — every claim hits the server.
       const beforeUsed = await readFloorRetries(address);
       if (beforeUsed >= FLOOR_RETRIES_PER_DAY) {
         res.status(429).json({ ok: false, used: beforeUsed, remaining: 0, max: FLOOR_RETRIES_PER_DAY });
         return;
       }
       const newUsed = await bumpFloorRetry(address);
-      // Race: another concurrent claim could push us over the cap. If so, refund is irrelevant
-      // because we just enforce >=cap = no more retries; the extra increment still expires daily.
+      // Race: another concurrent claim could push us over the cap. The extra
+      // increment still expires at the next PH boundary, so we just hard-deny.
       if (newUsed > FLOOR_RETRIES_PER_DAY) {
         res.status(429).json({ ok: false, used: newUsed, remaining: 0, max: FLOOR_RETRIES_PER_DAY });
         return;
       }
-      res.status(200).json({ ok: true, used: newUsed, remaining: FLOOR_RETRIES_PER_DAY - newUsed, max: FLOOR_RETRIES_PER_DAY });
+      // Now grant the energy. If this fails, we've already burnt a slot — accept
+      // that small loss vs. the alternative of granting energy without bumping.
+      const energy = await adminGrantEnergy(address, 1);
+      res.status(200).json({
+        ok: true,
+        used: newUsed,
+        remaining: FLOOR_RETRIES_PER_DAY - newUsed,
+        max: FLOOR_RETRIES_PER_DAY,
+        energy,
+      });
       return;
     }
 

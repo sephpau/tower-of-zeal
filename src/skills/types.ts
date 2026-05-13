@@ -53,4 +53,11 @@ export interface Skill {
    *  Set higher (e.g. 300) for skills whose buff power should grow more slowly
    *  with the caster's stats — keeps Lv 30 from blowing past intended caps. */
   buffScaleDivisor?: number;
+  /** When set, the skill rolls a per-target one-shot kill (0..1 chance) instead
+   *  of normal damage. Used for boss "execute" skills like World Ender's
+   *  "World End!" — bypasses damage formulas, resistances, shields, dmg-red. */
+  instantKill?: { chance: number };
+  /** Cooldown the skill starts the battle on (so it can't be used as an
+   *  opener). Applied in makeCombatant. Defaults to 0 (immediately usable). */
+  initialCooldown?: number;
 }

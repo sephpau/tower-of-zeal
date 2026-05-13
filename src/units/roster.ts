@@ -598,6 +598,7 @@ export const WORLD_ENDER: UnitTemplate = {
   startingSkills: [
     "basic_attack", "colossal_slam", "inferno_crash", "celestial_beam",
     "tidal_wave", "earthshaker", "mark_of_death", "phalanx_wall",
+    "world_end",
   ],
   overrideMaxHp: 2400,
   overrideMaxMp: 600,

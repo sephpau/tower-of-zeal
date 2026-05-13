@@ -28,6 +28,16 @@ import {
   damageReflectPct,
 } from "./effects";
 
+/** Enemy template IDs marked as solo bosses in the roster (every soloBoss: true
+ *  stage). Reflect against these only deals 50% — non-boss enemies still take
+ *  the full reflected amount. World Ender is checked separately (full immunity). */
+const BOSS_TEMPLATE_IDS: ReadonlySet<string> = new Set([
+  "stone_sentinel", "wraith_lord", "tower_lord", "iron_behemoth", "storm_lord",
+  "demon_general", "witch_queen", "dragon_lord", "tower_god",
+  "null_hierophant", "the_untouched", "apex_arbiter",
+  // world_ender is intentionally NOT in this set — it has full reflect immunity.
+]);
+
 export type Side = "player" | "enemy";
 
 export interface Position {
@@ -234,7 +244,16 @@ export function makeCombatant(t: UnitTemplate, side: Side, position: Position, o
     alive: true,
     guarding: false,
     skills: [...skills],
-    skillCooldowns: {},
+    // Apply any per-skill initialCooldown so e.g. World Ender's "World End!"
+    // can't be used as an opener — it starts on full cooldown.
+    skillCooldowns: (() => {
+      const cd: Record<string, number> = {};
+      for (const id of skills) {
+        const s = SKILLS[id];
+        if (s && s.initialCooldown && s.initialCooldown > 0) cd[id] = s.initialCooldown;
+      }
+      return cd;
+    })(),
     queuedAction: null,
     level,
     xp,
@@ -739,7 +758,14 @@ function runActionResolution(b: Battle, attacker: Combatant, skill: Skill, actio
   } else if (skill.targeting === "all_enemies") {
     const targets = b.combatants.filter(c => c.alive && c.side !== attacker.side);
     b.log.push(`${attacker.name} unleashes ${skill.name}!`);
-    for (const t of targets) { applyDamageRolls(b, attacker, t, skill, { aoe: true }); didDamage = true; }
+    if (skill.instantKill) {
+      // Per-target one-shot roll. Bypasses damage formulas, resists, shields.
+      for (const t of targets) {
+        if (tryInstantKill(b, attacker, t, skill)) didDamage = true;
+      }
+    } else {
+      for (const t of targets) { applyDamageRolls(b, attacker, t, skill, { aoe: true }); didDamage = true; }
+    }
   } else {
     let target = b.combatants.find(c => c.id === action.targetId);
     if (!target || !target.alive) {
@@ -756,8 +782,12 @@ function runActionResolution(b: Battle, attacker: Combatant, skill: Skill, actio
       }
     }
     if (target) {
-      applyDamageRolls(b, attacker, target, skill);
-      didDamage = true;
+      if (skill.instantKill) {
+        if (tryInstantKill(b, attacker, target, skill)) didDamage = true;
+      } else {
+        applyDamageRolls(b, attacker, target, skill);
+        didDamage = true;
+      }
     }
   }
 
@@ -806,6 +836,33 @@ function findActiveTaunter(b: Battle, side: Side): Combatant | null {
     if (hasEffect(c, "taunt")) return c;
   }
   return null;
+}
+
+/** Roll an instant-kill against one target. Returns true if the roll
+ *  succeeded and the target is now dead. Bypasses damage rolls entirely —
+ *  no defense, resist, shield, or guard check applies. Used by boss
+ *  "execute" skills like World Ender's "World End!". */
+function tryInstantKill(b: Battle, attacker: Combatant, target: Combatant, skill: Skill): boolean {
+  if (!skill.instantKill) return false;
+  if (!target.alive) return false;
+  const chance = Math.max(0, Math.min(1, skill.instantKill.chance));
+  const roll = b.rng.next();
+  if (roll >= chance) {
+    b.log.push(`${attacker.name}'s ${skill.name} misses ${target.name}.`);
+    return false;
+  }
+  // Kill outright. Credit damage = remaining HP for run summary stats.
+  const dmg = target.hp;
+  target.hp = 0;
+  target.alive = false;
+  target.queuedAction = null;
+  if (attacker.side !== target.side) {
+    attacker.damageDealt += dmg;
+    target.damageTaken += dmg;
+    attacker.kills += 1;
+  }
+  b.log.push(`${attacker.name}'s ${skill.name} obliterates ${target.name}!`);
+  return true;
 }
 
 function applyDamageRolls(b: Battle, attacker: Combatant, target: Combatant, skill: Skill, ctx: { aoe?: boolean } = {}): void {
@@ -917,9 +974,16 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
 
   // Damage reflect: defender returns a % of damage taken to the attacker even
   // if the defender died from the hit. Skip cross-reflect (no infinite loops).
+  //   - World Ender: fully immune (the capstone boss can't be reflect-cheesed).
+  //   - Other solo bosses: take 50% of reflected damage. Reflect builds still
+  //     contribute on boss floors, but can't trivialize them by passive return.
+  //   - Non-boss enemies: take 100% of reflected damage as before.
   const reflectPct = damageReflectPct(target);
-  if (reflectPct > 0 && attacker.side !== target.side && attacker.alive && dmg > 0) {
-    const reflectDmg = Math.max(1, Math.floor(dmg * reflectPct));
+  const attackerReflectImmune = attacker.templateId === "world_ender";
+  const attackerIsBoss = BOSS_TEMPLATE_IDS.has(attacker.templateId);
+  if (reflectPct > 0 && attacker.side !== target.side && attacker.alive && dmg > 0 && !attackerReflectImmune) {
+    const bossMul = attackerIsBoss ? 0.5 : 1.0;
+    const reflectDmg = Math.max(1, Math.floor(dmg * reflectPct * bossMul));
     attacker.hp = Math.max(0, attacker.hp - reflectDmg);
     target.damageDealt += reflectDmg;
     attacker.damageTaken += reflectDmg;

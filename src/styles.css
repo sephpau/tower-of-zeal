@@ -789,14 +789,25 @@ body:has(.battle) {
 .screen-sub { margin: 0; opacity: 0.7; font-size: 13px; line-height: 1.5; }
 .screen-sub.small { font-size: 11px; opacity: 0.6; }
 
+/* MoTZ overline pattern: JetBrains Mono uppercase with wide tracking and a
+   trailing hairline. Used for "PLAYER ROSTER", "EQUIPPED", "ALL SKILLS", etc. */
 .section-label {
+  font-family: var(--motz-font-mono);
   font-size: 11px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.15em;
-  opacity: 0.7;
+  letter-spacing: 0.22em;
   color: var(--gold);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   display: flex; justify-content: space-between; align-items: center;
+  gap: 12px;
+}
+.section-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(212, 169, 62, 0.30), transparent);
+  margin-left: 4px;
 }
 
 .roster, .placement, .enemy-config {
@@ -1113,7 +1124,8 @@ body:has(.battle) {
 .stage-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
+  gap: 14px;
+  padding: 4px;
 }
 .stage-grid.full-width { max-width: 1200px; margin: 0 auto; }
 
@@ -1220,52 +1232,123 @@ body:has(.battle) {
   letter-spacing: 0.05em;
   margin-top: 4px;
 }
+/* ---------- Floor tiles (MoTZ glass + gold) ---------- */
+/* Glass surface w/ hairline border + soft inner highlight + drop shadow,
+   matching the rest of the MoTZ design pass (unit cards, leaderboard, etc.).
+   NOTE: deliberately NO backdrop-filter here — it spawns a stacking context
+   and traps the hover tooltip behind later-DOM tiles. We fake glass with a
+   layered gradient + alpha instead. */
 .stage-tile {
-  /* Translucent so the tower background reads through. NOTE: do NOT add
-     backdrop-filter here — it creates a stacking context, which causes
-     hover tooltips from the row above to render BEHIND later-DOM tiles. */
-  background: rgba(15, 20, 50, 0.5);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 18px 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 38%),
+    linear-gradient(180deg, rgba(15, 20, 50, 0.62) 0%, rgba(10, 13, 34, 0.62) 100%);
+  border: 1px solid var(--motz-glass-border);
+  border-radius: 14px;
+  padding: 20px 10px 18px;
   color: var(--text);
   cursor: pointer;
   font-family: inherit;
   text-align: center;
-  transition: background 0.1s, border-color 0.1s, transform 0.05s, box-shadow 0.15s;
+  transition: background 0.14s ease, border-color 0.14s ease,
+              transform 0.08s ease, box-shadow 0.18s ease;
   position: relative;
+  box-shadow: var(--motz-sh-card);
 }
-.stage-tile.unlocked:hover {
-  background: rgba(30, 40, 80, 0.65);
-  border-color: var(--gold-bright);
-  box-shadow: 0 0 14px rgba(244, 211, 94, 0.20);
+.stage-tile.unlocked {
+  border-color: var(--motz-glass-border-hi);
 }
-.stage-tile.unlocked:active { transform: translateY(1px); }
-.stage-tile.unlocked { border-color: var(--border-strong); }
+.stage-tile.unlocked:hover,
+.stage-tile.unlocked:focus-visible {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, rgba(30, 40, 80, 0.70) 0%, rgba(12, 16, 40, 0.70) 100%);
+  border-color: rgba(251, 191, 36, 0.65);
+  transform: translateY(-2px);
+  box-shadow:
+    var(--motz-sh-card),
+    0 0 22px rgba(251, 191, 36, 0.28);
+  /* Lift the whole tile (incl. its tooltip) above later-DOM siblings so the
+     tooltip isn't painted behind the next row of tiles. */
+  z-index: 20;
+}
+.stage-tile.unlocked:active { transform: translateY(0); }
+
+/* Boss floors — gold-haloed surface with a thin gradient strip at the top.
+   The strip + glow are what reads as "premium" in the MoTZ kit. */
 .stage-tile.boss.unlocked {
-  border-color: var(--gold);
-  background: linear-gradient(180deg, rgba(42, 23, 0, 0.55), rgba(15, 20, 50, 0.45));
+  border-color: rgba(251, 191, 36, 0.55);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 38%),
+    linear-gradient(180deg, rgba(58, 32, 4, 0.55) 0%, rgba(10, 13, 34, 0.65) 100%);
+  box-shadow:
+    var(--motz-sh-card),
+    0 0 18px rgba(251, 191, 36, 0.20);
 }
+.stage-tile.boss.unlocked::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 12%; right: 12%;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--motz-gold) 30%,
+    #FFD970 50%,
+    var(--motz-gold) 70%,
+    transparent 100%);
+  border-radius: 0 0 2px 2px;
+  opacity: 0.85;
+}
+.stage-tile.boss.unlocked:hover {
+  border-color: rgba(255, 217, 112, 0.85);
+  box-shadow:
+    var(--motz-sh-card),
+    0 0 28px rgba(251, 191, 36, 0.45);
+}
+
 .stage-tile.locked {
-  opacity: 0.4;
+  opacity: 0.42;
   cursor: not-allowed;
-  background: rgba(6, 9, 30, 0.55);
+  background: linear-gradient(180deg, rgba(6, 9, 30, 0.62) 0%, rgba(4, 6, 22, 0.62) 100%);
+  border-color: var(--motz-glass-border);
+  box-shadow: none;
 }
+
 .stage-num {
   font-family: "Cinzel", "Times New Roman", serif;
-  font-size: 24px; font-weight: 700; margin-bottom: 4px;
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 6px;
   color: var(--gold-bright);
+  letter-spacing: 0.04em;
+  text-shadow:
+    0 0 12px rgba(251, 191, 36, 0.28),
+    0 1px 2px rgba(0, 0, 0, 0.65);
 }
-.stage-tile.locked .stage-num { color: var(--border-strong); }
-.stage-name { font-size: 11px; opacity: 0.85; }
+.stage-tile.locked .stage-num {
+  color: var(--border-strong);
+  text-shadow: none;
+}
+.stage-name {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+/* Top-right tag (BOSS) — MoTZ chip styling: solid color, hairline ring,
+   tiny inner highlight. Kept red for danger semantics. */
 .stage-tag {
   position: absolute;
-  top: 4px; right: 4px;
+  top: 6px;
+  right: 6px;
   font-size: 8px;
   font-weight: 800;
-  letter-spacing: 0.1em;
-  padding: 1px 4px;
-  border-radius: 3px;
+  letter-spacing: 0.12em;
+  padding: 2px 5px;
+  border-radius: 4px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
 /* Stage tooltip — shown on hover/focus over an unlocked tile */
@@ -1331,8 +1414,9 @@ body:has(.battle) {
 .stt-weak { background: rgba(255, 100, 100, 0.18); color: #ff9c9c; }
 .stt-warn { background: rgba(255, 180, 60, 0.2); color: #ffd485; }
 .boss-tag {
-  background: var(--red);
+  background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
   color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 .center { text-align: center; }
 
@@ -1343,13 +1427,21 @@ body:has(.battle) {
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 12px;
 }
+/* MoTZ glassmorphic card surface — lifts off the navy bg, adds depth via
+   inset highlight + card shadow without breaking the cool-navy + gold theme. */
 .unit-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
+  border: 1px solid var(--motz-glass-border);
+  border-radius: var(--motz-r-lg);
   padding: 10px 12px 12px;
   display: flex; flex-direction: column; gap: 8px;
   position: relative;
+  box-shadow: var(--motz-sh-card);
+}
+.unit-card:hover:not(.locked-card) {
+  border-color: rgba(244, 211, 94, 0.25);
+  box-shadow: var(--motz-sh-card), 0 0 18px rgba(244, 211, 94, 0.10);
 }
 .unit-card.locked-card { opacity: 0.55; filter: grayscale(0.4); }
 .unit-locked-overlay {
@@ -1398,22 +1490,41 @@ body:has(.battle) {
 
 .xp-row { display: flex; gap: 8px; align-items: center; }
 .xp-row-label {
-  font-size: 10px; letter-spacing: 0.1em; opacity: 0.7; color: var(--lime);
-  font-weight: 700;
+  font-family: var(--motz-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  color: var(--lime);
 }
 .xp-row .bar { flex: 1; height: 10px; }
 
 .hex-wrap { display: grid; place-items: center; padding: 14px 4px 8px; }
 .hex-wrap svg { max-width: 100%; height: auto; overflow: visible; }
 .hex-stat { display: block; }
+/* Hex legend — MoTZ pill chips for the unit/class/custom layer colors. */
 .hex-legend {
-  display: flex; gap: 14px; justify-content: center;
-  font-size: 11px; opacity: 0.9; padding: 4px 0;
+  display: flex; gap: 10px; justify-content: center;
+  padding: 4px 0 6px;
+  flex-wrap: wrap;
 }
-.hex-legend-item { display: flex; gap: 6px; align-items: center; }
+.hex-legend-item {
+  display: inline-flex; gap: 7px; align-items: center;
+  background: var(--motz-glass);
+  border: 1px solid var(--motz-glass-border);
+  border-radius: var(--motz-r-pill);
+  padding: 4px 12px;
+  font-family: var(--motz-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
 .hex-swatch {
-  width: 12px; height: 12px; border-radius: 3px; display: inline-block;
-  border: 1px solid rgba(0,0,0,0.4);
+  width: 10px; height: 10px; border-radius: 50%; display: inline-block;
+  box-shadow: 0 0 8px currentColor;
 }
 
 .derived-grid {
@@ -1421,24 +1532,42 @@ body:has(.battle) {
   grid-template-columns: repeat(4, 1fr);
   gap: 3px;
 }
+/* MoTZ pill: subtle glass surface, tactical-HUD typography on the label,
+   gold value highlighted. */
 .pill {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 3px 4px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--motz-glass-border);
+  border-radius: var(--motz-r-sm);
+  padding: 4px 4px 3px;
   display: flex; flex-direction: column;
   align-items: center; gap: 0;
 }
-.pill-label { font-size: 8px; opacity: 0.55; letter-spacing: 0.06em; text-transform: uppercase; }
-.pill-value { font-size: 12px; font-weight: 700; color: var(--gold-bright); line-height: 1.2; }
+.pill-label {
+  font-family: var(--motz-font-mono);
+  font-size: 8px;
+  font-weight: 500;
+  opacity: 0.65;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.pill-value {
+  font-family: var(--motz-font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold-bright);
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+}
 
 .unit-card-lore {
+  font-family: var(--motz-font-body);
   font-size: 11px;
   font-style: italic;
-  opacity: 0.6;
-  border-top: 1px dashed var(--border);
-  padding-top: 6px;
-  line-height: 1.35;
+  color: var(--motz-text-muted);
+  opacity: 0.75;
+  border-top: 1px solid var(--motz-glass-border);
+  padding-top: 8px;
+  line-height: 1.45;
   margin-top: 2px;
 }
 
@@ -1826,9 +1955,11 @@ body:has(.battle) {
   display: flex; justify-content: space-between; align-items: center;
 }
 .skill-loadout-label {
+  font-family: var(--motz-font-mono);
   font-size: 11px;
+  font-weight: 500;
   color: var(--cyan);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
 }
 .skill-chips { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -1856,8 +1987,21 @@ body:has(.battle) {
 .skill-chip .skill-tip { width: 240px; z-index: 100; }
 .skill-tip-meta { display: block; opacity: 0.7; margin-top: 4px; font-size: 10px; }
 .skill-loadout-sub {
-  font-size: 10px; color: var(--text-dim); letter-spacing: 0.7px;
-  text-transform: uppercase; margin-top: 8px; margin-bottom: 4px;
+  font-family: var(--motz-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-dim);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-top: 8px;
+  margin-bottom: 4px;
+  display: flex; align-items: center; gap: 10px;
+}
+.skill-loadout-sub::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent);
 }
 .skill-chips-browse .skill-chip { background: transparent; }
 .skill-empty { font-size: 11px; opacity: 0.5; font-style: italic; }
@@ -2002,6 +2146,73 @@ body:has(.battle) {
 .setting-hint { font-size: 10px; opacity: 0.5; }
 .audio-toggles { display: flex; flex-direction: column; gap: 6px; }
 .toggle { display: flex; gap: 8px; align-items: center; font-size: 13px; cursor: pointer; }
+/* Volume slider row — sits indented under its matching toggle. */
+.volume-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 34px;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 2px 24px;
+}
+.volume-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.volume-value {
+  font-family: var(--motz-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold-bright);
+  text-align: right;
+  min-width: 28px;
+}
+.volume-row input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  width: 100%;
+  margin: 0;
+}
+.volume-row input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--gold) 0%, var(--gold-bright) 100%);
+  border: 1px solid var(--border);
+}
+.volume-row input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--gold) 0%, var(--gold-bright) 100%);
+  border: 1px solid var(--border);
+}
+.volume-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--gold-bright);
+  border: 1px solid #2a1a00;
+  margin-top: -5px;
+  box-shadow: 0 0 8px rgba(244, 211, 94, 0.5);
+  cursor: pointer;
+}
+.volume-row input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--gold-bright);
+  border: 1px solid #2a1a00;
+  box-shadow: 0 0 8px rgba(244, 211, 94, 0.5);
+  cursor: pointer;
+}
+.volume-row input[type="range"]:focus { outline: none; }
+.volume-row input[type="range"]:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(244, 211, 94, 0.25), 0 0 8px rgba(244, 211, 94, 0.5);
+}
+
 .setting-actions { display: flex; justify-content: flex-end; }
 
 /* ============================================================
@@ -2443,12 +2654,15 @@ body:has(.battle) {
   margin: 16px auto 0;
 }
 .lb-side { display: flex; flex-direction: column; gap: 16px; }
+/* MoTZ glass board surface. Gold border kept since it reinforces the GT
+   identity, but softened from solid to a translucent gold for less contrast. */
 .lb-board {
-  background: var(--panel);
-  border: 1px solid var(--gold-bright);
-  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(244, 211, 94, 0.45);
+  border-radius: var(--motz-r-lg);
   padding: 14px;
-  box-shadow: 0 0 18px rgba(244, 211, 94, 0.08) inset;
+  box-shadow: var(--motz-sh-card), 0 0 22px rgba(244, 211, 94, 0.08) inset;
   display: flex;
   flex-direction: column;
 }
@@ -2456,13 +2670,21 @@ body:has(.battle) {
   font-family: "Cinzel", "Times New Roman", serif;
   font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   color: var(--gold-bright);
   text-align: center;
-  border-bottom: 1px solid rgba(244, 211, 94, 0.3);
-  padding-bottom: 8px;
-  margin-bottom: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
   text-transform: uppercase;
+  position: relative;
+  text-shadow: 0 0 14px rgba(244, 211, 94, 0.30);
+}
+.lb-board-title::after {
+  content: "";
+  position: absolute;
+  left: 12%; right: 12%; bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(244, 211, 94, 0.55), transparent);
 }
 .lb-rows { display: flex; flex-direction: column; gap: 2px; max-height: 600px; overflow-y: auto; }
 .lb-side .lb-rows { max-height: 240px; }
@@ -2482,14 +2704,24 @@ body:has(.battle) {
 .lb-conquer .lb-row {
   grid-template-columns: 32px 1fr auto;
 }
-.lb-row.me { background: rgba(255, 200, 80, 0.08); border-radius: 4px; }
-.lb-col.rank { color: var(--gold-bright); font-weight: 700; text-align: center; }
+.lb-row.me {
+  background: linear-gradient(90deg, rgba(244, 211, 94, 0.14), rgba(244, 211, 94, 0.04));
+  border-left: 2px solid var(--gold-bright);
+  border-radius: 6px;
+}
+.lb-col.rank {
+  font-family: var(--motz-font-display);
+  color: var(--gold-bright);
+  font-weight: 700;
+  text-align: center;
+  font-size: 13px;
+}
 .lb-col.player { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .lb-ign { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-.lb-addr { font-family: ui-monospace, "Courier New", monospace; font-size: 10px; color: var(--text); opacity: 0.6; }
-.lb-conquer-date { font-size: 10px; opacity: 0.5; margin-top: 2px; }
-.lb-col.floor { text-align: right; font-weight: 700; }
-.lb-col.time { text-align: right; color: var(--text); font-family: ui-monospace, "Courier New", monospace; }
+.lb-addr { font-family: var(--motz-font-mono); font-size: 10px; color: var(--motz-text-muted); opacity: 0.85; letter-spacing: 0.02em; }
+.lb-conquer-date { font-family: var(--motz-font-mono); font-size: 10px; opacity: 0.6; margin-top: 2px; letter-spacing: 0.05em; }
+.lb-col.floor { text-align: right; font-weight: 700; font-family: var(--motz-font-display); }
+.lb-col.time { text-align: right; color: var(--text); font-family: var(--motz-font-mono); letter-spacing: 0.04em; }
 .lb-empty { text-align: center; padding: 32px 12px; color: var(--text); opacity: 0.7; font-size: 12px; }
 .lb-row.lb-row-empty { opacity: 0.55; }
 .lb-row.lb-row-empty .lb-col.rank { color: var(--muted); }
@@ -2749,6 +2981,37 @@ body:has(.battle) {
 .rs-stat-k { color: var(--text-dim); font-weight: 700; letter-spacing: 0.04em; }
 .rs-stat-v { color: var(--gold-bright); font-weight: 700; font-size: 12px; }
 
+/* Equipped-skills row — replaces the raw stats row under the hex chart.
+   Compact chips with hairline gold border + dark glass fill. */
+.rs-skill-row {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  justify-content: center;
+}
+.rs-skill-chip {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--gold-bright);
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.rs-skill-empty {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-style: italic;
+  letter-spacing: 0.04em;
+}
+
 @media (max-width: 900px) {
   .roster-list { grid-template-columns: repeat(2, 1fr); }
 }
@@ -2901,23 +3164,29 @@ body:has(.battle) {
   padding: 24px;
   background: radial-gradient(ellipse at top, rgba(244,211,94,0.04), transparent 60%), var(--bg);
 }
+/* MoTZ glass card — layered alpha gradient + hairline border + inset highlight,
+   matches the unit cards / campaign tiles / leaderboard surfaces. */
 .rs-card {
   width: 100%;
   max-width: 720px;
-  background: var(--panel);
-  border: 1px solid var(--border-strong);
-  border-radius: 14px;
-  padding: 28px 32px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0) 38%),
+    linear-gradient(180deg, rgba(15, 20, 50, 0.78) 0%, rgba(10, 13, 34, 0.78) 100%);
+  border: 1px solid var(--motz-glass-border-hi);
+  border-radius: 18px;
+  padding: 30px 34px;
   display: flex;
   flex-direction: column;
   gap: 18px;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
+  box-shadow:
+    var(--motz-sh-card),
+    0 24px 60px rgba(0, 0, 0, 0.50);
 }
 .rs-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--motz-glass-border);
   padding-bottom: 12px;
 }
 .rs-mode-tag {
@@ -2925,10 +3194,12 @@ body:has(.battle) {
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.1em;
-  padding: 4px 10px;
-  border-radius: 4px;
-  border: 1px solid var(--border-strong);
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--motz-glass-border-hi);
+  background: rgba(255, 255, 255, 0.04);
   text-transform: uppercase;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 .rs-mode-survival { color: var(--gold-bright); border-color: var(--gold-bright); }
 .rs-mode-boss_raid { color: #ff7070; border-color: #ff5050; }
@@ -2962,11 +3233,25 @@ body:has(.battle) {
   font-size: 13px;
   font-weight: 700;
   color: var(--gold-bright);
-  background: rgba(244, 211, 94, 0.1);
-  border: 1px solid var(--gold-bright);
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.14) 0%, rgba(251, 191, 36, 0.05) 100%);
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  border-radius: 8px;
+  padding: 7px 12px;
+  letter-spacing: 0.05em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.rs-refund-banner {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #7fd0ff;
+  background: rgba(127, 208, 255, 0.10);
+  border: 1px solid rgba(127, 208, 255, 0.55);
   border-radius: 6px;
   padding: 6px 10px;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
 }
 .rs-totals {
   display: grid;
@@ -2974,14 +3259,17 @@ body:has(.battle) {
   gap: 8px;
 }
 .rs-total {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 50%),
+    rgba(8, 11, 28, 0.7);
+  border: 1px solid var(--motz-glass-border);
+  border-radius: 10px;
+  padding: 10px 10px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 .rs-total-label {
   font-size: 9px;
@@ -3007,14 +3295,23 @@ body:has(.battle) {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0) 45%),
+    rgba(8, 11, 28, 0.65);
+  border: 1px solid var(--motz-glass-border);
+  border-radius: 12px;
+  padding: 9px 13px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .rs-unit-row.mvp {
-  border-color: var(--gold-bright);
-  box-shadow: 0 0 12px rgba(244, 211, 94, 0.3);
+  border-color: rgba(251, 191, 36, 0.65);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 18px rgba(251, 191, 36, 0.28);
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.06) 0%, rgba(255, 255, 255, 0) 45%),
+    rgba(20, 14, 4, 0.62);
 }
 .rs-unit-row .portrait { width: 40px; height: 40px; font-size: 24px; }
 .rs-unit-main { flex: 1; min-width: 0; }
@@ -3027,12 +3324,15 @@ body:has(.battle) {
   display: inline-block;
   font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.08em;
-  background: var(--gold-bright);
-  color: var(--bg);
-  padding: 1px 5px;
-  border-radius: 3px;
+  letter-spacing: 0.10em;
+  background: linear-gradient(180deg, #FFD970 0%, var(--motz-gold) 55%, #E59700 100%);
+  color: #1a1300;
+  padding: 2px 6px;
+  border-radius: 4px;
   margin-right: 4px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.35);
 }
 .rs-unit-stats {
   display: flex;
@@ -3109,15 +3409,15 @@ body:has(.battle) {
   flex: 1;
 }
 .lb-admin-reset {
-  background: rgba(255, 50, 50, 0.08);
+  background: rgba(255, 50, 50, 0.10);
   color: #ff8080;
-  border: 1px solid #ff5050;
-  border-radius: 4px;
-  padding: 3px 8px;
-  font-family: inherit;
+  border: 1px solid rgba(255, 80, 80, 0.55);
+  border-radius: var(--motz-r-sm);
+  padding: 3px 10px;
+  font-family: var(--motz-font-mono);
   font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   cursor: pointer;
   white-space: nowrap;
@@ -3246,17 +3546,22 @@ body:has(.battle) {
 /* ---------- Prize chip ---------- */
 .lb-prize {
   display: inline-block;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  background: linear-gradient(180deg, #f4d35e, #d4a738);
-  color: #181820;
-  border-radius: 3px;
-  padding: 1px 6px;
-  margin-top: 2px;
+  font-family: var(--motz-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0) 50%),
+              linear-gradient(180deg, #ffd970 0%, #fbbf24 45%, #d4a738 100%);
+  color: #2a1a00;
+  border-radius: var(--motz-r-pill);
+  padding: 2px 10px;
+  margin-top: 3px;
   align-self: flex-start;
   text-transform: uppercase;
-  box-shadow: 0 1px 4px rgba(244, 211, 94, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -1px 0 rgba(120, 60, 0, 0.30),
+    0 2px 8px rgba(244, 211, 94, 0.30);
 }
 
 /* ---------- Run-summary big banner ---------- */
@@ -3289,13 +3594,97 @@ body:has(.battle) {
   100% { transform: scale(1.0); opacity: 1; }
 }
 
+/* ============================================================
+ * Battle-start sword-clash transition (squadSelect.ts → battle).
+ * Two swords fly in from opposite sides, collide center, flash spark.
+ * ============================================================ */
+.battle-start-overlay {
+  position: fixed; inset: 0; z-index: 3000;
+  background: radial-gradient(circle at center, rgba(6,9,30,0.6), rgba(6,9,30,0.96));
+  display: grid; place-items: center;
+  pointer-events: none;
+  animation: bsa-fade-in 0.2s ease-out;
+}
+.battle-start-overlay.bsa-exit { animation: bsa-fade-out 0.22s ease-in forwards; }
+.bsa-stage {
+  position: relative;
+  width: 520px;
+  max-width: 90vw;
+  height: 280px;
+}
+/* Swords are positioned at the stage center via left/top 50%, with their
+   own dimensions centered via translate(-50%, -50%). They then fly in from
+   off-stage and converge on that center, so blades actually cross. */
+.bsa-sword {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 56px;
+  height: 240px;
+  filter: drop-shadow(0 0 12px rgba(244, 211, 94, 0.45)) drop-shadow(0 0 24px rgba(0, 0, 0, 0.65));
+  transform-origin: 50% 75%; /* rotate around the grip, not the tip */
+}
+.bsa-sword svg { width: 100%; height: 100%; display: block; }
+.bsa-sword-left {
+  animation: bsa-slash-left 1.3s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+.bsa-sword-right {
+  animation: bsa-slash-right 1.3s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+.bsa-flash {
+  position: absolute;
+  top: 45%; left: 50%;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, #fde68a 35%, rgba(244, 211, 94, 0.6) 60%, transparent 75%);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  animation: bsa-spark 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) 0.65s forwards;
+}
+@keyframes bsa-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes bsa-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+/* Left sword swings in from off-stage-left and crosses through the center
+   so its blade overlaps the right sword's blade at the impact moment. */
+@keyframes bsa-slash-left {
+  0%   { transform: translate(-300%, -50%) rotate(-55deg); opacity: 0; }
+  30%  { opacity: 1; }
+  55%  { transform: translate(-50%, -50%) rotate(-25deg); }
+  68%  { transform: translate(-40%, -52%) rotate(-15deg); }  /* impact — blade tilted, hilt left */
+  78%  { transform: translate(-55%, -55%) rotate(-35deg); } /* recoil away */
+  100% { transform: translate(-50%, -50%) rotate(-22deg); opacity: 1; }
+}
+@keyframes bsa-slash-right {
+  0%   { transform: translate(200%, -50%) rotate(55deg); opacity: 0; }
+  30%  { opacity: 1; }
+  55%  { transform: translate(-50%, -50%) rotate(25deg); }
+  68%  { transform: translate(-60%, -52%) rotate(15deg); }
+  78%  { transform: translate(-45%, -55%) rotate(35deg); }
+  100% { transform: translate(-50%, -50%) rotate(22deg); opacity: 1; }
+}
+@keyframes bsa-spark {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  20%  { transform: translate(-50%, -50%) scale(16); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(56); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bsa-sword, .bsa-flash { animation-duration: 0.2s !important; }
+}
+
 /* ---------- Units screen — sticky header ---------- */
 .units-sticky-header {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: var(--bg);
-  /* Soft fade at the bottom so cards scrolling underneath read clearly. */
+  /* Translucent so the tower background shows through; backdrop-blur keeps
+     headings legible against any pattern. */
+  background: linear-gradient(180deg, rgba(6, 9, 30, 0.55), rgba(6, 9, 30, 0.30));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   padding-bottom: 6px;
   box-shadow: 0 6px 14px -8px rgba(0, 0, 0, 0.7);
 }
