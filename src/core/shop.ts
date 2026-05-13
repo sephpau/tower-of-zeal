@@ -151,21 +151,31 @@ export async function fetchBronBalance(): Promise<number | null> {
   } catch { return null; }
 }
 
-/** Credit `amount` bRON to the wallet. Server caps per-call so a tampered
- *  client can't mint at will. Returns the new balance. */
-export async function creditBron(amount: number): Promise<number | null> {
+export interface BronRollResult {
+  drops: { t1: number; t2: number; t3: number; t4: number; t5: number; total: number };
+  balance: number;
+  killsCounted: number;
+  bossKillsCounted: number;
+}
+
+/** Server-authoritative bRON roll: client reports kill totals, server rolls
+ *  drops + credits balance. Drop randomness is computed entirely server-side
+ *  using Node crypto RNG, so devtools cannot mint vouchers. Boss kills get a
+ *  2× chance multiplier per tier (applied server-side). */
+export async function rollBron(kills: number, bossKills: number): Promise<BronRollResult | null> {
   const tok = token();
   if (!tok) return null;
-  if (!Number.isFinite(amount) || amount <= 0) return null;
+  if (!Number.isFinite(kills) || kills < 0) return null;
+  if (!Number.isFinite(bossKills) || bossKills < 0) return null;
   try {
     const r = await fetch("/api/run/floor-cleared", {
       method: "POST",
       headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ op: "bron_credit", amount }),
+      body: JSON.stringify({ op: "bron_roll", kills, bossKills }),
     });
     if (!r.ok) return null;
-    const data = await r.json() as { balance: number };
-    return typeof data.balance === "number" ? data.balance : null;
+    const data = await r.json() as BronRollResult;
+    return data;
   } catch { return null; }
 }
 

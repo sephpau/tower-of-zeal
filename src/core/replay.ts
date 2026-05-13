@@ -12,6 +12,10 @@
 
 import { Stats } from "./stats";
 
+// v17: bRON drops moved fully to the server. The client-side rng.chance() calls
+//      that were added in v16 are gone, so RNG consumption matches v15 again.
+//      v16 replays would diverge because the engine no longer consumes those
+//      draws on enemy death.
 // v16: bRON voucher drops introduced. Every enemy kill now rolls 5 chance()
 //      tiers via the battle RNG, so v15 replays diverge as soon as the first
 //      enemy falls (extra rng draws shift every subsequent crit / damage roll).
@@ -57,7 +61,7 @@ import { Stats } from "./stats";
 // v3: combat sim now uses a fixed timestep (SIM_STEP). Replays recorded under
 //     the old variable-dt sim could pick a different actor when two combatants
 //     hit full gauge in the same frame, diverging RNG consumption.
-export const REPLAY_VERSION = 16;
+export const REPLAY_VERSION = 17;
 
 export interface ReplayPartyMember {
   templateId: string;

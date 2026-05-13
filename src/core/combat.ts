@@ -124,30 +124,15 @@ export interface Battle {
   phoenixEmbersCharge: boolean;
   /** Last Stand: damage mul when only one player is alive (1 = inactive). */
   lastStandDamageMul: number;
-  // ---- bRON voucher drop accumulator (per battle) ----
-  /** Per-tier counts of vouchers dropped this battle + total bRON earned. */
-  bronDrops: { t1: number; t2: number; t3: number; t4: number; t5: number; total: number };
+  // ---- bRON drop kill accounting (server rolls drops, not the client) ----
+  /** List of enemy kills this battle — fed to the server's bron_roll op,
+   *  which is the ONLY authority that decides drops + credits the wallet.
+   *  Kept as a list (not just a count) so future server logic can vary drop
+   *  chances by enemy type if needed. */
+  killEvents: { enemyTemplateId: string; isBoss: boolean }[];
 }
-
-/** bRON voucher drop chances per kill — rarest first. */
-const BRON_DROP_TIERS = [
-  { tier: "t5" as const, chance: 0.0000016, amount: 200 },
-  { tier: "t4" as const, chance: 0.000008,  amount: 50 },
-  { tier: "t3" as const, chance: 0.00004,   amount: 20 },
-  { tier: "t2" as const, chance: 0.0002,    amount: 10 },
-  { tier: "t1" as const, chance: 0.001,     amount: 5 },
-];
 
 export type BronTier = "t1" | "t2" | "t3" | "t4" | "t5";
-
-/** Roll for a bRON drop. Returns null on no drop. RNG consumed even on miss
- *  so replay determinism holds — one rng.chance per tier per kill. */
-function rollBronDrop(b: Battle): { tier: BronTier; amount: number } | null {
-  for (const t of BRON_DROP_TIERS) {
-    if (b.rng.chance(t.chance)) return { tier: t.tier, amount: t.amount };
-  }
-  return null;
-}
 
 /** Fixed simulation step (seconds). Combat uses a fixed timestep so the same
  *  seed reproduces the same outcome across machines and frame rates. */
@@ -466,7 +451,7 @@ export function startBattle(
     simAccum: 0,
     phoenixEmbersCharge: !!opts.phoenixEmbers,
     lastStandDamageMul: Math.max(1, opts.lastStandDamageMul ?? 1),
-    bronDrops: { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, total: 0 },
+    killEvents: [],
   };
 }
 
@@ -1084,15 +1069,13 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
       target.queuedAction = null;
       if (attacker.side !== target.side) attacker.kills += 1;
       b.log.push(`${target.name} falls.`);
-      // bRON voucher drop roll — enemy kills only. Roll rarest first, first
-      // hit wins. Uses battle RNG so replays are deterministic.
+      // Track enemy deaths for the server-side bRON roll. The client never
+      // decides if a drop occurred — only reports who died.
       if (target.side === "enemy") {
-        const drop = rollBronDrop(b);
-        if (drop) {
-          b.bronDrops[drop.tier] += 1;
-          b.bronDrops.total += drop.amount;
-          b.log.push(`💰 ${target.name} dropped a Tier ${drop.tier[1]} bRON voucher (+${drop.amount} bRON)!`);
-        }
+        b.killEvents.push({
+          enemyTemplateId: target.templateId,
+          isBoss: BOSS_TEMPLATE_IDS.has(target.templateId) || target.templateId === "world_ender",
+        });
       }
       return;
     }

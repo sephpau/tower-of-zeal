@@ -345,6 +345,87 @@ export async function creditBron(address: string, delta: number): Promise<number
   return next;
 }
 
+// ---- Server-authoritative bRON drop roller ----
+// All drop randomness lives on the server. The client reports kill events
+// (enemyTemplateId + isBoss flag); the server validates count caps, rolls
+// using Node crypto, and returns the per-tier breakdown alongside the new
+// balance. This makes the system devtools-proof: there's nothing on the
+// client to tamper with except the kill counts, and those are capped well
+// below what would produce meaningful expected gain.
+
+/** Hard caps per single bron_roll call. A normal floor has 3-30 enemies and
+ *  at most one boss; these are intentionally generous so legit play never
+ *  trips them, but tight enough that a tampered client can't fake huge runs. */
+export const MAX_KILLS_PER_ROLL = 50;
+export const MAX_BOSS_KILLS_PER_ROLL = 1;
+
+/** Drop tiers — chance / amount paired. Rarest first so we break on first hit. */
+const BRON_DROP_TABLE: { tier: "t1" | "t2" | "t3" | "t4" | "t5"; chance: number; amount: number }[] = [
+  { tier: "t5", chance: 0.0000016, amount: 200 },
+  { tier: "t4", chance: 0.000008,  amount: 50 },
+  { tier: "t3", chance: 0.00004,   amount: 20 },
+  { tier: "t2", chance: 0.0002,    amount: 10 },
+  { tier: "t1", chance: 0.001,     amount: 5 },
+];
+
+/** Boss-kill drop multiplier — each tier's chance is doubled when the kill is
+ *  flagged as a boss. The maximum theoretical T5 chance even with this is
+ *  0.00032% so vouchers remain genuinely rare. */
+export const BOSS_DROP_MULTIPLIER = 2.0;
+
+export interface BronRollResult {
+  drops: { t1: number; t2: number; t3: number; t4: number; t5: number; total: number };
+  newBalance: number;
+  killsCounted: number;
+  bossKillsCounted: number;
+}
+
+/** Server-side roll: takes the claimed (mob, boss) kill counts, applies the
+ *  caps, rolls each kill independently with Node's crypto RNG, credits the
+ *  total to the wallet, and returns the per-tier breakdown. */
+export async function rollBronForKills(address: string, kills: number, bossKills: number): Promise<BronRollResult> {
+  const safeMob = Math.max(0, Math.min(MAX_KILLS_PER_ROLL, Math.floor(kills)));
+  const safeBoss = Math.max(0, Math.min(MAX_BOSS_KILLS_PER_ROLL, Math.floor(bossKills)));
+  const drops = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, total: 0 };
+
+  function rollOnce(mul: number): void {
+    for (const t of BRON_DROP_TABLE) {
+      const chance = Math.min(1, t.chance * mul);
+      if (cryptoRandomFloat() < chance) {
+        drops[t.tier] += 1;
+        drops.total += t.amount;
+        return;
+      }
+    }
+  }
+
+  for (let i = 0; i < safeMob; i++) rollOnce(1.0);
+  for (let i = 0; i < safeBoss; i++) rollOnce(BOSS_DROP_MULTIPLIER);
+
+  const newBalance = drops.total > 0
+    ? await creditBron(address, drops.total)
+    : await readBron(address);
+
+  return { drops, newBalance, killsCounted: safeMob, bossKillsCounted: safeBoss };
+}
+
+/** Cryptographically random float in [0, 1). Server-side equivalent of
+ *  Math.random() with much higher entropy — no RNG state to predict. */
+function cryptoRandomFloat(): number {
+  // Use Node crypto if available; fall back to Math.random in unexpected envs.
+  // 53-bit float construction so chances down to ~1e-16 are reachable.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const c: typeof import("crypto") | null = (() => {
+    try { return require("crypto") as typeof import("crypto"); } catch { return null; }
+  })();
+  if (!c) return Math.random();
+  const buf = c.randomBytes(7);
+  // Pack 53 bits across two halves: 21 bits + 32 bits, divided by 2^53.
+  const hi = buf.readUIntBE(0, 3) & 0x1fffff;
+  const lo = buf.readUInt32BE(3);
+  return (hi * 0x100000000 + lo) / 0x20000000000000;
+}
+
 interface ShopInventory {
   /** Map of buff id → count owned (un-consumed). Buffs are 1/day buy, so the
    *  daily-bought key prevents re-purchase, while count tracks unused stock. */

@@ -12,7 +12,7 @@ import {
   readBoughtToday, markBoughtToday, consumeBuff,
   SHOP_BUFF_IDS, ShopItemId, BUFF_GRANT_SIZE,
   grantTempMotzKey, readTempMotzKey,
-  readBron, creditBron, MAX_BRON_CREDIT_PER_CALL,
+  readBron, rollBronForKills, MAX_KILLS_PER_ROLL, MAX_BOSS_KILLS_PER_ROLL,
 } from "../_lib/runState.js";
 
 const MAX_PARTY_SIZE = 3;
@@ -138,10 +138,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   // ---- bRON voucher balance ----
   // bron_status: read the wallet's current balance.
-  // bron_credit: atomically add `amount` bRON. Hard-capped server-side to
-  //   MAX_BRON_CREDIT_PER_CALL so a tampered client can't mint at will.
-  //   Designed to be called once per battle, after the run summary computes
-  //   the dropped tier totals.
+  // bron_roll:   client reports per-battle kill counts; server rolls drops
+  //              with crypto RNG, credits the balance, returns the breakdown.
+  //              All drop randomness is server-side, so devtools cannot mint
+  //              vouchers. Boss kills get a 2× multiplier on each tier's chance.
   if (op === "bron_status") {
     try {
       const balance = await readBron(address);
@@ -152,14 +152,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       return;
     }
   }
-  if (op === "bron_credit") {
-    const amountRaw = (req.body as { amount?: unknown }).amount;
-    if (typeof amountRaw !== "number" || !Number.isFinite(amountRaw) || amountRaw <= 0) {
-      res.status(400).json({ error: "amount must be a positive number" }); return;
+  if (op === "bron_roll") {
+    const killsRaw = (req.body as { kills?: unknown }).kills;
+    const bossRaw = (req.body as { bossKills?: unknown }).bossKills;
+    if (typeof killsRaw !== "number" || !Number.isFinite(killsRaw) || killsRaw < 0) {
+      res.status(400).json({ error: "kills must be a non-negative number" }); return;
+    }
+    if (typeof bossRaw !== "number" || !Number.isFinite(bossRaw) || bossRaw < 0) {
+      res.status(400).json({ error: "bossKills must be a non-negative number" }); return;
     }
     try {
-      const balance = await creditBron(address, amountRaw);
-      res.status(200).json({ ok: true, balance, capped: amountRaw > MAX_BRON_CREDIT_PER_CALL });
+      const result = await rollBronForKills(address, killsRaw, bossRaw);
+      res.status(200).json({
+        ok: true,
+        drops: result.drops,
+        balance: result.newBalance,
+        killsCounted: result.killsCounted,
+        bossKillsCounted: result.bossKillsCounted,
+        caps: { kills: MAX_KILLS_PER_ROLL, bossKills: MAX_BOSS_KILLS_PER_ROLL },
+      });
       return;
     } catch (e) {
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });

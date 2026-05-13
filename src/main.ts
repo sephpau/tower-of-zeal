@@ -39,7 +39,7 @@ import { startRun, reportFloor, endRun, abortLiveRun, reportFloorCleared, getLiv
 import { isAllowedOnDev } from "./auth/devBuild";
 import { confirmModal } from "./ui/confirmModal";
 import { playBattleStartAnimation } from "./ui/battleStartAnim";
-import { fetchAttemptsStatus, claimAttempt, consumeShopItem, creditBron, ShopItemId } from "./core/shop";
+import { fetchAttemptsStatus, claimAttempt, consumeShopItem, rollBron, ShopItemId } from "./core/shop";
 import { renderShop } from "./ui/shop";
 import { renderInventory } from "./ui/inventory";
 
@@ -192,17 +192,19 @@ let pendingBuff: ShopItemId | null = null;
 export function setPendingBuff(id: ShopItemId | null): void { pendingBuff = id; }
 export function getPendingBuff(): ShopItemId | null { return pendingBuff; }
 
-/** bRON drops accumulated across all battles in the current run. Reset at
- *  run start (startBattleFromSquad). Credited server-side from the run summary. */
-let runBronDrops = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, total: 0 };
-function resetRunBronDrops(): void { runBronDrops = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, total: 0 }; }
-function mergeBattleBronIntoRun(bd: { t1: number; t2: number; t3: number; t4: number; t5: number; total: number }): void {
-  runBronDrops.t1 += bd.t1;
-  runBronDrops.t2 += bd.t2;
-  runBronDrops.t3 += bd.t3;
-  runBronDrops.t4 += bd.t4;
-  runBronDrops.t5 += bd.t5;
-  runBronDrops.total += bd.total;
+/** Per-run kill tally — used for the server's bRON roll at end of run. The
+ *  server is the sole authority for what (if anything) actually drops; this
+ *  client-side counter just tells it how many kills happened. Devtools can
+ *  tamper with these values, but server caps per call (MAX_KILLS_PER_ROLL=50,
+ *  MAX_BOSS_KILLS_PER_ROLL=1) keep theoretical gain negligible vs. honest play. */
+let runKillCount = 0;
+let runBossKillCount = 0;
+function resetRunKills(): void { runKillCount = 0; runBossKillCount = 0; }
+function mergeBattleKillsIntoRun(events: { isBoss: boolean }[]): void {
+  for (const ev of events) {
+    if (ev.isBoss) runBossKillCount += 1;
+    else runKillCount += 1;
+  }
 }
 
 /** Buffs active for the CURRENT run. Reset when a new run starts (in
@@ -438,10 +440,10 @@ function buildRunSummaryUnits(b: Battle): RunSummaryUnit[] {
 
 async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: number): Promise<void> {
   if (!battle) { showHome(); return; }
-  // Fold this battle's bRON drops into the run-level accumulator. For floor
-  // mode this is the only battle; for survival/boss raid, drops have already
-  // been accumulated by prior floors' onPostBattle wrap-up.
-  if (battle.bronDrops) mergeBattleBronIntoRun(battle.bronDrops);
+  // Fold this battle's kill events into the run tally. For floor mode this
+  // is the only battle; for survival/boss raid, intermediate floors have
+  // already been folded in by their respective transition handlers.
+  if (battle.killEvents) mergeBattleKillsIntoRun(battle.killEvents);
   const runMode: RunSummary["mode"] = mode === "boss_raid" ? "boss_raid"
                                     : mode === "survival" ? "survival"
                                     : "floor";
@@ -495,12 +497,13 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
     }
   }
 
-  // Credit any bRON drops accumulated across the run. Server caps per-call
-  // at MAX_BRON_CREDIT_PER_CALL so a tampered client can't mint at will.
-  if (runBronDrops.total > 0) {
-    void creditBron(runBronDrops.total);
-  }
-  const bronSnapshot = { ...runBronDrops };
+  // Ask the server to roll bRON drops for this run's kills. Server uses its
+  // own crypto RNG, caps mob kills at 50 and boss kills at 1 per call, and
+  // credits the wallet itself — there's nothing on the client to tamper with
+  // beyond the kill counts, and those caps make farming impractical.
+  let bronSnapshot = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, total: 0 };
+  const rolled = await rollBron(runKillCount, runBossKillCount).catch(() => null);
+  if (rolled) bronSnapshot = rolled.drops;
 
   const summary: RunSummary = {
     mode: runMode,
@@ -754,8 +757,8 @@ async function startBattleFromSquad(squad: SquadResult): Promise<void> {
     else alert(`Not enough energy (need ${cost}, have ${r.amount}).`);
     return;
   }
-  // Fresh run begins — clear the bRON accumulator.
-  resetRunBronDrops();
+  // Fresh run begins — clear the kill tally that feeds the server's bRON roll.
+  resetRunKills();
   // Reset run-spanning buff state, then consume + arm any slotted buff —
   // EXCEPT when starting a campaign run that targets Floor 50 (World Ender):
   // buffs are disabled there, so we leave the charge in inventory and clear
@@ -1062,11 +1065,10 @@ function frame(t: number): void {
         captureCarry(battle);
         void reportFloor(survivalFloor);
         if (survivalFloor < STAGE_DEFS.length) {
-          // Intermediate floor → fold this battle's bRON drops into the run
-          // total now, before the battle object is replaced by the next floor.
-          // The final-battle drops are folded in by showRunSummary, so we only
-          // do per-floor merges for intermediates here.
-          if (battle.bronDrops) mergeBattleBronIntoRun(battle.bronDrops);
+          // Intermediate floor — fold kill events into the run tally now,
+          // before the battle is replaced. The final battle's kills are
+          // folded by showRunSummary itself.
+          if (battle.killEvents) mergeBattleKillsIntoRun(battle.killEvents);
           survivalFloor += 1;
           // Brief delay before auto-advance so player can see the Victory banner.
           setTimeout(() => {
@@ -1085,10 +1087,10 @@ function frame(t: number): void {
         brIndex += 1;
         void reportFloor(brIndex);
         if (brIndex < BOSS_RAID_FLOORS.length) {
-          // Intermediate boss-raid floor — fold bRON drops before the battle
-          // object is replaced on transition. Final-battle drops are folded
+          // Intermediate boss-raid floor — fold kill events before the
+          // battle is replaced on transition. Final-battle kills are folded
           // by showRunSummary instead.
-          if (battle.bronDrops) mergeBattleBronIntoRun(battle.bronDrops);
+          if (battle.killEvents) mergeBattleKillsIntoRun(battle.killEvents);
           // Pause briefly to let the Victory banner read, then offer the boon picker.
           setTimeout(() => {
             if (mode !== "boss_raid" || !brParty) return;
