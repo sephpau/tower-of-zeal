@@ -21,6 +21,9 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
         <div class="shop-title">Tower Exchange</div>
         <div class="shop-sub">Each item can be purchased <strong>once per day</strong>. Resets at 8 AM PH.</div>
       </div>
+      <div class="shop-floor50-notice">
+        🌑 <strong>Campaign buffs are disabled on Floor 50 (World Ender).</strong> The capstone fight is fair-fight only — slotted buffs are not consumed and have no effect there.
+      </div>
       <div class="shop-grid" id="shop-grid">
         <div class="shop-loading">Loading inventory…</div>
       </div>
@@ -125,7 +128,10 @@ function shopCardHtml(def: ShopItemDef, status: { inventory: { buffs: Partial<Re
         <span class="shop-card-name">${escapeHtml(def.name)}</span>
         ${ownedBadge}
       </div>
-      <div class="shop-card-desc">${escapeHtml(def.description)}</div>
+      <div class="shop-card-desc">
+        ${escapeHtml(def.description)}
+        ${def.category === "buff" ? `<div class="shop-card-restrict">⚠ Not usable on Floor 50 (World Ender)</div>` : ""}
+      </div>
       <div class="shop-card-foot">
         <span class="shop-card-price">${escapeHtml(def.priceLabel)}</span>
         <div class="shop-card-actions">

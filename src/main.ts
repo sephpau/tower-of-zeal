@@ -714,14 +714,24 @@ async function startBattleFromSquad(squad: SquadResult): Promise<void> {
     else alert(`Not enough energy (need ${cost}, have ${r.amount}).`);
     return;
   }
-  // Reset run-spanning buff state, then consume + arm any slotted buff.
+  // Reset run-spanning buff state, then consume + arm any slotted buff —
+  // EXCEPT when starting a campaign run that targets Floor 50 (World Ender):
+  // buffs are disabled there, so we leave the charge in inventory and clear
+  // the slot. (Survival/Boss Raid runs aren't gated here because they may
+  // never reach Floor 50; if they do, runFloor strips the buffs per-battle.)
   activeRunBuffs = freshRunBuffs();
   if (pendingBuff) {
-    const consumed = await consumeShopItem(pendingBuff);
-    if (consumed) {
-      armBuffOnRun(pendingBuff);
+    const floor50Block = mode === "floor" && currentStageId === 50;
+    if (floor50Block) {
+      // Leave inventory untouched, just clear the slot.
+      pendingBuff = null;
+    } else {
+      const consumed = await consumeShopItem(pendingBuff);
+      if (consumed) {
+        armBuffOnRun(pendingBuff);
+      }
+      pendingBuff = null;
     }
-    pendingBuff = null;
   }
 
   if (mode === "survival") {
@@ -801,8 +811,12 @@ function runBossRaidFloor(party: SquadResult["players"], floorId: number): void 
 function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: number): void {
   const stage = getStage(floorId);
   if (!stage) { showHome(); return; }
+  // Floor 50 (World Ender) is a "fair fight" — campaign buffs are disabled
+  // there regardless of run mode. XP multiplier reverts to base * daily only;
+  // every other buff opt is intentionally NOT set on opts.
+  const buffsAllowed = floorId !== 50;
   const opts: BattleOptions = {
-    xpMultiplier: xpMultiplier * getCachedDailyMultiplier() * activeRunBuffs.scholarsInsightMul,
+    xpMultiplier: xpMultiplier * getCachedDailyMultiplier() * (buffsAllowed ? activeRunBuffs.scholarsInsightMul : 1),
   };
   if (mode === "survival" && Object.keys(survivalCarry).length > 0) {
     opts.carryover = survivalCarry;
@@ -812,13 +826,16 @@ function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: 
   // we keep the natural carryover gauge so the buff isn't re-applied per floor.
   const isFirstBattleOfRun =
     mode === "floor" || (mode === "survival" && Object.keys(survivalCarry).length === 0);
-  if (isFirstBattleOfRun && consumeBattleCry()) {
+  if (buffsAllowed && isFirstBattleOfRun && consumeBattleCry()) {
     opts.playerStartFullGauge = true;
   }
-  // Per-battle run-buffs: armed once for the run, re-applied every floor.
-  if (activeRunBuffs.phoenixEmbers)         opts.phoenixEmbers = true;
-  if (activeRunBuffs.quickdrawAtbMul > 1)   opts.playerAtbSpeedMul = activeRunBuffs.quickdrawAtbMul;
-  if (activeRunBuffs.lastStandDmgMul > 1)   opts.lastStandDamageMul = activeRunBuffs.lastStandDmgMul;
+  // Per-battle run-buffs: armed once for the run, re-applied every floor —
+  // except Floor 50, which strips them.
+  if (buffsAllowed) {
+    if (activeRunBuffs.phoenixEmbers)         opts.phoenixEmbers = true;
+    if (activeRunBuffs.quickdrawAtbMul > 1)   opts.playerAtbSpeedMul = activeRunBuffs.quickdrawAtbMul;
+    if (activeRunBuffs.lastStandDmgMul > 1)   opts.lastStandDamageMul = activeRunBuffs.lastStandDmgMul;
+  }
   // Replay scope:
   //   - floor mode: only the floor-50 World Ender battle is recorded
   //   - survival: every floor recorded (recording was started in startBattleFromSquad)

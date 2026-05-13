@@ -132,7 +132,8 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
 
     // Mount the buff selector once per draw — async fetch can finish after
     // re-renders, so we always re-target the current DOM node by id.
-    void mountBuffSelector(root);
+    // Floor 50 (World Ender) disables all buffs and shows a notice in their place.
+    void mountBuffSelector(root, stage.id === 50);
 
     root.querySelector<HTMLSelectElement>("#roster-sort-key")?.addEventListener("change", e => {
       lastSortKey = (e.target as HTMLSelectElement).value as SortKey;
@@ -296,9 +297,23 @@ function escapeAttr(s: string): string { return escapeHtml(s); }
  *  unmounts (next renderSquadSelect call resets it). */
 let cachedBuffInventory: Partial<Record<ShopItemId, number>> | null = null;
 
-async function mountBuffSelector(root: HTMLElement): Promise<void> {
+async function mountBuffSelector(root: HTMLElement, isFloor50: boolean): Promise<void> {
   const slot = root.querySelector<HTMLElement>("#buff-slot-icons");
   if (!slot) return;
+
+  // Floor 50 (World Ender): buffs are not allowed. Clear any slotted buff
+  // and show a permanent notice in place of the chip row.
+  if (isFloor50) {
+    if (getPendingBuff()) setPendingBuff(null);
+    const fresh = root.querySelector<HTMLElement>("#buff-slot-icons");
+    if (!fresh) return;
+    fresh.innerHTML = `
+      <div class="buff-slot-blocked">
+        🌑 Campaign buffs are <strong>disabled</strong> on Floor 50 — the World Ender fight is fair-fight only.
+      </div>
+    `;
+    return;
+  }
 
   // Resolve inventory — use cached value if we already fetched once for this screen.
   if (cachedBuffInventory === null) {
@@ -339,7 +354,7 @@ async function mountBuffSelector(root: HTMLElement): Promise<void> {
       // Click on already-slotted → unslot. Otherwise toggle to this buff.
       setPendingBuff(cur === id ? null : id);
       // Re-render just the buff row (cheap re-mount of this section only).
-      void mountBuffSelector(root);
+      void mountBuffSelector(root, isFloor50);
     });
   });
 }
