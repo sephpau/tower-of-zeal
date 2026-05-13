@@ -964,8 +964,12 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
 
   // Damage reflect: defender returns a % of damage taken to the attacker even
   // if the defender died from the hit. Skip cross-reflect (no infinite loops).
+  // World Ender attacks bypass reflect entirely — a cosmic-scale boss shouldn't
+  // be cheesable by parking Shego/Oge in front and letting reflect chip it
+  // down. Treat the final boss as unreflectable, period.
   const reflectPct = damageReflectPct(target);
-  if (reflectPct > 0 && attacker.side !== target.side && attacker.alive && dmg > 0) {
+  const attackerReflectImmune = attacker.templateId === "world_ender";
+  if (reflectPct > 0 && attacker.side !== target.side && attacker.alive && dmg > 0 && !attackerReflectImmune) {
     const reflectDmg = Math.max(1, Math.floor(dmg * reflectPct));
     attacker.hp = Math.max(0, attacker.hp - reflectDmg);
     target.damageDealt += reflectDmg;

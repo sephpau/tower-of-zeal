@@ -12,6 +12,9 @@
 
 import { Stats } from "./stats";
 
+// v12: World Ender attacks now bypass damage_reflect entirely. Any v11 replay
+//      of floor 50 with a reflect-equipped tank (Shego/Oge) tanking the boss
+//      would diverge — old replays reflected damage back, new sim does not.
 // v11: DEX armor-penetration cap lowered 50% → 40%. Any v10 replay where the
 //      attacker had DEX ≥ 41 would diverge (more raw damage retained by armor).
 // v10: World End! now starts on cooldown (initialCooldown: 10) — boss can't
@@ -38,7 +41,7 @@ import { Stats } from "./stats";
 // v3: combat sim now uses a fixed timestep (SIM_STEP). Replays recorded under
 //     the old variable-dt sim could pick a different actor when two combatants
 //     hit full gauge in the same frame, diverging RNG consumption.
-export const REPLAY_VERSION = 11;
+export const REPLAY_VERSION = 12;
 
 export interface ReplayPartyMember {
   templateId: string;
