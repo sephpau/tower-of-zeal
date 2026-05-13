@@ -42,10 +42,11 @@ export function playBattleStartAnimation(): Promise<void> {
     `;
     document.body.appendChild(overlay);
 
-    // Impact = 68% of the 1.3s sword animation. Fire the skirmish sound
-    // exactly there so the clang lands as the blades cross + the spark
-    // appears. The 0.65s spark delay in the CSS keyframes lines up here too.
-    const IMPACT_MS = 880;
+    // Fire the skirmish sound 400ms after the overlay mounts (≈ when the
+    // player clicks "Begin Battle"). The sample is offset internally to skip
+    // its lead-in, so this 400ms delay is the perceived gap between click
+    // and clang.
+    const IMPACT_MS = 400;
     setTimeout(() => { sfx.skirmish(); }, IMPACT_MS);
 
     // Total animation length matches the longest CSS animation duration below.
