@@ -27,7 +27,7 @@ export type DamageIcon =
   | "cross"        // hp heal
   | "raindrop"     // mp heal
   | "miss"
-  | "moneybag";    // cosmetic bRON drop indicator (purely visual)
+  | "moneybag";    // cosmetic RON drop indicator (purely visual)
 
 export interface FloatEvent {
   targetId: string;
@@ -97,7 +97,7 @@ export function pushMpHeal(targetId: string, amount: number): void {
   sfx.manaHeal();
 }
 
-/** Cosmetic money-bag popup over a killed enemy. The actual bRON awarded
+/** Cosmetic money-bag popup over a killed enemy. The actual RON awarded
  *  is decided server-side at run-end — this is pure visual flair so the
  *  player gets the satisfying "drop" feedback in real time. */
 export function pushBronDrop(targetId: string, tier: "t1" | "t2" | "t3" | "t4" | "t5"): void {

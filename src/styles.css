@@ -542,7 +542,7 @@ body:has(.battle) {
 .float-popup.crit { font-size: 24px; }
 .float-popup .float-icon { font-size: 16px; }
 
-/* bRON drop popup — bigger, slower, gold-glowing. Cosmetic only; real
+/* RON drop popup — bigger, slower, gold-glowing. Cosmetic only; real
    reward is server-side at run-end. */
 .float-popup.bron-drop {
   font-size: 22px;
@@ -3460,7 +3460,7 @@ body:has(.battle) {
   letter-spacing: 0.04em;
 }
 
-/* bRON drops banner — gold-glass card with per-tier chip breakdown. */
+/* RON drops banner — gold-glass card with per-tier chip breakdown. */
 .rs-bron-banner {
   text-align: center;
   padding: 10px 14px;

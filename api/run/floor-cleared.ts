@@ -137,10 +137,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  // ---- bRON voucher drops ----
+  // ---- RON voucher drops ----
   // bron_roll: client reports per-battle kill counts; server rolls drops with
   //            crypto RNG and deposits per-tier vouchers into the wallet's
-  //            shop inventory. There is no longer a running bRON "balance" —
+  //            shop inventory. There is no longer a running RON "balance" —
   //            each tier voucher is its own inventory item, redeemed at end
   //            of season. Multipliers: mob 1×, boss 2×, world_ender 4×.
   if (op === "bron_roll") {

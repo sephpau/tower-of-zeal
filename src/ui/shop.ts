@@ -71,7 +71,7 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
       if (def.comingSoon) { alert("This item isn't ready yet — check back soon."); return; }
       const ok = await confirmModal({
         title: "Confirm Purchase",
-        message: `Buy <strong>${def.name}</strong> for <strong>${def.priceLabel}</strong>?<br><br>${def.description}<br><br>📦 The item will be added to your <strong>Inventory</strong> (Backpack icon). Open it to <strong>use</strong> energy packs or <strong>choose</strong> a campaign buff for the next battle.<br><br><em>Beta: bRON / RON payment integration is coming soon — purchases are free during testing. Item is locked once bought today.</em>`,
+        message: `Buy <strong>${def.name}</strong> for <strong>${def.priceLabel}</strong>?<br><br>${def.description}<br><br>📦 The item will be added to your <strong>Inventory</strong> (Backpack icon). Open it to <strong>use</strong> energy packs or <strong>choose</strong> a campaign buff for the next battle.<br><br><em>Beta: RON payment integration is coming soon — purchases are free during testing. Item is locked once bought today.</em>`,
         confirmLabel: "Buy",
         cancelLabel: "Cancel",
       });

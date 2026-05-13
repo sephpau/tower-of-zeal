@@ -94,7 +94,7 @@ async function draw(root: HTMLElement): Promise<void> {
       </div>
     `;
   }).join("");
-  const vouchersHtml = totalVouchers > 0 ? bronVouchersSectionHtml(vouchers) : "";
+  const vouchersHtml = totalVouchers > 0 ? ronVouchersSectionHtml(vouchers) : "";
   body.innerHTML = vouchersHtml + sectionsHtml;
 
   // Wire energy "Use" buttons.
@@ -117,7 +117,7 @@ async function draw(root: HTMLElement): Promise<void> {
   // Buffs are chosen from Squad Select now — no buff button handler here.
 }
 
-function bronVouchersSectionHtml(v: { t1?: number; t2?: number; t3?: number; t4?: number; t5?: number }): string {
+function ronVouchersSectionHtml(v: { t1?: number; t2?: number; t3?: number; t4?: number; t5?: number }): string {
   const tiers: { id: "t1"|"t2"|"t3"|"t4"|"t5"; label: string; value: number; color: string }[] = [
     { id: "t5", label: "Tier 5", value: 200, color: "var(--gold-bright)" },
     { id: "t4", label: "Tier 4", value: 50,  color: "#ffb05f" },
@@ -125,7 +125,7 @@ function bronVouchersSectionHtml(v: { t1?: number; t2?: number; t3?: number; t4?
     { id: "t2", label: "Tier 2", value: 10,  color: "#a0e5ff" },
     { id: "t1", label: "Tier 1", value: 5,   color: "#cfd6e4" },
   ];
-  const totalBron = tiers.reduce((s, t) => s + (v[t.id] ?? 0) * t.value, 0);
+  const totalRon = tiers.reduce((s, t) => s + (v[t.id] ?? 0) * t.value, 0);
   const cards = tiers
     .filter(t => (v[t.id] ?? 0) > 0)
     .map(t => {
@@ -139,7 +139,7 @@ function bronVouchersSectionHtml(v: { t1?: number; t2?: number; t3?: number; t4?
               <span class="inv-voucher-name">${t.label} Voucher</span>
               <span class="inv-voucher-count">×${count}</span>
             </div>
-            <div class="inv-voucher-meta">${t.value} bRON each · subtotal <strong>${subtotal.toLocaleString()}</strong> bRON</div>
+            <div class="inv-voucher-meta">${t.value} RON each · subtotal <strong>${subtotal.toLocaleString()}</strong> RON</div>
           </div>
         </div>
       `;
@@ -147,8 +147,8 @@ function bronVouchersSectionHtml(v: { t1?: number; t2?: number; t3?: number; t4?
   return `
     <div class="inv-section">
       <div class="inv-section-title">
-        bRON Vouchers
-        <span class="inv-section-aside">Total value: <strong>${totalBron.toLocaleString()}</strong> bRON · Redeem at end of season</span>
+        RON Vouchers
+        <span class="inv-section-aside">Total value: <strong>${totalRon.toLocaleString()}</strong> RON · Redeem at end of season</span>
       </div>
       <div class="inv-voucher-grid">${cards}</div>
     </div>

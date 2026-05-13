@@ -36,8 +36,8 @@ export interface RunSummary {
   /** Combatant names by side, used to colorize the log review modal. */
   playerNames?: string[];
   enemyNames?: string[];
-  /** bRON voucher drops accumulated across all battles of this run. */
-  bronDrops?: { t1: number; t2: number; t3: number; t4: number; t5: number; total: number };
+  /** RON voucher drops accumulated across all battles of this run. */
+  ronDrops?: { t1: number; t2: number; t3: number; t4: number; t5: number; total: number };
 }
 
 /** Highest score = damageDealt + 1000 × kills. Returns null if no candidates. */
@@ -104,7 +104,7 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
         ${dailyMul > 1 ? `<div class="rs-multiplier-banner">🔥 Daily streak active · ${dailyMul}× XP</div>` : ""}
         ${summary.mvpBonusXp && summary.mvpBonusXp > 0 ? `<div class="rs-mvp-banner">⭐ MVP bonus · +${summary.mvpBonusXp.toLocaleString()} XP (1.2×)</div>` : ""}
         ${actions.refundNotice ? `<div class="rs-refund-banner">⚡ ${escapeHtml(actions.refundNotice)}</div>` : ""}
-        ${summary.bronDrops && summary.bronDrops.total > 0 ? bronBannerHtml(summary.bronDrops) : ""}
+        ${summary.ronDrops && summary.ronDrops.total > 0 ? ronBannerHtml(summary.ronDrops) : ""}
 
         <div class="rs-totals">
           <div class="rs-total"><span class="rs-total-label">Damage Dealt</span><span class="rs-total-value">${totalDamageDealt.toLocaleString()}</span></div>
@@ -210,7 +210,7 @@ function formatMs(ms: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function bronBannerHtml(drops: { t1: number; t2: number; t3: number; t4: number; t5: number; total: number }): string {
+function ronBannerHtml(drops: { t1: number; t2: number; t3: number; t4: number; t5: number; total: number }): string {
   // Build a per-tier breakdown so the rarity feels rewarding.
   const tiers: { id: keyof typeof drops; label: string; color: string }[] = [
     { id: "t5", label: "T5 (200)", color: "var(--gold-bright)" },
@@ -225,7 +225,7 @@ function bronBannerHtml(drops: { t1: number; t2: number; t3: number; t4: number;
     .join("");
   return `
     <div class="rs-bron-banner">
-      <div class="rs-bron-head">💰 <strong>+${drops.total.toLocaleString()} bRON</strong> earned this run</div>
+      <div class="rs-bron-head">💰 <strong>+${drops.total.toLocaleString()} RON</strong> earned this run</div>
       ${chips ? `<div class="rs-bron-chips">${chips}</div>` : ""}
     </div>
   `;

@@ -317,14 +317,14 @@ export async function hasActiveTempMotzKey(address: string): Promise<boolean> {
   return !!cur && cur.expiresAt > Date.now();
 }
 
-// ---- bRON vouchers ----
+// ---- RON vouchers ----
 // Dropped via rollBronForKills and stored in the wallet's shop inventory as
 // per-tier voucher counts (inventory.vouchers.{t1..t5}). There is no separate
 // running "balance" — players redeem the tier vouchers at end of season for
-// their bRON value. The previous balance ledger was removed because we want
+// their RON value. The previous balance ledger was removed because we want
 // the player to see what they actually own, not an aggregated total.
 
-// ---- Server-authoritative bRON drop roller ----
+// ---- Server-authoritative RON drop roller ----
 // All drop randomness lives on the server. The client reports kill events
 // (enemyTemplateId + isBoss flag); the server validates count caps, rolls
 // using Node crypto, and returns the per-tier breakdown alongside the new
@@ -365,7 +365,7 @@ export interface BronRollResult {
  *  applies caps, rolls each kill independently with Node's crypto RNG using the
  *  tier's drop multiplier, deposits the resulting vouchers into the wallet's
  *  shop inventory, and returns the per-tier breakdown. There is no running
- *  bRON "balance" anymore — each tier voucher is its own inventory item. */
+ *  RON "balance" anymore — each tier voucher is its own inventory item. */
 export async function rollBronForKills(
   address: string,
   kills: number,
@@ -433,7 +433,7 @@ interface ShopInventory {
   /** Map of buff id → count owned (un-consumed). Buffs are 1/day buy, so the
    *  daily-bought key prevents re-purchase, while count tracks unused stock. */
   buffs: Partial<Record<ShopItemId, number>>;
-  /** Per-tier bRON voucher stash. Server is the only writer (via rollBronForKills).
+  /** Per-tier RON voucher stash. Server is the only writer (via rollBronForKills).
    *  Held until end-of-season redemption. Missing → all zero. */
   vouchers?: { t1?: number; t2?: number; t3?: number; t4?: number; t5?: number };
 }

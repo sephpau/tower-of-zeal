@@ -12,11 +12,11 @@
 
 import { Stats } from "./stats";
 
-// v17: bRON drops moved fully to the server. The client-side rng.chance() calls
+// v17: RON drops moved fully to the server. The client-side rng.chance() calls
 //      that were added in v16 are gone, so RNG consumption matches v15 again.
 //      v16 replays would diverge because the engine no longer consumes those
 //      draws on enemy death.
-// v16: bRON voucher drops introduced. Every enemy kill now rolls 5 chance()
+// v16: RON voucher drops introduced. Every enemy kill now rolls 5 chance()
 //      tiers via the battle RNG, so v15 replays diverge as soon as the first
 //      enemy falls (extra rng draws shift every subsequent crit / damage roll).
 // v15: Lucky Coin removed. v14 replays that used Lucky Coin would diverge —

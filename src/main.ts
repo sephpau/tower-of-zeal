@@ -192,7 +192,7 @@ let pendingBuff: ShopItemId | null = null;
 export function setPendingBuff(id: ShopItemId | null): void { pendingBuff = id; }
 export function getPendingBuff(): ShopItemId | null { return pendingBuff; }
 
-/** Per-run kill tally by tier — used for the server's bRON roll at end of
+/** Per-run kill tally by tier — used for the server's RON roll at end of
  *  run. Server is the sole authority on drops; client-side counters just
  *  report what was killed. Server caps mob/boss/world-ender at 50/1/1 per
  *  roll, so a tampered client gains nothing meaningful vs. honest play. */
@@ -502,13 +502,13 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
     }
   }
 
-  // Ask the server to roll bRON drops for this run's kills. Server uses its
+  // Ask the server to roll RON drops for this run's kills. Server uses its
   // own crypto RNG, caps mob kills at 50 and boss kills at 1 per call, and
   // credits the wallet itself — there's nothing on the client to tamper with
   // beyond the kill counts, and those caps make farming impractical.
-  let bronSnapshot = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, total: 0 };
+  let ronSnapshot = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, total: 0 };
   const rolled = await rollBron(runKillCount, runBossKillCount, runWorldEnderKillCount).catch(() => null);
-  if (rolled) bronSnapshot = rolled.drops;
+  if (rolled) ronSnapshot = rolled.drops;
 
   const summary: RunSummary = {
     mode: runMode,
@@ -523,7 +523,7 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
     battleLog: battle ? battle.log.slice() : undefined,
     playerNames: battle ? Array.from(new Set(battle.combatants.filter(c => c.side === "player").map(c => c.name))) : undefined,
     enemyNames: battle ? Array.from(new Set(battle.combatants.filter(c => c.side === "enemy").map(c => c.name))) : undefined,
-    bronDrops: bronSnapshot,
+    ronDrops: ronSnapshot,
   };
 
   abortLiveRun();
@@ -767,7 +767,7 @@ async function startBattleFromSquad(squad: SquadResult): Promise<void> {
     else alert(`Not enough energy (need ${cost}, have ${r.amount}).`);
     return;
   }
-  // Fresh run begins — clear the kill tally that feeds the server's bRON roll.
+  // Fresh run begins — clear the kill tally that feeds the server's RON roll.
   resetRunKills();
   // Reset run-spanning buff state, then consume + arm any slotted buff —
   // EXCEPT when starting a campaign run that targets Floor 50 (World Ender):

@@ -124,7 +124,7 @@ export interface Battle {
   phoenixEmbersCharge: boolean;
   /** Last Stand: damage mul when only one player is alive (1 = inactive). */
   lastStandDamageMul: number;
-  // ---- bRON drop kill accounting (server rolls drops, not the client) ----
+  // ---- RON drop kill accounting (server rolls drops, not the client) ----
   /** List of enemy kills this battle — fed to the server's bron_roll op,
    *  which is the ONLY authority that decides drops + credits the wallet.
    *  killTier feeds the server-side multiplier: mob = 1×, boss = 2×, world_ender = 4×. */
@@ -1068,7 +1068,7 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
       target.queuedAction = null;
       if (attacker.side !== target.side) attacker.kills += 1;
       b.log.push(`${target.name} falls.`);
-      // Track enemy deaths for the server-side bRON roll. The client never
+      // Track enemy deaths for the server-side RON roll. The client never
       // decides if a drop occurred — only reports who died and which kill
       // tier they belong to. World Ender is its own tier so the server can
       // apply a 4× multiplier; other solo bosses get 2×; mobs get 1×.
@@ -1080,7 +1080,7 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
         // ---- COSMETIC visual drop pop ----
         // Uses Math.random (NOT the battle RNG) so it can't affect replay
         // determinism. The server is still the only authority on the actual
-        // bRON credited. Chances mirror the server table × tier multiplier so
+        // RON credited. Chances mirror the server table × tier multiplier so
         // the visual rate roughly matches actual reward rate over time.
         rollVisualBronDrop(target.id, tier);
       }
@@ -1240,7 +1240,7 @@ function checkEndConditions(b: Battle): void {
   }
 }
 
-// ---- Cosmetic bRON drop popup (purely visual, NOT replay-deterministic) ----
+// ---- Cosmetic RON drop popup (purely visual, NOT replay-deterministic) ----
 // Mirrors the server's drop table per tier × the kill-tier multiplier so the
 // visual rate roughly matches actual server rewards over time. Uses Math.random
 // (separate from b.rng) so it never shifts combat outcomes.
