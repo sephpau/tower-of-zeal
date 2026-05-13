@@ -37,6 +37,8 @@ import { showBossRaidReward, BossRaidReward } from "./ui/bossRaidReward";
 import { playBgm, stopBgm, playBattleBgm } from "./core/bgm";
 import { startRun, reportFloor, endRun, abortLiveRun, reportFloorCleared, getLiveRun, fetchFloorRetryStatus, claimDefeatRefund } from "./core/leaderboard";
 import { isAllowedOnDev } from "./auth/devBuild";
+import { confirmModal } from "./ui/confirmModal";
+import { playBattleStartAnimation } from "./ui/battleStartAnim";
 
 const root = document.getElementById("app");
 if (!root) throw new Error("#app not found");
@@ -486,8 +488,19 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
 }
 
 /** Consume energy and start the next floor with the same party. Used by the
- *  run summary's "Next Floor" button. */
+ *  run summary's "Next Floor" button. Mirrors the Begin Battle flow:
+ *  confirmation modal → sword-clash transition → run starts. */
 async function advanceToNextFloor(stageId: number, party: SquadResult["players"]): Promise<void> {
+  const nextStage = getStage(stageId);
+  const partyNames = party.map(p => p.template.name).join(", ");
+  const ok = await confirmModal({
+    title: "Begin Next Floor?",
+    message: `Continue to <strong>Floor ${stageId}${nextStage ? ` · ${escapeHtmlSimple(nextStage.name)}` : ""}</strong> with <strong>${party.length}</strong> unit${party.length === 1 ? "" : "s"} — <strong>${escapeHtmlSimple(partyNames)}</strong>?<br><br>Costs <strong>1 energy</strong>.`,
+    confirmLabel: "Begin",
+    cancelLabel: "Cancel",
+  });
+  if (!ok) return;
+
   const r = await consumeServerEnergy(1);
   if (!r.ok) {
     if ("error" in r) alert("Couldn't reach server. Try again.");
@@ -495,7 +508,14 @@ async function advanceToNextFloor(stageId: number, party: SquadResult["players"]
     return;
   }
   currentStageId = stageId;
+  // Sword-clash transition (same animation + skirmish SFX as initial Begin Battle).
+  await playBattleStartAnimation();
   runFloor(party, stageId, 1.0);
+}
+
+/** Tiny local escaper — only used inside the Next Floor confirm message. */
+function escapeHtmlSimple(s: string): string {
+  return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 }
 
 function handleAction(unitId: string, skillId: string, targetId: string): void {
