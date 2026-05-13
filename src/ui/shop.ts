@@ -10,7 +10,6 @@ import {
   fetchShopStatus, buyShopItem,
 } from "../core/shop";
 import { confirmModal } from "./confirmModal";
-import { setPendingBuff, getPendingBuff } from "../main";
 import { loadSession, validateSession, setVerifiedPerks } from "../auth/session";
 
 export async function renderShop(root: HTMLElement, onBack: () => void): Promise<void> {
@@ -101,27 +100,8 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
     });
   });
 
-  // "Slot for next run" handlers (buffs only).
-  grid.querySelectorAll<HTMLButtonElement>("[data-slot]").forEach(btn => {
-    const id = btn.dataset.slot as ShopItemId;
-    btn.addEventListener("click", () => {
-      const cur = getPendingBuff();
-      if (cur === id) {
-        setPendingBuff(null);
-        btn.classList.remove("slotted");
-        btn.textContent = "Choose for next run";
-      } else {
-        setPendingBuff(id);
-        // Clear any other "chosen" state in the DOM.
-        grid.querySelectorAll<HTMLButtonElement>("[data-slot]").forEach(b => {
-          b.classList.remove("slotted");
-          b.textContent = "Choose for next run";
-        });
-        btn.classList.add("slotted");
-        btn.textContent = "Chosen ✓";
-      }
-    });
-  });
+  // Buff "choose" UX lives on the Inventory + Squad-Select screens — the Shop
+  // is purchase-only. No slot handler wired here on purpose.
 }
 
 function shopCardHtml(def: ShopItemDef, status: { inventory: { buffs: Partial<Record<ShopItemId, number>> }; boughtToday: Partial<Record<ShopItemId, boolean>> }): string {
@@ -129,7 +109,6 @@ function shopCardHtml(def: ShopItemDef, status: { inventory: { buffs: Partial<Re
   const owned = status.inventory.buffs[def.id] ?? 0;
   const isBuff = def.category === "buff";
   const isEntitlement = def.id === "unit_stat_reset" || def.id === "unit_class_change";
-  const slotted = getPendingBuff() === def.id;
   const ctaLabel = def.comingSoon ? "Coming Soon" : (bought ? "Bought Today" : "Buy");
   const ctaDisabled = def.comingSoon || bought;
   const ownedBadge = (isBuff || isEntitlement) && owned > 0
@@ -149,9 +128,6 @@ function shopCardHtml(def: ShopItemDef, status: { inventory: { buffs: Partial<Re
       <div class="shop-card-foot">
         <span class="shop-card-price">${escapeHtml(def.priceLabel)}</span>
         <div class="shop-card-actions">
-          ${isBuff && owned > 0 && !def.comingSoon
-            ? `<button class="ghost-btn shop-slot-btn ${slotted ? "slotted" : ""}" data-slot="${def.id}" type="button">${slotted ? "Chosen ✓" : "Choose for next run"}</button>`
-            : ""}
           <button class="confirm-btn shop-buy-btn" data-buy="${def.id}" type="button" ${ctaDisabled ? "disabled" : ""}>${escapeHtml(ctaLabel)}</button>
         </div>
       </div>
