@@ -57,4 +57,7 @@ export interface Skill {
    *  of normal damage. Used for boss "execute" skills like World Ender's
    *  "World End!" — bypasses damage formulas, resistances, shields, dmg-red. */
   instantKill?: { chance: number };
+  /** Cooldown the skill starts the battle on (so it can't be used as an
+   *  opener). Applied in makeCombatant. Defaults to 0 (immediately usable). */
+  initialCooldown?: number;
 }

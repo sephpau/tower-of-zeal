@@ -456,7 +456,36 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
     }
   }
 
+  // Floor-mode victory: offer "Next Floor" so the player can keep climbing
+  // without bouncing through Home → Tower → Squad Select each time. Only on
+  // floors 1-49 (floor 50 is the final). Energy is consumed when they click.
+  if (runMode === "floor" && outcome === "victory" && currentStageId < 50) {
+    const nextStageId = currentStageId + 1;
+    const nextStage = getStage(nextStageId);
+    const partyForNext = floorParty;
+    if (nextStage && partyForNext) {
+      renderRunSummary(root!, summary, showHome, {
+        onNextFloor: async () => { await advanceToNextFloor(nextStageId, partyForNext); },
+        nextFloorLabel: `Next Floor → ${nextStage.name}`,
+      });
+      return;
+    }
+  }
+
   renderRunSummary(root!, summary, showHome);
+}
+
+/** Consume energy and start the next floor with the same party. Used by the
+ *  run summary's "Next Floor" button. */
+async function advanceToNextFloor(stageId: number, party: SquadResult["players"]): Promise<void> {
+  const r = await consumeServerEnergy(1);
+  if (!r.ok) {
+    if ("error" in r) alert("Couldn't reach server. Try again.");
+    else alert(`Not enough energy (need 1, have ${r.amount}).`);
+    return;
+  }
+  currentStageId = stageId;
+  runFloor(party, stageId, 1.0);
 }
 
 function handleAction(unitId: string, skillId: string, targetId: string): void {

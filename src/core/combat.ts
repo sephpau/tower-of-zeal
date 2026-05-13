@@ -234,7 +234,16 @@ export function makeCombatant(t: UnitTemplate, side: Side, position: Position, o
     alive: true,
     guarding: false,
     skills: [...skills],
-    skillCooldowns: {},
+    // Apply any per-skill initialCooldown so e.g. World Ender's "World End!"
+    // can't be used as an opener — it starts on full cooldown.
+    skillCooldowns: (() => {
+      const cd: Record<string, number> = {};
+      for (const id of skills) {
+        const s = SKILLS[id];
+        if (s && s.initialCooldown && s.initialCooldown > 0) cd[id] = s.initialCooldown;
+      }
+      return cd;
+    })(),
     queuedAction: null,
     level,
     xp,

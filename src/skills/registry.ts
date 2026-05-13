@@ -71,8 +71,9 @@ export const SKILLS: Record<string, Skill> = {
     id: "world_end", name: "World End!",
     kind: "magical", targeting: "all_enemies",
     power: 0, mpCost: 80, cooldown: 10,
-    description: "AOE execute — 50% chance to instantly kill each player. Bypasses defense, resists, and shields. 10-action cooldown.",
+    description: "AOE execute — 50% chance to instantly kill each player. Bypasses defense, resists, and shields. 10-action cooldown. Starts on cooldown.",
     instantKill: { chance: 0.5 },
+    initialCooldown: 10,
   },
 
   // ============================================================

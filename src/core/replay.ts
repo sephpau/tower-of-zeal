@@ -12,6 +12,9 @@
 
 import { Stats } from "./stats";
 
+// v10: World End! now starts on cooldown (initialCooldown: 10) — boss can't
+//      open with it. v9 replays of floor 50 would diverge as soon as the boss
+//      reaches turn 1 (cooldown state on the world_end skill differs).
 // v9: World Ender gained "World End!" — AOE instant-kill 50%/target, 10-action
 //     cooldown. v8 replays of floor 50 / boss raid finals would diverge as soon
 //     as the boss fires it (RNG roll changes the kill state of every player).
@@ -33,7 +36,7 @@ import { Stats } from "./stats";
 // v3: combat sim now uses a fixed timestep (SIM_STEP). Replays recorded under
 //     the old variable-dt sim could pick a different actor when two combatants
 //     hit full gauge in the same frame, diverging RNG consumption.
-export const REPLAY_VERSION = 9;
+export const REPLAY_VERSION = 10;
 
 export interface ReplayPartyMember {
   templateId: string;
