@@ -21,6 +21,9 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
         <div class="shop-title">Tower Exchange</div>
         <div class="shop-sub">Each item can be purchased <strong>once per day</strong>. Resets at 8 AM PH.</div>
       </div>
+      <div class="shop-one-buff-notice">
+        ⚡ <strong>Only ONE campaign buff can be slotted per floor.</strong> Each charge applies to a single battle — pick the buff that matters most for the fight you're about to enter.
+      </div>
       <div class="shop-floor50-notice">
         🌑 <strong>Campaign buffs are disabled on Floor 50 (World Ender).</strong> The capstone fight is fair-fight only — slotted buffs are not consumed and have no effect there.
       </div>

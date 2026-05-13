@@ -114,7 +114,7 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
             </div>
             <div class="squad-actions-side">
               <div class="buff-slot-row" id="buff-slot-row">
-                <div class="buff-slot-label">Campaign Buff</div>
+                <div class="buff-slot-label">Campaign Buff <span class="buff-slot-rule">— pick ONE for this floor</span></div>
                 <div class="buff-slot-icons" id="buff-slot-icons">
                   <div class="buff-slot-empty">Loading…</div>
                 </div>
