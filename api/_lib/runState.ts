@@ -274,7 +274,7 @@ export function attemptsCap(mode: "survival" | "boss_raid"): number {
 
 export type ShopItemId =
   | "energy_5" | "energy_10" | "energy_20"
-  | "unit_stat_reset" | "unit_class_change"
+  | "unit_stat_reset" | "unit_class_change" | "unit_temp_motz_key"
   | "buff_battle_cry" | "buff_phoenix_embers" | "buff_scholars_insight"
   | "buff_quickdraw" | "buff_last_stand";
 
@@ -291,6 +291,31 @@ export const BUFF_GRANT_SIZE: Partial<Record<ShopItemId, number>> = {
   buff_scholars_insight: 10,
   buff_last_stand: 2,
 };
+
+// ---- Temporary MoTZ Key (seasonal pass purchased via shop) ----
+// Stored as a JSON blob with an expiresAt timestamp. auth/me OR's this into
+// perks.motzKey so locked units unlock without holding the on-chain key.
+export const TEMP_KEY_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+interface TempMotzKey { expiresAt: number; }
+function tempKeyKey(address: string): string { return `tempkey:motz:${address.toLowerCase()}`; }
+
+export async function readTempMotzKey(address: string): Promise<TempMotzKey | null> {
+  return await getJson<TempMotzKey>(tempKeyKey(address));
+}
+export async function grantTempMotzKey(address: string): Promise<{ expiresAt: number }> {
+  // Stack the new pass on top of any existing time remaining so back-to-back
+  // purchases extend rather than reset.
+  const cur = await readTempMotzKey(address);
+  const base = cur && cur.expiresAt > Date.now() ? cur.expiresAt : Date.now();
+  const expiresAt = base + TEMP_KEY_DURATION_MS;
+  const ttlSec = Math.max(60, Math.floor((expiresAt - Date.now()) / 1000));
+  await setJson(tempKeyKey(address), { expiresAt }, ttlSec);
+  return { expiresAt };
+}
+export async function hasActiveTempMotzKey(address: string): Promise<boolean> {
+  const cur = await readTempMotzKey(address);
+  return !!cur && cur.expiresAt > Date.now();
+}
 
 interface ShopInventory {
   /** Map of buff id → count owned (un-consumed). Buffs are 1/day buy, so the

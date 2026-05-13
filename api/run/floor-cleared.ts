@@ -11,6 +11,7 @@ import {
   readShopInventory, writeShopInventory,
   readBoughtToday, markBoughtToday, consumeBuff,
   SHOP_BUFF_IDS, ShopItemId, BUFF_GRANT_SIZE,
+  grantTempMotzKey,
 } from "../_lib/runState.js";
 
 const MAX_PARTY_SIZE = 3;
@@ -204,6 +205,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       "unit_stat_reset", "unit_class_change",
       ...SHOP_BUFF_IDS,
     ];
+    known.push("unit_temp_motz_key");
     if (!known.includes(itemId)) { res.status(400).json({ error: "unknown item" }); return; }
     try {
       // Atomic daily-buy gate.
@@ -229,6 +231,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
         await writeShopInventory(address, inv);
         res.status(200).json({ ok: true, grant: { type: "energy_pack", itemId, owned: inv.buffs[itemId] } });
+        return;
+      }
+      // Temporary MoTZ Key — direct grant, no inventory slot needed. The
+      // server stores an expiresAt timestamp and auth/me OR's it into
+      // perks.motzKey on every session check. Stacks with existing time.
+      if (itemId === "unit_temp_motz_key") {
+        const r = await grantTempMotzKey(address);
+        res.status(200).json({ ok: true, grant: { type: "temp_motz_key", expiresAt: r.expiresAt } });
         return;
       }
       if (itemId === "unit_stat_reset" || itemId === "unit_class_change") {

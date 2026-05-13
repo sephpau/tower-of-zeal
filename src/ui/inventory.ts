@@ -107,7 +107,7 @@ function itemRowHtml(def: ShopItemDef, count: number): string {
   if (def.category === "energy") {
     action = `<button class="confirm-btn inv-use-btn" data-use-energy="${def.id}" type="button">Use</button>`;
   } else if (def.category === "buff") {
-    action = `<button class="ghost-btn inv-slot-btn ${slotted ? "slotted" : ""}" data-slot-buff="${def.id}" type="button">${slotted ? "Slotted ✓" : "Slot for next run"}</button>`;
+    action = `<button class="ghost-btn inv-slot-btn ${slotted ? "slotted" : ""}" data-slot-buff="${def.id}" type="button">${slotted ? "Chosen ✓" : "Choose for next run"}</button>`;
   } else {
     action = `<div class="inv-action-hint">Spend on the <strong>Units</strong> screen</div>`;
   }
@@ -133,6 +133,7 @@ function iconFor(id: ShopItemId): string {
     case "energy_20": return "⚡⚡⚡";
     case "unit_stat_reset": return "🔄";
     case "unit_class_change": return "🛡";
+    case "unit_temp_motz_key": return "🗝";
     case "buff_battle_cry": return "📯";
     case "buff_phoenix_embers": return "🔥";
     case "buff_scholars_insight": return "📖";

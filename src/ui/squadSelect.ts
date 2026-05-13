@@ -170,10 +170,10 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
       // re-validates and rejects oversize parties.
       if (picks.length > MAX_PARTY_SIZE) picks.length = MAX_PARTY_SIZE;
       const partyNames = picks.map(p => p.name).join(", ");
-      const slotted = getPendingBuff();
-      const buffDef = slotted ? SHOP_CATALOG.find(i => i.id === slotted) : null;
+      const chosen = getPendingBuff();
+      const buffDef = chosen ? SHOP_CATALOG.find(i => i.id === chosen) : null;
       const buffLine = buffDef
-        ? `<br><br>⚡ <strong>${escapeHtml(buffDef.name)}</strong> will be consumed at run start.`
+        ? `<br><br>⚡ Chosen buff: <strong>${escapeHtml(buffDef.name)}</strong> — will be consumed when the battle starts.`
         : "";
       const ok = await confirmModal({
         title: "Begin Battle?",

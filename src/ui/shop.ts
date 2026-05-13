@@ -11,6 +11,7 @@ import {
 } from "../core/shop";
 import { confirmModal } from "./confirmModal";
 import { setPendingBuff, getPendingBuff } from "../main";
+import { loadSession, validateSession, setVerifiedPerks } from "../auth/session";
 
 export async function renderShop(root: HTMLElement, onBack: () => void): Promise<void> {
   // Initial paint — empty list while we wait on the status fetch.
@@ -22,7 +23,7 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
         <div class="shop-sub">Each item can be purchased <strong>once per day</strong>. Resets at 8 AM PH.</div>
       </div>
       <div class="shop-one-buff-notice">
-        ⚡ <strong>Only ONE campaign buff can be slotted per floor.</strong> Each charge applies to a single battle — pick the buff that matters most for the fight you're about to enter.
+        ⚡ <strong>Only ONE campaign buff can be chosen per floor.</strong> Each charge applies to a single battle — pick the buff that matters most for the fight you're about to enter.
       </div>
       <div class="shop-floor50-notice">
         🌑 <strong>Campaign buffs are disabled on Floor 50 (World Ender).</strong> The capstone fight is fair-fight only — slotted buffs are not consumed and have no effect there.
@@ -71,7 +72,7 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
       if (def.comingSoon) { alert("This item isn't ready yet — check back soon."); return; }
       const ok = await confirmModal({
         title: "Confirm Purchase",
-        message: `Buy <strong>${def.name}</strong> for <strong>${def.priceLabel}</strong>?<br><br>${def.description}<br><br>📦 The item will be added to your <strong>Inventory</strong> (Backpack icon). Energy packs are not consumed automatically — open the Inventory to use them.<br><br><em>Beta: payment not wired — purchase is free during testing. Item is locked once bought today.</em>`,
+        message: `Buy <strong>${def.name}</strong> for <strong>${def.priceLabel}</strong>?<br><br>${def.description}<br><br>📦 The item will be added to your <strong>Inventory</strong> (Backpack icon). Open it to <strong>use</strong> energy packs or <strong>choose</strong> a campaign buff for the next battle.<br><br><em>Beta: payment not wired — purchase is free during testing. Item is locked once bought today.</em>`,
         confirmLabel: "Buy",
         cancelLabel: "Cancel",
       });
@@ -84,6 +85,16 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
         // Re-fetch + re-render to refresh "Bought today" state.
         await renderShop(root, onBack);
         return;
+      }
+      // Temp MoTZ Key applies to perks immediately — refresh the verified
+      // perks cache so locked unit overlays clear without waiting for the
+      // next periodic /auth/me poll.
+      if (id === "unit_temp_motz_key") {
+        const sess = loadSession();
+        if (sess) {
+          const refreshed = await validateSession(sess.token);
+          if (refreshed) setVerifiedPerks(refreshed.perks);
+        }
       }
       // Successful — re-render to reflect new state.
       await renderShop(root, onBack);
@@ -98,16 +109,16 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
       if (cur === id) {
         setPendingBuff(null);
         btn.classList.remove("slotted");
-        btn.textContent = "Slot for next run";
+        btn.textContent = "Choose for next run";
       } else {
         setPendingBuff(id);
-        // Clear any other "slotted" state in the DOM.
+        // Clear any other "chosen" state in the DOM.
         grid.querySelectorAll<HTMLButtonElement>("[data-slot]").forEach(b => {
           b.classList.remove("slotted");
-          b.textContent = "Slot for next run";
+          b.textContent = "Choose for next run";
         });
         btn.classList.add("slotted");
-        btn.textContent = "Slotted ✓";
+        btn.textContent = "Chosen ✓";
       }
     });
   });
@@ -139,7 +150,7 @@ function shopCardHtml(def: ShopItemDef, status: { inventory: { buffs: Partial<Re
         <span class="shop-card-price">${escapeHtml(def.priceLabel)}</span>
         <div class="shop-card-actions">
           ${isBuff && owned > 0 && !def.comingSoon
-            ? `<button class="ghost-btn shop-slot-btn ${slotted ? "slotted" : ""}" data-slot="${def.id}" type="button">${slotted ? "Slotted ✓" : "Slot for next run"}</button>`
+            ? `<button class="ghost-btn shop-slot-btn ${slotted ? "slotted" : ""}" data-slot="${def.id}" type="button">${slotted ? "Chosen ✓" : "Choose for next run"}</button>`
             : ""}
           <button class="confirm-btn shop-buy-btn" data-buy="${def.id}" type="button" ${ctaDisabled ? "disabled" : ""}>${escapeHtml(ctaLabel)}</button>
         </div>
@@ -155,6 +166,7 @@ function iconFor(def: ShopItemDef): string {
     case "energy_20": return "⚡⚡⚡";
     case "unit_stat_reset": return "🔄";
     case "unit_class_change": return "🛡";
+    case "unit_temp_motz_key": return "🗝";
     case "buff_battle_cry": return "📯";
     case "buff_phoenix_embers": return "🔥";
     case "buff_scholars_insight": return "📖";
