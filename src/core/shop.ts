@@ -158,20 +158,22 @@ export interface BronRollResult {
   bossKillsCounted: number;
 }
 
-/** Server-authoritative bRON roll: client reports kill totals, server rolls
- *  drops + credits balance. Drop randomness is computed entirely server-side
- *  using Node crypto RNG, so devtools cannot mint vouchers. Boss kills get a
- *  2× chance multiplier per tier (applied server-side). */
-export async function rollBron(kills: number, bossKills: number): Promise<BronRollResult | null> {
+/** Server-authoritative bRON roll: client reports kill totals by tier,
+ *  server rolls drops + credits balance. Drop randomness lives entirely
+ *  server-side (Node crypto RNG), so devtools cannot mint vouchers.
+ *  Multipliers per tier (server-applied):
+ *    mob = 1×, boss = 2×, world_ender = 4×. */
+export async function rollBron(kills: number, bossKills: number, worldEnderKills: number): Promise<BronRollResult | null> {
   const tok = token();
   if (!tok) return null;
   if (!Number.isFinite(kills) || kills < 0) return null;
   if (!Number.isFinite(bossKills) || bossKills < 0) return null;
+  if (!Number.isFinite(worldEnderKills) || worldEnderKills < 0) return null;
   try {
     const r = await fetch("/api/run/floor-cleared", {
       method: "POST",
       headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ op: "bron_roll", kills, bossKills }),
+      body: JSON.stringify({ op: "bron_roll", kills, bossKills, worldEnderKills }),
     });
     if (!r.ok) return null;
     const data = await r.json() as BronRollResult;

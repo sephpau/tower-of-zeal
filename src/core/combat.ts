@@ -127,9 +127,8 @@ export interface Battle {
   // ---- bRON drop kill accounting (server rolls drops, not the client) ----
   /** List of enemy kills this battle — fed to the server's bron_roll op,
    *  which is the ONLY authority that decides drops + credits the wallet.
-   *  Kept as a list (not just a count) so future server logic can vary drop
-   *  chances by enemy type if needed. */
-  killEvents: { enemyTemplateId: string; isBoss: boolean }[];
+   *  killTier feeds the server-side multiplier: mob = 1×, boss = 2×, world_ender = 4×. */
+  killEvents: { enemyTemplateId: string; killTier: "mob" | "boss" | "world_ender" }[];
 }
 
 export type BronTier = "t1" | "t2" | "t3" | "t4" | "t5";
@@ -1070,12 +1069,14 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
       if (attacker.side !== target.side) attacker.kills += 1;
       b.log.push(`${target.name} falls.`);
       // Track enemy deaths for the server-side bRON roll. The client never
-      // decides if a drop occurred — only reports who died.
+      // decides if a drop occurred — only reports who died and which kill
+      // tier they belong to. World Ender is its own tier so the server can
+      // apply a 4× multiplier; other solo bosses get 2×; mobs get 1×.
       if (target.side === "enemy") {
-        b.killEvents.push({
-          enemyTemplateId: target.templateId,
-          isBoss: BOSS_TEMPLATE_IDS.has(target.templateId) || target.templateId === "world_ender",
-        });
+        const tier: "mob" | "boss" | "world_ender" =
+          target.templateId === "world_ender" ? "world_ender" :
+          BOSS_TEMPLATE_IDS.has(target.templateId) ? "boss" : "mob";
+        b.killEvents.push({ enemyTemplateId: target.templateId, killTier: tier });
       }
       return;
     }

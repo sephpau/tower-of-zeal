@@ -355,9 +355,11 @@ export async function creditBron(address: string, delta: number): Promise<number
 
 /** Hard caps per single bron_roll call. A normal floor has 3-30 enemies and
  *  at most one boss; these are intentionally generous so legit play never
- *  trips them, but tight enough that a tampered client can't fake huge runs. */
+ *  trips them, but tight enough that a tampered client can't fake huge runs.
+ *  Survival/boss-raid can clear MANY floors → bump the mob cap to cover that. */
 export const MAX_KILLS_PER_ROLL = 50;
-export const MAX_BOSS_KILLS_PER_ROLL = 1;
+export const MAX_BOSS_KILLS_PER_ROLL = 13;     // survival has 13 boss floors max
+export const MAX_WORLD_ENDER_KILLS_PER_ROLL = 1; // there's exactly one
 
 /** Drop tiers — chance / amount paired. Rarest first so we break on first hit. */
 const BRON_DROP_TABLE: { tier: "t1" | "t2" | "t3" | "t4" | "t5"; chance: number; amount: number }[] = [
@@ -368,24 +370,32 @@ const BRON_DROP_TABLE: { tier: "t1" | "t2" | "t3" | "t4" | "t5"; chance: number;
   { tier: "t1", chance: 0.001,     amount: 5 },
 ];
 
-/** Boss-kill drop multiplier — each tier's chance is doubled when the kill is
- *  flagged as a boss. The maximum theoretical T5 chance even with this is
- *  0.00032% so vouchers remain genuinely rare. */
+/** Drop-chance multipliers per kill tier. Bosses double; World Ender quadruples.
+ *  Even with the 4× cap on World Ender, T5 remains 0.00064% — rare reward. */
 export const BOSS_DROP_MULTIPLIER = 2.0;
+export const WORLD_ENDER_DROP_MULTIPLIER = 4.0;
 
 export interface BronRollResult {
   drops: { t1: number; t2: number; t3: number; t4: number; t5: number; total: number };
   newBalance: number;
   killsCounted: number;
   bossKillsCounted: number;
+  worldEnderKillsCounted: number;
 }
 
-/** Server-side roll: takes the claimed (mob, boss) kill counts, applies the
- *  caps, rolls each kill independently with Node's crypto RNG, credits the
- *  total to the wallet, and returns the per-tier breakdown. */
-export async function rollBronForKills(address: string, kills: number, bossKills: number): Promise<BronRollResult> {
+/** Server-side roll: takes the claimed kill counts by tier (mob/boss/world_ender),
+ *  applies caps, rolls each kill independently with Node's crypto RNG using the
+ *  tier's drop multiplier, credits the total to the wallet, and returns the
+ *  per-tier breakdown. */
+export async function rollBronForKills(
+  address: string,
+  kills: number,
+  bossKills: number,
+  worldEnderKills: number,
+): Promise<BronRollResult> {
   const safeMob = Math.max(0, Math.min(MAX_KILLS_PER_ROLL, Math.floor(kills)));
   const safeBoss = Math.max(0, Math.min(MAX_BOSS_KILLS_PER_ROLL, Math.floor(bossKills)));
+  const safeWE = Math.max(0, Math.min(MAX_WORLD_ENDER_KILLS_PER_ROLL, Math.floor(worldEnderKills)));
   const drops = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, total: 0 };
 
   function rollOnce(mul: number): void {
@@ -399,14 +409,21 @@ export async function rollBronForKills(address: string, kills: number, bossKills
     }
   }
 
-  for (let i = 0; i < safeMob; i++) rollOnce(1.0);
+  for (let i = 0; i < safeMob; i++)  rollOnce(1.0);
   for (let i = 0; i < safeBoss; i++) rollOnce(BOSS_DROP_MULTIPLIER);
+  for (let i = 0; i < safeWE; i++)   rollOnce(WORLD_ENDER_DROP_MULTIPLIER);
 
   const newBalance = drops.total > 0
     ? await creditBron(address, drops.total)
     : await readBron(address);
 
-  return { drops, newBalance, killsCounted: safeMob, bossKillsCounted: safeBoss };
+  return {
+    drops,
+    newBalance,
+    killsCounted: safeMob,
+    bossKillsCounted: safeBoss,
+    worldEnderKillsCounted: safeWE,
+  };
 }
 
 /** Cryptographically random float in [0, 1). Server-side equivalent of

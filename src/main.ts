@@ -192,18 +192,23 @@ let pendingBuff: ShopItemId | null = null;
 export function setPendingBuff(id: ShopItemId | null): void { pendingBuff = id; }
 export function getPendingBuff(): ShopItemId | null { return pendingBuff; }
 
-/** Per-run kill tally — used for the server's bRON roll at end of run. The
- *  server is the sole authority for what (if anything) actually drops; this
- *  client-side counter just tells it how many kills happened. Devtools can
- *  tamper with these values, but server caps per call (MAX_KILLS_PER_ROLL=50,
- *  MAX_BOSS_KILLS_PER_ROLL=1) keep theoretical gain negligible vs. honest play. */
+/** Per-run kill tally by tier — used for the server's bRON roll at end of
+ *  run. Server is the sole authority on drops; client-side counters just
+ *  report what was killed. Server caps mob/boss/world-ender at 50/1/1 per
+ *  roll, so a tampered client gains nothing meaningful vs. honest play. */
 let runKillCount = 0;
 let runBossKillCount = 0;
-function resetRunKills(): void { runKillCount = 0; runBossKillCount = 0; }
-function mergeBattleKillsIntoRun(events: { isBoss: boolean }[]): void {
+let runWorldEnderKillCount = 0;
+function resetRunKills(): void {
+  runKillCount = 0;
+  runBossKillCount = 0;
+  runWorldEnderKillCount = 0;
+}
+function mergeBattleKillsIntoRun(events: { killTier: "mob" | "boss" | "world_ender" }[]): void {
   for (const ev of events) {
-    if (ev.isBoss) runBossKillCount += 1;
-    else runKillCount += 1;
+    if (ev.killTier === "world_ender") runWorldEnderKillCount += 1;
+    else if (ev.killTier === "boss")   runBossKillCount += 1;
+    else                                runKillCount += 1;
   }
 }
 
@@ -502,7 +507,7 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
   // credits the wallet itself — there's nothing on the client to tamper with
   // beyond the kill counts, and those caps make farming impractical.
   let bronSnapshot = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, total: 0 };
-  const rolled = await rollBron(runKillCount, runBossKillCount).catch(() => null);
+  const rolled = await rollBron(runKillCount, runBossKillCount, runWorldEnderKillCount).catch(() => null);
   if (rolled) bronSnapshot = rolled.drops;
 
   const summary: RunSummary = {
