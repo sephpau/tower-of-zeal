@@ -4,7 +4,7 @@ import { startEnergyTimerLoop, formatRefillCountdown } from "./energyTimer";
 import { fetchDailyStatus, claimDailyBonus, DailyStatus } from "../core/daily";
 import { setEnergy } from "../core/energy";
 
-export type HomeAction = "tower" | "units" | "settings" | "tutorial" | "leaderboard" | "codex" | "shop";
+export type HomeAction = "tower" | "units" | "settings" | "tutorial" | "leaderboard" | "codex" | "shop" | "inventory";
 
 export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void): void {
   const s = loadSettings();
@@ -14,6 +14,7 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
       <button class="gear-btn" id="open-settings" type="button" title="Settings">⚙</button>
       <button class="gear-btn tutorial-btn" id="open-tutorial" type="button" title="Replay tutorial">?</button>
       <button class="gear-btn codex-btn" id="open-codex" type="button" title="Codex — stats, actions, effects">📖</button>
+      <button class="gear-btn inventory-btn" id="open-inventory" type="button" title="Inventory (Backpack)">🎒</button>
       <div class="energy-pill" title="Energy">
         <span class="energy-icon">⚡</span>
         <span>${energy} / ${ENERGY_MAX}</span>
@@ -44,6 +45,7 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
   root.querySelector("#open-settings")?.addEventListener("click", () => onAction("settings"));
   root.querySelector("#open-tutorial")?.addEventListener("click", () => onAction("tutorial"));
   root.querySelector("#open-codex")?.addEventListener("click", () => onAction("codex"));
+  root.querySelector("#open-inventory")?.addEventListener("click", () => onAction("inventory"));
   root.querySelectorAll<HTMLButtonElement>(".home-tile").forEach(btn => {
     btn.addEventListener("click", () => onAction(btn.dataset.action as HomeAction));
   });

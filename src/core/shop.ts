@@ -27,10 +27,10 @@ export interface ShopItemDef {
 }
 
 export const SHOP_CATALOG: ShopItemDef[] = [
-  // ---- Energy refills ----
-  { id: "energy_5",  name: "+5 Energy Refill",  description: "Instantly restore 5 energy.",  category: "energy", priceLabel: "Price soon · $crypto" },
-  { id: "energy_10", name: "+10 Energy Refill", description: "Instantly restore 10 energy.", category: "energy", priceLabel: "Price soon · $crypto" },
-  { id: "energy_20", name: "+20 Energy Refill", description: "Instantly restore 20 energy.", category: "energy", priceLabel: "Price soon · $crypto" },
+  // ---- Energy refills (consumed from Inventory, not instant) ----
+  { id: "energy_5",  name: "+5 Energy Pack",  description: "A refill pack. Added to your Inventory — open the Backpack icon to use it and restore 5 energy.",  category: "energy", priceLabel: "Price soon · $crypto" },
+  { id: "energy_10", name: "+10 Energy Pack", description: "A refill pack. Added to your Inventory — open the Backpack icon to use it and restore 10 energy.", category: "energy", priceLabel: "Price soon · $crypto" },
+  { id: "energy_20", name: "+20 Energy Pack", description: "A refill pack. Added to your Inventory — open the Backpack icon to use it and restore 20 energy.", category: "energy", priceLabel: "Price soon · $crypto" },
 
   // ---- Unit-utility entitlements (server grants a token; client UI lets player spend it) ----
   { id: "unit_stat_reset",   name: "Unit Stat Reset",   description: "Refund all custom stat points on a single unit. Pick the unit from the Units screen after buying.", category: "unit", priceLabel: "Price soon · $crypto" },
@@ -67,8 +67,6 @@ export async function fetchShopStatus(): Promise<ShopStatus | null> {
 export interface BuyResult {
   ok: boolean;
   reason?: string;
-  /** For energy refill items, the new server-side balance. */
-  newEnergyAmount?: number;
 }
 
 export async function buyShopItem(item: ShopItemId): Promise<BuyResult> {
@@ -80,14 +78,31 @@ export async function buyShopItem(item: ShopItemId): Promise<BuyResult> {
       headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
       body: JSON.stringify({ op: "shop_buy", item }),
     });
-    const data = await r.json().catch(() => ({} as { ok?: boolean; reason?: string; grant?: { type: string; amount?: number } }));
+    const data = await r.json().catch(() => ({} as { ok?: boolean; reason?: string }));
     if (r.status === 429) return { ok: false, reason: data.reason ?? "already bought today" };
     if (!r.ok) return { ok: false, reason: typeof data.reason === "string" ? data.reason : `http ${r.status}` };
-    if (data.grant?.type === "energy" && typeof data.grant.amount === "number") {
-      setEnergy(data.grant.amount);
-      return { ok: true, newEnergyAmount: data.grant.amount };
-    }
+    // Every purchase now goes to inventory — energy packs are NOT auto-applied.
+    // The player must visit Inventory and click Use to spend an energy pack.
     return { ok: !!data.ok };
+  } catch {
+    return { ok: false, reason: "network" };
+  }
+}
+
+/** Consume one energy pack from inventory. Server decrements + grants energy. */
+export async function useEnergyItem(item: "energy_5" | "energy_10" | "energy_20"): Promise<{ ok: boolean; amount?: number; reason?: string }> {
+  const tok = token();
+  if (!tok) return { ok: false, reason: "not signed in" };
+  try {
+    const r = await fetch("/api/run/floor-cleared", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "inventory_use_energy", item }),
+    });
+    const data = await r.json().catch(() => ({} as { ok?: boolean; amount?: number; reason?: string }));
+    if (!r.ok) return { ok: false, reason: typeof data.reason === "string" ? data.reason : `http ${r.status}` };
+    if (typeof data.amount === "number") setEnergy(data.amount);
+    return { ok: !!data.ok, amount: data.amount };
   } catch {
     return { ok: false, reason: "network" };
   }

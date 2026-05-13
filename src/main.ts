@@ -41,6 +41,7 @@ import { confirmModal } from "./ui/confirmModal";
 import { playBattleStartAnimation } from "./ui/battleStartAnim";
 import { fetchAttemptsStatus, claimAttempt, consumeShopItem, ShopItemId } from "./core/shop";
 import { renderShop } from "./ui/shop";
+import { renderInventory } from "./ui/inventory";
 
 const root = document.getElementById("app");
 if (!root) throw new Error("#app not found");
@@ -167,7 +168,7 @@ function startApp(): void {
   requestAnimationFrame(t => { lastT = t; frame(t); });
 }
 
-type Screen = "home" | "stage_select" | "squad_select" | "battle" | "units" | "settings" | "leaderboard" | "run_summary" | "replay" | "codex" | "shop";
+type Screen = "home" | "stage_select" | "squad_select" | "battle" | "units" | "settings" | "leaderboard" | "run_summary" | "replay" | "codex" | "shop" | "inventory";
 
 interface CarryEntry { hp: number; mp: number; xp: number; level: number; availablePoints: number; customStats: Stats; classId?: string; skillCooldowns?: Record<string, number>; gauge?: number; alive?: boolean; damageDealt?: number; damageTaken?: number; kills?: number; xpGainedTotal?: number }
 
@@ -605,11 +606,17 @@ function onHomeAction(a: HomeAction): void {
   else if (a === "leaderboard") showLeaderboard();
   else if (a === "codex") showCodex();
   else if (a === "shop") showShop();
+  else if (a === "inventory") showInventory();
 }
 
 function showShop(): void {
   screen = "shop" as Screen;
   void renderShop(root!, showHome);
+}
+
+function showInventory(): void {
+  screen = "inventory" as Screen;
+  void renderInventory(root!, showHome);
 }
 
 function showCodex(): void {

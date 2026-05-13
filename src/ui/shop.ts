@@ -71,7 +71,7 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
       if (def.comingSoon) { alert("This item isn't ready yet — check back soon."); return; }
       const ok = await confirmModal({
         title: "Confirm Purchase",
-        message: `Buy <strong>${def.name}</strong> for <strong>${def.priceLabel}</strong>?<br><br>${def.description}<br><br><em>Beta: payment not wired — purchase is free during testing. Item is locked once bought today.</em>`,
+        message: `Buy <strong>${def.name}</strong> for <strong>${def.priceLabel}</strong>?<br><br>${def.description}<br><br>📦 The item will be added to your <strong>Inventory</strong> (Backpack icon). Energy packs are not consumed automatically — open the Inventory to use them.<br><br><em>Beta: payment not wired — purchase is free during testing. Item is locked once bought today.</em>`,
         confirmLabel: "Buy",
         cancelLabel: "Cancel",
       });
@@ -85,7 +85,7 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
         await renderShop(root, onBack);
         return;
       }
-      // Successful: update energy display if needed + re-render to reflect new state.
+      // Successful — re-render to reflect new state.
       await renderShop(root, onBack);
     });
   });

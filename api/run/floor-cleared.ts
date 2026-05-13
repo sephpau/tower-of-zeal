@@ -220,19 +220,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       // NOTE: Payment verification ($crypto) is intentionally NOT wired yet —
       // beta phase grants items free. When payment is wired, this block will
       // verify a signed Ronin tx before granting.
-      if (itemId === "energy_5") {
-        const amount = await adminGrantEnergy(address, 5);
-        res.status(200).json({ ok: true, grant: { type: "energy", amount }, max: ENERGY_MAX });
-        return;
-      }
-      if (itemId === "energy_10") {
-        const amount = await adminGrantEnergy(address, 10);
-        res.status(200).json({ ok: true, grant: { type: "energy", amount }, max: ENERGY_MAX });
-        return;
-      }
-      if (itemId === "energy_20") {
-        const amount = await adminGrantEnergy(address, 20);
-        res.status(200).json({ ok: true, grant: { type: "energy", amount }, max: ENERGY_MAX });
+      // Energy packs no longer grant energy on purchase — they go into the
+      // inventory like every other shop item, and the player "uses" them from
+      // the Inventory screen via the inventory_use_energy op. This lets players
+      // stockpile and time their refills.
+      if (itemId === "energy_5" || itemId === "energy_10" || itemId === "energy_20") {
+        const inv = await readShopInventory(address);
+        inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
+        await writeShopInventory(address, inv);
+        res.status(200).json({ ok: true, grant: { type: "energy_pack", itemId, owned: inv.buffs[itemId] } });
         return;
       }
       if (itemId === "unit_stat_reset" || itemId === "unit_class_change") {
@@ -271,6 +267,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       if (!ok) { res.status(400).json({ ok: false, reason: "none owned" }); return; }
       const inv = await readShopInventory(address);
       res.status(200).json({ ok: true, inventory: inv });
+      return;
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+      return;
+    }
+  }
+
+  // Atomic "use an energy pack from inventory" — decrement count + grant energy.
+  // Same anti-cheat surface: localStorage can't fake the grant; server is the
+  // sole authority for both inventory and energy.
+  if (op === "inventory_use_energy") {
+    const itemRaw = (req.body as { item?: unknown }).item;
+    if (itemRaw !== "energy_5" && itemRaw !== "energy_10" && itemRaw !== "energy_20") {
+      res.status(400).json({ error: "item must be energy_5|energy_10|energy_20" }); return;
+    }
+    const itemId = itemRaw as ShopItemId;
+    try {
+      const consumed = await consumeBuff(address, itemId);
+      if (!consumed) { res.status(400).json({ ok: false, reason: "none owned" }); return; }
+      const grantAmount = itemId === "energy_5" ? 5 : itemId === "energy_10" ? 10 : 20;
+      const newAmount = await adminGrantEnergy(address, grantAmount);
+      const inv = await readShopInventory(address);
+      res.status(200).json({ ok: true, amount: newAmount, max: ENERGY_MAX, granted: grantAmount, inventory: inv });
       return;
     } catch (e) {
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
