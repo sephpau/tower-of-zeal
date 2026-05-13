@@ -131,7 +131,7 @@ export const sfx = {
   victory: () => playSample("victory", 0.5),
   /** Sword-clash sound for the begin-battle transition. Plays the dedicated
    *  sword-clash sample at full volume scaled by the user's SFX slider. */
-  skirmish: () => playSample("swordClash", 0.8, 2.0),
+  skirmish: () => playSample("swordClash", 0.8, 3.0),
   defeat: () => chord([
     { freq: 392, type: "sawtooth", durMs: 220, gain: 0.06 },
     { freq: 311, type: "sawtooth", durMs: 320, gain: 0.07 },
