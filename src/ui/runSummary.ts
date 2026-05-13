@@ -71,7 +71,7 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
 
   const modeLabel = summary.mode === "survival" ? "Survival"
                   : summary.mode === "boss_raid" ? "Boss Raid"
-                  : "Floor";
+                  : "Campaign";
   const outcomeLabel = summary.outcome === "victory"
     ? (summary.mode === "floor" ? "Floor Cleared" : "Run Complete")
     : (summary.mode === "floor" ? "Floor Failed" : "Run Ended");
