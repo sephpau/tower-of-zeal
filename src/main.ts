@@ -188,15 +188,47 @@ let survivalCarry: Record<string, CarryEntry> = {};
 // When the player slots a buff in the Shop screen, we stash the id here.
 // The next run-start consumes it (server-side) and arms the buff flags.
 let pendingBuff: ShopItemId | null = null;
-/** True when the next floor's battle should start with all player ATB gauges full. */
-let battleCryArmed = false;
 export function setPendingBuff(id: ShopItemId | null): void { pendingBuff = id; }
 export function getPendingBuff(): ShopItemId | null { return pendingBuff; }
-/** Consumed by combat.ts when building a battle — fills player gauges if armed. */
+
+/** Buffs active for the CURRENT run. Reset when a new run starts (in
+ *  startBattleFromSquad) and individual flags cleared as they're consumed. */
+interface ActiveRunBuffs {
+  /** Battle Cry — armed only for the first battle of the run. */
+  battleCry: boolean;
+  /** Phoenix Embers — armed per battle in the run (first death per battle revives). */
+  phoenixEmbers: boolean;
+  /** Scholar's Insight — flat XP multiplier applied to every floor in the run. */
+  scholarsInsightMul: number;
+  /** Lucky Coin — flat bonus crit chance for player attackers, every battle. */
+  luckyCoinCrit: number;
+  /** Quickdraw — player ATB-speed multiplier, every battle. */
+  quickdrawAtbMul: number;
+  /** Last Stand — outgoing damage multiplier when only one player ally is alive. */
+  lastStandDmgMul: number;
+}
+let activeRunBuffs: ActiveRunBuffs = freshRunBuffs();
+function freshRunBuffs(): ActiveRunBuffs {
+  return { battleCry: false, phoenixEmbers: false, scholarsInsightMul: 1, luckyCoinCrit: 0, quickdrawAtbMul: 1, lastStandDmgMul: 1 };
+}
+export function getActiveRunBuffs(): ActiveRunBuffs { return activeRunBuffs; }
+/** Consume + return battle-cry flag (used by the build path for the first floor). */
 export function consumeBattleCry(): boolean {
-  if (!battleCryArmed) return false;
-  battleCryArmed = false;
+  if (!activeRunBuffs.battleCry) return false;
+  activeRunBuffs.battleCry = false;
   return true;
+}
+/** Map a slotted buff id onto the activeRunBuffs flags. Called once at run start. */
+function armBuffOnRun(id: ShopItemId): void {
+  switch (id) {
+    case "buff_battle_cry":       activeRunBuffs.battleCry = true; break;
+    case "buff_phoenix_embers":   activeRunBuffs.phoenixEmbers = true; break;
+    case "buff_scholars_insight": activeRunBuffs.scholarsInsightMul = 1.25; break;
+    case "buff_lucky_coin":       activeRunBuffs.luckyCoinCrit = 0.05; break;
+    case "buff_quickdraw":        activeRunBuffs.quickdrawAtbMul = 1.25; break;
+    case "buff_last_stand":       activeRunBuffs.lastStandDmgMul = 2.0; break;
+    default: break; // non-buff items don't arm anything
+  }
 }
 
 // Floor mode state — used to power the defeat-refund flow.
@@ -552,6 +584,8 @@ function showHome(): void {
   abortRecording();
   hideReplayBanner();
   replayPlayer = null;
+  // Returning home ends the active run — clear any leftover buff state.
+  activeRunBuffs = freshRunBuffs();
   screen = "home";
   battle = null;
   playBgm();
@@ -683,11 +717,12 @@ async function startBattleFromSquad(squad: SquadResult): Promise<void> {
     else alert(`Not enough energy (need ${cost}, have ${r.amount}).`);
     return;
   }
-  // Consume + flag Battle Cry buff if the player slotted it for this run.
-  if (pendingBuff === "buff_battle_cry") {
-    const consumed = await consumeShopItem("buff_battle_cry");
+  // Reset run-spanning buff state, then consume + arm any slotted buff.
+  activeRunBuffs = freshRunBuffs();
+  if (pendingBuff) {
+    const consumed = await consumeShopItem(pendingBuff);
     if (consumed) {
-      battleCryArmed = true;
+      armBuffOnRun(pendingBuff);
     }
     pendingBuff = null;
   }
@@ -723,7 +758,7 @@ function runBossRaidFloor(party: SquadResult["players"], floorId: number): void 
   const stage = getStage(floorId);
   if (!stage) { showHome(); return; }
   const opts: BattleOptions = {
-    xpMultiplier: BOSS_RAID_XP_MULT * getCachedDailyMultiplier(),
+    xpMultiplier: BOSS_RAID_XP_MULT * getCachedDailyMultiplier() * activeRunBuffs.scholarsInsightMul,
     bossRaid: true,
     bossStatReduction: brBossStatReduction,
     playerStatBoost: brPlayerStatBoost,
@@ -734,6 +769,11 @@ function runBossRaidFloor(party: SquadResult["players"], floorId: number): void 
   if (Object.keys(brCarry).length === 0 && consumeBattleCry()) {
     opts.playerStartFullGauge = true;
   }
+  // Per-battle run-buffs (re-applied every boss-raid floor).
+  if (activeRunBuffs.phoenixEmbers)         opts.phoenixEmbers = true;
+  if (activeRunBuffs.luckyCoinCrit > 0)     opts.playerBonusCritChance = activeRunBuffs.luckyCoinCrit;
+  if (activeRunBuffs.quickdrawAtbMul > 1)   opts.playerAtbSpeedMul = activeRunBuffs.quickdrawAtbMul;
+  if (activeRunBuffs.lastStandDmgMul > 1)   opts.lastStandDamageMul = activeRunBuffs.lastStandDmgMul;
   // Snapshot the boon state BEFORE pendingHeal is consumed so the replay
   // can reproduce it exactly.
   const bossRaidSnapshot = {
@@ -765,7 +805,9 @@ function runBossRaidFloor(party: SquadResult["players"], floorId: number): void 
 function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: number): void {
   const stage = getStage(floorId);
   if (!stage) { showHome(); return; }
-  const opts: BattleOptions = { xpMultiplier: xpMultiplier * getCachedDailyMultiplier() };
+  const opts: BattleOptions = {
+    xpMultiplier: xpMultiplier * getCachedDailyMultiplier() * activeRunBuffs.scholarsInsightMul,
+  };
   if (mode === "survival" && Object.keys(survivalCarry).length > 0) {
     opts.carryover = survivalCarry;
   }
@@ -773,11 +815,15 @@ function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: 
   // survival; the picked floor for campaign/boss-raid). On survival floor 2+
   // we keep the natural carryover gauge so the buff isn't re-applied per floor.
   const isFirstBattleOfRun =
-    mode === "floor" || (mode === "survival" && Object.keys(survivalCarry).length === 0) ||
-    (mode === "boss_raid" && Object.keys(brCarry).length === 0);
+    mode === "floor" || (mode === "survival" && Object.keys(survivalCarry).length === 0);
   if (isFirstBattleOfRun && consumeBattleCry()) {
     opts.playerStartFullGauge = true;
   }
+  // Per-battle run-buffs: armed once for the run, re-applied every floor.
+  if (activeRunBuffs.phoenixEmbers)         opts.phoenixEmbers = true;
+  if (activeRunBuffs.luckyCoinCrit > 0)     opts.playerBonusCritChance = activeRunBuffs.luckyCoinCrit;
+  if (activeRunBuffs.quickdrawAtbMul > 1)   opts.playerAtbSpeedMul = activeRunBuffs.quickdrawAtbMul;
+  if (activeRunBuffs.lastStandDmgMul > 1)   opts.lastStandDamageMul = activeRunBuffs.lastStandDmgMul;
   // Replay scope:
   //   - floor mode: only the floor-50 World Ender battle is recorded
   //   - survival: every floor recorded (recording was started in startBattleFromSquad)

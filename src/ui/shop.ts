@@ -147,11 +147,11 @@ function iconFor(def: ShopItemDef): string {
     case "unit_stat_reset": return "🔄";
     case "unit_class_change": return "🛡";
     case "buff_battle_cry": return "📯";
-    case "buff_vital_surge": return "❤";
-    case "buff_mana_wellspring": return "💧";
     case "buff_phoenix_embers": return "🔥";
     case "buff_scholars_insight": return "📖";
     case "buff_lucky_coin": return "🪙";
+    case "buff_quickdraw": return "⚡";
+    case "buff_last_stand": return "🗡";
     default: return "❔";
   }
 }

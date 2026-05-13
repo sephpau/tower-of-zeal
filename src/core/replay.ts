@@ -12,6 +12,12 @@
 
 import { Stats } from "./stats";
 
+// v14: Shop run-buffs introduced (Battle Cry / Phoenix Embers / Lucky Coin /
+//      Quickdraw / Last Stand). Replays don't carry buff state yet — any v13
+//      replay that was recorded with buffs active would diverge on playback
+//      because the engine no longer re-applies them. Buff-free replays still
+//      work. Will be addressed when payment goes live by adding a `runBuffs`
+//      field to ReplayBattle.
 // v13: Solo bosses (except World Ender) now take 50% reduced reflected damage.
 //      Any v12 replay where reflect fired against a boss attacker (stone_sentinel,
 //      wraith_lord, tower_lord, iron_behemoth, storm_lord, demon_general,
@@ -46,7 +52,7 @@ import { Stats } from "./stats";
 // v3: combat sim now uses a fixed timestep (SIM_STEP). Replays recorded under
 //     the old variable-dt sim could pick a different actor when two combatants
 //     hit full gauge in the same frame, diverging RNG consumption.
-export const REPLAY_VERSION = 13;
+export const REPLAY_VERSION = 14;
 
 export interface ReplayPartyMember {
   templateId: string;

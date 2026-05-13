@@ -119,6 +119,13 @@ export interface Battle {
    *  for each. This makes the simulation deterministic regardless of frame rate,
    *  which is required for replay determinism. */
   simAccum: number;
+  // ---- Shop-buff state (set by startBattle from BattleOptions) ----
+  /** Phoenix Embers: per-battle revive charge for the first player ally to fall. */
+  phoenixEmbersCharge: boolean;
+  /** Lucky Coin: flat crit bonus for player attackers (0..1). */
+  playerBonusCritChance: number;
+  /** Last Stand: damage mul when only one player is alive (1 = inactive). */
+  lastStandDamageMul: number;
 }
 
 /** Fixed simulation step (seconds). Combat uses a fixed timestep so the same
@@ -326,6 +333,17 @@ export interface BattleOptions {
   pendingHeal?: boolean;
   /** Shop buff "Battle Cry": all player units start with full ATB gauge. */
   playerStartFullGauge?: boolean;
+  /** Shop buff "Phoenix Embers": first player ally to fall this battle revives
+   *  at 50% HP instead of dying. Consumed per battle (each floor of a survival
+   *  run gets its own charge while the buff is active for the run). */
+  phoenixEmbers?: boolean;
+  /** Shop buff "Lucky Coin": flat +5% crit chance applied to player attackers. */
+  playerBonusCritChance?: number;
+  /** Shop buff "Quickdraw": multiplier on player units' atbSpeed (e.g. 1.25 = +25% regen). */
+  playerAtbSpeedMul?: number;
+  /** Shop buff "Last Stand": when only one player ally is alive, that unit's
+   *  outgoing damage is multiplied by this (e.g. 2.0 doubles damage). */
+  lastStandDamageMul?: number;
 }
 
 export function startBattle(
@@ -410,6 +428,13 @@ export function startBattle(
     }
   }
 
+  // Apply Quickdraw — bump player atbSpeed before the battle starts ticking.
+  if (opts.playerAtbSpeedMul && opts.playerAtbSpeedMul !== 1) {
+    for (const c of playerCombatants) {
+      c.atbSpeed = c.atbSpeed * opts.playerAtbSpeedMul;
+    }
+  }
+
   return {
     state: { kind: "ticking" },
     combatants: [...playerCombatants, ...enemyCombatants],
@@ -420,6 +445,9 @@ export function startBattle(
     xpMultiplier: opts.xpMultiplier ?? 1,
     seed,
     simAccum: 0,
+    phoenixEmbersCharge: !!opts.phoenixEmbers,
+    playerBonusCritChance: Math.max(0, Math.min(1, opts.playerBonusCritChance ?? 0)),
+    lastStandDamageMul: Math.max(1, opts.lastStandDamageMul ?? 1),
   };
 }
 
@@ -942,6 +970,15 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
     }
     dmg = result.dmg;
     crit = result.crit;
+    // Lucky Coin (shop buff): flat bonus crit chance for player attackers,
+    // rolled AFTER the normal crit check so it can only upgrade non-crits.
+    // Always consumes one rng tick when active — determinism friendly.
+    if (!crit && attacker.side === "player" && b.playerBonusCritChance > 0) {
+      if (b.rng.chance(b.playerBonusCritChance)) {
+        crit = true;
+        dmg = Math.max(1, Math.floor(dmg * 1.5));
+      }
+    }
   }
 
   if (ctx.aoe) dmg = Math.max(1, Math.floor(dmg * 0.75));
@@ -963,6 +1000,15 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
   // Vulnerability / damage reduction on the defender.
   const incomingMul = incomingDamageMultiplier(target);
   if (incomingMul !== 1) dmg = Math.max(1, Math.floor(dmg * incomingMul));
+  // Last Stand (shop buff): when exactly one player ally is alive AND that
+  // unit is the attacker, multiply outgoing damage. Counted right before the
+  // hit lands so it tracks the moment-by-moment alive count.
+  if (attacker.side === "player" && b.lastStandDamageMul > 1) {
+    const aliveAllies = b.combatants.filter(c => c.side === "player" && c.alive).length;
+    if (aliveAllies === 1) {
+      dmg = Math.max(1, Math.floor(dmg * b.lastStandDamageMul));
+    }
+  }
   target.hp = Math.max(0, target.hp - dmg);
 
   // Run-summary trackers: only credit cross-side damage.
@@ -1013,11 +1059,23 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
   }
 
   if (target.hp <= 0) {
-    target.alive = false;
-    target.queuedAction = null;
-    if (attacker.side !== target.side) attacker.kills += 1;
-    b.log.push(`${target.name} falls.`);
-    return;
+    // Phoenix Embers: if the buff is armed and a PLAYER unit just fell, spend
+    // the charge to revive them at 50% maxHp instead. Charge spans the whole
+    // run but consumes on first use — applied once per battle.
+    if (target.side === "player" && b.phoenixEmbersCharge) {
+      b.phoenixEmbersCharge = false;
+      const revivedTo = Math.max(1, Math.floor(target.maxHp * 0.5));
+      target.hp = revivedTo;
+      // Leave .alive = true (never set to false). Kill credit is NOT awarded.
+      b.log.push(`${target.name} would have fallen — Phoenix Embers revive them at ${revivedTo} HP!`);
+      // Don't 'return' — we still want on-hit applies to run on a survivor.
+    } else {
+      target.alive = false;
+      target.queuedAction = null;
+      if (attacker.side !== target.side) attacker.kills += 1;
+      b.log.push(`${target.name} falls.`);
+      return;
+    }
   }
 
   // Apply attached on-hit effects.

@@ -11,8 +11,8 @@ function token(): string | null { return loadSession()?.token ?? null; }
 export type ShopItemId =
   | "energy_5" | "energy_10" | "energy_20"
   | "unit_stat_reset" | "unit_class_change"
-  | "buff_battle_cry" | "buff_vital_surge" | "buff_mana_wellspring"
-  | "buff_phoenix_embers" | "buff_scholars_insight" | "buff_lucky_coin";
+  | "buff_battle_cry" | "buff_phoenix_embers" | "buff_scholars_insight"
+  | "buff_lucky_coin" | "buff_quickdraw" | "buff_last_stand";
 
 export interface ShopItemDef {
   id: ShopItemId;
@@ -37,12 +37,12 @@ export const SHOP_CATALOG: ShopItemDef[] = [
   { id: "unit_class_change", name: "Unit Class Change", description: "Change one unit's class. Custom stats are reset to keep build economy fair.", category: "unit", priceLabel: "Price soon · $crypto" },
 
   // ---- Campaign-run buffs (one consumed per run start when slotted) ----
-  { id: "buff_battle_cry",        name: "Battle Cry",        description: "All units start the floor with a full ATB gauge. Front-load damage on hard floors.", category: "buff", priceLabel: "Price soon · $crypto" },
-  { id: "buff_vital_surge",       name: "Vital Surge",       description: "Party starts at +20% maxHP overheal. Decays as damage is taken.", category: "buff", priceLabel: "Price soon · $crypto", comingSoon: true },
-  { id: "buff_mana_wellspring",   name: "Mana Wellspring",   description: "Party starts with full MP — open with big skills.", category: "buff", priceLabel: "Price soon · $crypto", comingSoon: true },
-  { id: "buff_phoenix_embers",    name: "Phoenix Embers",    description: "Auto-revive the first ally to fall at 50% HP. One use per run.", category: "buff", priceLabel: "Price soon · $crypto", comingSoon: true },
-  { id: "buff_scholars_insight",  name: "Scholar's Insight", description: "+25% XP from the next floor cleared.", category: "buff", priceLabel: "Price soon · $crypto", comingSoon: true },
-  { id: "buff_lucky_coin",        name: "Lucky Coin",        description: "+5% crit chance for the entire run.", category: "buff", priceLabel: "Price soon · $crypto", comingSoon: true },
+  { id: "buff_battle_cry",       name: "Battle Cry",        description: "All units start the floor with a full ATB gauge. Front-load damage on hard floors.", category: "buff", priceLabel: "Price soon · $crypto" },
+  { id: "buff_phoenix_embers",   name: "Phoenix Embers",    description: "Auto-revive the first ally to fall at 50% HP. One use per run.", category: "buff", priceLabel: "Price soon · $crypto" },
+  { id: "buff_scholars_insight", name: "Scholar's Insight", description: "+25% XP gained from every floor in the run.", category: "buff", priceLabel: "Price soon · $crypto" },
+  { id: "buff_lucky_coin",       name: "Lucky Coin",        description: "+5% crit chance for the entire run.", category: "buff", priceLabel: "Price soon · $crypto" },
+  { id: "buff_quickdraw",        name: "Quickdraw",         description: "Player ATB gauges fill 25% faster for the entire run. Pure tempo.", category: "buff", priceLabel: "Price soon · $crypto" },
+  { id: "buff_last_stand",       name: "Last Stand",        description: "When only one of your units remains alive, that unit's damage is doubled. Comeback insurance.", category: "buff", priceLabel: "Price soon · $crypto" },
 ];
 
 export interface ShopStatus {

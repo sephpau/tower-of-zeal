@@ -275,12 +275,12 @@ export function attemptsCap(mode: "survival" | "boss_raid"): number {
 export type ShopItemId =
   | "energy_5" | "energy_10" | "energy_20"
   | "unit_stat_reset" | "unit_class_change"
-  | "buff_battle_cry" | "buff_vital_surge" | "buff_mana_wellspring"
-  | "buff_phoenix_embers" | "buff_scholars_insight" | "buff_lucky_coin";
+  | "buff_battle_cry" | "buff_phoenix_embers" | "buff_scholars_insight"
+  | "buff_lucky_coin" | "buff_quickdraw" | "buff_last_stand";
 
 export const SHOP_BUFF_IDS: ShopItemId[] = [
-  "buff_battle_cry", "buff_vital_surge", "buff_mana_wellspring",
-  "buff_phoenix_embers", "buff_scholars_insight", "buff_lucky_coin",
+  "buff_battle_cry", "buff_phoenix_embers", "buff_scholars_insight",
+  "buff_lucky_coin", "buff_quickdraw", "buff_last_stand",
 ];
 
 interface ShopInventory {
