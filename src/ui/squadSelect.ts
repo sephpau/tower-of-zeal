@@ -8,6 +8,7 @@ import { classBaseAtLevel } from "../units/classes";
 import { hexStatSvg } from "./hexStat";
 import { portraitInner, capeHtml, isUnitLocked } from "../units/art";
 import { confirmModal } from "./confirmModal";
+import { playBattleStartAnimation } from "./battleStartAnim";
 
 // Effective stats = unit base@lvl + class base@lvl + allocated custom points.
 // Mirrors what makeCombatant does, so the roster preview matches battle reality.
@@ -163,6 +164,7 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
         template: t,
         position: { row: i, col: 0 },
       }));
+      await playBattleStartAnimation();
       onConfirm({ players, enemies: stage.enemies, stageId: stage.id });
     });
   };
