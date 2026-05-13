@@ -11,7 +11,7 @@ import {
   readShopInventory, writeShopInventory,
   readBoughtToday, markBoughtToday, consumeBuff,
   SHOP_BUFF_IDS, ShopItemId, BUFF_GRANT_SIZE,
-  grantTempMotzKey,
+  grantTempMotzKey, readTempMotzKey,
 } from "../_lib/runState.js";
 
 const MAX_PARTY_SIZE = 3;
@@ -180,14 +180,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       const inv = await readShopInventory(address);
       const allItems: ShopItemId[] = [
         "energy_5", "energy_10", "energy_20",
-        "unit_stat_reset", "unit_class_change",
+        "unit_stat_reset", "unit_class_change", "unit_temp_motz_key",
         ...SHOP_BUFF_IDS,
       ];
       const bought: Partial<Record<ShopItemId, boolean>> = {};
       await Promise.all(allItems.map(async id => {
         bought[id] = await readBoughtToday(id, address);
       }));
-      res.status(200).json({ ok: true, inventory: inv, boughtToday: bought });
+      // Surface the temp MoTZ Key state so the inventory UI can render an
+      // active-pass card with the remaining time.
+      const tempKey = await readTempMotzKey(address);
+      const tempMotzKey = tempKey && tempKey.expiresAt > Date.now()
+        ? { active: true, expiresAt: tempKey.expiresAt }
+        : { active: false };
+      res.status(200).json({ ok: true, inventory: inv, boughtToday: bought, tempMotzKey });
       return;
     } catch (e) {
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });

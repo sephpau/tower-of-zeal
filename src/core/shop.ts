@@ -48,6 +48,8 @@ export const SHOP_CATALOG: ShopItemDef[] = [
 export interface ShopStatus {
   inventory: { buffs: Partial<Record<ShopItemId, number>> };
   boughtToday: Partial<Record<ShopItemId, boolean>>;
+  /** State of the seasonal pass — if active, expiresAt is a UTC timestamp. */
+  tempMotzKey: { active: boolean; expiresAt?: number };
 }
 
 export async function fetchShopStatus(): Promise<ShopStatus | null> {
@@ -60,8 +62,16 @@ export async function fetchShopStatus(): Promise<ShopStatus | null> {
       body: JSON.stringify({ op: "shop_status" }),
     });
     if (!r.ok) return null;
-    const data = await r.json() as { inventory: { buffs: Partial<Record<ShopItemId, number>> }; boughtToday: Partial<Record<ShopItemId, boolean>> };
-    return { inventory: data.inventory, boughtToday: data.boughtToday };
+    const data = await r.json() as {
+      inventory: { buffs: Partial<Record<ShopItemId, number>> };
+      boughtToday: Partial<Record<ShopItemId, boolean>>;
+      tempMotzKey?: { active: boolean; expiresAt?: number };
+    };
+    return {
+      inventory: data.inventory,
+      boughtToday: data.boughtToday,
+      tempMotzKey: data.tempMotzKey ?? { active: false },
+    };
   } catch { return null; }
 }
 

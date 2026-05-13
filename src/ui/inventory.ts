@@ -42,7 +42,9 @@ async function draw(root: HTMLElement): Promise<void> {
     .map(def => ({ def, count: status.inventory.buffs[def.id] ?? 0 }))
     .filter(x => x.count > 0);
 
-  if (owned.length === 0) {
+  const tempKeyActive = !!status.tempMotzKey?.active;
+
+  if (owned.length === 0 && !tempKeyActive) {
     body.innerHTML = `
       <div class="inv-empty">
         <div class="inv-empty-icon">🎒</div>
@@ -59,18 +61,25 @@ async function draw(root: HTMLElement): Promise<void> {
     { label: "Unit Utilities", cat: "unit" },
   ];
 
-  body.innerHTML = sections.map(sec => {
+  const sectionsHtml = sections.map(sec => {
     const items = owned.filter(x => x.def.category === sec.cat);
-    if (items.length === 0) return "";
+    // The Unit Utilities section gets an extra "active pass" card when the
+    // seasonal MoTZ key is live, even if no other entitlements are owned.
+    const tempKeyHere = sec.cat === "unit" && tempKeyActive
+      ? tempKeyCardHtml(status.tempMotzKey.expiresAt ?? 0)
+      : "";
+    if (items.length === 0 && !tempKeyHere) return "";
     return `
       <div class="inv-section">
         <div class="inv-section-title">${sec.label}</div>
         <div class="inv-items">
+          ${tempKeyHere}
           ${items.map(x => itemRowHtml(x.def, x.count)).join("")}
         </div>
       </div>
     `;
   }).join("");
+  body.innerHTML = sectionsHtml;
 
   // Wire energy "Use" buttons.
   body.querySelectorAll<HTMLButtonElement>("[data-use-energy]").forEach(btn => {
@@ -98,6 +107,36 @@ async function draw(root: HTMLElement): Promise<void> {
       void draw(root);
     });
   });
+}
+
+function tempKeyCardHtml(expiresAt: number): string {
+  const msLeft = Math.max(0, expiresAt - Date.now());
+  const dayMs = 24 * 60 * 60 * 1000;
+  const hourMs = 60 * 60 * 1000;
+  const daysLeft = Math.floor(msLeft / dayMs);
+  const hoursLeft = Math.floor((msLeft % dayMs) / hourMs);
+  const remainStr = daysLeft >= 1
+    ? `${daysLeft} day${daysLeft === 1 ? "" : "s"}${hoursLeft > 0 ? `, ${hoursLeft}h` : ""} remaining`
+    : `${Math.max(1, hoursLeft)}h remaining`;
+  const expiryDate = new Date(expiresAt).toLocaleString();
+  return `
+    <div class="inv-item inv-item-active-pass">
+      <div class="inv-item-icon">🗝</div>
+      <div class="inv-item-body">
+        <div class="inv-item-head">
+          <span class="inv-item-name">Temporary MoTZ Key</span>
+          <span class="inv-item-active-badge">ACTIVE · ${escapeHtml(remainStr)}</span>
+        </div>
+        <div class="inv-item-desc">
+          Seasonal pass — Hera, Nova, Oge, and Shego are unlocked while this is active.
+          Expires <strong>${escapeHtml(expiryDate)}</strong>. Buy again to extend.
+        </div>
+      </div>
+      <div class="inv-item-action">
+        <div class="inv-action-hint">Active — perks applied automatically.</div>
+      </div>
+    </div>
+  `;
 }
 
 function itemRowHtml(def: ShopItemDef, count: number): string {
