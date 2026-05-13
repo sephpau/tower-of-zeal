@@ -28,21 +28,21 @@ export interface ShopItemDef {
 
 export const SHOP_CATALOG: ShopItemDef[] = [
   // ---- Energy refills (consumed from Inventory, not instant) ----
-  { id: "energy_5",  name: "+5 Energy Pack",  description: "A refill pack. Added to your Inventory — open the Backpack icon to use it and restore 5 energy.",  category: "energy", priceLabel: "Price soon · $crypto" },
-  { id: "energy_10", name: "+10 Energy Pack", description: "A refill pack. Added to your Inventory — open the Backpack icon to use it and restore 10 energy.", category: "energy", priceLabel: "Price soon · $crypto" },
-  { id: "energy_20", name: "+20 Energy Pack", description: "A refill pack. Added to your Inventory — open the Backpack icon to use it and restore 20 energy.", category: "energy", priceLabel: "Price soon · $crypto" },
+  { id: "energy_5",  name: "+5 Energy Pack",  description: "A refill pack. Added to your Inventory — open the Backpack icon to use it and restore 5 energy.",  category: "energy", priceLabel: "5 bRON / RON" },
+  { id: "energy_10", name: "+10 Energy Pack", description: "A refill pack. Added to your Inventory — open the Backpack icon to use it and restore 10 energy.", category: "energy", priceLabel: "10 bRON / RON" },
+  { id: "energy_20", name: "+20 Energy Pack", description: "A refill pack. Added to your Inventory — open the Backpack icon to use it and restore 20 energy.", category: "energy", priceLabel: "20 bRON / RON" },
 
   // ---- Unit-utility entitlements (server grants a token; client UI lets player spend it) ----
-  { id: "unit_stat_reset",   name: "Unit Stat Reset",   description: "Refund all custom stat points on a single unit. Pick the unit from the Units screen after buying.", category: "unit", priceLabel: "Price soon · $crypto" },
-  { id: "unit_class_change", name: "Unit Class Change", description: "Change one unit's class. Custom stats are reset to keep build economy fair.", category: "unit", priceLabel: "Price soon · $crypto" },
-  { id: "unit_temp_motz_key", name: "Temporary MoTZ Key (10-Day Seasonal Pass)", description: "Unlocks all MoTZ-key locked units (Hera, Nova, Oge, Shego) for 10 days. Stacks if you buy again before it expires. Activates immediately on purchase — does not require the on-chain key.", category: "unit", priceLabel: "Price soon · $crypto" },
+  { id: "unit_stat_reset",   name: "Unit Stat Reset",   description: "Refund all custom stat points on a single unit. Pick the unit from the Units screen after buying.", category: "unit", priceLabel: "10 bRON / RON" },
+  { id: "unit_class_change", name: "Unit Class Change", description: "Change one unit's class. Custom stats are reset to keep build economy fair.", category: "unit", priceLabel: "10 bRON / RON" },
+  { id: "unit_temp_motz_key", name: "Temporary MoTZ Key (10-Day Seasonal Pass)", description: "Unlocks all MoTZ-key locked units (Hera, Nova, Oge, Shego) for 10 days. Stacks if you buy again before it expires. Activates immediately on purchase — does not require the on-chain key.", category: "unit", priceLabel: "40 bRON / RON" },
 
   // ---- Campaign-run buffs (one consumed per run start when slotted) ----
-  { id: "buff_battle_cry",       name: "Battle Cry",        description: "Grants 3 charges per purchase. Choose one before any battle to start that floor with all player ATB gauges full.", category: "buff", priceLabel: "Price soon · $crypto" },
-  { id: "buff_phoenix_embers",   name: "Phoenix Embers",    description: "Grants 2 charges per purchase. Choose one for a run — auto-revives the first ally to fall at 50% HP. One revive per battle.", category: "buff", priceLabel: "Price soon · $crypto" },
-  { id: "buff_scholars_insight", name: "Scholar's Insight", description: "Grants 10 charges per purchase. Choose one before a battle to gain +25% XP on the CURRENT floor only (does not carry to other floors).", category: "buff", priceLabel: "Price soon · $crypto" },
-  { id: "buff_quickdraw",        name: "Quickdraw",         description: "Grants 1 charge per purchase. Choose one for a run — player ATB gauges fill 25% faster for the entire run.", category: "buff", priceLabel: "Price soon · $crypto" },
-  { id: "buff_last_stand",       name: "Last Stand",        description: "Grants 2 charges per purchase. Choose one for a run — when only one of your units remains alive on the battlefield, that unit's damage is doubled.", category: "buff", priceLabel: "Price soon · $crypto" },
+  { id: "buff_battle_cry",       name: "Battle Cry",        description: "Grants 3 charges per purchase. Choose one before any battle to start that floor with all player ATB gauges full.", category: "buff", priceLabel: "10 bRON / RON" },
+  { id: "buff_phoenix_embers",   name: "Phoenix Embers",    description: "Grants 2 charges per purchase. Choose one for a run — auto-revives the first ally to fall at 50% HP. One revive per battle.", category: "buff", priceLabel: "10 bRON / RON" },
+  { id: "buff_scholars_insight", name: "Scholar's Insight", description: "Grants 10 charges per purchase. Choose one before a battle to gain +25% XP on the CURRENT floor only (does not carry to other floors).", category: "buff", priceLabel: "10 bRON / RON" },
+  { id: "buff_quickdraw",        name: "Quickdraw",         description: "Grants 1 charge per purchase. Choose one for a run — player ATB gauges fill 25% faster for the entire run.", category: "buff", priceLabel: "10 bRON / RON" },
+  { id: "buff_last_stand",       name: "Last Stand",        description: "Grants 2 charges per purchase. Choose one for a run — when only one of your units remains alive on the battlefield, that unit's damage is doubled.", category: "buff", priceLabel: "10 bRON / RON" },
 ];
 
 export interface ShopStatus {
