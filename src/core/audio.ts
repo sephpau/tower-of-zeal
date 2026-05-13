@@ -77,6 +77,7 @@ const SAMPLE_SRC: Record<string, string> = {
   hitMag: "/sfx/hit-magical.wav",
   castBuff: "/sfx/cast-buff.wav",
   victory: "/sfx/victory.mp3",
+  swordClash: "/sfx/sword sound.m4a",
 };
 const sampleCache: Record<string, HTMLAudioElement> = {};
 function preloadSample(key: string): void {
@@ -120,12 +121,9 @@ export const sfx = {
   miss: () => blip({ freq: 220, endFreq: 110, type: "triangle", durMs: 80, gain: 0.04 }),
   fall: () => blip({ freq: 200, endFreq: 60, type: "sawtooth", durMs: 240, gain: 0.10 }),
   victory: () => playSample("victory", 0.5),
-  /** Sword-clash sound for the begin-battle transition. Layers crit ring +
-   *  physical impact for a meatier clang. */
-  skirmish: () => {
-    playSample("crit", 0.5);
-    setTimeout(() => playSample("hitPhys", 0.4), 30);
-  },
+  /** Sword-clash sound for the begin-battle transition. Plays the dedicated
+   *  sword-clash sample at full volume scaled by the user's SFX slider. */
+  skirmish: () => playSample("swordClash", 0.8),
   defeat: () => chord([
     { freq: 392, type: "sawtooth", durMs: 220, gain: 0.06 },
     { freq: 311, type: "sawtooth", durMs: 320, gain: 0.07 },
