@@ -14,7 +14,20 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
       <button class="gear-btn" id="open-settings" type="button" title="Settings">⚙</button>
       <button class="gear-btn tutorial-btn" id="open-tutorial" type="button" title="Replay tutorial">?</button>
       <button class="gear-btn codex-btn" id="open-codex" type="button" title="Codex — stats, actions, effects">📖</button>
-      <button class="gear-btn inventory-btn" id="open-inventory" type="button" title="Inventory (Backpack)">🎒</button>
+      <button class="gear-btn inventory-btn" id="open-inventory" type="button" title="Inventory (Backpack)" aria-label="Inventory">
+        <svg class="inv-icon-svg" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <!-- Top strap loop -->
+          <path d="M11 5 Q11 1 16 1 Q21 1 21 5 L21 9 L19 9 L19 5 Q19 3 16 3 Q13 3 13 5 L13 9 L11 9 Z" fill="#3a200d"/>
+          <!-- Bag body (rounded square) -->
+          <rect x="5" y="8" width="22" height="22" rx="4" fill="#8b5a2b" stroke="#3a200d" stroke-width="1.2"/>
+          <!-- Front pocket -->
+          <rect x="9" y="17" width="14" height="9" rx="1.5" fill="#6b4321" stroke="#3a200d" stroke-width="1"/>
+          <!-- Pocket buckle -->
+          <rect x="14" y="20" width="4" height="3" rx="0.5" fill="#d4a93e" stroke="#7a5a14" stroke-width="0.5"/>
+          <!-- Top flap line -->
+          <line x1="6" y1="13" x2="26" y2="13" stroke="#3a200d" stroke-width="0.8" opacity="0.55"/>
+        </svg>
+      </button>
       <div class="energy-pill" title="Energy">
         <span class="energy-icon">⚡</span>
         <span>${energy} / ${ENERGY_MAX}</span>

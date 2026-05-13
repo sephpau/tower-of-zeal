@@ -15,8 +15,18 @@ export async function renderInventory(root: HTMLElement, onBack: () => void): Pr
     <div class="screen-frame inventory-screen">
       ${topBarHtml("Inventory", true)}
       <div class="inv-header">
-        <div class="inv-title">Backpack</div>
-        <div class="inv-sub">Items you've bought from the <strong>Shop</strong>. Click <strong>Use</strong> on energy packs to refill, or slot a campaign buff for your next battle.</div>
+        <div class="inv-title-row">
+          <svg class="inv-title-icon" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M11 5 Q11 1 16 1 Q21 1 21 5 L21 9 L19 9 L19 5 Q19 3 16 3 Q13 3 13 5 L13 9 L11 9 Z" fill="#3a200d"/>
+            <rect x="5" y="8" width="22" height="22" rx="4" fill="#8b5a2b" stroke="#3a200d" stroke-width="1.2"/>
+            <rect x="9" y="17" width="14" height="9" rx="1.5" fill="#6b4321" stroke="#3a200d" stroke-width="1"/>
+            <rect x="14" y="20" width="4" height="3" rx="0.5" fill="#d4a93e" stroke="#7a5a14" stroke-width="0.5"/>
+            <line x1="6" y1="13" x2="26" y2="13" stroke="#3a200d" stroke-width="0.8" opacity="0.55"/>
+          </svg>
+          <div class="inv-title">Backpack</div>
+        </div>
+        <div class="inv-title-rule"></div>
+        <div class="inv-sub">Items you've bought from the <strong>Shop</strong> or earned in battle. Click <strong>Use</strong> on energy packs to refill, then visit Squad Select to pick a Campaign Buff for your next floor.</div>
         <div class="inv-pills">
           <div class="inv-energy-pill">⚡ ${getEnergy()} / ${ENERGY_MAX}</div>
         </div>
