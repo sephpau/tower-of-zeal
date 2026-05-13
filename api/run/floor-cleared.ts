@@ -12,8 +12,6 @@ import {
   readBoughtToday, markBoughtToday, consumeBuff,
   SHOP_BUFF_IDS, ShopItemId, BUFF_GRANT_SIZE,
   grantTempMotzKey, readTempMotzKey,
-  rollBronForKills,
-  MAX_KILLS_PER_ROLL, MAX_BOSS_KILLS_PER_ROLL, MAX_WORLD_ENDER_KILLS_PER_ROLL,
 } from "../_lib/runState.js";
 
 const MAX_PARTY_SIZE = 3;
@@ -135,45 +133,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
     }
     return;
-  }
-
-  // ---- bRON voucher drops ----
-  // bron_roll: client reports per-battle kill counts; server rolls drops with
-  //            crypto RNG and deposits per-tier vouchers into the wallet's
-  //            shop inventory. There is no longer a running bRON "balance" —
-  //            each tier voucher is its own inventory item, redeemed at end
-  //            of season. Multipliers: mob 1×, boss 2×, world_ender 4×.
-  if (op === "bron_roll") {
-    const killsRaw = (req.body as { kills?: unknown }).kills;
-    const bossRaw = (req.body as { bossKills?: unknown }).bossKills;
-    const weRaw = (req.body as { worldEnderKills?: unknown }).worldEnderKills;
-    if (typeof killsRaw !== "number" || !Number.isFinite(killsRaw) || killsRaw < 0) {
-      res.status(400).json({ error: "kills must be a non-negative number" }); return;
-    }
-    if (typeof bossRaw !== "number" || !Number.isFinite(bossRaw) || bossRaw < 0) {
-      res.status(400).json({ error: "bossKills must be a non-negative number" }); return;
-    }
-    // worldEnderKills optional for back-compat — defaults to 0 if not sent.
-    const weKills = typeof weRaw === "number" && Number.isFinite(weRaw) && weRaw >= 0 ? weRaw : 0;
-    try {
-      const result = await rollBronForKills(address, killsRaw, bossRaw, weKills);
-      res.status(200).json({
-        ok: true,
-        drops: result.drops,
-        killsCounted: result.killsCounted,
-        bossKillsCounted: result.bossKillsCounted,
-        worldEnderKillsCounted: result.worldEnderKillsCounted,
-        caps: {
-          kills: MAX_KILLS_PER_ROLL,
-          bossKills: MAX_BOSS_KILLS_PER_ROLL,
-          worldEnderKills: MAX_WORLD_ENDER_KILLS_PER_ROLL,
-        },
-      });
-      return;
-    } catch (e) {
-      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
-      return;
-    }
   }
 
   // ---- Daily attempt cap ops (Survival / Boss Raid) ----

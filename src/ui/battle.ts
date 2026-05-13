@@ -262,25 +262,20 @@ function flushFloats(root: HTMLElement): void {
     const x = r.left - fieldRect.left + r.width / 2;
     const y = r.top - fieldRect.top + 6;
 
-    const isDrop = e.icon === "moneybag";
     const div = document.createElement("div");
-    div.className = "float-popup" + (e.crit ? " crit" : "") + (isDrop ? " bron-drop" : "");
+    div.className = "float-popup" + (e.crit ? " crit" : "");
     div.style.left = `${x}px`;
     div.style.top = `${y}px`;
     div.style.color = e.color;
     div.innerHTML = `<span class="float-icon">${iconGlyph(e.icon)}</span><span class="float-text">${escapeHtml(e.text)}</span>${e.crit ? `<span class="float-crit">CRIT!</span>` : ""}`;
     layer.appendChild(div);
 
-    // Hit-flash on target — but not for cosmetic drop popups (target is
-    // already dead at that point, no flash needed).
-    if (!isDrop) {
-      tgt.classList.remove("hit-flash");
-      void tgt.offsetWidth;
-      tgt.classList.add("hit-flash");
-    }
+    // Hit-flash on target.
+    tgt.classList.remove("hit-flash");
+    void tgt.offsetWidth;
+    tgt.classList.add("hit-flash");
 
-    // Drops linger longer so the player has time to see what dropped.
-    setTimeout(() => div.remove(), isDrop ? 1800 : 900);
+    setTimeout(() => div.remove(), 900);
   }
 }
 
