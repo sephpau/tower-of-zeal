@@ -12,9 +12,10 @@ export interface DamageResult {
 
 // DEX → armor penetration. High accuracy = hitting weak points = ignore part of
 // the defender's armor, applied to whichever defense stat is being subtracted.
-// 1% per DEX point, capped at 50% so a maxed-DEX unit can't fully erase armor.
+// 1% per DEX point, capped at 40% so a maxed-DEX unit can't fully erase armor.
+// (Was 50% — high-DEX builds were melting tanks; 40% keeps DEF investment relevant.)
 export function armorPenetration(attackerDex: number): number {
-  return Math.max(0, Math.min(0.5, attackerDex * 0.01));
+  return Math.max(0, Math.min(0.4, attackerDex * 0.01));
 }
 
 export function physicalDamage(
