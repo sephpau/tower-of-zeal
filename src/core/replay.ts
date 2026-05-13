@@ -12,6 +12,8 @@
 
 import { Stats } from "./stats";
 
+// v15: Lucky Coin removed. v14 replays that used Lucky Coin would diverge —
+//      its extra rng.chance() call is gone, so subsequent RNG draws differ.
 // v14: Shop run-buffs introduced (Battle Cry / Phoenix Embers / Lucky Coin /
 //      Quickdraw / Last Stand). Replays don't carry buff state yet — any v13
 //      replay that was recorded with buffs active would diverge on playback
@@ -52,7 +54,7 @@ import { Stats } from "./stats";
 // v3: combat sim now uses a fixed timestep (SIM_STEP). Replays recorded under
 //     the old variable-dt sim could pick a different actor when two combatants
 //     hit full gauge in the same frame, diverging RNG consumption.
-export const REPLAY_VERSION = 14;
+export const REPLAY_VERSION = 15;
 
 export interface ReplayPartyMember {
   templateId: string;

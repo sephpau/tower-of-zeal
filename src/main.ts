@@ -200,8 +200,6 @@ interface ActiveRunBuffs {
   phoenixEmbers: boolean;
   /** Scholar's Insight — flat XP multiplier applied to every floor in the run. */
   scholarsInsightMul: number;
-  /** Lucky Coin — flat bonus crit chance for player attackers, every battle. */
-  luckyCoinCrit: number;
   /** Quickdraw — player ATB-speed multiplier, every battle. */
   quickdrawAtbMul: number;
   /** Last Stand — outgoing damage multiplier when only one player ally is alive. */
@@ -209,7 +207,7 @@ interface ActiveRunBuffs {
 }
 let activeRunBuffs: ActiveRunBuffs = freshRunBuffs();
 function freshRunBuffs(): ActiveRunBuffs {
-  return { battleCry: false, phoenixEmbers: false, scholarsInsightMul: 1, luckyCoinCrit: 0, quickdrawAtbMul: 1, lastStandDmgMul: 1 };
+  return { battleCry: false, phoenixEmbers: false, scholarsInsightMul: 1, quickdrawAtbMul: 1, lastStandDmgMul: 1 };
 }
 export function getActiveRunBuffs(): ActiveRunBuffs { return activeRunBuffs; }
 /** Consume + return battle-cry flag (used by the build path for the first floor). */
@@ -224,7 +222,6 @@ function armBuffOnRun(id: ShopItemId): void {
     case "buff_battle_cry":       activeRunBuffs.battleCry = true; break;
     case "buff_phoenix_embers":   activeRunBuffs.phoenixEmbers = true; break;
     case "buff_scholars_insight": activeRunBuffs.scholarsInsightMul = 1.25; break;
-    case "buff_lucky_coin":       activeRunBuffs.luckyCoinCrit = 0.05; break;
     case "buff_quickdraw":        activeRunBuffs.quickdrawAtbMul = 1.25; break;
     case "buff_last_stand":       activeRunBuffs.lastStandDmgMul = 2.0; break;
     default: break; // non-buff items don't arm anything
@@ -771,7 +768,6 @@ function runBossRaidFloor(party: SquadResult["players"], floorId: number): void 
   }
   // Per-battle run-buffs (re-applied every boss-raid floor).
   if (activeRunBuffs.phoenixEmbers)         opts.phoenixEmbers = true;
-  if (activeRunBuffs.luckyCoinCrit > 0)     opts.playerBonusCritChance = activeRunBuffs.luckyCoinCrit;
   if (activeRunBuffs.quickdrawAtbMul > 1)   opts.playerAtbSpeedMul = activeRunBuffs.quickdrawAtbMul;
   if (activeRunBuffs.lastStandDmgMul > 1)   opts.lastStandDamageMul = activeRunBuffs.lastStandDmgMul;
   // Snapshot the boon state BEFORE pendingHeal is consumed so the replay
@@ -821,7 +817,6 @@ function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: 
   }
   // Per-battle run-buffs: armed once for the run, re-applied every floor.
   if (activeRunBuffs.phoenixEmbers)         opts.phoenixEmbers = true;
-  if (activeRunBuffs.luckyCoinCrit > 0)     opts.playerBonusCritChance = activeRunBuffs.luckyCoinCrit;
   if (activeRunBuffs.quickdrawAtbMul > 1)   opts.playerAtbSpeedMul = activeRunBuffs.quickdrawAtbMul;
   if (activeRunBuffs.lastStandDmgMul > 1)   opts.lastStandDamageMul = activeRunBuffs.lastStandDmgMul;
   // Replay scope:

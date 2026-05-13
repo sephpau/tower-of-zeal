@@ -122,8 +122,6 @@ export interface Battle {
   // ---- Shop-buff state (set by startBattle from BattleOptions) ----
   /** Phoenix Embers: per-battle revive charge for the first player ally to fall. */
   phoenixEmbersCharge: boolean;
-  /** Lucky Coin: flat crit bonus for player attackers (0..1). */
-  playerBonusCritChance: number;
   /** Last Stand: damage mul when only one player is alive (1 = inactive). */
   lastStandDamageMul: number;
 }
@@ -337,8 +335,6 @@ export interface BattleOptions {
    *  at 50% HP instead of dying. Consumed per battle (each floor of a survival
    *  run gets its own charge while the buff is active for the run). */
   phoenixEmbers?: boolean;
-  /** Shop buff "Lucky Coin": flat +5% crit chance applied to player attackers. */
-  playerBonusCritChance?: number;
   /** Shop buff "Quickdraw": multiplier on player units' atbSpeed (e.g. 1.25 = +25% regen). */
   playerAtbSpeedMul?: number;
   /** Shop buff "Last Stand": when only one player ally is alive, that unit's
@@ -446,7 +442,6 @@ export function startBattle(
     seed,
     simAccum: 0,
     phoenixEmbersCharge: !!opts.phoenixEmbers,
-    playerBonusCritChance: Math.max(0, Math.min(1, opts.playerBonusCritChance ?? 0)),
     lastStandDamageMul: Math.max(1, opts.lastStandDamageMul ?? 1),
   };
 }
@@ -970,15 +965,6 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
     }
     dmg = result.dmg;
     crit = result.crit;
-    // Lucky Coin (shop buff): flat bonus crit chance for player attackers,
-    // rolled AFTER the normal crit check so it can only upgrade non-crits.
-    // Always consumes one rng tick when active — determinism friendly.
-    if (!crit && attacker.side === "player" && b.playerBonusCritChance > 0) {
-      if (b.rng.chance(b.playerBonusCritChance)) {
-        crit = true;
-        dmg = Math.max(1, Math.floor(dmg * 1.5));
-      }
-    }
   }
 
   if (ctx.aoe) dmg = Math.max(1, Math.floor(dmg * 0.75));

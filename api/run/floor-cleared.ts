@@ -10,7 +10,7 @@ import {
   readAttempts, bumpAttempts, attemptsCap,
   readShopInventory, writeShopInventory,
   readBoughtToday, markBoughtToday, consumeBuff,
-  SHOP_BUFF_IDS, ShopItemId,
+  SHOP_BUFF_IDS, ShopItemId, BUFF_GRANT_SIZE,
 } from "../_lib/runState.js";
 
 const MAX_PARTY_SIZE = 3;
@@ -248,9 +248,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       }
       if (SHOP_BUFF_IDS.includes(itemId)) {
         const inv = await readShopInventory(address);
-        inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
+        const grantQty = BUFF_GRANT_SIZE[itemId] ?? 1;
+        inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + grantQty;
         await writeShopInventory(address, inv);
-        res.status(200).json({ ok: true, grant: { type: "buff", itemId, owned: inv.buffs[itemId] } });
+        res.status(200).json({ ok: true, grant: { type: "buff", itemId, owned: inv.buffs[itemId], qty: grantQty } });
         return;
       }
       res.status(500).json({ error: "no grant handler" });

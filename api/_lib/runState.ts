@@ -276,12 +276,18 @@ export type ShopItemId =
   | "energy_5" | "energy_10" | "energy_20"
   | "unit_stat_reset" | "unit_class_change"
   | "buff_battle_cry" | "buff_phoenix_embers" | "buff_scholars_insight"
-  | "buff_lucky_coin" | "buff_quickdraw" | "buff_last_stand";
+  | "buff_quickdraw" | "buff_last_stand";
 
 export const SHOP_BUFF_IDS: ShopItemId[] = [
   "buff_battle_cry", "buff_phoenix_embers", "buff_scholars_insight",
-  "buff_lucky_coin", "buff_quickdraw", "buff_last_stand",
+  "buff_quickdraw", "buff_last_stand",
 ];
+
+/** Per-buff grant size (how many charges a single purchase adds to inventory).
+ *  Defaults to 1; bumped for buffs the design intends as multi-use packs. */
+export const BUFF_GRANT_SIZE: Partial<Record<ShopItemId, number>> = {
+  buff_battle_cry: 3,
+};
 
 interface ShopInventory {
   /** Map of buff id → count owned (un-consumed). Buffs are 1/day buy, so the

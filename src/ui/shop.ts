@@ -149,7 +149,6 @@ function iconFor(def: ShopItemDef): string {
     case "buff_battle_cry": return "📯";
     case "buff_phoenix_embers": return "🔥";
     case "buff_scholars_insight": return "📖";
-    case "buff_lucky_coin": return "🪙";
     case "buff_quickdraw": return "⚡";
     case "buff_last_stand": return "🗡";
     default: return "❔";
