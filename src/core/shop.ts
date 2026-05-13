@@ -38,11 +38,11 @@ export const SHOP_CATALOG: ShopItemDef[] = [
   { id: "unit_temp_motz_key", name: "Temporary MoTZ Key (10-Day Seasonal Pass)", description: "Unlocks all MoTZ-key locked units (Hera, Nova, Oge, Shego) for 10 days. Stacks if you buy again before it expires. Activates immediately on purchase — does not require the on-chain key.", category: "unit", priceLabel: "Price soon · $crypto" },
 
   // ---- Campaign-run buffs (one consumed per run start when slotted) ----
-  { id: "buff_battle_cry",       name: "Battle Cry",        description: "Grants 3 charges per purchase. Slot one before any battle to start that floor with all player ATB gauges full.", category: "buff", priceLabel: "Price soon · $crypto" },
-  { id: "buff_phoenix_embers",   name: "Phoenix Embers",    description: "Grants 2 charges per purchase. Slot one for a run — auto-revives the first ally to fall at 50% HP. One revive per battle.", category: "buff", priceLabel: "Price soon · $crypto" },
-  { id: "buff_scholars_insight", name: "Scholar's Insight", description: "Grants 10 charges per purchase. Slot one before a battle to gain +25% XP on the CURRENT floor only (does not carry to other floors).", category: "buff", priceLabel: "Price soon · $crypto" },
-  { id: "buff_quickdraw",        name: "Quickdraw",         description: "Grants 1 charge per purchase. Slot one for a run — player ATB gauges fill 25% faster for the entire run.", category: "buff", priceLabel: "Price soon · $crypto" },
-  { id: "buff_last_stand",       name: "Last Stand",        description: "Grants 2 charges per purchase. Slot one for a run — when only one of your units remains alive on the battlefield, that unit's damage is doubled.", category: "buff", priceLabel: "Price soon · $crypto" },
+  { id: "buff_battle_cry",       name: "Battle Cry",        description: "Grants 3 charges per purchase. Choose one before any battle to start that floor with all player ATB gauges full.", category: "buff", priceLabel: "Price soon · $crypto" },
+  { id: "buff_phoenix_embers",   name: "Phoenix Embers",    description: "Grants 2 charges per purchase. Choose one for a run — auto-revives the first ally to fall at 50% HP. One revive per battle.", category: "buff", priceLabel: "Price soon · $crypto" },
+  { id: "buff_scholars_insight", name: "Scholar's Insight", description: "Grants 10 charges per purchase. Choose one before a battle to gain +25% XP on the CURRENT floor only (does not carry to other floors).", category: "buff", priceLabel: "Price soon · $crypto" },
+  { id: "buff_quickdraw",        name: "Quickdraw",         description: "Grants 1 charge per purchase. Choose one for a run — player ATB gauges fill 25% faster for the entire run.", category: "buff", priceLabel: "Price soon · $crypto" },
+  { id: "buff_last_stand",       name: "Last Stand",        description: "Grants 2 charges per purchase. Choose one for a run — when only one of your units remains alive on the battlefield, that unit's damage is doubled.", category: "buff", priceLabel: "Price soon · $crypto" },
 ];
 
 export interface ShopStatus {
