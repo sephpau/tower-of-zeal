@@ -2,6 +2,8 @@
 // before the squad-select handoff actually starts the fight. ~1.4s total —
 // long enough to feel cinematic, short enough not to annoy on repeat runs.
 
+import { sfx } from "../core/audio";
+
 const SWORD_SVG = `
 <svg viewBox="0 0 32 200" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -39,6 +41,12 @@ export function playBattleStartAnimation(): Promise<void> {
       </div>
     `;
     document.body.appendChild(overlay);
+
+    // Impact = 68% of the 1.3s sword animation. Fire the skirmish sound
+    // exactly there so the clang lands as the blades cross + the spark
+    // appears. The 0.65s spark delay in the CSS keyframes lines up here too.
+    const IMPACT_MS = 880;
+    setTimeout(() => { sfx.skirmish(); }, IMPACT_MS);
 
     // Total animation length matches the longest CSS animation duration below.
     const DURATION_MS = 1400;

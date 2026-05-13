@@ -3471,34 +3471,33 @@ body:has(.battle) {
   max-width: 90vw;
   height: 280px;
 }
+/* Swords are positioned at the stage center via left/top 50%, with their
+   own dimensions centered via translate(-50%, -50%). They then fly in from
+   off-stage and converge on that center, so blades actually cross. */
 .bsa-sword {
   position: absolute;
-  top: 50%;
+  top: 50%; left: 50%;
   width: 56px;
   height: 240px;
-  transform: translateY(-50%);
   filter: drop-shadow(0 0 12px rgba(244, 211, 94, 0.45)) drop-shadow(0 0 24px rgba(0, 0, 0, 0.65));
+  transform-origin: 50% 75%; /* rotate around the grip, not the tip */
 }
 .bsa-sword svg { width: 100%; height: 100%; display: block; }
 .bsa-sword-left {
-  left: 0;
-  transform: translate(-120%, -50%) rotate(-30deg);
   animation: bsa-slash-left 1.3s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
 }
 .bsa-sword-right {
-  right: 0;
-  transform: translate(120%, -50%) rotate(30deg);
   animation: bsa-slash-right 1.3s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
 }
 .bsa-flash {
   position: absolute;
-  top: 50%; left: 50%;
+  top: 45%; left: 50%;
   width: 6px; height: 6px;
   border-radius: 50%;
-  background: radial-gradient(circle, #fff 0%, #fde68a 40%, transparent 70%);
+  background: radial-gradient(circle, #fff 0%, #fde68a 35%, rgba(244, 211, 94, 0.6) 60%, transparent 75%);
   transform: translate(-50%, -50%) scale(0);
   opacity: 0;
-  animation: bsa-spark 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.85s forwards;
+  animation: bsa-spark 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) 0.65s forwards;
 }
 @keyframes bsa-fade-in {
   from { opacity: 0; }
@@ -3508,26 +3507,28 @@ body:has(.battle) {
   from { opacity: 1; }
   to { opacity: 0; }
 }
+/* Left sword swings in from off-stage-left and crosses through the center
+   so its blade overlaps the right sword's blade at the impact moment. */
 @keyframes bsa-slash-left {
-  0%   { transform: translate(-120%, -50%) rotate(-30deg); opacity: 0; }
-  35%  { opacity: 1; }
-  60%  { transform: translate(-15%, -50%) rotate(-12deg); }
-  72%  { transform: translate(-2%, -50%) rotate(-8deg); }  /* impact */
-  86%  { transform: translate(-12%, -55%) rotate(-22deg); } /* recoil */
-  100% { transform: translate(-15%, -50%) rotate(-18deg); opacity: 1; }
+  0%   { transform: translate(-300%, -50%) rotate(-55deg); opacity: 0; }
+  30%  { opacity: 1; }
+  55%  { transform: translate(-50%, -50%) rotate(-25deg); }
+  68%  { transform: translate(-40%, -52%) rotate(-15deg); }  /* impact — blade tilted, hilt left */
+  78%  { transform: translate(-55%, -55%) rotate(-35deg); } /* recoil away */
+  100% { transform: translate(-50%, -50%) rotate(-22deg); opacity: 1; }
 }
 @keyframes bsa-slash-right {
-  0%   { transform: translate(120%, -50%) rotate(30deg); opacity: 0; }
-  35%  { opacity: 1; }
-  60%  { transform: translate(15%, -50%) rotate(12deg); }
-  72%  { transform: translate(2%, -50%) rotate(8deg); }
-  86%  { transform: translate(12%, -55%) rotate(22deg); }
-  100% { transform: translate(15%, -50%) rotate(18deg); opacity: 1; }
+  0%   { transform: translate(200%, -50%) rotate(55deg); opacity: 0; }
+  30%  { opacity: 1; }
+  55%  { transform: translate(-50%, -50%) rotate(25deg); }
+  68%  { transform: translate(-60%, -52%) rotate(15deg); }
+  78%  { transform: translate(-45%, -55%) rotate(35deg); }
+  100% { transform: translate(-50%, -50%) rotate(22deg); opacity: 1; }
 }
 @keyframes bsa-spark {
   0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
-  35%  { transform: translate(-50%, -50%) scale(28); opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(40); opacity: 0; }
+  20%  { transform: translate(-50%, -50%) scale(16); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(56); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .bsa-sword, .bsa-flash { animation-duration: 0.2s !important; }
