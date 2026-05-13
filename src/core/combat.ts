@@ -324,6 +324,8 @@ export interface BattleOptions {
   playerStatBoost?: number;
   /** Boss Raid: heal player HP/MP by 20% of max at battle start (consumed once per pick). */
   pendingHeal?: boolean;
+  /** Shop buff "Battle Cry": all player units start with full ATB gauge. */
+  playerStartFullGauge?: boolean;
 }
 
 export function startBattle(
@@ -370,6 +372,14 @@ export function startBattle(
     return c;
   });
   const enemyCombatants = placeEnemies(enemies, rng);
+
+  // Shop buff: Battle Cry — fill all alive player gauges. Applied AFTER
+  // carryover so it overrides survival/boss-raid gauge inheritance.
+  if (opts.playerStartFullGauge) {
+    for (const c of playerCombatants) {
+      if (c.alive) c.gauge = ATB_FULL;
+    }
+  }
 
   // Boss Raid: scale enemy stats and atb-speed, then apply any stacking
   // bossStatReduction (5% per Weaken pick) on top.

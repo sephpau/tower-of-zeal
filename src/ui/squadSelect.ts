@@ -10,6 +10,8 @@ import { portraitInner, capeHtml, isUnitLocked } from "../units/art";
 import { confirmModal } from "./confirmModal";
 import { playBattleStartAnimation } from "./battleStartAnim";
 import { getSkill } from "../skills/registry";
+import { getPendingBuff } from "../main";
+import { SHOP_CATALOG } from "../core/shop";
 
 // Effective stats = unit base@lvl + class base@lvl + allocated custom points.
 // Mirrors what makeCombatant does, so the roster preview matches battle reality.
@@ -154,9 +156,14 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
       // re-validates and rejects oversize parties.
       if (picks.length > MAX_PARTY_SIZE) picks.length = MAX_PARTY_SIZE;
       const partyNames = picks.map(p => p.name).join(", ");
+      const slotted = getPendingBuff();
+      const buffDef = slotted ? SHOP_CATALOG.find(i => i.id === slotted) : null;
+      const buffLine = buffDef
+        ? `<br><br>⚡ <strong>${escapeHtml(buffDef.name)}</strong> will be consumed at run start.`
+        : "";
       const ok = await confirmModal({
         title: "Begin Battle?",
-        message: `Start the battle with <strong>${picks.length}</strong> unit${picks.length === 1 ? "" : "s"} — <strong>${escapeHtml(partyNames)}</strong>?<br><br>You can bring up to <strong>${MAX_PARTY_SIZE}</strong> units into battle. Your party is locked once the battle begins.`,
+        message: `Start the battle with <strong>${picks.length}</strong> unit${picks.length === 1 ? "" : "s"} — <strong>${escapeHtml(partyNames)}</strong>?<br><br>You can bring up to <strong>${MAX_PARTY_SIZE}</strong> units into battle. Your party is locked once the battle begins.${buffLine}`,
         confirmLabel: "Begin",
         cancelLabel: "Cancel",
       });

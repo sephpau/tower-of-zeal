@@ -242,6 +242,94 @@ export async function readFloorRetries(address: string): Promise<number> {
   return await getNumber(retriesKey(address));
 }
 
+// ---- Daily attempt caps for Survival / Boss Raid (3/day, server-enforced) ----
+// Same PH-day TTL pattern as floor retries — devtools can't bypass.
+export const SURVIVAL_ATTEMPTS_PER_DAY = 3;
+export const BOSSRAID_ATTEMPTS_PER_DAY = 3;
+
+function attemptsKey(mode: "survival" | "boss_raid", address: string): string {
+  return `attempts:${mode}:${address.toLowerCase()}:${phDayBoundary()}`;
+}
+
+export async function readAttempts(mode: "survival" | "boss_raid", address: string): Promise<number> {
+  return await getNumber(attemptsKey(mode, address));
+}
+
+/** Atomic increment with PH-day TTL. Returns the new count after bumping. */
+export async function bumpAttempts(mode: "survival" | "boss_raid", address: string): Promise<number> {
+  const remainingMs = phDayBoundary() + 24 * 60 * 60 * 1000 - Date.now();
+  const ttl = Math.max(60, Math.floor(remainingMs / 1000));
+  return await incrWithExpire(attemptsKey(mode, address), ttl);
+}
+
+export function attemptsCap(mode: "survival" | "boss_raid"): number {
+  return mode === "survival" ? SURVIVAL_ATTEMPTS_PER_DAY : BOSSRAID_ATTEMPTS_PER_DAY;
+}
+
+// ---- Shop inventory & daily-buy tracker ----
+// All shop items are 1/day max — same Redis daily-counter shape, but keyed per item.
+// Owned consumables (unconsumed buffs etc.) live in a JSON blob per wallet so we
+// can read/write the full inventory atomically. Cosmetics / titles will use the
+// same blob with a separate "owned" array.
+
+export type ShopItemId =
+  | "energy_5" | "energy_10" | "energy_20"
+  | "unit_stat_reset" | "unit_class_change"
+  | "buff_battle_cry" | "buff_vital_surge" | "buff_mana_wellspring"
+  | "buff_phoenix_embers" | "buff_scholars_insight" | "buff_lucky_coin";
+
+export const SHOP_BUFF_IDS: ShopItemId[] = [
+  "buff_battle_cry", "buff_vital_surge", "buff_mana_wellspring",
+  "buff_phoenix_embers", "buff_scholars_insight", "buff_lucky_coin",
+];
+
+interface ShopInventory {
+  /** Map of buff id → count owned (un-consumed). Buffs are 1/day buy, so the
+   *  daily-bought key prevents re-purchase, while count tracks unused stock. */
+  buffs: Partial<Record<ShopItemId, number>>;
+}
+
+function shopBoughtKey(itemId: ShopItemId, address: string): string {
+  return `shop:bought:${itemId}:${address.toLowerCase()}:${phDayBoundary()}`;
+}
+function shopInventoryKey(address: string): string {
+  return `shop:inv:${address.toLowerCase()}`;
+}
+const SHOP_INV_TTL = 60 * 60 * 24 * 365; // 1 year — inventory persists indefinitely
+
+export async function readShopInventory(address: string): Promise<ShopInventory> {
+  const raw = await getJson<ShopInventory>(shopInventoryKey(address));
+  return raw && typeof raw === "object" && raw.buffs && typeof raw.buffs === "object"
+    ? { buffs: raw.buffs }
+    : { buffs: {} };
+}
+export async function writeShopInventory(address: string, inv: ShopInventory): Promise<void> {
+  await setJson(shopInventoryKey(address), inv, SHOP_INV_TTL);
+}
+
+/** True if this wallet has already bought `itemId` since the last PH-day boundary. */
+export async function readBoughtToday(itemId: ShopItemId, address: string): Promise<boolean> {
+  const n = await getNumber(shopBoughtKey(itemId, address));
+  return n > 0;
+}
+/** Atomically marks `itemId` as bought today. Returns the post-bump count
+ *  (>1 means a duplicate buy raced and should be rejected by the caller). */
+export async function markBoughtToday(itemId: ShopItemId, address: string): Promise<number> {
+  const remainingMs = phDayBoundary() + 24 * 60 * 60 * 1000 - Date.now();
+  const ttl = Math.max(60, Math.floor(remainingMs / 1000));
+  return await incrWithExpire(shopBoughtKey(itemId, address), ttl);
+}
+
+/** Consume one of an owned buff. Returns true if the consume happened. */
+export async function consumeBuff(address: string, itemId: ShopItemId): Promise<boolean> {
+  const inv = await readShopInventory(address);
+  const cur = inv.buffs[itemId] ?? 0;
+  if (cur <= 0) return false;
+  inv.buffs[itemId] = cur - 1;
+  await writeShopInventory(address, inv);
+  return true;
+}
+
 // ---- "Fastest to Kill World Ender" — floor-50 single-battle clears ----
 // Tracked separately from the survival/boss-raid leaderboards because this
 // is specifically about the standalone Floor 50 fight in normal floor mode.

@@ -39,6 +39,8 @@ import { startRun, reportFloor, endRun, abortLiveRun, reportFloorCleared, getLiv
 import { isAllowedOnDev } from "./auth/devBuild";
 import { confirmModal } from "./ui/confirmModal";
 import { playBattleStartAnimation } from "./ui/battleStartAnim";
+import { fetchAttemptsStatus, claimAttempt, consumeShopItem, ShopItemId } from "./core/shop";
+import { renderShop } from "./ui/shop";
 
 const root = document.getElementById("app");
 if (!root) throw new Error("#app not found");
@@ -165,7 +167,7 @@ function startApp(): void {
   requestAnimationFrame(t => { lastT = t; frame(t); });
 }
 
-type Screen = "home" | "stage_select" | "squad_select" | "battle" | "units" | "settings" | "leaderboard" | "run_summary" | "replay" | "codex";
+type Screen = "home" | "stage_select" | "squad_select" | "battle" | "units" | "settings" | "leaderboard" | "run_summary" | "replay" | "codex" | "shop";
 
 interface CarryEntry { hp: number; mp: number; xp: number; level: number; availablePoints: number; customStats: Stats; classId?: string; skillCooldowns?: Record<string, number>; gauge?: number; alive?: boolean; damageDealt?: number; damageTaken?: number; kills?: number; xpGainedTotal?: number }
 
@@ -182,6 +184,21 @@ let mode: "floor" | "survival" | "boss_raid" = "floor";
 let survivalFloor = 1;
 let survivalParty: SquadResult["players"] | null = null;
 let survivalCarry: Record<string, CarryEntry> = {};
+// ---- Shop buff staging ----
+// When the player slots a buff in the Shop screen, we stash the id here.
+// The next run-start consumes it (server-side) and arms the buff flags.
+let pendingBuff: ShopItemId | null = null;
+/** True when the next floor's battle should start with all player ATB gauges full. */
+let battleCryArmed = false;
+export function setPendingBuff(id: ShopItemId | null): void { pendingBuff = id; }
+export function getPendingBuff(): ShopItemId | null { return pendingBuff; }
+/** Consumed by combat.ts when building a battle — fills player gauges if armed. */
+export function consumeBattleCry(): boolean {
+  if (!battleCryArmed) return false;
+  battleCryArmed = false;
+  return true;
+}
+
 // Floor mode state — used to power the defeat-refund flow.
 // On a floor-mode loss the server grants +1 energy back, up to 3 times per
 // PH day. The counter is enforced server-side so refreshing the page or
@@ -548,6 +565,12 @@ function onHomeAction(a: HomeAction): void {
   else if (a === "tutorial") showTutorialReplay();
   else if (a === "leaderboard") showLeaderboard();
   else if (a === "codex") showCodex();
+  else if (a === "shop") showShop();
+}
+
+function showShop(): void {
+  screen = "shop" as Screen;
+  void renderShop(root!, showHome);
 }
 
 function showCodex(): void {
@@ -576,7 +599,7 @@ function showStageSelect(): void {
   renderStageSelect(root!, onStagePicked, showHome);
 }
 
-function onStagePicked(pick: StagePick): void {
+async function onStagePicked(pick: StagePick): Promise<void> {
   if (pick.kind === "floor") {
     mode = "floor";
     currentStageId = pick.id;
@@ -584,6 +607,12 @@ function onStagePicked(pick: StagePick): void {
   } else if (pick.kind === "survival") {
     if (getEnergy() < SURVIVAL_ENERGY_COST) {
       alert(`Survival Mode requires ${SURVIVAL_ENERGY_COST} energy.`);
+      return;
+    }
+    // Daily-attempt cap check (3/day, server-enforced, can't be bypassed).
+    const status = await fetchAttemptsStatus("survival");
+    if (status && status.remaining <= 0) {
+      alert(`You've used all ${status.max} Survival attempts for today. Resets at 8 AM PH.`);
       return;
     }
     mode = "survival";
@@ -595,6 +624,11 @@ function onStagePicked(pick: StagePick): void {
   } else { // boss_raid
     if (getEnergy() < BOSS_RAID_ENERGY_COST) {
       alert(`Boss Raid requires ${BOSS_RAID_ENERGY_COST} energy.`);
+      return;
+    }
+    const status = await fetchAttemptsStatus("boss_raid");
+    if (status && status.remaining <= 0) {
+      alert(`You've used all ${status.max} Boss Raid attempts for today. Resets at 8 AM PH.`);
       return;
     }
     mode = "boss_raid";
@@ -630,6 +664,16 @@ async function startBattleFromSquad(squad: SquadResult): Promise<void> {
   const cost = mode === "survival" ? SURVIVAL_ENERGY_COST
              : mode === "boss_raid" ? BOSS_RAID_ENERGY_COST
              : 1;
+  // Daily-attempt cap for endless modes — claim BEFORE spending energy so we
+  // don't burn energy on a denied run. Server returns 429 if the cap is hit.
+  if (mode === "survival" || mode === "boss_raid") {
+    const claim = await claimAttempt(mode);
+    if (!claim) { alert("Couldn't reach server. Try again."); return; }
+    if (!claim.ok) {
+      alert(`You've used all your ${mode === "survival" ? "Survival" : "Boss Raid"} attempts for today. Resets at 8 AM PH.`);
+      return;
+    }
+  }
   // Server-authoritative energy: localStorage edits no longer grant runs.
   // consumeServerEnergy() already writes the server's post-deduct amount into
   // localStorage on success — no further local consume needed.
@@ -638,6 +682,14 @@ async function startBattleFromSquad(squad: SquadResult): Promise<void> {
     if ("error" in r) alert("Couldn't reach server to start battle. Try again.");
     else alert(`Not enough energy (need ${cost}, have ${r.amount}).`);
     return;
+  }
+  // Consume + flag Battle Cry buff if the player slotted it for this run.
+  if (pendingBuff === "buff_battle_cry") {
+    const consumed = await consumeShopItem("buff_battle_cry");
+    if (consumed) {
+      battleCryArmed = true;
+    }
+    pendingBuff = null;
   }
 
   if (mode === "survival") {
@@ -678,6 +730,10 @@ function runBossRaidFloor(party: SquadResult["players"], floorId: number): void 
     pendingHeal: brPendingHeal,
   };
   if (Object.keys(brCarry).length > 0) opts.carryover = brCarry;
+  // Battle Cry: fire only on the first boss-raid floor (no carryover yet).
+  if (Object.keys(brCarry).length === 0 && consumeBattleCry()) {
+    opts.playerStartFullGauge = true;
+  }
   // Snapshot the boon state BEFORE pendingHeal is consumed so the replay
   // can reproduce it exactly.
   const bossRaidSnapshot = {
@@ -712,6 +768,15 @@ function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: 
   const opts: BattleOptions = { xpMultiplier: xpMultiplier * getCachedDailyMultiplier() };
   if (mode === "survival" && Object.keys(survivalCarry).length > 0) {
     opts.carryover = survivalCarry;
+  }
+  // Shop buff: Battle Cry fires once at the START of the run (floor 1 of
+  // survival; the picked floor for campaign/boss-raid). On survival floor 2+
+  // we keep the natural carryover gauge so the buff isn't re-applied per floor.
+  const isFirstBattleOfRun =
+    mode === "floor" || (mode === "survival" && Object.keys(survivalCarry).length === 0) ||
+    (mode === "boss_raid" && Object.keys(brCarry).length === 0);
+  if (isFirstBattleOfRun && consumeBattleCry()) {
+    opts.playerStartFullGauge = true;
   }
   // Replay scope:
   //   - floor mode: only the floor-50 World Ender battle is recorded

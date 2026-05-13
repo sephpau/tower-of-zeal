@@ -4,7 +4,7 @@ import { startEnergyTimerLoop, formatRefillCountdown } from "./energyTimer";
 import { fetchDailyStatus, claimDailyBonus, DailyStatus } from "../core/daily";
 import { setEnergy } from "../core/energy";
 
-export type HomeAction = "tower" | "units" | "settings" | "tutorial" | "leaderboard" | "codex";
+export type HomeAction = "tower" | "units" | "settings" | "tutorial" | "leaderboard" | "codex" | "shop";
 
 export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void): void {
   const s = loadSettings();
@@ -30,6 +30,9 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
         </button>
         <button class="home-tile" data-action="units" type="button">
           <div class="tile-title">Units</div>
+        </button>
+        <button class="home-tile" data-action="shop" type="button">
+          <div class="tile-title">Shop</div>
         </button>
         <button class="home-tile" data-action="leaderboard" type="button">
           <div class="tile-title">Leaderboard</div>

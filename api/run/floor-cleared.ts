@@ -7,8 +7,11 @@ import {
   recordFloorModeClear,
   saveReplayBlob, loadReplayBlob,
   adminWipeDevData,
+  readAttempts, bumpAttempts, attemptsCap,
+  readShopInventory, writeShopInventory,
+  readBoughtToday, markBoughtToday, consumeBuff,
+  SHOP_BUFF_IDS, ShopItemId,
 } from "../_lib/runState.js";
-import { adminGrantEnergy } from "../_lib/energy.js";
 
 const MAX_PARTY_SIZE = 3;
 /** Reject replays whose battles report >MAX_PARTY_SIZE units or duplicates —
@@ -129,6 +132,149 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
     }
     return;
+  }
+
+  // ---- Daily attempt cap ops (Survival / Boss Raid) ----
+  // No stageId needed — these gate run starts before the squad screen.
+  if (op === "attempts_status" || op === "attempts_claim") {
+    const modeRaw = (req.body as { mode?: unknown }).mode;
+    if (modeRaw !== "survival" && modeRaw !== "boss_raid") {
+      res.status(400).json({ error: "mode must be survival|boss_raid" }); return;
+    }
+    const mode = modeRaw;
+    try {
+      if (op === "attempts_status") {
+        const used = await readAttempts(mode, address);
+        const cap = attemptsCap(mode);
+        res.status(200).json({ ok: true, used, remaining: Math.max(0, cap - used), max: cap });
+        return;
+      }
+      // attempts_claim — atomic bump-then-check. We use the post-increment
+      // value so concurrent claims can't race past the cap.
+      const before = await readAttempts(mode, address);
+      const cap = attemptsCap(mode);
+      if (before >= cap) {
+        res.status(429).json({ ok: false, used: before, remaining: 0, max: cap });
+        return;
+      }
+      const newUsed = await bumpAttempts(mode, address);
+      if (newUsed > cap) {
+        res.status(429).json({ ok: false, used: newUsed, remaining: 0, max: cap });
+        return;
+      }
+      res.status(200).json({ ok: true, used: newUsed, remaining: cap - newUsed, max: cap });
+      return;
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+      return;
+    }
+  }
+
+  // ---- Shop ops ----
+  // shop_status — read current inventory + which items have been bought today.
+  // shop_buy    — atomic: check daily-bought flag, mark, grant the item.
+  // shop_consume — consume one of an owned buff (called by run-start flow).
+  if (op === "shop_status") {
+    try {
+      const inv = await readShopInventory(address);
+      const allItems: ShopItemId[] = [
+        "energy_5", "energy_10", "energy_20",
+        "unit_stat_reset", "unit_class_change",
+        ...SHOP_BUFF_IDS,
+      ];
+      const bought: Partial<Record<ShopItemId, boolean>> = {};
+      await Promise.all(allItems.map(async id => {
+        bought[id] = await readBoughtToday(id, address);
+      }));
+      res.status(200).json({ ok: true, inventory: inv, boughtToday: bought });
+      return;
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+      return;
+    }
+  }
+
+  if (op === "shop_buy") {
+    const itemRaw = (req.body as { item?: unknown }).item;
+    if (typeof itemRaw !== "string") { res.status(400).json({ error: "item required" }); return; }
+    const itemId = itemRaw as ShopItemId;
+    // Whitelist guard — only accept known item ids.
+    const known: ShopItemId[] = [
+      "energy_5", "energy_10", "energy_20",
+      "unit_stat_reset", "unit_class_change",
+      ...SHOP_BUFF_IDS,
+    ];
+    if (!known.includes(itemId)) { res.status(400).json({ error: "unknown item" }); return; }
+    try {
+      // Atomic daily-buy gate.
+      const already = await readBoughtToday(itemId, address);
+      if (already) { res.status(429).json({ ok: false, reason: "already bought today" }); return; }
+      const after = await markBoughtToday(itemId, address);
+      if (after > 1) {
+        // Race: another claim raced past us. We've still bumped the counter
+        // but we shouldn't grant.
+        res.status(429).json({ ok: false, reason: "already bought today" });
+        return;
+      }
+      // Grant the item.
+      // NOTE: Payment verification ($crypto) is intentionally NOT wired yet —
+      // beta phase grants items free. When payment is wired, this block will
+      // verify a signed Ronin tx before granting.
+      if (itemId === "energy_5") {
+        const amount = await adminGrantEnergy(address, 5);
+        res.status(200).json({ ok: true, grant: { type: "energy", amount }, max: ENERGY_MAX });
+        return;
+      }
+      if (itemId === "energy_10") {
+        const amount = await adminGrantEnergy(address, 10);
+        res.status(200).json({ ok: true, grant: { type: "energy", amount }, max: ENERGY_MAX });
+        return;
+      }
+      if (itemId === "energy_20") {
+        const amount = await adminGrantEnergy(address, 20);
+        res.status(200).json({ ok: true, grant: { type: "energy", amount }, max: ENERGY_MAX });
+        return;
+      }
+      if (itemId === "unit_stat_reset" || itemId === "unit_class_change") {
+        // These grants are consumed client-side (UI flow lets the player pick
+        // which unit + which class). We just record an entitlement in the
+        // inventory blob with a count: client checks count before letting the
+        // player perform the action, then calls shop_consume to spend it.
+        const inv = await readShopInventory(address);
+        inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
+        await writeShopInventory(address, inv);
+        res.status(200).json({ ok: true, grant: { type: "entitlement", itemId, owned: inv.buffs[itemId] } });
+        return;
+      }
+      if (SHOP_BUFF_IDS.includes(itemId)) {
+        const inv = await readShopInventory(address);
+        inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
+        await writeShopInventory(address, inv);
+        res.status(200).json({ ok: true, grant: { type: "buff", itemId, owned: inv.buffs[itemId] } });
+        return;
+      }
+      res.status(500).json({ error: "no grant handler" });
+      return;
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+      return;
+    }
+  }
+
+  if (op === "shop_consume") {
+    const itemRaw = (req.body as { item?: unknown }).item;
+    if (typeof itemRaw !== "string") { res.status(400).json({ error: "item required" }); return; }
+    const itemId = itemRaw as ShopItemId;
+    try {
+      const ok = await consumeBuff(address, itemId);
+      if (!ok) { res.status(400).json({ ok: false, reason: "none owned" }); return; }
+      const inv = await readShopInventory(address);
+      res.status(200).json({ ok: true, inventory: inv });
+      return;
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+      return;
+    }
   }
 
   const stageId = typeof body.stageId === "number" ? body.stageId : null;

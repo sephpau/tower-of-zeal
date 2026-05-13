@@ -4,6 +4,7 @@ import { STAGE_DEFS, StageEnemyDef, PLAYER_ROSTER } from "../units/roster";
 import { getMaxCleared } from "../core/clears";
 import { UnitTemplate, DamageResistance } from "../units/types";
 import { getProgress } from "../core/progress";
+import { fetchAttemptsStatus } from "../core/shop";
 
 export const SURVIVAL_ENERGY_COST: number = 3;
 export const BOSS_RAID_ENERGY_COST: number = 3;
@@ -55,6 +56,7 @@ export function renderStageSelect(root: HTMLElement, onPick: (pick: StagePick) =
             <div class="survival-overlay">
               <div class="survival-title">Survival Mode!</div>
               <div class="survival-sub">(${SURVIVAL_ENERGY_COST} energy spent per run)</div>
+              <div class="mode-tile-attempts" id="survival-attempts">attempts: <strong>—/3</strong> today</div>
               ${endlessUnlocked ? "" : lockHint}
             </div>
           </button>
@@ -65,6 +67,7 @@ export function renderStageSelect(root: HTMLElement, onPick: (pick: StagePick) =
             <div class="bossraid-overlay">
               <div class="bossraid-title">Boss Raid</div>
               <div class="bossraid-sub">(${BOSS_RAID_ENERGY_COST} energy spent per run)</div>
+              <div class="mode-tile-attempts" id="bossraid-attempts">attempts: <strong>—/3</strong> today</div>
               ${endlessUnlocked ? "" : lockHint}
             </div>
           </button>
@@ -91,6 +94,24 @@ export function renderStageSelect(root: HTMLElement, onPick: (pick: StagePick) =
       setTimeout(tick, 1000);
     };
     setTimeout(tick, 1000);
+
+    // Async fetch attempt counts and patch the badges.
+    void (async () => {
+      const [surv, br] = await Promise.all([
+        fetchAttemptsStatus("survival"),
+        fetchAttemptsStatus("boss_raid"),
+      ]);
+      const sEl = document.getElementById("survival-attempts");
+      if (sEl && surv) {
+        sEl.innerHTML = `attempts: <strong>${surv.used}/${surv.max}</strong> today`;
+        if (surv.remaining <= 0) sEl.classList.add("attempts-exhausted");
+      }
+      const bEl = document.getElementById("bossraid-attempts");
+      if (bEl && br) {
+        bEl.innerHTML = `attempts: <strong>${br.used}/${br.max}</strong> today`;
+        if (br.remaining <= 0) bEl.classList.add("attempts-exhausted");
+      }
+    })();
   };
 
   draw();

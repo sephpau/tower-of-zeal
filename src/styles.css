@@ -1151,6 +1151,19 @@ body:has(.battle) {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 .mode-tile-lock strong { color: var(--gold-bright); }
+
+/* Daily-attempts badge on Survival / Boss Raid tiles. */
+.mode-tile-attempts {
+  margin-top: 6px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+.mode-tile-attempts strong { color: var(--gold-bright); }
+.mode-tile-attempts.attempts-exhausted { color: #ff7070; }
+.mode-tile-attempts.attempts-exhausted strong { color: #ff9c9c; }
 .survival-tile.locked, .bossraid-tile.locked { filter: grayscale(0.55) brightness(0.7); }
 .survival-tile.locked:disabled, .bossraid-tile.locked:disabled { cursor: not-allowed; }
 
@@ -3873,3 +3886,130 @@ body:has(.battle) {
 .codex-mode p { margin: 0; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
 .codex-mode p strong { color: var(--text); }
 .codex-mode p em { color: var(--gold-bright); font-style: normal; font-weight: 600; }
+
+/* ===================== Shop screen (MoTZ design) ===================== */
+.shop-screen { padding: 16px; max-width: 1100px; margin: 0 auto; }
+.shop-header { text-align: center; margin: 18px 0 22px; }
+.shop-title {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--gold-bright);
+  text-shadow: 0 0 18px rgba(244, 211, 94, 0.35), 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.shop-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  letter-spacing: 0.02em;
+}
+.shop-sub strong { color: var(--gold-bright); }
+.shop-loading {
+  text-align: center;
+  padding: 40px 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+.shop-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.shop-section-title {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--motz-glass-border-hi);
+}
+.shop-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.shop-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 16px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--motz-glass-border-hi);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0) 38%),
+    linear-gradient(180deg, rgba(15, 20, 50, 0.72) 0%, rgba(10, 13, 34, 0.72) 100%);
+  box-shadow: var(--motz-sh-card);
+  transition: border-color 0.15s ease, transform 0.08s ease, box-shadow 0.18s ease;
+}
+.shop-card:hover {
+  border-color: rgba(251, 191, 36, 0.55);
+  box-shadow: var(--motz-sh-card), 0 0 18px rgba(251, 191, 36, 0.15);
+}
+.shop-card-soon { opacity: 0.55; }
+.shop-card-bought { opacity: 0.55; }
+.shop-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.shop-card-icon {
+  font-size: 20px;
+  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.25));
+}
+.shop-card-name {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gold-bright);
+  flex: 1;
+  min-width: 0;
+  letter-spacing: 0.03em;
+}
+.shop-owned {
+  font-size: 10px;
+  font-weight: 600;
+  color: #7fd0ff;
+  background: rgba(127, 208, 255, 0.10);
+  border: 1px solid rgba(127, 208, 255, 0.45);
+  border-radius: 999px;
+  padding: 2px 8px;
+  letter-spacing: 0.04em;
+}
+.shop-owned strong { color: #aee5ff; }
+.shop-card-desc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  flex: 1;
+}
+.shop-card-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--motz-glass-border);
+  padding-top: 10px;
+}
+.shop-card-price {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--gold-bright);
+  opacity: 0.9;
+}
+.shop-card-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.shop-buy-btn { min-width: 90px; padding: 6px 14px; font-size: 12px; }
+.shop-slot-btn { padding: 6px 10px; font-size: 11px; }
+.shop-slot-btn.slotted {
+  background: rgba(251, 191, 36, 0.18);
+  border-color: rgba(251, 191, 36, 0.75);
+  color: var(--gold-bright);
+}
