@@ -22,11 +22,11 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
             </div>
             <div class="codex-mode mode-survival">
               <div class="codex-mode-head">Survival Mode</div>
-              <p>Start from Floor 1 and keep going as far as you can — every cleared floor carries your party's HP/MP/cooldowns into the next, no rest. Run ends the moment your whole party falls. <em>Prove you are the strongest.</em> XP earned in survival is heavily reduced (1/50× the floor mode rate) — this is a leaderboard mode, not a leveling mode.</p>
+              <p>Start from Floor 1 and keep going as far as you can — every cleared floor carries your party's HP/MP/cooldowns into the next, no rest. Run ends the moment your whole party falls. <em>Prove you are the strongest.</em> XP earned in survival is heavily reduced (1/50× the floor mode rate) — this is a leaderboard mode, not a leveling mode. <strong>Capped at 3 attempts per PH day</strong> (server-enforced, resets at 8 AM PH).</p>
             </div>
             <div class="codex-mode mode-bossraid">
               <div class="codex-mode-head">Boss Raid</div>
-              <p>Fight every solo boss in the tower back-to-back: Stone Sentinel → Wraith Lord → Tower Lord → Iron Behemoth → Storm Lord → Demon General → Witch Queen → Dragon Lord → Tower God → World Ender. Bosses are scaled up (~2× stats, +25% ATB) and you pick a boon between fights (Heal / Boost / Weaken). XP = 1/10× floor mode. Top times go on the Boss Raid leaderboard.</p>
+              <p>Fight every solo boss in the tower back-to-back: Stone Sentinel → Wraith Lord → Tower Lord → Iron Behemoth → Storm Lord → Demon General → Witch Queen → Dragon Lord → Tower God → World Ender. Bosses are scaled up (~2× stats, +25% ATB) and you pick a boon between fights (Heal / Boost / Weaken). XP = 1/10× floor mode. Top times go on the Boss Raid leaderboard. <strong>Capped at 3 attempts per PH day</strong> (server-enforced).</p>
             </div>
           </div>
         </section>
@@ -40,7 +40,7 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
               ["+3 per point to physical attack", "+3 per point to max HP", "+1 per point to phys/mag defense"])}
             ${statCard("DEX", "Dexterity",
               `Accuracy + critical hits + armor penetration. Hits more often, lands more crits, and ignores part of the target's defense.`,
-              ["+3 per point to accuracy", "+2 per point to crit chance", "+1% armor penetration per point (cap 50%)"])}
+              ["+3 per point to accuracy", "+2 per point to crit chance", "+1% armor penetration per point (cap 40%)"])}
             ${statCard("AGI", "Agility",
               `Speed of the ATB gauge and evasion. High AGI = more turns and dodge incoming hits more often.`,
               ["Sets ATB speed (faster gauge fill)", "+1% evade per point", "+1 to physical attack"])}
@@ -109,6 +109,51 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
         </section>
 
         <section class="codex-section">
+          <h2 class="codex-h2">🛒 Shop &amp; Inventory</h2>
+          <p class="codex-intro">The <strong>Tower Exchange</strong> (Home → Shop) carries five item families. Every item can be purchased <strong>once per PH day</strong>; resets at 8 AM PH.</p>
+          <div class="codex-list">
+            <div class="codex-mode mode-floor">
+              <div class="codex-mode-head">Energy Packs</div>
+              <p>+5, +10, +20 energy refills. Purchases go to your <strong>Backpack</strong> (top-right home icon). Click <strong>Use</strong> in the Inventory to consume one and refill your energy.</p>
+            </div>
+            <div class="codex-mode mode-survival">
+              <div class="codex-mode-head">Unit Utilities</div>
+              <p>Stat Reset and Class Change entitlements (spent from the Units screen). Plus a <strong>Temporary MoTZ Key — 10-Day Seasonal Pass</strong> that unlocks Hera/Nova/Oge/Shego without holding the on-chain key. Stacks if you re-buy before it expires.</p>
+            </div>
+            <div class="codex-mode mode-bossraid">
+              <div class="codex-mode-head">Campaign Buffs</div>
+              <p>One-shot run boosts. Bought in packs of charges, then <strong>chosen ONE per floor</strong> from the Squad Select screen. Campaign-mode only — buffs are <em>disabled on Floor 50</em> (World Ender is fair-fight only) and don't appear in Survival/Boss Raid.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="codex-section">
+          <h2 class="codex-h2">⚡ Campaign Buffs</h2>
+          <p class="codex-intro">Choose one before starting a campaign floor. Each charge is consumed on use.</p>
+          <div class="codex-effects">
+            ${effectRow("📯", "Battle Cry", "buff", "3 charges per buy. All player ATB gauges start full on the chosen floor — front-load damage on hard fights.")}
+            ${effectRow("🔥", "Phoenix Embers", "buff", "2 charges per buy. The first ally to fall during the battle is auto-revived at 50% HP. One use per battle.")}
+            ${effectRow("📖", "Scholar's Insight", "buff", "10 charges per buy. +25% XP for the CURRENT floor only — does not carry to other floors of a run.")}
+            ${effectRow("⚡", "Quickdraw", "buff", "1 charge per buy. Player ATB gauges fill 25% faster for the entire run.")}
+            ${effectRow("🗡", "Last Stand", "buff", "2 charges per buy. When only one of your units remains alive on the battlefield, that unit's damage is doubled.")}
+          </div>
+          <p class="codex-tip"><strong>Floor 50 (World Ender) disables all buffs.</strong> The capstone fight is intentionally a fair fight — slotted buffs are not consumed and have no effect there.</p>
+        </section>
+
+        <section class="codex-section">
+          <h2 class="codex-h2">💰 bRON Vouchers</h2>
+          <p class="codex-intro">A rare drop from enemy kills. Vouchers stack in your Inventory by tier; redeem at end of season for the indicated bRON value.</p>
+          <div class="codex-effects">
+            ${effectRow("⚪", "Tier 1", "buff", "1 in 1,000 drop chance per kill — 5 bRON each.")}
+            ${effectRow("🔵", "Tier 2", "buff", "1 in 5,000 drop chance per kill — 10 bRON each.")}
+            ${effectRow("🟡", "Tier 3", "buff", "1 in 25,000 drop chance per kill — 20 bRON each.")}
+            ${effectRow("🟠", "Tier 4", "buff", "1 in 125,000 drop chance per kill — 50 bRON each.")}
+            ${effectRow("🌟", "Tier 5", "buff", "1 in 625,000 drop chance per kill — 200 bRON each.")}
+          </div>
+          <p class="codex-tip"><strong>Boss kills get 2× drop chance per tier</strong>, and the <strong>World Ender drops 4×</strong> — the cosmic-tier boss is the best per-kill chance to score a high-value voucher. Drop rolls happen entirely server-side; a money-bag popup appears over killed enemies as visual feedback.</p>
+        </section>
+
+        <section class="codex-section">
           <h2 class="codex-h2">⬆ Buffs</h2>
           <div class="codex-effects">
             ${effectRow("⚔", "Atk Up", "buff", "+X% physical or magical attack for N actions.")}
@@ -117,6 +162,7 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
             ${effectRow("💨", "Haste", "buff", "ATB gauge fills X% faster for N actions.")}
             ${effectRow("🛡", "Shield", "buff", "Reduce incoming damage by X% for N actions.")}
             ${effectRow("🎯", "Drawing Fire", "buff", "All damage to allies (including each AOE hit) is redirected to this unit.")}
+            ${effectRow("🪞", "Damage Reflect", "buff", "Returns X% of damage taken to the attacker. Bosses take HALF the reflected damage. World Ender is fully immune.")}
           </div>
         </section>
 
