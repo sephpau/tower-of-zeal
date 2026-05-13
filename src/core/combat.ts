@@ -28,6 +28,16 @@ import {
   damageReflectPct,
 } from "./effects";
 
+/** Enemy template IDs marked as solo bosses in the roster (every soloBoss: true
+ *  stage). Reflect against these only deals 50% — non-boss enemies still take
+ *  the full reflected amount. World Ender is checked separately (full immunity). */
+const BOSS_TEMPLATE_IDS: ReadonlySet<string> = new Set([
+  "stone_sentinel", "wraith_lord", "tower_lord", "iron_behemoth", "storm_lord",
+  "demon_general", "witch_queen", "dragon_lord", "tower_god",
+  "null_hierophant", "the_untouched", "apex_arbiter",
+  // world_ender is intentionally NOT in this set — it has full reflect immunity.
+]);
+
 export type Side = "player" | "enemy";
 
 export interface Position {
@@ -964,13 +974,16 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
 
   // Damage reflect: defender returns a % of damage taken to the attacker even
   // if the defender died from the hit. Skip cross-reflect (no infinite loops).
-  // World Ender attacks bypass reflect entirely — a cosmic-scale boss shouldn't
-  // be cheesable by parking Shego/Oge in front and letting reflect chip it
-  // down. Treat the final boss as unreflectable, period.
+  //   - World Ender: fully immune (the capstone boss can't be reflect-cheesed).
+  //   - Other solo bosses: take 50% of reflected damage. Reflect builds still
+  //     contribute on boss floors, but can't trivialize them by passive return.
+  //   - Non-boss enemies: take 100% of reflected damage as before.
   const reflectPct = damageReflectPct(target);
   const attackerReflectImmune = attacker.templateId === "world_ender";
+  const attackerIsBoss = BOSS_TEMPLATE_IDS.has(attacker.templateId);
   if (reflectPct > 0 && attacker.side !== target.side && attacker.alive && dmg > 0 && !attackerReflectImmune) {
-    const reflectDmg = Math.max(1, Math.floor(dmg * reflectPct));
+    const bossMul = attackerIsBoss ? 0.5 : 1.0;
+    const reflectDmg = Math.max(1, Math.floor(dmg * reflectPct * bossMul));
     attacker.hp = Math.max(0, attacker.hp - reflectDmg);
     target.damageDealt += reflectDmg;
     attacker.damageTaken += reflectDmg;

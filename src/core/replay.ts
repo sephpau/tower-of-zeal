@@ -12,6 +12,11 @@
 
 import { Stats } from "./stats";
 
+// v13: Solo bosses (except World Ender) now take 50% reduced reflected damage.
+//      Any v12 replay where reflect fired against a boss attacker (stone_sentinel,
+//      wraith_lord, tower_lord, iron_behemoth, storm_lord, demon_general,
+//      witch_queen, dragon_lord, tower_god, null_hierophant, the_untouched,
+//      apex_arbiter) will diverge — the boss now takes half the reflect.
 // v12: World Ender attacks now bypass damage_reflect entirely. Any v11 replay
 //      of floor 50 with a reflect-equipped tank (Shego/Oge) tanking the boss
 //      would diverge — old replays reflected damage back, new sim does not.
@@ -41,7 +46,7 @@ import { Stats } from "./stats";
 // v3: combat sim now uses a fixed timestep (SIM_STEP). Replays recorded under
 //     the old variable-dt sim could pick a different actor when two combatants
 //     hit full gauge in the same frame, diverging RNG consumption.
-export const REPLAY_VERSION = 12;
+export const REPLAY_VERSION = 13;
 
 export interface ReplayPartyMember {
   templateId: string;
