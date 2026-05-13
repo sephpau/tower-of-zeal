@@ -3164,23 +3164,29 @@ body:has(.battle) {
   padding: 24px;
   background: radial-gradient(ellipse at top, rgba(244,211,94,0.04), transparent 60%), var(--bg);
 }
+/* MoTZ glass card — layered alpha gradient + hairline border + inset highlight,
+   matches the unit cards / campaign tiles / leaderboard surfaces. */
 .rs-card {
   width: 100%;
   max-width: 720px;
-  background: var(--panel);
-  border: 1px solid var(--border-strong);
-  border-radius: 14px;
-  padding: 28px 32px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0) 38%),
+    linear-gradient(180deg, rgba(15, 20, 50, 0.78) 0%, rgba(10, 13, 34, 0.78) 100%);
+  border: 1px solid var(--motz-glass-border-hi);
+  border-radius: 18px;
+  padding: 30px 34px;
   display: flex;
   flex-direction: column;
   gap: 18px;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
+  box-shadow:
+    var(--motz-sh-card),
+    0 24px 60px rgba(0, 0, 0, 0.50);
 }
 .rs-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--motz-glass-border);
   padding-bottom: 12px;
 }
 .rs-mode-tag {
@@ -3188,10 +3194,12 @@ body:has(.battle) {
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.1em;
-  padding: 4px 10px;
-  border-radius: 4px;
-  border: 1px solid var(--border-strong);
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--motz-glass-border-hi);
+  background: rgba(255, 255, 255, 0.04);
   text-transform: uppercase;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 .rs-mode-survival { color: var(--gold-bright); border-color: var(--gold-bright); }
 .rs-mode-boss_raid { color: #ff7070; border-color: #ff5050; }
@@ -3225,11 +3233,13 @@ body:has(.battle) {
   font-size: 13px;
   font-weight: 700;
   color: var(--gold-bright);
-  background: rgba(244, 211, 94, 0.1);
-  border: 1px solid var(--gold-bright);
-  border-radius: 6px;
-  padding: 6px 10px;
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.14) 0%, rgba(251, 191, 36, 0.05) 100%);
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  border-radius: 8px;
+  padding: 7px 12px;
   letter-spacing: 0.05em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .rs-refund-banner {
@@ -3249,14 +3259,17 @@ body:has(.battle) {
   gap: 8px;
 }
 .rs-total {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 50%),
+    rgba(8, 11, 28, 0.7);
+  border: 1px solid var(--motz-glass-border);
+  border-radius: 10px;
+  padding: 10px 10px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 .rs-total-label {
   font-size: 9px;
@@ -3282,14 +3295,23 @@ body:has(.battle) {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0) 45%),
+    rgba(8, 11, 28, 0.65);
+  border: 1px solid var(--motz-glass-border);
+  border-radius: 12px;
+  padding: 9px 13px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .rs-unit-row.mvp {
-  border-color: var(--gold-bright);
-  box-shadow: 0 0 12px rgba(244, 211, 94, 0.3);
+  border-color: rgba(251, 191, 36, 0.65);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 18px rgba(251, 191, 36, 0.28);
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.06) 0%, rgba(255, 255, 255, 0) 45%),
+    rgba(20, 14, 4, 0.62);
 }
 .rs-unit-row .portrait { width: 40px; height: 40px; font-size: 24px; }
 .rs-unit-main { flex: 1; min-width: 0; }
@@ -3302,12 +3324,15 @@ body:has(.battle) {
   display: inline-block;
   font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.08em;
-  background: var(--gold-bright);
-  color: var(--bg);
-  padding: 1px 5px;
-  border-radius: 3px;
+  letter-spacing: 0.10em;
+  background: linear-gradient(180deg, #FFD970 0%, var(--motz-gold) 55%, #E59700 100%);
+  color: #1a1300;
+  padding: 2px 6px;
+  border-radius: 4px;
   margin-right: 4px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.35);
 }
 .rs-unit-stats {
   display: flex;
