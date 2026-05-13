@@ -259,8 +259,8 @@ export const SKILLS: Record<string, Skill> = {
     id: "celestial_beam", name: "Celestial Beam",
     kind: "magical", targeting: "all_enemies", range: "range",
     power: POW.high, mpCost: 30, cooldown: 5, unlockLevel: 10,
-    description: "High AOE range magical.",
-    scalesWith: [{ stat: "INT" }],
+    description: "High AOE range magical (scales INT + VIT).",
+    scalesWith: [{ stat: "INT" }, { stat: "VIT" }],
   },
 
   // ============================================================

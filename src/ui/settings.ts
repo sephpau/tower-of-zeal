@@ -7,6 +7,8 @@ import { adminGrantServerEnergy, adminFillServerEnergy, adminWipeDevServerData }
 import { isDevBuild } from "../auth/devBuild";
 import { confirmModal } from "./confirmModal";
 import { clearSession } from "../auth/session";
+import { getSfxVolume, setSfxVolume, sfx } from "../core/audio";
+import { getBgmVolume, setBgmVolume } from "../core/bgm";
 
 export interface Settings {
   playerName: string;
@@ -72,10 +74,21 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
               <input type="checkbox" id="setting-sfx" ${s.sfxOn ? "checked" : ""} />
               <span>Sound effects</span>
             </label>
+            <div class="volume-row">
+              <span class="volume-label">SFX volume</span>
+              <input type="range" id="setting-sfx-volume" min="0" max="100" step="1" value="${Math.round(getSfxVolume() * 100)}" />
+              <span class="volume-value" id="setting-sfx-volume-value">${Math.round(getSfxVolume() * 100)}</span>
+            </div>
+
             <label class="toggle">
               <input type="checkbox" id="setting-bgm" ${s.bgmOn ? "checked" : ""} />
               <span>Background music</span>
             </label>
+            <div class="volume-row">
+              <span class="volume-label">Music volume</span>
+              <input type="range" id="setting-bgm-volume" min="0" max="100" step="1" value="${Math.round(getBgmVolume() * 100)}" />
+              <span class="volume-value" id="setting-bgm-volume-value">${Math.round(getBgmVolume() * 100)}</span>
+            </div>
           </div>
         </div>
 
@@ -108,6 +121,30 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
   `;
 
   root.querySelector("#back-btn")?.addEventListener("click", onClose);
+
+  // Volume sliders — apply live (no need to hit Save) so the user hears the
+  // change immediately. Persistence is in their own localStorage keys
+  // (toz.sfx.volume / toz.bgm.volume) separate from the main settings blob.
+  const sfxVolEl = root.querySelector<HTMLInputElement>("#setting-sfx-volume");
+  const sfxVolValueEl = root.querySelector<HTMLElement>("#setting-sfx-volume-value");
+  sfxVolEl?.addEventListener("input", () => {
+    const n = Number(sfxVolEl.value);
+    if (sfxVolValueEl) sfxVolValueEl.textContent = String(n);
+    setSfxVolume(n / 100);
+  });
+  sfxVolEl?.addEventListener("change", () => {
+    // Single sample on release so the user can hear the new level without
+    // spamming clicks during the drag.
+    sfx.click();
+  });
+
+  const bgmVolEl = root.querySelector<HTMLInputElement>("#setting-bgm-volume");
+  const bgmVolValueEl = root.querySelector<HTMLElement>("#setting-bgm-volume-value");
+  bgmVolEl?.addEventListener("input", () => {
+    const n = Number(bgmVolEl.value);
+    if (bgmVolValueEl) bgmVolValueEl.textContent = String(n);
+    setBgmVolume(n / 100);
+  });
 
   root.querySelector<HTMLButtonElement>("#save-settings")?.addEventListener("click", async () => {
     const newName = (root.querySelector<HTMLInputElement>("#setting-name")?.value || DEFAULTS.playerName).trim();

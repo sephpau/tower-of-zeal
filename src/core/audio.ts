@@ -18,6 +18,23 @@ function sfxAllowed(): boolean {
   try { return loadSettings().sfxOn; } catch { return true; }
 }
 
+// User-facing SFX volume (0..1). Independent from the bgm volume slider.
+// Each individual sound source applies its own gain on top of this master.
+const SFX_VOL_KEY = "toz.sfx.volume";
+function readSfxVolume(): number {
+  try {
+    const raw = localStorage.getItem(SFX_VOL_KEY);
+    if (raw === null) return 0.8;
+    const n = Number(raw);
+    return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0.8;
+  } catch { return 0.8; }
+}
+export function getSfxVolume(): number { return readSfxVolume(); }
+export function setSfxVolume(v: number): void {
+  const clamped = Math.max(0, Math.min(1, v));
+  try { localStorage.setItem(SFX_VOL_KEY, String(clamped)); } catch { /* ignore */ }
+}
+
 interface Tone {
   freq: number;
   type?: OscillatorType;
@@ -39,7 +56,8 @@ function blip(t: Tone): void {
   if (t.endFreq !== undefined) {
     o.frequency.linearRampToValueAtTime(t.endFreq, a.currentTime + dur);
   }
-  const peak = t.gain ?? 0.08;
+  // Scale per-sound peak gain by the user's SFX volume slider.
+  const peak = (t.gain ?? 0.08) * readSfxVolume();
   g.gain.setValueAtTime(0, a.currentTime);
   g.gain.linearRampToValueAtTime(peak, a.currentTime + 0.005);
   g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
@@ -78,7 +96,7 @@ function playSample(key: string, gain: number): void {
   preloadSample(key);
   // Fresh Audio per call so rapid hits don't cut each other off.
   const a = new Audio(src);
-  a.volume = Math.max(0, Math.min(1, gain));
+  a.volume = Math.max(0, Math.min(1, gain * readSfxVolume()));
   a.play().catch(() => undefined);
 }
 

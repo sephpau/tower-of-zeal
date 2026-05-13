@@ -2002,6 +2002,73 @@ body:has(.battle) {
 .setting-hint { font-size: 10px; opacity: 0.5; }
 .audio-toggles { display: flex; flex-direction: column; gap: 6px; }
 .toggle { display: flex; gap: 8px; align-items: center; font-size: 13px; cursor: pointer; }
+/* Volume slider row — sits indented under its matching toggle. */
+.volume-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 34px;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 2px 24px;
+}
+.volume-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.volume-value {
+  font-family: var(--motz-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold-bright);
+  text-align: right;
+  min-width: 28px;
+}
+.volume-row input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  width: 100%;
+  margin: 0;
+}
+.volume-row input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--gold) 0%, var(--gold-bright) 100%);
+  border: 1px solid var(--border);
+}
+.volume-row input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--gold) 0%, var(--gold-bright) 100%);
+  border: 1px solid var(--border);
+}
+.volume-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--gold-bright);
+  border: 1px solid #2a1a00;
+  margin-top: -5px;
+  box-shadow: 0 0 8px rgba(244, 211, 94, 0.5);
+  cursor: pointer;
+}
+.volume-row input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--gold-bright);
+  border: 1px solid #2a1a00;
+  box-shadow: 0 0 8px rgba(244, 211, 94, 0.5);
+  cursor: pointer;
+}
+.volume-row input[type="range"]:focus { outline: none; }
+.volume-row input[type="range"]:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(244, 211, 94, 0.25), 0 0 8px rgba(244, 211, 94, 0.5);
+}
+
 .setting-actions { display: flex; justify-content: flex-end; }
 
 /* ============================================================
