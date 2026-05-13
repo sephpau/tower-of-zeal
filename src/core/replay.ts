@@ -12,6 +12,9 @@
 
 import { Stats } from "./stats";
 
+// v9: World Ender gained "World End!" — AOE instant-kill 50%/target, 10-action
+//     cooldown. v8 replays of floor 50 / boss raid finals would diverge as soon
+//     as the boss fires it (RNG roll changes the kill state of every player).
 // v8: Slime King HP bumped from 75 → 220 (was lower than its minions).
 //     v7 replays of stage 1 would diverge once the King took damage.
 // v7: heal effects now add `percentMaxHp` on top of flat power so heals stay
@@ -30,7 +33,7 @@ import { Stats } from "./stats";
 // v3: combat sim now uses a fixed timestep (SIM_STEP). Replays recorded under
 //     the old variable-dt sim could pick a different actor when two combatants
 //     hit full gauge in the same frame, diverging RNG consumption.
-export const REPLAY_VERSION = 8;
+export const REPLAY_VERSION = 9;
 
 export interface ReplayPartyMember {
   templateId: string;

@@ -739,7 +739,14 @@ function runActionResolution(b: Battle, attacker: Combatant, skill: Skill, actio
   } else if (skill.targeting === "all_enemies") {
     const targets = b.combatants.filter(c => c.alive && c.side !== attacker.side);
     b.log.push(`${attacker.name} unleashes ${skill.name}!`);
-    for (const t of targets) { applyDamageRolls(b, attacker, t, skill, { aoe: true }); didDamage = true; }
+    if (skill.instantKill) {
+      // Per-target one-shot roll. Bypasses damage formulas, resists, shields.
+      for (const t of targets) {
+        if (tryInstantKill(b, attacker, t, skill)) didDamage = true;
+      }
+    } else {
+      for (const t of targets) { applyDamageRolls(b, attacker, t, skill, { aoe: true }); didDamage = true; }
+    }
   } else {
     let target = b.combatants.find(c => c.id === action.targetId);
     if (!target || !target.alive) {
@@ -756,8 +763,12 @@ function runActionResolution(b: Battle, attacker: Combatant, skill: Skill, actio
       }
     }
     if (target) {
-      applyDamageRolls(b, attacker, target, skill);
-      didDamage = true;
+      if (skill.instantKill) {
+        if (tryInstantKill(b, attacker, target, skill)) didDamage = true;
+      } else {
+        applyDamageRolls(b, attacker, target, skill);
+        didDamage = true;
+      }
     }
   }
 
@@ -806,6 +817,33 @@ function findActiveTaunter(b: Battle, side: Side): Combatant | null {
     if (hasEffect(c, "taunt")) return c;
   }
   return null;
+}
+
+/** Roll an instant-kill against one target. Returns true if the roll
+ *  succeeded and the target is now dead. Bypasses damage rolls entirely —
+ *  no defense, resist, shield, or guard check applies. Used by boss
+ *  "execute" skills like World Ender's "World End!". */
+function tryInstantKill(b: Battle, attacker: Combatant, target: Combatant, skill: Skill): boolean {
+  if (!skill.instantKill) return false;
+  if (!target.alive) return false;
+  const chance = Math.max(0, Math.min(1, skill.instantKill.chance));
+  const roll = b.rng.next();
+  if (roll >= chance) {
+    b.log.push(`${attacker.name}'s ${skill.name} misses ${target.name}.`);
+    return false;
+  }
+  // Kill outright. Credit damage = remaining HP for run summary stats.
+  const dmg = target.hp;
+  target.hp = 0;
+  target.alive = false;
+  target.queuedAction = null;
+  if (attacker.side !== target.side) {
+    attacker.damageDealt += dmg;
+    target.damageTaken += dmg;
+    attacker.kills += 1;
+  }
+  b.log.push(`${attacker.name}'s ${skill.name} obliterates ${target.name}!`);
+  return true;
 }
 
 function applyDamageRolls(b: Battle, attacker: Combatant, target: Combatant, skill: Skill, ctx: { aoe?: boolean } = {}): void {

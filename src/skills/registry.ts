@@ -66,6 +66,15 @@ export const SKILLS: Record<string, Skill> = {
     summon: { templateId: "slime", count: 2 },
   },
 
+  // ---- World Ender (final boss) ----
+  world_end: {
+    id: "world_end", name: "World End!",
+    kind: "magical", targeting: "all_enemies",
+    power: 0, mpCost: 80, cooldown: 10,
+    description: "AOE execute — 50% chance to instantly kill each player. Bypasses defense, resists, and shields. 10-action cooldown.",
+    instantKill: { chance: 0.5 },
+  },
+
   // ============================================================
   // SKILLS final — class skills (3 per class; lvl 5 + lvl 10 unlocks).
   // Status effects (confuse/burn/freeze/etc.) are NO-OPs for now;
