@@ -831,12 +831,96 @@ body:has(.battle) {
   padding-top: 16px;
   display: flex;
   flex-direction: column;
+  gap: 12px;
 }
 .squad-actions-side .confirm-btn {
   width: 100%;
   font-size: 18px;
   padding: 14px 18px;
   letter-spacing: 0.08em;
+}
+
+/* Buff selector row above Start Battle button. */
+.buff-slot-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--motz-glass-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 50%),
+    rgba(8, 11, 28, 0.6);
+}
+.buff-slot-label {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+  opacity: 0.85;
+}
+.buff-slot-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.buff-slot-empty {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+  line-height: 1.5;
+}
+.buff-slot-empty strong { color: var(--gold-bright); font-style: normal; }
+.buff-icon-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--motz-glass-border-hi);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease, transform 0.06s ease;
+}
+.buff-icon-btn:hover {
+  border-color: rgba(251, 191, 36, 0.55);
+  background: rgba(251, 191, 36, 0.07);
+  transform: translateY(-1px);
+}
+.buff-icon-btn.slotted {
+  border-color: rgba(251, 191, 36, 0.85);
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.22) 0%, rgba(251, 191, 36, 0.08) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 0 12px rgba(251, 191, 36, 0.30);
+  color: var(--gold-bright);
+}
+.buff-icon-glyph { font-size: 14px; line-height: 1; }
+.buff-icon-count {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: #7fd0ff;
+  background: rgba(127, 208, 255, 0.10);
+  border: 1px solid rgba(127, 208, 255, 0.45);
+  border-radius: 999px;
+  padding: 1px 6px;
+  letter-spacing: 0.04em;
+}
+.buff-icon-btn.slotted .buff-icon-count {
+  color: var(--gold-bright);
+  background: rgba(251, 191, 36, 0.18);
+  border-color: rgba(251, 191, 36, 0.55);
+}
+.buff-icon-name {
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 /* Header row with party count + warning */

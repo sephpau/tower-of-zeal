@@ -10,8 +10,8 @@ import { portraitInner, capeHtml, isUnitLocked } from "../units/art";
 import { confirmModal } from "./confirmModal";
 import { playBattleStartAnimation } from "./battleStartAnim";
 import { getSkill } from "../skills/registry";
-import { getPendingBuff } from "../main";
-import { SHOP_CATALOG } from "../core/shop";
+import { getPendingBuff, setPendingBuff } from "../main";
+import { SHOP_CATALOG, ShopItemDef, ShopItemId, fetchShopStatus } from "../core/shop";
 
 // Effective stats = unit base@lvl + class base@lvl + allocated custom points.
 // Mirrors what makeCombatant does, so the roster preview matches battle reality.
@@ -59,6 +59,9 @@ function sortRoster(roster: UnitTemplate[], key: SortKey, dir: "asc" | "desc"): 
 export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm: (r: SquadResult) => void, onBack: () => void): void {
   const picks: UnitTemplate[] = [];
   const stage = getStage(stageId) ?? STAGE_DEFS[0];
+  // Reset cached inventory so re-entering the screen re-fetches the live state
+  // (charges consumed by the previous run should appear).
+  cachedBuffInventory = null;
 
   const draw = () => {
     const placed = picks.length;
@@ -110,6 +113,12 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
               ${enemyChipsHtml(stage.enemies, !!stage.soloBoss)}
             </div>
             <div class="squad-actions-side">
+              <div class="buff-slot-row" id="buff-slot-row">
+                <div class="buff-slot-label">Campaign Buff</div>
+                <div class="buff-slot-icons" id="buff-slot-icons">
+                  <div class="buff-slot-empty">Loading…</div>
+                </div>
+              </div>
               <button class="confirm-btn" id="confirm" ${placed === 0 ? "disabled" : ""}>
                 Start Battle (${placed} unit${placed === 1 ? "" : "s"})
               </button>
@@ -120,6 +129,10 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
     `;
 
     root.querySelector("#back-btn")?.addEventListener("click", onBack);
+
+    // Mount the buff selector once per draw — async fetch can finish after
+    // re-renders, so we always re-target the current DOM node by id.
+    void mountBuffSelector(root);
 
     root.querySelector<HTMLSelectElement>("#roster-sort-key")?.addEventListener("change", e => {
       lastSortKey = (e.target as HTMLSelectElement).value as SortKey;
@@ -278,3 +291,66 @@ function escapeHtml(s: string): string {
   } as Record<string, string>)[c]);
 }
 function escapeAttr(s: string): string { return escapeHtml(s); }
+
+/** Cache shop status so re-draws don't re-fetch. Cleared when the screen
+ *  unmounts (next renderSquadSelect call resets it). */
+let cachedBuffInventory: Partial<Record<ShopItemId, number>> | null = null;
+
+async function mountBuffSelector(root: HTMLElement): Promise<void> {
+  const slot = root.querySelector<HTMLElement>("#buff-slot-icons");
+  if (!slot) return;
+
+  // Resolve inventory — use cached value if we already fetched once for this screen.
+  if (cachedBuffInventory === null) {
+    const status = await fetchShopStatus();
+    cachedBuffInventory = status?.inventory?.buffs ?? {};
+  }
+  // Subsequent re-renders happen on roster-card clicks, so we always
+  // re-resolve the DOM target via id.
+  const fresh = root.querySelector<HTMLElement>("#buff-slot-icons");
+  if (!fresh) return;
+
+  const owned: { def: ShopItemDef; count: number }[] = SHOP_CATALOG
+    .filter(d => d.category === "buff")
+    .map(d => ({ def: d, count: cachedBuffInventory?.[d.id] ?? 0 }))
+    .filter(x => x.count > 0);
+
+  if (owned.length === 0) {
+    fresh.innerHTML = `<div class="buff-slot-empty">No buffs owned. Buy from <strong>Shop</strong> on the home screen.</div>`;
+    return;
+  }
+
+  const pending = getPendingBuff();
+  fresh.innerHTML = owned.map(({ def, count }) => `
+    <button class="buff-icon-btn ${pending === def.id ? "slotted" : ""}"
+            data-buff="${def.id}"
+            title="${escapeAttr(def.name + " — " + def.description)}"
+            type="button">
+      <span class="buff-icon-glyph">${iconGlyphFor(def.id)}</span>
+      <span class="buff-icon-count">${count}</span>
+      <span class="buff-icon-name">${escapeHtml(def.name)}</span>
+    </button>
+  `).join("");
+
+  fresh.querySelectorAll<HTMLButtonElement>("[data-buff]").forEach(btn => {
+    const id = btn.dataset.buff as ShopItemId;
+    btn.addEventListener("click", () => {
+      const cur = getPendingBuff();
+      // Click on already-slotted → unslot. Otherwise toggle to this buff.
+      setPendingBuff(cur === id ? null : id);
+      // Re-render just the buff row (cheap re-mount of this section only).
+      void mountBuffSelector(root);
+    });
+  });
+}
+
+function iconGlyphFor(id: ShopItemId): string {
+  switch (id) {
+    case "buff_battle_cry":       return "📯";
+    case "buff_phoenix_embers":   return "🔥";
+    case "buff_scholars_insight": return "📖";
+    case "buff_quickdraw":        return "⚡";
+    case "buff_last_stand":       return "🗡";
+    default: return "❔";
+  }
+}
