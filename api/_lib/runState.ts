@@ -287,6 +287,9 @@ export const SHOP_BUFF_IDS: ShopItemId[] = [
  *  Defaults to 1; bumped for buffs the design intends as multi-use packs. */
 export const BUFF_GRANT_SIZE: Partial<Record<ShopItemId, number>> = {
   buff_battle_cry: 3,
+  buff_phoenix_embers: 2,
+  buff_scholars_insight: 10,
+  buff_last_stand: 2,
 };
 
 interface ShopInventory {

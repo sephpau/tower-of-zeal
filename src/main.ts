@@ -194,20 +194,22 @@ export function getPendingBuff(): ShopItemId | null { return pendingBuff; }
 /** Buffs active for the CURRENT run. Reset when a new run starts (in
  *  startBattleFromSquad) and individual flags cleared as they're consumed. */
 interface ActiveRunBuffs {
-  /** Battle Cry — armed only for the first battle of the run. */
+  /** Battle Cry — one-shot: consumed by the FIRST battle of the run only. */
   battleCry: boolean;
   /** Phoenix Embers — armed per battle in the run (first death per battle revives). */
   phoenixEmbers: boolean;
-  /** Scholar's Insight — flat XP multiplier applied to every floor in the run. */
-  scholarsInsightMul: number;
-  /** Quickdraw — player ATB-speed multiplier, every battle. */
+  /** Scholar's Insight — one-shot: applies +25% XP to the FIRST battle only.
+   *  (Per the design spec, "current floor only" = the next battle that starts
+   *  after slotting; subsequent floors of the run don't get the bonus.) */
+  scholarsInsightArmed: boolean;
+  /** Quickdraw — player ATB-speed multiplier, applied every battle of the run. */
   quickdrawAtbMul: number;
   /** Last Stand — outgoing damage multiplier when only one player ally is alive. */
   lastStandDmgMul: number;
 }
 let activeRunBuffs: ActiveRunBuffs = freshRunBuffs();
 function freshRunBuffs(): ActiveRunBuffs {
-  return { battleCry: false, phoenixEmbers: false, scholarsInsightMul: 1, quickdrawAtbMul: 1, lastStandDmgMul: 1 };
+  return { battleCry: false, phoenixEmbers: false, scholarsInsightArmed: false, quickdrawAtbMul: 1, lastStandDmgMul: 1 };
 }
 export function getActiveRunBuffs(): ActiveRunBuffs { return activeRunBuffs; }
 /** Consume + return battle-cry flag (used by the build path for the first floor). */
@@ -216,12 +218,18 @@ export function consumeBattleCry(): boolean {
   activeRunBuffs.battleCry = false;
   return true;
 }
+/** Consume + return Scholar's Insight flag (one-shot, like Battle Cry). */
+export function consumeScholarsInsight(): boolean {
+  if (!activeRunBuffs.scholarsInsightArmed) return false;
+  activeRunBuffs.scholarsInsightArmed = false;
+  return true;
+}
 /** Map a slotted buff id onto the activeRunBuffs flags. Called once at run start. */
 function armBuffOnRun(id: ShopItemId): void {
   switch (id) {
     case "buff_battle_cry":       activeRunBuffs.battleCry = true; break;
     case "buff_phoenix_embers":   activeRunBuffs.phoenixEmbers = true; break;
-    case "buff_scholars_insight": activeRunBuffs.scholarsInsightMul = 1.25; break;
+    case "buff_scholars_insight": activeRunBuffs.scholarsInsightArmed = true; break;
     case "buff_quickdraw":        activeRunBuffs.quickdrawAtbMul = 1.25; break;
     case "buff_last_stand":       activeRunBuffs.lastStandDmgMul = 2.0; break;
     default: break; // non-buff items don't arm anything
@@ -764,8 +772,12 @@ function applyBossRaidReward(r: BossRaidReward): void {
 function runBossRaidFloor(party: SquadResult["players"], floorId: number): void {
   const stage = getStage(floorId);
   if (!stage) { showHome(); return; }
+  // Scholar's Insight: "current floor only" — consume only on the first
+  // boss-raid floor (no carryover yet).
+  const isFirstBrFloor = Object.keys(brCarry).length === 0;
+  const xpFromScholars = isFirstBrFloor && consumeScholarsInsight() ? 1.25 : 1;
   const opts: BattleOptions = {
-    xpMultiplier: BOSS_RAID_XP_MULT * getCachedDailyMultiplier() * activeRunBuffs.scholarsInsightMul,
+    xpMultiplier: BOSS_RAID_XP_MULT * getCachedDailyMultiplier() * xpFromScholars,
     bossRaid: true,
     bossStatReduction: brBossStatReduction,
     playerStatBoost: brPlayerStatBoost,
@@ -773,7 +785,7 @@ function runBossRaidFloor(party: SquadResult["players"], floorId: number): void 
   };
   if (Object.keys(brCarry).length > 0) opts.carryover = brCarry;
   // Battle Cry: fire only on the first boss-raid floor (no carryover yet).
-  if (Object.keys(brCarry).length === 0 && consumeBattleCry()) {
+  if (isFirstBrFloor && consumeBattleCry()) {
     opts.playerStartFullGauge = true;
   }
   // Per-battle run-buffs (re-applied every boss-raid floor).
@@ -815,8 +827,14 @@ function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: 
   // there regardless of run mode. XP multiplier reverts to base * daily only;
   // every other buff opt is intentionally NOT set on opts.
   const buffsAllowed = floorId !== 50;
+  // Scholar's Insight is "current floor only" — consumed on the first battle
+  // that runs after slotting. We compute the XP multiplier inline so it
+  // applies only when armed AND allowed.
+  const isFirstBattleOfRun =
+    mode === "floor" || (mode === "survival" && Object.keys(survivalCarry).length === 0);
+  const xpFromScholars = buffsAllowed && isFirstBattleOfRun && consumeScholarsInsight() ? 1.25 : 1;
   const opts: BattleOptions = {
-    xpMultiplier: xpMultiplier * getCachedDailyMultiplier() * (buffsAllowed ? activeRunBuffs.scholarsInsightMul : 1),
+    xpMultiplier: xpMultiplier * getCachedDailyMultiplier() * xpFromScholars,
   };
   if (mode === "survival" && Object.keys(survivalCarry).length > 0) {
     opts.carryover = survivalCarry;
@@ -824,8 +842,6 @@ function runFloor(party: SquadResult["players"], floorId: number, xpMultiplier: 
   // Shop buff: Battle Cry fires once at the START of the run (floor 1 of
   // survival; the picked floor for campaign/boss-raid). On survival floor 2+
   // we keep the natural carryover gauge so the buff isn't re-applied per floor.
-  const isFirstBattleOfRun =
-    mode === "floor" || (mode === "survival" && Object.keys(survivalCarry).length === 0);
   if (buffsAllowed && isFirstBattleOfRun && consumeBattleCry()) {
     opts.playerStartFullGauge = true;
   }
