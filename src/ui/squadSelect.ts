@@ -156,7 +156,7 @@ export function renderSquadSelect(root: HTMLElement, stageId: number, onConfirm:
       const partyNames = picks.map(p => p.name).join(", ");
       const ok = await confirmModal({
         title: "Begin Battle?",
-        message: `Start the battle with <strong>${picks.length}</strong> unit${picks.length === 1 ? "" : "s"} — <strong>${escapeHtml(partyNames)}</strong>?<br><br>Your party is locked once the battle begins.`,
+        message: `Start the battle with <strong>${picks.length}</strong> unit${picks.length === 1 ? "" : "s"} — <strong>${escapeHtml(partyNames)}</strong>?<br><br>You can bring up to <strong>${MAX_PARTY_SIZE}</strong> units into battle. Your party is locked once the battle begins.`,
         confirmLabel: "Begin",
         cancelLabel: "Cancel",
       });
