@@ -12,6 +12,9 @@
 
 import { Stats } from "./stats";
 
+// v16: bRON voucher drops introduced. Every enemy kill now rolls 5 chance()
+//      tiers via the battle RNG, so v15 replays diverge as soon as the first
+//      enemy falls (extra rng draws shift every subsequent crit / damage roll).
 // v15: Lucky Coin removed. v14 replays that used Lucky Coin would diverge —
 //      its extra rng.chance() call is gone, so subsequent RNG draws differ.
 // v14: Shop run-buffs introduced (Battle Cry / Phoenix Embers / Lucky Coin /
@@ -54,7 +57,7 @@ import { Stats } from "./stats";
 // v3: combat sim now uses a fixed timestep (SIM_STEP). Replays recorded under
 //     the old variable-dt sim could pick a different actor when two combatants
 //     hit full gauge in the same frame, diverging RNG consumption.
-export const REPLAY_VERSION = 15;
+export const REPLAY_VERSION = 16;
 
 export interface ReplayPartyMember {
   templateId: string;

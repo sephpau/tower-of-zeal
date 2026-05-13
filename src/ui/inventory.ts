@@ -7,7 +7,7 @@ import { topBarHtml } from "./settings";
 import { getEnergy, ENERGY_MAX } from "../core/energy";
 import {
   SHOP_CATALOG, ShopItemDef, ShopItemId,
-  fetchShopStatus, useEnergyItem,
+  fetchShopStatus, useEnergyItem, fetchBronBalance,
 } from "../core/shop";
 
 export async function renderInventory(root: HTMLElement, onBack: () => void): Promise<void> {
@@ -17,7 +17,10 @@ export async function renderInventory(root: HTMLElement, onBack: () => void): Pr
       <div class="inv-header">
         <div class="inv-title">Backpack</div>
         <div class="inv-sub">Items you've bought from the <strong>Shop</strong>. Click <strong>Use</strong> on energy packs to refill, or slot a campaign buff for your next battle.</div>
-        <div class="inv-energy-pill">⚡ ${getEnergy()} / ${ENERGY_MAX}</div>
+        <div class="inv-pills">
+          <div class="inv-energy-pill">⚡ ${getEnergy()} / ${ENERGY_MAX}</div>
+          <div class="inv-bron-pill" id="inv-bron-pill">💰 <span id="inv-bron-amt">—</span> bRON</div>
+        </div>
       </div>
       <div class="inv-body" id="inv-body">
         <div class="inv-loading">Loading inventory…</div>
@@ -25,6 +28,13 @@ export async function renderInventory(root: HTMLElement, onBack: () => void): Pr
     </div>
   `;
   root.querySelector("#back-btn")?.addEventListener("click", onBack);
+
+  // Async load bRON balance into the pill (best-effort).
+  void (async () => {
+    const bal = await fetchBronBalance();
+    const t = root.querySelector<HTMLElement>("#inv-bron-amt");
+    if (t) t.textContent = bal === null ? "—" : bal.toLocaleString();
+  })();
 
   await draw(root);
 }

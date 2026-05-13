@@ -134,6 +134,41 @@ export async function consumeShopItem(item: ShopItemId): Promise<boolean> {
   } catch { return false; }
 }
 
+// ---- bRON voucher balance ----
+
+export async function fetchBronBalance(): Promise<number | null> {
+  const tok = token();
+  if (!tok) return null;
+  try {
+    const r = await fetch("/api/run/floor-cleared", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "bron_status" }),
+    });
+    if (!r.ok) return null;
+    const data = await r.json() as { balance: number };
+    return typeof data.balance === "number" ? data.balance : null;
+  } catch { return null; }
+}
+
+/** Credit `amount` bRON to the wallet. Server caps per-call so a tampered
+ *  client can't mint at will. Returns the new balance. */
+export async function creditBron(amount: number): Promise<number | null> {
+  const tok = token();
+  if (!tok) return null;
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  try {
+    const r = await fetch("/api/run/floor-cleared", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "bron_credit", amount }),
+    });
+    if (!r.ok) return null;
+    const data = await r.json() as { balance: number };
+    return typeof data.balance === "number" ? data.balance : null;
+  } catch { return null; }
+}
+
 // ---- Daily attempts (Survival / Boss Raid 3/day cap) ----
 
 export type AttemptsMode = "survival" | "boss_raid";

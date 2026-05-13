@@ -3,6 +3,7 @@ import { getEnergy, ENERGY_MAX, msUntilNextRefill } from "../core/energy";
 import { startEnergyTimerLoop, formatRefillCountdown } from "./energyTimer";
 import { fetchDailyStatus, claimDailyBonus, DailyStatus } from "../core/daily";
 import { setEnergy } from "../core/energy";
+import { fetchBronBalance } from "../core/shop";
 
 export type HomeAction = "tower" | "units" | "settings" | "tutorial" | "leaderboard" | "codex" | "shop" | "inventory";
 
@@ -19,6 +20,11 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
         <span class="energy-icon">⚡</span>
         <span>${energy} / ${ENERGY_MAX}</span>
         <span class="energy-timer" data-energy-timer>${formatRefillCountdown(msUntilNextRefill())}</span>
+      </div>
+      <div class="bron-pill" id="bron-pill" title="bRON voucher balance">
+        <span class="bron-icon">💰</span>
+        <span id="bron-amount">—</span>
+        <span class="bron-label">bRON</span>
       </div>
       <div class="daily-slot" id="daily-slot"></div>
       <div class="home-header">
@@ -51,6 +57,15 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
   });
 
   void mountDailyWidget(root);
+  void mountBronPill(root);
+}
+
+async function mountBronPill(root: HTMLElement): Promise<void> {
+  const target = root.querySelector<HTMLElement>("#bron-amount");
+  if (!target) return;
+  const bal = await fetchBronBalance();
+  if (bal === null) { target.textContent = "—"; return; }
+  target.textContent = bal.toLocaleString();
 }
 
 async function mountDailyWidget(root: HTMLElement): Promise<void> {

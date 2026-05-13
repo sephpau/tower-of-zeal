@@ -39,7 +39,7 @@ import { startRun, reportFloor, endRun, abortLiveRun, reportFloorCleared, getLiv
 import { isAllowedOnDev } from "./auth/devBuild";
 import { confirmModal } from "./ui/confirmModal";
 import { playBattleStartAnimation } from "./ui/battleStartAnim";
-import { fetchAttemptsStatus, claimAttempt, consumeShopItem, ShopItemId } from "./core/shop";
+import { fetchAttemptsStatus, claimAttempt, consumeShopItem, creditBron, ShopItemId } from "./core/shop";
 import { renderShop } from "./ui/shop";
 import { renderInventory } from "./ui/inventory";
 
@@ -191,6 +191,19 @@ let survivalCarry: Record<string, CarryEntry> = {};
 let pendingBuff: ShopItemId | null = null;
 export function setPendingBuff(id: ShopItemId | null): void { pendingBuff = id; }
 export function getPendingBuff(): ShopItemId | null { return pendingBuff; }
+
+/** bRON drops accumulated across all battles in the current run. Reset at
+ *  run start (startBattleFromSquad). Credited server-side from the run summary. */
+let runBronDrops = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, total: 0 };
+function resetRunBronDrops(): void { runBronDrops = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, total: 0 }; }
+function mergeBattleBronIntoRun(bd: { t1: number; t2: number; t3: number; t4: number; t5: number; total: number }): void {
+  runBronDrops.t1 += bd.t1;
+  runBronDrops.t2 += bd.t2;
+  runBronDrops.t3 += bd.t3;
+  runBronDrops.t4 += bd.t4;
+  runBronDrops.t5 += bd.t5;
+  runBronDrops.total += bd.total;
+}
 
 /** Buffs active for the CURRENT run. Reset when a new run starts (in
  *  startBattleFromSquad) and individual flags cleared as they're consumed. */
@@ -425,6 +438,10 @@ function buildRunSummaryUnits(b: Battle): RunSummaryUnit[] {
 
 async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: number): Promise<void> {
   if (!battle) { showHome(); return; }
+  // Fold this battle's bRON drops into the run-level accumulator. For floor
+  // mode this is the only battle; for survival/boss raid, drops have already
+  // been accumulated by prior floors' onPostBattle wrap-up.
+  if (battle.bronDrops) mergeBattleBronIntoRun(battle.bronDrops);
   const runMode: RunSummary["mode"] = mode === "boss_raid" ? "boss_raid"
                                     : mode === "survival" ? "survival"
                                     : "floor";
@@ -478,6 +495,13 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
     }
   }
 
+  // Credit any bRON drops accumulated across the run. Server caps per-call
+  // at MAX_BRON_CREDIT_PER_CALL so a tampered client can't mint at will.
+  if (runBronDrops.total > 0) {
+    void creditBron(runBronDrops.total);
+  }
+  const bronSnapshot = { ...runBronDrops };
+
   const summary: RunSummary = {
     mode: runMode,
     outcome,
@@ -491,6 +515,7 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
     battleLog: battle ? battle.log.slice() : undefined,
     playerNames: battle ? Array.from(new Set(battle.combatants.filter(c => c.side === "player").map(c => c.name))) : undefined,
     enemyNames: battle ? Array.from(new Set(battle.combatants.filter(c => c.side === "enemy").map(c => c.name))) : undefined,
+    bronDrops: bronSnapshot,
   };
 
   abortLiveRun();
@@ -729,6 +754,8 @@ async function startBattleFromSquad(squad: SquadResult): Promise<void> {
     else alert(`Not enough energy (need ${cost}, have ${r.amount}).`);
     return;
   }
+  // Fresh run begins — clear the bRON accumulator.
+  resetRunBronDrops();
   // Reset run-spanning buff state, then consume + arm any slotted buff —
   // EXCEPT when starting a campaign run that targets Floor 50 (World Ender):
   // buffs are disabled there, so we leave the charge in inventory and clear
@@ -1035,6 +1062,11 @@ function frame(t: number): void {
         captureCarry(battle);
         void reportFloor(survivalFloor);
         if (survivalFloor < STAGE_DEFS.length) {
+          // Intermediate floor → fold this battle's bRON drops into the run
+          // total now, before the battle object is replaced by the next floor.
+          // The final-battle drops are folded in by showRunSummary, so we only
+          // do per-floor merges for intermediates here.
+          if (battle.bronDrops) mergeBattleBronIntoRun(battle.bronDrops);
           survivalFloor += 1;
           // Brief delay before auto-advance so player can see the Victory banner.
           setTimeout(() => {
@@ -1053,6 +1085,10 @@ function frame(t: number): void {
         brIndex += 1;
         void reportFloor(brIndex);
         if (brIndex < BOSS_RAID_FLOORS.length) {
+          // Intermediate boss-raid floor — fold bRON drops before the battle
+          // object is replaced on transition. Final-battle drops are folded
+          // by showRunSummary instead.
+          if (battle.bronDrops) mergeBattleBronIntoRun(battle.bronDrops);
           // Pause briefly to let the Victory banner read, then offer the boon picker.
           setTimeout(() => {
             if (mode !== "boss_raid" || !brParty) return;

@@ -36,6 +36,8 @@ export interface RunSummary {
   /** Combatant names by side, used to colorize the log review modal. */
   playerNames?: string[];
   enemyNames?: string[];
+  /** bRON voucher drops accumulated across all battles of this run. */
+  bronDrops?: { t1: number; t2: number; t3: number; t4: number; t5: number; total: number };
 }
 
 /** Highest score = damageDealt + 1000 × kills. Returns null if no candidates. */
@@ -102,6 +104,7 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
         ${dailyMul > 1 ? `<div class="rs-multiplier-banner">🔥 Daily streak active · ${dailyMul}× XP</div>` : ""}
         ${summary.mvpBonusXp && summary.mvpBonusXp > 0 ? `<div class="rs-mvp-banner">⭐ MVP bonus · +${summary.mvpBonusXp.toLocaleString()} XP (1.2×)</div>` : ""}
         ${actions.refundNotice ? `<div class="rs-refund-banner">⚡ ${escapeHtml(actions.refundNotice)}</div>` : ""}
+        ${summary.bronDrops && summary.bronDrops.total > 0 ? bronBannerHtml(summary.bronDrops) : ""}
 
         <div class="rs-totals">
           <div class="rs-total"><span class="rs-total-label">Damage Dealt</span><span class="rs-total-value">${totalDamageDealt.toLocaleString()}</span></div>
@@ -205,6 +208,27 @@ function formatMs(ms: number): string {
   const m = Math.floor(total / 60);
   const s = total % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function bronBannerHtml(drops: { t1: number; t2: number; t3: number; t4: number; t5: number; total: number }): string {
+  // Build a per-tier breakdown so the rarity feels rewarding.
+  const tiers: { id: keyof typeof drops; label: string; color: string }[] = [
+    { id: "t5", label: "T5 (200)", color: "var(--gold-bright)" },
+    { id: "t4", label: "T4 (50)",  color: "#ffb05f" },
+    { id: "t3", label: "T3 (20)",  color: "#ffd96f" },
+    { id: "t2", label: "T2 (10)",  color: "#a0e5ff" },
+    { id: "t1", label: "T1 (5)",   color: "#cfd6e4" },
+  ];
+  const chips = tiers
+    .filter(t => (drops[t.id] as number) > 0)
+    .map(t => `<span class="rs-bron-chip" style="color:${t.color}"><span class="rs-bron-chip-label">${t.label}</span><span class="rs-bron-chip-count">×${drops[t.id]}</span></span>`)
+    .join("");
+  return `
+    <div class="rs-bron-banner">
+      <div class="rs-bron-head">💰 <strong>+${drops.total.toLocaleString()} bRON</strong> earned this run</div>
+      ${chips ? `<div class="rs-bron-chips">${chips}</div>` : ""}
+    </div>
+  `;
 }
 
 function escapeHtml(s: string): string {

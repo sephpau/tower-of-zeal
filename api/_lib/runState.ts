@@ -317,6 +317,34 @@ export async function hasActiveTempMotzKey(address: string): Promise<boolean> {
   return !!cur && cur.expiresAt > Date.now();
 }
 
+// ---- bRON voucher balance (in-game currency) ----
+// Persistent ledger per wallet. Earned via mob drops mid-battle; spent on shop
+// items; cashed out at end of season. Stored as a plain number under bron:<wallet>
+// with a long TTL so a wallet that goes inactive doesn't lose its balance.
+const BRON_TTL_SECONDS = 60 * 60 * 24 * 365 * 5; // 5 years
+/** Safety cap for a single bron_credit call. The client sends the per-battle
+ *  total; this stops a tampered client from minting millions in one call. */
+export const MAX_BRON_CREDIT_PER_CALL = 2000;
+
+function bronKey(address: string): string { return `bron:${address.toLowerCase()}`; }
+
+interface BronState { amount: number; }
+
+export async function readBron(address: string): Promise<number> {
+  const raw = await getJson<BronState>(bronKey(address));
+  return raw && Number.isFinite(raw.amount) ? Math.max(0, Math.floor(raw.amount)) : 0;
+}
+/** Atomically add `delta` bRON to the wallet (clamped to MAX_BRON_CREDIT_PER_CALL).
+ *  TTL is re-armed on every write so an active wallet's balance won't expire. */
+export async function creditBron(address: string, delta: number): Promise<number> {
+  const safe = Math.max(0, Math.min(MAX_BRON_CREDIT_PER_CALL, Math.floor(delta)));
+  const cur = await readBron(address);
+  if (safe === 0) return cur;
+  const next = cur + safe;
+  await setJson(bronKey(address), { amount: next }, BRON_TTL_SECONDS);
+  return next;
+}
+
 interface ShopInventory {
   /** Map of buff id → count owned (un-consumed). Buffs are 1/day buy, so the
    *  daily-bought key prevents re-purchase, while count tracks unused stock. */

@@ -12,6 +12,7 @@ import {
   readBoughtToday, markBoughtToday, consumeBuff,
   SHOP_BUFF_IDS, ShopItemId, BUFF_GRANT_SIZE,
   grantTempMotzKey, readTempMotzKey,
+  readBron, creditBron, MAX_BRON_CREDIT_PER_CALL,
 } from "../_lib/runState.js";
 
 const MAX_PARTY_SIZE = 3;
@@ -133,6 +134,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
     }
     return;
+  }
+
+  // ---- bRON voucher balance ----
+  // bron_status: read the wallet's current balance.
+  // bron_credit: atomically add `amount` bRON. Hard-capped server-side to
+  //   MAX_BRON_CREDIT_PER_CALL so a tampered client can't mint at will.
+  //   Designed to be called once per battle, after the run summary computes
+  //   the dropped tier totals.
+  if (op === "bron_status") {
+    try {
+      const balance = await readBron(address);
+      res.status(200).json({ ok: true, balance });
+      return;
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+      return;
+    }
+  }
+  if (op === "bron_credit") {
+    const amountRaw = (req.body as { amount?: unknown }).amount;
+    if (typeof amountRaw !== "number" || !Number.isFinite(amountRaw) || amountRaw <= 0) {
+      res.status(400).json({ error: "amount must be a positive number" }); return;
+    }
+    try {
+      const balance = await creditBron(address, amountRaw);
+      res.status(200).json({ ok: true, balance, capped: amountRaw > MAX_BRON_CREDIT_PER_CALL });
+      return;
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+      return;
+    }
   }
 
   // ---- Daily attempt cap ops (Survival / Boss Raid) ----

@@ -2261,6 +2261,27 @@ body:has(.battle) {
 }
 .energy-hint { font-size: 10px; opacity: 0.55; font-weight: 400; }
 
+/* bRON voucher balance pill on the home screen. Sits below the energy pill. */
+.bron-pill {
+  position: absolute;
+  top: 110px; right: 0;
+  display: inline-flex; align-items: center; gap: 6px;
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.10) 0%, rgba(251, 191, 36, 0.02) 100%),
+    var(--panel);
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--gold-bright);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.bron-icon { font-size: 13px; }
+.bron-label { font-size: 9px; opacity: 0.75; font-weight: 600; letter-spacing: 0.10em; }
+
 /* ---------- Battle: surrender + post ---------- */
 .battle-toolbar { display: flex; justify-content: flex-end; }
 .surrender-btn {
@@ -3432,6 +3453,45 @@ body:has(.battle) {
   padding: 6px 10px;
   letter-spacing: 0.04em;
 }
+
+/* bRON drops banner — gold-glass card with per-tier chip breakdown. */
+.rs-bron-banner {
+  text-align: center;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.14) 0%, rgba(251, 191, 36, 0.04) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.rs-bron-head {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gold-bright);
+  letter-spacing: 0.02em;
+}
+.rs-bron-head strong { color: #ffeaa3; font-size: 16px; }
+.rs-bron-chips {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.rs-bron-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  background: rgba(0, 0, 0, 0.25);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.rs-bron-chip-count { opacity: 0.85; }
 .rs-totals {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -4254,9 +4314,15 @@ body:has(.battle) {
   line-height: 1.5;
 }
 .inv-sub strong { color: var(--gold-bright); }
-.inv-energy-pill {
+.inv-pills {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 12px;
+}
+.inv-energy-pill,
+.inv-bron-pill {
   display: inline-block;
-  margin-top: 10px;
   padding: 5px 14px;
   border-radius: 999px;
   border: 1px solid rgba(251, 191, 36, 0.55);
