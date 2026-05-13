@@ -1257,7 +1257,8 @@ body:has(.battle) {
 .stage-tile.unlocked {
   border-color: var(--motz-glass-border-hi);
 }
-.stage-tile.unlocked:hover {
+.stage-tile.unlocked:hover,
+.stage-tile.unlocked:focus-visible {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 42%),
     linear-gradient(180deg, rgba(30, 40, 80, 0.70) 0%, rgba(12, 16, 40, 0.70) 100%);
@@ -1266,6 +1267,9 @@ body:has(.battle) {
   box-shadow:
     var(--motz-sh-card),
     0 0 22px rgba(251, 191, 36, 0.28);
+  /* Lift the whole tile (incl. its tooltip) above later-DOM siblings so the
+     tooltip isn't painted behind the next row of tiles. */
+  z-index: 20;
 }
 .stage-tile.unlocked:active { transform: translateY(0); }
 
