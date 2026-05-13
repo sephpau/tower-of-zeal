@@ -26,7 +26,8 @@ export type DamageIcon =
   | "wizard"       // range mag
   | "cross"        // hp heal
   | "raindrop"     // mp heal
-  | "miss";
+  | "miss"
+  | "moneybag";    // cosmetic bRON drop indicator (purely visual)
 
 export interface FloatEvent {
   targetId: string;
@@ -96,6 +97,24 @@ export function pushMpHeal(targetId: string, amount: number): void {
   sfx.manaHeal();
 }
 
+/** Cosmetic money-bag popup over a killed enemy. The actual bRON awarded
+ *  is decided server-side at run-end — this is pure visual flair so the
+ *  player gets the satisfying "drop" feedback in real time. */
+export function pushBronDrop(targetId: string, tier: "t1" | "t2" | "t3" | "t4" | "t5"): void {
+  const tierColor: Record<typeof tier, string> = {
+    t1: "#cfd6e4",       // bronze-ish gray
+    t2: "#a0e5ff",       // teal
+    t3: "#ffd96f",       // light gold
+    t4: "#ffb05f",       // amber
+    t5: "var(--gold-bright)", // royal gold
+  };
+  queue.push({
+    targetId,
+    text: `T${tier[1]}`,
+    icon: "moneybag",
+    color: tierColor[tier],
+  });
+}
 
 export function drainEvents(): FloatEvent[] {
   if (queue.length === 0) return [];
@@ -113,5 +132,6 @@ export function iconGlyph(icon: DamageIcon): string {
     case "cross": return "✚";
     case "raindrop": return "💧";
     case "miss": return "✕";
+    case "moneybag": return "💰";
   }
 }

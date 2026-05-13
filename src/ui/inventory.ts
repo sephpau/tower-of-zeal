@@ -54,8 +54,12 @@ async function draw(root: HTMLElement): Promise<void> {
     .filter(x => x.count > 0);
 
   const tempKeyActive = !!status.tempMotzKey?.active;
+  const vouchers = status.inventory.vouchers ?? {};
+  const totalVouchers =
+    (vouchers.t1 ?? 0) + (vouchers.t2 ?? 0) + (vouchers.t3 ?? 0) +
+    (vouchers.t4 ?? 0) + (vouchers.t5 ?? 0);
 
-  if (owned.length === 0 && !tempKeyActive) {
+  if (owned.length === 0 && !tempKeyActive && totalVouchers === 0) {
     body.innerHTML = `
       <div class="inv-empty">
         <div class="inv-empty-icon">🎒</div>
@@ -90,7 +94,8 @@ async function draw(root: HTMLElement): Promise<void> {
       </div>
     `;
   }).join("");
-  body.innerHTML = sectionsHtml;
+  const vouchersHtml = totalVouchers > 0 ? bronVouchersSectionHtml(vouchers) : "";
+  body.innerHTML = vouchersHtml + sectionsHtml;
 
   // Wire energy "Use" buttons.
   body.querySelectorAll<HTMLButtonElement>("[data-use-energy]").forEach(btn => {
@@ -110,6 +115,44 @@ async function draw(root: HTMLElement): Promise<void> {
   });
 
   // Buffs are chosen from Squad Select now — no buff button handler here.
+}
+
+function bronVouchersSectionHtml(v: { t1?: number; t2?: number; t3?: number; t4?: number; t5?: number }): string {
+  const tiers: { id: "t1"|"t2"|"t3"|"t4"|"t5"; label: string; value: number; color: string }[] = [
+    { id: "t5", label: "Tier 5", value: 200, color: "var(--gold-bright)" },
+    { id: "t4", label: "Tier 4", value: 50,  color: "#ffb05f" },
+    { id: "t3", label: "Tier 3", value: 20,  color: "#ffd96f" },
+    { id: "t2", label: "Tier 2", value: 10,  color: "#a0e5ff" },
+    { id: "t1", label: "Tier 1", value: 5,   color: "#cfd6e4" },
+  ];
+  const totalBron = tiers.reduce((s, t) => s + (v[t.id] ?? 0) * t.value, 0);
+  const cards = tiers
+    .filter(t => (v[t.id] ?? 0) > 0)
+    .map(t => {
+      const count = v[t.id] ?? 0;
+      const subtotal = count * t.value;
+      return `
+        <div class="inv-voucher" style="--vchr-color:${t.color}">
+          <div class="inv-voucher-icon">💰</div>
+          <div class="inv-voucher-body">
+            <div class="inv-voucher-head">
+              <span class="inv-voucher-name">${t.label} Voucher</span>
+              <span class="inv-voucher-count">×${count}</span>
+            </div>
+            <div class="inv-voucher-meta">${t.value} bRON each · subtotal <strong>${subtotal.toLocaleString()}</strong> bRON</div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  return `
+    <div class="inv-section">
+      <div class="inv-section-title">
+        bRON Vouchers
+        <span class="inv-section-aside">Total value: <strong>${totalBron.toLocaleString()}</strong> bRON · Redeem at end of season</span>
+      </div>
+      <div class="inv-voucher-grid">${cards}</div>
+    </div>
+  `;
 }
 
 function tempKeyCardHtml(expiresAt: number): string {

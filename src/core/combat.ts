@@ -11,7 +11,7 @@ import { SLIME, SLIME_KING } from "../units/roster";
 import { awardXp, xpToNext, MAX_LEVEL } from "./levels";
 import { isRecording, recordAction } from "./replay";
 import { getProgress, setProgress, UnitProgress, autoEquipNewlyUnlocked } from "./progress";
-import { pushDamage, pushMiss } from "./animations";
+import { pushDamage, pushMiss, pushBronDrop } from "./animations";
 import { sfx } from "./audio";
 import {
   ActiveEffect,
@@ -124,7 +124,14 @@ export interface Battle {
   phoenixEmbersCharge: boolean;
   /** Last Stand: damage mul when only one player is alive (1 = inactive). */
   lastStandDamageMul: number;
+  // ---- bRON drop kill accounting (server rolls drops, not the client) ----
+  /** List of enemy kills this battle — fed to the server's bron_roll op,
+   *  which is the ONLY authority that decides drops + credits the wallet.
+   *  killTier feeds the server-side multiplier: mob = 1×, boss = 2×, world_ender = 4×. */
+  killEvents: { enemyTemplateId: string; killTier: "mob" | "boss" | "world_ender" }[];
 }
+
+export type BronTier = "t1" | "t2" | "t3" | "t4" | "t5";
 
 /** Fixed simulation step (seconds). Combat uses a fixed timestep so the same
  *  seed reproduces the same outcome across machines and frame rates. */
@@ -443,6 +450,7 @@ export function startBattle(
     simAccum: 0,
     phoenixEmbersCharge: !!opts.phoenixEmbers,
     lastStandDamageMul: Math.max(1, opts.lastStandDamageMul ?? 1),
+    killEvents: [],
   };
 }
 
@@ -1060,6 +1068,22 @@ function applyDamage(b: Battle, attacker: Combatant, target: Combatant, skill: S
       target.queuedAction = null;
       if (attacker.side !== target.side) attacker.kills += 1;
       b.log.push(`${target.name} falls.`);
+      // Track enemy deaths for the server-side bRON roll. The client never
+      // decides if a drop occurred — only reports who died and which kill
+      // tier they belong to. World Ender is its own tier so the server can
+      // apply a 4× multiplier; other solo bosses get 2×; mobs get 1×.
+      if (target.side === "enemy") {
+        const tier: "mob" | "boss" | "world_ender" =
+          target.templateId === "world_ender" ? "world_ender" :
+          BOSS_TEMPLATE_IDS.has(target.templateId) ? "boss" : "mob";
+        b.killEvents.push({ enemyTemplateId: target.templateId, killTier: tier });
+        // ---- COSMETIC visual drop pop ----
+        // Uses Math.random (NOT the battle RNG) so it can't affect replay
+        // determinism. The server is still the only authority on the actual
+        // bRON credited. Chances mirror the server table × tier multiplier so
+        // the visual rate roughly matches actual reward rate over time.
+        rollVisualBronDrop(target.id, tier);
+      }
       return;
     }
   }
@@ -1216,3 +1240,23 @@ function checkEndConditions(b: Battle): void {
   }
 }
 
+// ---- Cosmetic bRON drop popup (purely visual, NOT replay-deterministic) ----
+// Mirrors the server's drop table per tier × the kill-tier multiplier so the
+// visual rate roughly matches actual server rewards over time. Uses Math.random
+// (separate from b.rng) so it never shifts combat outcomes.
+const COSMETIC_BRON_TIERS: { tier: "t1" | "t2" | "t3" | "t4" | "t5"; chance: number }[] = [
+  { tier: "t5", chance: 0.0000016 },
+  { tier: "t4", chance: 0.000008 },
+  { tier: "t3", chance: 0.00004 },
+  { tier: "t2", chance: 0.0002 },
+  { tier: "t1", chance: 0.001 },
+];
+function rollVisualBronDrop(targetId: string, killTier: "mob" | "boss" | "world_ender"): void {
+  const mul = killTier === "world_ender" ? 4 : killTier === "boss" ? 2 : 1;
+  for (const t of COSMETIC_BRON_TIERS) {
+    if (Math.random() < t.chance * mul) {
+      pushBronDrop(targetId, t.tier);
+      return; // first hit wins (matches server logic)
+    }
+  }
+}

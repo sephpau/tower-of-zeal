@@ -141,6 +141,19 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
         </section>
 
         <section class="codex-section">
+          <h2 class="codex-h2">💰 bRON Vouchers</h2>
+          <p class="codex-intro">A rare drop from enemy kills. Vouchers stack in your Inventory by tier; redeem at end of season for the indicated bRON value.</p>
+          <div class="codex-effects">
+            ${effectRow("⚪", "Tier 1", "buff", "1 in 1,000 drop chance per kill — 5 bRON each.")}
+            ${effectRow("🔵", "Tier 2", "buff", "1 in 5,000 drop chance per kill — 10 bRON each.")}
+            ${effectRow("🟡", "Tier 3", "buff", "1 in 25,000 drop chance per kill — 20 bRON each.")}
+            ${effectRow("🟠", "Tier 4", "buff", "1 in 125,000 drop chance per kill — 50 bRON each.")}
+            ${effectRow("🌟", "Tier 5", "buff", "1 in 625,000 drop chance per kill — 200 bRON each.")}
+          </div>
+          <p class="codex-tip"><strong>Boss kills get 2× drop chance per tier</strong>, and the <strong>World Ender drops 4×</strong> — the cosmic-tier boss is the best per-kill chance to score a high-value voucher. Drop rolls happen entirely server-side; a money-bag popup appears over killed enemies as visual feedback.</p>
+        </section>
+
+        <section class="codex-section">
           <h2 class="codex-h2">⬆ Buffs</h2>
           <div class="codex-effects">
             ${effectRow("⚔", "Atk Up", "buff", "+X% physical or magical attack for N actions.")}

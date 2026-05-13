@@ -39,7 +39,7 @@ import { startRun, reportFloor, endRun, abortLiveRun, reportFloorCleared, getLiv
 import { isAllowedOnDev } from "./auth/devBuild";
 import { confirmModal } from "./ui/confirmModal";
 import { playBattleStartAnimation } from "./ui/battleStartAnim";
-import { fetchAttemptsStatus, claimAttempt, consumeShopItem, ShopItemId } from "./core/shop";
+import { fetchAttemptsStatus, claimAttempt, consumeShopItem, rollBron, ShopItemId } from "./core/shop";
 import { renderShop } from "./ui/shop";
 import { renderInventory } from "./ui/inventory";
 
@@ -191,6 +191,26 @@ let survivalCarry: Record<string, CarryEntry> = {};
 let pendingBuff: ShopItemId | null = null;
 export function setPendingBuff(id: ShopItemId | null): void { pendingBuff = id; }
 export function getPendingBuff(): ShopItemId | null { return pendingBuff; }
+
+/** Per-run kill tally by tier — used for the server's bRON roll at end of
+ *  run. Server is the sole authority on drops; client-side counters just
+ *  report what was killed. Server caps mob/boss/world-ender at 50/1/1 per
+ *  roll, so a tampered client gains nothing meaningful vs. honest play. */
+let runKillCount = 0;
+let runBossKillCount = 0;
+let runWorldEnderKillCount = 0;
+function resetRunKills(): void {
+  runKillCount = 0;
+  runBossKillCount = 0;
+  runWorldEnderKillCount = 0;
+}
+function mergeBattleKillsIntoRun(events: { killTier: "mob" | "boss" | "world_ender" }[]): void {
+  for (const ev of events) {
+    if (ev.killTier === "world_ender") runWorldEnderKillCount += 1;
+    else if (ev.killTier === "boss")   runBossKillCount += 1;
+    else                                runKillCount += 1;
+  }
+}
 
 /** Buffs active for the CURRENT run. Reset when a new run starts (in
  *  startBattleFromSquad) and individual flags cleared as they're consumed. */
@@ -425,6 +445,10 @@ function buildRunSummaryUnits(b: Battle): RunSummaryUnit[] {
 
 async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: number): Promise<void> {
   if (!battle) { showHome(); return; }
+  // Fold this battle's kill events into the run tally. For floor mode this
+  // is the only battle; for survival/boss raid, intermediate floors have
+  // already been folded in by their respective transition handlers.
+  if (battle.killEvents) mergeBattleKillsIntoRun(battle.killEvents);
   const runMode: RunSummary["mode"] = mode === "boss_raid" ? "boss_raid"
                                     : mode === "survival" ? "survival"
                                     : "floor";
@@ -478,6 +502,14 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
     }
   }
 
+  // Ask the server to roll bRON drops for this run's kills. Server uses its
+  // own crypto RNG, caps mob kills at 50 and boss kills at 1 per call, and
+  // credits the wallet itself — there's nothing on the client to tamper with
+  // beyond the kill counts, and those caps make farming impractical.
+  let bronSnapshot = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, total: 0 };
+  const rolled = await rollBron(runKillCount, runBossKillCount, runWorldEnderKillCount).catch(() => null);
+  if (rolled) bronSnapshot = rolled.drops;
+
   const summary: RunSummary = {
     mode: runMode,
     outcome,
@@ -491,6 +523,7 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
     battleLog: battle ? battle.log.slice() : undefined,
     playerNames: battle ? Array.from(new Set(battle.combatants.filter(c => c.side === "player").map(c => c.name))) : undefined,
     enemyNames: battle ? Array.from(new Set(battle.combatants.filter(c => c.side === "enemy").map(c => c.name))) : undefined,
+    bronDrops: bronSnapshot,
   };
 
   abortLiveRun();
@@ -734,6 +767,8 @@ async function startBattleFromSquad(squad: SquadResult): Promise<void> {
     else alert(`Not enough energy (need ${cost}, have ${r.amount}).`);
     return;
   }
+  // Fresh run begins — clear the kill tally that feeds the server's bRON roll.
+  resetRunKills();
   // Reset run-spanning buff state, then consume + arm any slotted buff —
   // EXCEPT when starting a campaign run that targets Floor 50 (World Ender):
   // buffs are disabled there, so we leave the charge in inventory and clear
@@ -1040,6 +1075,10 @@ function frame(t: number): void {
         captureCarry(battle);
         void reportFloor(survivalFloor);
         if (survivalFloor < STAGE_DEFS.length) {
+          // Intermediate floor — fold kill events into the run tally now,
+          // before the battle is replaced. The final battle's kills are
+          // folded by showRunSummary itself.
+          if (battle.killEvents) mergeBattleKillsIntoRun(battle.killEvents);
           survivalFloor += 1;
           // Brief delay before auto-advance so player can see the Victory banner.
           setTimeout(() => {
@@ -1058,6 +1097,10 @@ function frame(t: number): void {
         brIndex += 1;
         void reportFloor(brIndex);
         if (brIndex < BOSS_RAID_FLOORS.length) {
+          // Intermediate boss-raid floor — fold kill events before the
+          // battle is replaced on transition. Final-battle kills are folded
+          // by showRunSummary instead.
+          if (battle.killEvents) mergeBattleKillsIntoRun(battle.killEvents);
           // Pause briefly to let the Victory banner read, then offer the boon picker.
           setTimeout(() => {
             if (mode !== "boss_raid" || !brParty) return;
