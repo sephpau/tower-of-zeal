@@ -35,7 +35,7 @@ export const SHOP_CATALOG: ShopItemDef[] = [
   // ---- Unit-utility entitlements (server grants a token; client UI lets player spend it) ----
   { id: "unit_stat_reset",   name: "Unit Stat Reset",   description: "Refund all custom stat points on a single unit. Pick the unit from the Units screen after buying.", category: "unit", priceLabel: "Price soon · $crypto" },
   { id: "unit_class_change", name: "Unit Class Change", description: "Change one unit's class. Custom stats are reset to keep build economy fair.", category: "unit", priceLabel: "Price soon · $crypto" },
-  { id: "unit_temp_motz_key", name: "Temporary MoTZ Key (Seasonal Pass)", description: "Unlocks all MoTZ-key locked units (Hera, Nova, Oge, Shego) for 30 days. Stacks if you buy again before it expires. Activates immediately on purchase — does not require the on-chain key.", category: "unit", priceLabel: "Price soon · $crypto" },
+  { id: "unit_temp_motz_key", name: "Temporary MoTZ Key (10-Day Seasonal Pass)", description: "Unlocks all MoTZ-key locked units (Hera, Nova, Oge, Shego) for 10 days. Stacks if you buy again before it expires. Activates immediately on purchase — does not require the on-chain key.", category: "unit", priceLabel: "Price soon · $crypto" },
 
   // ---- Campaign-run buffs (one consumed per run start when slotted) ----
   { id: "buff_battle_cry",       name: "Battle Cry",        description: "Grants 3 charges per purchase. Slot one before any battle to start that floor with all player ATB gauges full.", category: "buff", priceLabel: "Price soon · $crypto" },

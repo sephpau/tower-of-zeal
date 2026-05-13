@@ -295,7 +295,7 @@ export const BUFF_GRANT_SIZE: Partial<Record<ShopItemId, number>> = {
 // ---- Temporary MoTZ Key (seasonal pass purchased via shop) ----
 // Stored as a JSON blob with an expiresAt timestamp. auth/me OR's this into
 // perks.motzKey so locked units unlock without holding the on-chain key.
-export const TEMP_KEY_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+export const TEMP_KEY_DURATION_MS = 10 * 24 * 60 * 60 * 1000; // 10 days
 interface TempMotzKey { expiresAt: number; }
 function tempKeyKey(address: string): string { return `tempkey:motz:${address.toLowerCase()}`; }
 
