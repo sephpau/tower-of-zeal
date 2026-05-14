@@ -4069,46 +4069,20 @@ body:has(.battle) {
 /* Card content must sit above the FX overlay. */
 .rs-card > :not(.rs-victory-fx) { position: relative; z-index: 1; }
 
-/* ---------- Defeat: dim the mascot like Ego himself lost ----------
-   The card's bottom background layer carries the mascot image — defeat
-   states layer a near-black wash over the right portion to "dim" it. */
-.run-summary-screen.rs-defeat .rs-card {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 38%),
-    linear-gradient(90deg,
-      rgba(12, 16, 36, 0.94) 0%,
-      rgba(12, 16, 36, 0.90) 30%,
-      rgba(12, 16, 36, 0.70) 60%,
-      rgba(12, 16, 36, 0.55) 100%),
-    linear-gradient(90deg,
-      rgba(0, 0, 0, 0) 0%,
-      rgba(0, 0, 0, 0.35) 60%,
-      rgba(0, 0, 0, 0.55) 100%),
-    url("/victory%20and%20defeat%20summary%20background.png") right center / auto 100% no-repeat,
-    var(--bg);
-  box-shadow:
-    var(--motz-sh-card),
-    0 24px 60px rgba(0, 0, 0, 0.60);
-  filter: saturate(0.7);
+/* ---------- Defeat: dim the mascot artwork only ----------
+   Filter applies to the ::before pseudo (the bg image), so card content
+   stays at full brightness while the art reads as "loss". */
+.run-summary-screen.rs-defeat .rs-card::before {
+  filter: brightness(0.5) saturate(0.7) contrast(0.95);
 }
-/* MoTZ glass card — layered backgrounds, top-to-bottom:
-     1. Subtle highlight gradient (top-light edge)
-     2. Dark glass tint, fading left-to-right so the mascot shows on the right
-     3. The shared mascot artwork (positioned right, full height)
-     4. App bg fallback (visible only if the image fails to load)
-   Card content (rs-header, banner, totals, etc.) renders on top naturally. */
+/* Transparent card frame — the mascot artwork is painted via the ::before
+   pseudo so we can apply dim/brightness filters to it independently of
+   the content. Card itself has no fill — just border + shadow. */
 .rs-card {
+  position: relative;
   width: 100%;
   max-width: 720px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0) 38%),
-    linear-gradient(90deg,
-      rgba(12, 16, 36, 0.92) 0%,
-      rgba(12, 16, 36, 0.88) 30%,
-      rgba(12, 16, 36, 0.50) 60%,
-      rgba(12, 16, 36, 0.20) 100%),
-    url("/victory%20and%20defeat%20summary%20background.png") right center / auto 100% no-repeat,
-    var(--bg);
+  background: transparent;
   border: 1px solid var(--motz-glass-border-hi);
   border-radius: 18px;
   padding: 30px 34px;
@@ -4119,6 +4093,17 @@ body:has(.battle) {
   box-shadow:
     var(--motz-sh-card),
     0 24px 60px rgba(0, 0, 0, 0.50);
+}
+.rs-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/victory%20and%20defeat%20summary%20background.png");
+  background-position: right center;
+  background-repeat: no-repeat;
+  background-size: auto 100%;
+  pointer-events: none;
+  z-index: 0;
 }
 .rs-header {
   display: flex;
