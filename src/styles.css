@@ -5507,23 +5507,59 @@ body:has(.battle) {
   font-weight: 800;
 }
 
-/* ---------- Forced-mode button highlight ----------
-   When the player is locked on the Units screen by a forced flow, the
-   relevant action button pulses with a gold halo so the player can't miss
-   it. The Pick class buttons highlight in force-class-pick mode, the
-   Allocate button highlights in force-stat-alloc mode. */
+/* ---------- Forced-mode lockdown + button highlight ----------
+   While locked on Units screen by a forced flow, everything except the
+   required action button is dimmed and non-interactive. The required
+   button gets a pulsing gold halo so the player can't miss it. */
+
+/* Disable interactions on ALL controls inside the locked screen ... */
+.units-screen.force-class-pick button,
+.units-screen.force-class-pick input,
+.units-screen.force-class-pick select,
+.units-screen.force-stat-alloc button,
+.units-screen.force-stat-alloc input,
+.units-screen.force-stat-alloc select {
+  pointer-events: none;
+  opacity: 0.35;
+  filter: grayscale(0.5);
+}
+
+/* ... then re-enable ONLY the relevant action button + supporting controls
+   needed to complete the forced flow (alloc modal buttons, cancel pick, etc.) */
+.units-screen.force-class-pick [data-open-pick],
+.units-screen.force-class-pick [data-pick-class],
+.units-screen.force-class-pick [data-cancel-pick],
+.units-screen.force-class-pick .game-confirm-modal button,
+.units-screen.force-class-pick .game-alert-modal button {
+  pointer-events: auto;
+  opacity: 1;
+  filter: none;
+}
+.units-screen.force-stat-alloc [data-open-alloc]:not(:disabled),
+.units-screen.force-stat-alloc [data-alloc-inc],
+.units-screen.force-stat-alloc [data-alloc-dec],
+.units-screen.force-stat-alloc #alloc-cancel,
+.units-screen.force-stat-alloc #alloc-finalize,
+.units-screen.force-stat-alloc .game-confirm-modal button {
+  pointer-events: auto;
+  opacity: 1;
+  filter: none;
+}
+
+/* Highlight the required action button — gold gradient overrides the
+   green allocate-btn styling via higher specificity + !important. */
 .units-screen.force-class-pick [data-open-pick] {
-  background: rgba(244, 211, 94, 0.15);
-  border-color: var(--gold-bright);
-  color: var(--gold-bright);
-  font-weight: 800;
+  background: linear-gradient(180deg, rgba(244,211,94,0.28), rgba(244,211,94,0.10)) !important;
+  border: 1px solid var(--gold-bright) !important;
+  color: var(--gold-bright) !important;
+  font-weight: 800 !important;
   animation: forced-btn-pulse 1.4s ease-in-out infinite;
 }
 .units-screen.force-stat-alloc [data-open-alloc]:not(:disabled) {
-  background: rgba(244, 211, 94, 0.18);
-  border-color: var(--gold-bright);
-  color: var(--gold-bright);
-  font-weight: 800;
+  background: linear-gradient(180deg, rgba(244,211,94,0.32), rgba(244,211,94,0.12)) !important;
+  border: 1px solid var(--gold-bright) !important;
+  color: var(--gold-bright) !important;
+  font-weight: 800 !important;
   animation: forced-btn-pulse 1.4s ease-in-out infinite;
 }
 @keyframes forced-btn-pulse {

@@ -52,13 +52,13 @@ export interface RenderUnitsScreenOpts {
 export function renderUnitsScreen(root: HTMLElement, onBack: () => void, opts: RenderUnitsScreenOpts = {}): void {
   const pickingFor = new Set<string>();
   const editingSkillsFor = new Set<string>();
-  // Pre-arm the allocator on the forced unit (stat alloc only — class pick
-  // mode shows the full roster and lets the player choose which unit).
-  if (opts.forceStatAllocFor) {
-    allocatingFor = opts.forceStatAllocFor;
-    const cur = getProgress(opts.forceStatAllocFor);
-    allocDraft = { ...cur.customStats };
-  }
+  // Forced stat-alloc does NOT auto-open the allocator — the player must
+  // click the highlighted "Allocate" button themselves so the action feels
+  // intentional. All other interactions are disabled via CSS while forced.
+  // Snapshot the baseline points so we can tell "saved" apart from "cancelled".
+  const statAllocBaseline = opts.forceStatAllocFor
+    ? getProgress(opts.forceStatAllocFor).availablePoints
+    : 0;
   const settings = loadSettings();
   const admin = isAdmin();
   // Forced stat-alloc shows just the unit being leveled; everything else
@@ -116,10 +116,15 @@ export function renderUnitsScreen(root: HTMLElement, onBack: () => void, opts: R
     if (backVisible) root.querySelector("#back-btn")?.addEventListener("click", onBack);
     wireOpenAlloc(root, draw);
     wireAllocModal(root, () => {
-      // Forced stat-alloc completes when the player Saves the allocator.
+      // Forced stat-alloc completes when the player SAVES the allocator
+      // (availablePoints actually decreased). Cancel keeps them on the
+      // screen so they can re-open and try again.
       if (opts.forceStatAllocFor && allocatingFor === null && opts.onForcedComplete) {
-        opts.onForcedComplete();
-        return;
+        const cur = getProgress(opts.forceStatAllocFor);
+        if (cur.availablePoints < statAllocBaseline) {
+          opts.onForcedComplete();
+          return;
+        }
       }
       draw();
     });
