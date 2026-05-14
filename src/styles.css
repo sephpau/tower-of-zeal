@@ -4862,6 +4862,7 @@ body:has(.battle) {
 }
 .shop-buy-voucher-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
+.season-halt-banner[hidden] { display: none !important; }
 .season-halt-banner {
   display: flex;
   align-items: center;
