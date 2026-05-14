@@ -2995,6 +2995,78 @@ body:has(.battle) {
 }
 .wallet-picker-actions .ghost-btn { min-width: 110px; }
 
+/* ---------- Persistent wallet status badge (bottom-right) ---------- */
+.wsb-host {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 1500;
+  pointer-events: auto;
+  font-family: inherit;
+}
+.wsb-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px 8px 10px;
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 50%),
+    rgba(8, 11, 28, 0.92);
+  border: 1px solid var(--motz-glass-border-hi);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  min-width: 200px;
+  max-width: 320px;
+}
+.wsb-card.wsb-match { border-color: rgba(106, 222, 156, 0.50); }
+.wsb-card.wsb-mismatch { border-color: rgba(255, 112, 112, 0.65); box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55), 0 0 14px rgba(255, 112, 112, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+.wsb-card.wsb-disconnected { border-color: rgba(251, 191, 36, 0.50); }
+.wsb-icon-img, .wsb-icon-glyph {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+.wsb-icon-img { object-fit: contain; }
+.wsb-body { min-width: 0; line-height: 1.25; }
+.wsb-name {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--gold-bright);
+  text-transform: uppercase;
+}
+.wsb-addr {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--text);
+  letter-spacing: 0.04em;
+}
+.wsb-warn {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9px;
+  color: #ff9c9c;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+.wsb-card.wsb-disconnected .wsb-warn { color: #ffd28a; }
+.wsb-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 2px;
+  box-shadow: 0 0 8px currentColor;
+}
+.wsb-dot-ok { background: #6ade9c; color: #6ade9c; }
+.wsb-dot-err { background: #ff5050; color: #ff5050; }
+.wsb-dot-warn { background: #f4c542; color: #f4c542; }
+
 /* ---------- Leaderboard ---------- */
 .lb-screen { padding: 16px 16px 24px; }
 .lb-grid {

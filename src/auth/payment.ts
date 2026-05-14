@@ -7,6 +7,7 @@
 // check), so we don't block the UI here. Returning a tx hash is sufficient.
 
 import { TREASURY_WALLET } from "../core/shop";
+import { getVerifiedAddress } from "./session";
 
 const RONIN_CHAIN_ID_DEC = 2020;
 const RONIN_CHAIN_ID_HEX = "0x7e4"; // 2020 in hex
@@ -162,6 +163,20 @@ export async function discoverWallets(): Promise<WalletOption[]> {
     const id = d.info.rdns;
     if (seen.has(id)) continue;
     seen.add(id);
+    // Also block the legacy/window-based detection paths from re-adding the
+    // same wallet under a different id. Ronin Wallet specifically announces
+    // as some flavor of "com.skymavis.wallet" / "wallet.ronin" via EIP-6963
+    // AND also injects window.ronin — we need to recognize all aliases.
+    const lcRdns = d.info.rdns.toLowerCase();
+    if (lcRdns.includes("ronin") || lcRdns.includes("skymavis")) {
+      seen.add("ronin");
+      seen.add("ronin-tanto");
+    }
+    if (lcRdns.includes("metamask")) seen.add("io.metamask");
+    if (lcRdns.includes("rabby")) seen.add("io.rabby");
+    if (lcRdns.includes("coinbase")) seen.add("com.coinbase.wallet");
+    if (lcRdns.includes("trust")) seen.add("com.trustwallet.app");
+    if (lcRdns.includes("brave")) seen.add("brave-wallet");
     out.push({
       id,
       name: d.info.name,
@@ -259,6 +274,38 @@ export async function discoverWallets(): Promise<WalletOption[]> {
   return out;
 }
 
+function shortAddr(a: string): string {
+  if (!a || a.length < 10) return a ?? "";
+  return `${a.slice(0, 6)}…${a.slice(-4)}`;
+}
+
+/** Read the active account from a provider without prompting (uses eth_accounts,
+ *  not eth_requestAccounts). Returns null if no provider is connected or no
+ *  account is currently selected. */
+export async function readActiveAccount(provider: EthereumProvider): Promise<string | null> {
+  try {
+    const result = await provider.request({ method: "eth_accounts" });
+    const accounts = Array.isArray(result) ? result as string[] : [];
+    return accounts[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Subscribe to active-account changes on a provider. Returns an unsubscribe fn.
+ *  Used by the wallet-status badge to refresh when the user switches accounts. */
+export function onAccountsChanged(
+  provider: EthereumProvider,
+  cb: (accounts: string[]) => void,
+): () => void {
+  const handler = (accounts: unknown) => {
+    cb(Array.isArray(accounts) ? accounts as string[] : []);
+  };
+  const p = provider as unknown as { on?: (event: string, fn: (a: unknown) => void) => void; removeListener?: (event: string, fn: (a: unknown) => void) => void };
+  p.on?.("accountsChanged", handler);
+  return () => p.removeListener?.("accountsChanged", handler);
+}
+
 /** Make sure the connected wallet is on Ronin mainnet. */
 async function ensureRoninChain(provider: EthereumProvider): Promise<{ ok: true } | { ok: false; reason: string }> {
   let chainId: string;
@@ -327,6 +374,18 @@ export async function payWithWallet(opt: WalletOption, priceWei: bigint): Promis
     const msg = e instanceof Error ? e.message : "wallet connect rejected";
     if (/reject|denied|cancel/i.test(msg)) return { ok: false, reason: "wallet connection cancelled" };
     return { ok: false, reason: msg };
+  }
+
+  // Match-account guard: the wallet's active account MUST equal the
+  // session-verified login wallet. The server enforces this too (tx.from
+  // check), but failing early here gives a clear UX message instead of an
+  // opaque server 402 after the player has signed and paid.
+  const session = getVerifiedAddress();
+  if (session && address.toLowerCase() !== session.toLowerCase()) {
+    return {
+      ok: false,
+      reason: `the active account in this wallet (${shortAddr(address)}) doesn't match your logged-in wallet (${shortAddr(session)}). Switch the active account in your wallet, or sign out and sign in again with this wallet.`,
+    };
   }
 
   const chainCheck = await ensureRoninChain(provider);

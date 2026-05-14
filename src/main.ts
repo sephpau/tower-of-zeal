@@ -22,6 +22,7 @@ import {
 import { ATB_FULL } from "./core/timeline";
 import { recordClear } from "./core/clears";
 import { installGlobalClickSounds } from "./core/audio";
+import { mountWalletStatusBadge, refreshWalletStatusBadge } from "./ui/walletStatusBadge";
 import { STAGE_DEFS, getStage, BOSS_RAID_FLOORS, PLAYER_ROSTER } from "./units/roster";
 import { Stats } from "./core/stats";
 import { loadSession, validateSession, clearSession, setVerifiedAddress, setVerifiedPerks, Session } from "./auth/session";
@@ -66,10 +67,12 @@ async function bootstrap(): Promise<void> {
         setUserScope(v.address);
         ensureWalletInSettings(v.address);
         startSessionRevalidator();
+        refreshWalletStatusBadge();
         void proceedAfterAuth();
         return;
       }
       clearSession();
+      refreshWalletStatusBadge();
     }
   }
   renderWalletGate(root!, async s => {
@@ -81,6 +84,7 @@ async function bootstrap(): Promise<void> {
     const v = await validateSession(s.token);
     if (v) setVerifiedPerks(v.perks);
     startSessionRevalidator();
+    refreshWalletStatusBadge();
     void proceedAfterAuth();
   });
 }
@@ -164,6 +168,7 @@ function ensureWalletInSettings(address: string): void {
 function startApp(): void {
   void currentSession;
   installGlobalClickSounds();
+  mountWalletStatusBadge();
   showHome();
   requestAnimationFrame(t => { lastT = t; frame(t); });
 }
