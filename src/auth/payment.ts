@@ -104,14 +104,28 @@ function discoverEip6963(timeoutMs = 600): Promise<Eip6963ProviderDetail[]> {
   });
 }
 
-function classifyProvider(p: EthereumProvider): { id: string; name: string; icon: string } {
-  if (p.isRonin) return { id: "ronin", name: "Ronin Wallet", icon: "🐉" };
-  if (p.isMetaMask) return { id: "metamask", name: "MetaMask", icon: "🦊" };
-  if (p.isCoinbaseWallet) return { id: "coinbase", name: "Coinbase Wallet", icon: "🔵" };
-  if (p.isRabby) return { id: "rabby", name: "Rabby", icon: "🐰" };
-  if (p.isTrust) return { id: "trust", name: "Trust Wallet", icon: "🛡" };
-  if (p.isBraveWallet) return { id: "brave", name: "Brave Wallet", icon: "🦁" };
+function classifyProvider(p: EthereumProvider): { id: string; name: string; icon: string; iconUrl?: string } {
+  if (p.isRonin) return { id: "ronin", name: "Ronin Wallet", icon: "🐉", iconUrl: "/wallet-logos/ronin.svg" };
+  if (p.isMetaMask) return { id: "metamask", name: "MetaMask", icon: "🦊", iconUrl: "/wallet-logos/metamask.svg" };
+  if (p.isCoinbaseWallet) return { id: "coinbase", name: "Coinbase Wallet", icon: "🔵", iconUrl: "/wallet-logos/coinbase.svg" };
+  if (p.isRabby) return { id: "rabby", name: "Rabby", icon: "🐰", iconUrl: "/wallet-logos/rabby.svg" };
+  if (p.isTrust) return { id: "trust", name: "Trust Wallet", icon: "🛡", iconUrl: "/wallet-logos/trust.svg" };
+  if (p.isBraveWallet) return { id: "brave", name: "Brave Wallet", icon: "🦁", iconUrl: "/wallet-logos/brave.svg" };
   return { id: "unknown", name: "Web3 Wallet", icon: "💼" };
+}
+
+/** Map well-known rdns → bundled brand-color monogram badge served from
+ *  /public/wallet-logos/. Used when an EIP-6963 announcement didn't include
+ *  an icon (rare, but happens with custom builds). */
+function fallbackIconUrlForRdns(rdns: string): string | undefined {
+  const lc = rdns.toLowerCase();
+  if (lc.includes("rabby")) return "/wallet-logos/rabby.svg";
+  if (lc.includes("ronin")) return "/wallet-logos/ronin.svg";
+  if (lc.includes("metamask")) return "/wallet-logos/metamask.svg";
+  if (lc.includes("coinbase")) return "/wallet-logos/coinbase.svg";
+  if (lc.includes("trust")) return "/wallet-logos/trust.svg";
+  if (lc.includes("brave")) return "/wallet-logos/brave.svg";
+  return undefined;
 }
 
 /** Wait briefly for late-injected providers — some wallets inject after the
@@ -152,7 +166,9 @@ export async function discoverWallets(): Promise<WalletOption[]> {
       id,
       name: d.info.name,
       icon: fallbackIconForRdns(d.info.rdns),
-      iconUrl: d.info.icon,
+      // Wallet's own announced icon takes priority; only fall back to our
+      // bundled monogram badge if the wallet didn't include one.
+      iconUrl: d.info.icon || fallbackIconUrlForRdns(d.info.rdns),
       detected: true,
       getProvider: async () => d.provider,
     });
@@ -171,6 +187,7 @@ export async function discoverWallets(): Promise<WalletOption[]> {
         id: "ronin",
         name: "Ronin Wallet",
         icon: "🐉",
+        iconUrl: "/wallet-logos/ronin.svg",
         detected: true,
         getProvider: async () => provider,
       });
@@ -201,6 +218,7 @@ export async function discoverWallets(): Promise<WalletOption[]> {
         id: legacyId,
         name: info.name,
         icon: info.icon,
+        iconUrl: info.iconUrl,
         detected: true,
         getProvider: async () => p,
       });
@@ -224,6 +242,7 @@ export async function discoverWallets(): Promise<WalletOption[]> {
       id: "ronin-tanto",
       name: "Ronin Wallet",
       icon: "🐉",
+      iconUrl: "/wallet-logos/ronin.svg",
       detected: false,
       getProvider: async () => {
         try {

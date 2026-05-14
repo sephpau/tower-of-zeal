@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="MetaMask">
+  <defs>
+    <linearGradient id="mm-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6851b"/>
+      <stop offset="1" stop-color="#cf5b00"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#mm-bg)"/>
+  <text x="32" y="42" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="30" text-anchor="middle" fill="#fff" letter-spacing="-1">M</text>
+</svg>
