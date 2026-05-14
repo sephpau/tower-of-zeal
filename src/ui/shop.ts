@@ -25,6 +25,10 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
       <div class="shop-header">
         <div class="shop-title">Tower Exchange</div>
         <div class="shop-sub">Each item can be purchased <strong>once per day</strong>. Resets at 8 AM PH.</div>
+        <div class="shop-revenue" id="shop-revenue">
+          <span class="shop-revenue-label">Total RON Earned by Shop</span>
+          <span class="shop-revenue-value" id="shop-revenue-value">…</span>
+        </div>
       </div>
       <div class="shop-one-buff-notice">
         ⚡ <strong>Only ONE campaign buff can be chosen per floor.</strong> Each charge applies to a single battle — pick the buff that matters most for the fight you're about to enter.
@@ -46,6 +50,12 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
   if (!status) {
     grid.innerHTML = `<div class="shop-loading">Couldn't reach server. Please refresh.</div>`;
     return;
+  }
+
+  // Populate the community revenue stat in the header.
+  const revenueEl = root.querySelector<HTMLElement>("#shop-revenue-value");
+  if (revenueEl) {
+    revenueEl.textContent = `${status.totalShopRevenue.toLocaleString()} RON`;
   }
 
   const sections: { label: string; cat: ShopItemDef["category"] }[] = [

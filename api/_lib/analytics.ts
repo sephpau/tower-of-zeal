@@ -10,12 +10,17 @@
 //
 // "Hours of playing" is derived from minutes / 60 in the export.
 
-import { hincrBy, hgetAll, hmget } from "./redis.js";
+import { hincrBy, hgetAll, hmget, incrBy, getNumber } from "./redis.js";
 import { readShopInventory, VOUCHER_VALUES_RON, IGN_HASH_KEY } from "./runState.js";
 
 export const ANALYTICS_MINUTES_KEY    = "analytics:minutes";
 export const ANALYTICS_RON_SPENT_KEY  = "analytics:ron_spent";
 export const ANALYTICS_VOUCHERS_KEY   = "analytics:vouchers_acquired";
+/** Global shop revenue — sum of all on-chain RON payments that actually moved
+ *  RON to the treasury wallet. Voucher-paid purchases are NOT counted here
+ *  because they consume in-game vouchers, not real RON. Displayed on the
+ *  Shop screen as "Total RON Earned by Shop". */
+export const ANALYTICS_TOTAL_REVENUE_KEY = "analytics:total_ron_revenue";
 
 /** Minutes-per-floor estimate. A campaign floor takes roughly 2 minutes:
  *  squad-select transitions + battle anim + summary card. Survival/raid floors
@@ -34,6 +39,20 @@ export async function bumpMinutesPlayed(address: string, energySpent: number): P
 export async function bumpRonSpent(address: string, ronAmount: number): Promise<void> {
   if (ronAmount <= 0) return;
   await hincrBy(ANALYTICS_RON_SPENT_KEY, address.toLowerCase(), Math.floor(ronAmount)).catch(() => 0);
+}
+
+/** Add to the GLOBAL shop revenue counter. Called only from the on-chain
+ *  RON-payment path — voucher purchases don't count as revenue because
+ *  vouchers were already paid for (or won) via earlier real RON purchases /
+ *  in-game drops, not new RON flowing to the treasury. */
+export async function bumpShopRevenue(ronAmount: number): Promise<void> {
+  if (ronAmount <= 0) return;
+  await incrBy(ANALYTICS_TOTAL_REVENUE_KEY, Math.floor(ronAmount)).catch(() => 0);
+}
+
+/** Read the global shop revenue total (real RON earned). */
+export async function readShopRevenue(): Promise<number> {
+  return await getNumber(ANALYTICS_TOTAL_REVENUE_KEY);
 }
 
 /** Add to lifetime vouchers-acquired (in RON value) when drops are credited.

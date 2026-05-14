@@ -4694,6 +4694,35 @@ body:has(.battle) {
 }
 .shop-sub strong { color: var(--gold-bright); }
 
+/* Community revenue stat — shown directly below the "Resets at 8 AM PH"
+   line. MoTZ glass-card vibe: gold gradient pill, mono font for the number. */
+.shop-revenue {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 8px 18px;
+  background: linear-gradient(135deg, rgba(212, 169, 62, 0.10), rgba(212, 169, 62, 0.04));
+  border: 1px solid rgba(212, 169, 62, 0.45);
+  border-radius: 999px;
+  box-shadow: 0 0 16px rgba(212, 169, 62, 0.10);
+}
+.shop-revenue-label {
+  font-family: var(--font-display, "Cinzel", serif);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.shop-revenue-value {
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gold-bright);
+  text-shadow: 0 0 10px rgba(212, 169, 62, 0.55);
+  letter-spacing: 0.02em;
+}
+
 /* Prominent "one buff per floor" rule banner — gold-tinted glass so it reads
    as the primary mechanic, not a restriction. */
 .shop-one-buff-notice {

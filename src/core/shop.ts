@@ -75,6 +75,10 @@ export interface ShopStatus {
   /** Server-published voucher face values. Mirrors VOUCHER_VALUES_RON on the
    *  server so the client can show the player how much each tier is worth. */
   voucherValuesRon: { t1: number; t2: number; t3: number; t4: number; t5: number };
+  /** Cumulative real RON the shop has earned across all wallets (on-chain
+   *  payments only — voucher purchases don't count). Shown on the shop
+   *  header for community-level visibility. */
+  totalShopRevenue: number;
 }
 
 export async function fetchShopStatus(): Promise<ShopStatus | null> {
@@ -97,6 +101,7 @@ export async function fetchShopStatus(): Promise<ShopStatus | null> {
       pricesWei?: Partial<Record<ShopItemId, string>>;
       pricesRon?: Partial<Record<ShopItemId, number>>;
       voucherValuesRon?: { t1: number; t2: number; t3: number; t4: number; t5: number };
+      totalShopRevenue?: number;
     };
     return {
       inventory: data.inventory,
@@ -105,6 +110,7 @@ export async function fetchShopStatus(): Promise<ShopStatus | null> {
       pricesWei: data.pricesWei ?? {},
       pricesRon: data.pricesRon ?? {},
       voucherValuesRon: data.voucherValuesRon ?? { t1: 5, t2: 10, t3: 20, t4: 50, t5: 200 },
+      totalShopRevenue: typeof data.totalShopRevenue === "number" ? data.totalShopRevenue : 0,
     };
   } catch { return null; }
 }

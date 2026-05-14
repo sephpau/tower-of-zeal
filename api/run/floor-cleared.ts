@@ -20,7 +20,7 @@ import {
 import { validateAndSyncProgress, readServerProgress } from "../_lib/progressVault.js";
 import { verifyShopPayment, consumeTxHash, ITEM_PRICES_WEI } from "../_lib/payment.js";
 import { isSeasonHalted, setSeasonHalt, readSeasonHalt, SEASON_HALTED_RESPONSE } from "../_lib/season.js";
-import { bumpRonSpent, bumpVouchersAcquired, buildAnalyticsExport, rowsToCsv } from "../_lib/analytics.js";
+import { bumpRonSpent, bumpVouchersAcquired, buildAnalyticsExport, rowsToCsv, bumpShopRevenue, readShopRevenue } from "../_lib/analytics.js";
 
 const MAX_PARTY_SIZE = 3;
 /** Reject replays whose battles report >MAX_PARTY_SIZE units or duplicates —
@@ -396,10 +396,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
           pricesRon[id] = Number(v / 10n ** 18n);
         }
       }
+      const totalShopRevenue = await readShopRevenue().catch(() => 0);
       res.status(200).json({
         ok: true, inventory: inv, boughtToday: bought, tempMotzKey,
         pricesWei, pricesRon,
         voucherValuesRon: VOUCHER_VALUES_RON,
+        totalShopRevenue,
       });
       return;
     } catch (e) {
@@ -512,8 +514,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       }
       await consumeTxHash(txHash, address, itemId, paidAmount);
-      // Analytics: lifetime RON spent on shop (RON-tx path).
-      void bumpRonSpent(address, Number(paidAmount / 10n ** 18n));
+      // Analytics: lifetime RON spent on shop (per-wallet) AND global shop
+      // revenue (this is the ONLY revenue bump — voucher purchases below
+      // don't move new RON to the treasury). We use the item's listed RON
+      // price rather than the paid wei in case the player over-paid.
+      const ronPriceForRevenue = Number((ITEM_PRICES_WEI[itemId] ?? 0n) / 10n ** 18n);
+      void bumpRonSpent(address, ronPriceForRevenue);
+      void bumpShopRevenue(ronPriceForRevenue);
       res.status(200).json({ ok: true, grant });
       return;
     } catch (e) {
