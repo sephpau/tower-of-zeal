@@ -135,6 +135,33 @@ export async function hset(key: string, field: string, value: string): Promise<v
   await call(["HSET", key, field, value]);
 }
 
+/** Acquire a short-lived lock for a critical section. Retries up to `retries`
+ *  times with `retryMs` backoff. Returns a release fn (idempotent) or null if
+ *  the lock could not be acquired. Caller MUST call release in a finally block.
+ *  Use for read-modify-write paths where multiple ops contend for the same
+ *  per-wallet state (e.g. inventory, energy). */
+export async function withWalletLock<T>(
+  lockKey: string,
+  fn: () => Promise<T>,
+  opts: { ttlSeconds?: number; retries?: number; retryMs?: number } = {},
+): Promise<T | null> {
+  const ttl = opts.ttlSeconds ?? 5;
+  const retries = opts.retries ?? 10;
+  const retryMs = opts.retryMs ?? 60;
+  for (let i = 0; i < retries; i++) {
+    const got = await setNxWithExpire(lockKey, "1", ttl);
+    if (got) {
+      try {
+        return await fn();
+      } finally {
+        await del(lockKey).catch(() => undefined);
+      }
+    }
+    await new Promise<void>(r => setTimeout(r, retryMs));
+  }
+  return null;
+}
+
 export async function hmget(key: string, fields: string[]): Promise<(string | null)[]> {
   if (fields.length === 0) return [];
   const r = await call(["HMGET", key, ...fields]);

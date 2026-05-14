@@ -8,7 +8,7 @@ import {
   saveReplayBlob, loadReplayBlob,
   adminWipeDevData,
   readAttempts, bumpAttempts, attemptsCap,
-  readShopInventory, writeShopInventory,
+  readShopInventory, writeShopInventory, mutateShopInventory,
   readBoughtToday, markBoughtToday, consumeBuff,
   SHOP_BUFF_IDS, ShopItemId, BUFF_GRANT_SIZE,
   grantTempMotzKey, readTempMotzKey,
@@ -43,7 +43,7 @@ function isReplayPartyValid(blob: unknown): boolean {
 import { getAddress } from "viem";
 import { getCurrentMultiplier } from "../_lib/daily.js";
 import { isAdmin } from "../_lib/admin.js";
-import { adminGrantEnergy, adminFillEnergy, ENERGY_MAX } from "../_lib/energy.js";
+import { adminGrantEnergy, adminFillEnergy, ENERGY_MAX, consumePendingClear } from "../_lib/energy.js";
 
 // Floor-mode battle event endpoint. Handles three operations to stay under
 // the Vercel Hobby 12-function cap:
@@ -441,51 +441,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         res.status(429).json({ ok: false, reason: "already bought today" });
         return;
       }
-      // Grant the item.
-      // Energy packs go into the inventory like every other shop item, and
-      // the player "uses" them from the Inventory screen via the
-      // inventory_use_energy op. This lets players stockpile and time their
-      // refills.
+      // Grant the item — inventory mutation goes through the per-wallet
+      // lock so concurrent shop_buy / shop_buy_voucher / bron_roll /
+      // consumeBuff don't race against each other. Temp MoTZ Key writes a
+      // separate Redis key so it's granted outside the lock.
       const paidAmount = pay.valueWei;
-      if (itemId === "energy_5" || itemId === "energy_10" || itemId === "energy_20") {
-        const inv = await readShopInventory(address);
-        inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
-        await writeShopInventory(address, inv);
-        await consumeTxHash(txHash, address, itemId, paidAmount);
-        res.status(200).json({ ok: true, grant: { type: "energy_pack", itemId, owned: inv.buffs[itemId] } });
-        return;
-      }
-      // Temporary MoTZ Key — direct grant, no inventory slot needed. The
-      // server stores an expiresAt timestamp and auth/me OR's it into
-      // perks.motzKey on every session check. Stacks with existing time.
       if (itemId === "unit_temp_motz_key") {
         const r = await grantTempMotzKey(address);
         await consumeTxHash(txHash, address, itemId, paidAmount);
         res.status(200).json({ ok: true, grant: { type: "temp_motz_key", expiresAt: r.expiresAt } });
         return;
       }
-      if (itemId === "unit_stat_reset" || itemId === "unit_class_change") {
-        // These grants are consumed client-side (UI flow lets the player pick
-        // which unit + which class). We just record an entitlement in the
-        // inventory blob with a count: client checks count before letting the
-        // player perform the action, then calls shop_consume to spend it.
-        const inv = await readShopInventory(address);
-        inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
-        await writeShopInventory(address, inv);
-        await consumeTxHash(txHash, address, itemId, paidAmount);
-        res.status(200).json({ ok: true, grant: { type: "entitlement", itemId, owned: inv.buffs[itemId] } });
+      const grant = await mutateShopInventory<{ type: string; itemId: ShopItemId; owned: number; qty?: number } | null>(address, inv => {
+        if (itemId === "energy_5" || itemId === "energy_10" || itemId === "energy_20") {
+          inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
+          return { next: inv, result: { type: "energy_pack", itemId, owned: inv.buffs[itemId] as number } };
+        }
+        if (itemId === "unit_stat_reset" || itemId === "unit_class_change") {
+          inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
+          return { next: inv, result: { type: "entitlement", itemId, owned: inv.buffs[itemId] as number } };
+        }
+        if (SHOP_BUFF_IDS.includes(itemId)) {
+          const grantQty = BUFF_GRANT_SIZE[itemId] ?? 1;
+          inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + grantQty;
+          return { next: inv, result: { type: "buff", itemId, owned: inv.buffs[itemId] as number, qty: grantQty } };
+        }
+        return { next: inv, result: null };
+      });
+      if (!grant) {
+        res.status(503).json({ ok: false, reason: "shop inventory locked — please retry" });
         return;
       }
-      if (SHOP_BUFF_IDS.includes(itemId)) {
-        const inv = await readShopInventory(address);
-        const grantQty = BUFF_GRANT_SIZE[itemId] ?? 1;
-        inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + grantQty;
-        await writeShopInventory(address, inv);
-        await consumeTxHash(txHash, address, itemId, paidAmount);
-        res.status(200).json({ ok: true, grant: { type: "buff", itemId, owned: inv.buffs[itemId], qty: grantQty } });
-        return;
-      }
-      res.status(500).json({ error: "no grant handler" });
+      await consumeTxHash(txHash, address, itemId, paidAmount);
+      res.status(200).json({ ok: true, grant });
       return;
     } catch (e) {
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
@@ -566,113 +554,107 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     }
 
     try {
-      // Daily cap gate FIRST — fails fast without burning vouchers if already
-      // bought today. Atomic via incrWithExpire after we verify everything else.
+      // Daily cap gate FIRST — fails fast without burning vouchers.
       const already = await readBoughtToday(itemId, address);
       if (already) { res.status(429).json({ ok: false, reason: "already bought today" }); return; }
 
-      // Re-read the server-canonical inventory and verify the wallet actually
-      // owns enough of each tier. NEVER trust the client's claimed vouchers
-      // for this — only trust what Redis says we wrote on the deposit side.
-      const inv = await readShopInventory(address);
-      inv.vouchers = inv.vouchers ?? {};
-      const owned = {
-        t1: inv.vouchers.t1 ?? 0,
-        t2: inv.vouchers.t2 ?? 0,
-        t3: inv.vouchers.t3 ?? 0,
-        t4: inv.vouchers.t4 ?? 0,
-        t5: inv.vouchers.t5 ?? 0,
-      };
-      if (spend.t1 > owned.t1 || spend.t2 > owned.t2 || spend.t3 > owned.t3 ||
-          spend.t4 > owned.t4 || spend.t5 > owned.t5) {
-        res.status(402).json({
-          ok: false,
-          reason: "you don't own enough vouchers for this spend",
-        });
-        return;
-      }
-
-      // Atomically bump the daily-cap counter. If another claim raced past us,
-      // bail BEFORE deducting vouchers.
+      // Bump daily-cap counter atomically (separate Redis key, separate
+      // atomicity primitive than the inventory lock). If a race pushes us over,
+      // bail before touching inventory.
       const after = await markBoughtToday(itemId, address);
       if (after > 1) {
         res.status(429).json({ ok: false, reason: "already bought today" });
         return;
       }
 
-      // Deduct vouchers from inventory.
-      inv.vouchers.t1 = owned.t1 - spend.t1;
-      inv.vouchers.t2 = owned.t2 - spend.t2;
-      inv.vouchers.t3 = owned.t3 - spend.t3;
-      inv.vouchers.t4 = owned.t4 - spend.t4;
-      inv.vouchers.t5 = owned.t5 - spend.t5;
-
-      // ---- CHANGE MAKING (server-authoritative) ----
-      // Excess voucher value above the item price is refunded as smaller-tier
-      // vouchers using greedy largest-first (t5 → t1). Every input here is
-      // server-trusted: the price comes from ITEM_PRICES_WEI, the tier values
-      // from VOUCHER_VALUES_RON, the spend totals from the just-validated
-      // owned-counts check. No client field influences the change amount.
-      //
-      // Note: t5 IS eligible for change (covers the corner case where someone
-      // pays 2× t5 for a 5 RON item — change = 395, needs 1× t5 + smaller).
-      // The greedy algorithm is exact for our denominations because each tier
-      // value (5, 10, 20, 50, 200) is a positive integer multiple of the next
-      // smaller one OR fully expressible from smaller tiers (50 = 2×20 + 1×10).
-      const changeRon = totalSpendRon - priceRon;
-      const changeOut = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0 };
-      if (changeRon > 0) {
-        let rem = changeRon;
-        for (const t of ["t5", "t4", "t3", "t2", "t1"] as const) {
-          const v = VOUCHER_VALUES_RON[t];
-          const take = Math.floor(rem / v);
-          if (take > 0) {
-            changeOut[t] = take;
-            rem -= take * v;
-          }
+      // ---- ATOMIC INVENTORY MUTATION ----
+      // Voucher ownership re-check, deduction, change-credit, and item grant
+      // all happen inside a per-wallet Redis lock so concurrent shop_buy
+      // / shop_buy_voucher / bron_roll / consumeBuff can't race against each
+      // other and corrupt the inventory state.
+      type VoucherTier = "t1" | "t2" | "t3" | "t4" | "t5";
+      type VoucherMap = Record<VoucherTier, number>;
+      type LockResult =
+        | { ok: true; grantPayload: Record<string, unknown>; change: VoucherMap; vouchers: VoucherMap }
+        | { ok: false; status: number; reason: string };
+      const locked: LockResult | null = await mutateShopInventory<LockResult>(address, async inv => {
+        inv.vouchers = inv.vouchers ?? {};
+        const owned: VoucherMap = {
+          t1: inv.vouchers.t1 ?? 0,
+          t2: inv.vouchers.t2 ?? 0,
+          t3: inv.vouchers.t3 ?? 0,
+          t4: inv.vouchers.t4 ?? 0,
+          t5: inv.vouchers.t5 ?? 0,
+        };
+        if (spend.t1 > owned.t1 || spend.t2 > owned.t2 || spend.t3 > owned.t3 ||
+            spend.t4 > owned.t4 || spend.t5 > owned.t5) {
+          return { next: inv, result: { ok: false, status: 402, reason: "you don't own enough vouchers for this spend" } };
         }
-        // Credit change back into inventory.
-        inv.vouchers.t1 += changeOut.t1;
-        inv.vouchers.t2 += changeOut.t2;
-        inv.vouchers.t3 += changeOut.t3;
-        inv.vouchers.t4 += changeOut.t4;
-        inv.vouchers.t5 += changeOut.t5;
-      }
-
-      // Apply the grant in the SAME inventory blob we'll write below, so the
-      // voucher deduction and the item grant happen as one atomic write.
-      let grantPayload: Record<string, unknown> = { itemId };
-      if (itemId === "energy_5" || itemId === "energy_10" || itemId === "energy_20") {
-        inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
-        await writeShopInventory(address, inv);
-        grantPayload = { type: "energy_pack", itemId, owned: inv.buffs[itemId] };
-      } else if (itemId === "unit_temp_motz_key") {
-        await writeShopInventory(address, inv); // burn vouchers first
-        const r = await grantTempMotzKey(address);
-        grantPayload = { type: "temp_motz_key", expiresAt: r.expiresAt };
-      } else if (itemId === "unit_stat_reset" || itemId === "unit_class_change") {
-        inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
-        await writeShopInventory(address, inv);
-        grantPayload = { type: "entitlement", itemId, owned: inv.buffs[itemId] };
-      } else if (SHOP_BUFF_IDS.includes(itemId)) {
-        const grantQty = BUFF_GRANT_SIZE[itemId] ?? 1;
-        inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + grantQty;
-        await writeShopInventory(address, inv);
-        grantPayload = { type: "buff", itemId, owned: inv.buffs[itemId], qty: grantQty };
-      } else {
-        res.status(500).json({ error: "no grant handler" });
+        // Deduct.
+        inv.vouchers.t1 = owned.t1 - spend.t1;
+        inv.vouchers.t2 = owned.t2 - spend.t2;
+        inv.vouchers.t3 = owned.t3 - spend.t3;
+        inv.vouchers.t4 = owned.t4 - spend.t4;
+        inv.vouchers.t5 = owned.t5 - spend.t5;
+        // Compute change (greedy largest-first, server-trusted constants).
+        const changeRon = totalSpendRon - priceRon;
+        const changeOut: VoucherMap = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0 };
+        if (changeRon > 0) {
+          let rem = changeRon;
+          for (const t of ["t5", "t4", "t3", "t2", "t1"] as const) {
+            const v = VOUCHER_VALUES_RON[t];
+            const take = Math.floor(rem / v);
+            if (take > 0) { changeOut[t] = take; rem -= take * v; }
+          }
+          inv.vouchers.t1 += changeOut.t1;
+          inv.vouchers.t2 += changeOut.t2;
+          inv.vouchers.t3 += changeOut.t3;
+          inv.vouchers.t4 += changeOut.t4;
+          inv.vouchers.t5 += changeOut.t5;
+        }
+        // Apply grant inside the same inventory blob.
+        let grantPayload: Record<string, unknown> = { itemId };
+        if (itemId === "energy_5" || itemId === "energy_10" || itemId === "energy_20") {
+          inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
+          grantPayload = { type: "energy_pack", itemId, owned: inv.buffs[itemId] };
+        } else if (itemId === "unit_stat_reset" || itemId === "unit_class_change") {
+          inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
+          grantPayload = { type: "entitlement", itemId, owned: inv.buffs[itemId] };
+        } else if (SHOP_BUFF_IDS.includes(itemId)) {
+          const grantQty = BUFF_GRANT_SIZE[itemId] ?? 1;
+          inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + grantQty;
+          grantPayload = { type: "buff", itemId, owned: inv.buffs[itemId], qty: grantQty };
+        }
+        // unit_temp_motz_key is granted via grantTempMotzKey OUTSIDE the lock
+        // (different Redis key, no inventory dependency).
+        const vouchersFinal: VoucherMap = {
+          t1: inv.vouchers.t1, t2: inv.vouchers.t2, t3: inv.vouchers.t3, t4: inv.vouchers.t4, t5: inv.vouchers.t5,
+        };
+        return { next: inv, result: { ok: true, grantPayload, change: changeOut, vouchers: vouchersFinal } };
+      });
+      if (!locked) {
+        res.status(503).json({ ok: false, reason: "shop inventory locked — please retry" });
         return;
       }
-
+      if (!locked.ok) {
+        res.status(locked.status).json({ ok: false, reason: locked.reason });
+        return;
+      }
+      // Temp MoTZ Key grant happens OUTSIDE the inventory lock (writes a
+      // separate Redis key). Vouchers have already been burned atomically.
+      if (itemId === "unit_temp_motz_key") {
+        const r = await grantTempMotzKey(address);
+        locked.grantPayload = { type: "temp_motz_key", expiresAt: r.expiresAt };
+      }
       res.status(200).json({
         ok: true,
-        grant: grantPayload,
+        grant: locked.grantPayload,
         spent: spend,
         spentRon: totalSpendRon,
         priceRon,
-        change: changeOut,
-        changeRon,
-        vouchers: inv.vouchers,
+        change: locked.change,
+        changeRon: totalSpendRon - priceRon,
+        vouchers: locked.vouchers,
       });
       return;
     } catch (e) {
@@ -784,6 +766,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     // alongside run starts, so a player can't accumulate during off-season.
     if (await isSeasonHalted()) {
       res.status(SEASON_HALTED_RESPONSE.status).json(SEASON_HALTED_RESPONSE.body);
+      return;
+    }
+    // ---- ENERGY-SPEND WITNESS (devtool-proof gate) ----
+    // Every legit campaign clear is preceded by a real /api/energy POST that
+    // debited the wallet's energy pool. We minted a "pending clear" credit
+    // there; consumePendingClear atomically consumes one here. A scripted
+    // client that POSTs `op:"clear"` 50 times without spending energy will
+    // get 402 on the first attempt — there's no path to mint cap bumps,
+    // floor progression, or the Conqueror trophy without burning energy.
+    const witnessed = await consumePendingClear(address);
+    if (!witnessed) {
+      res.status(402).json({
+        ok: false,
+        reason: "no energy-spend witness — clear must be preceded by an /api/energy POST that debits the energy pool",
+      });
       return;
     }
     const dailyMul = await getCurrentMultiplier(address).catch(() => 1.0);

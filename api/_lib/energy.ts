@@ -2,7 +2,7 @@
 // devtools edits to the local energy key can no longer grant free runs.
 // Refill rule mirrors the client: full reset to ENERGY_MAX at 08:00 Asia/Manila.
 
-import { getJson, setJson } from "./redis.js";
+import { getJson, setJson, withWalletLock, incrBy, getNumber } from "./redis.js";
 
 export const ENERGY_MAX = 20;
 const PH_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -60,20 +60,55 @@ export async function getEnergy(address: string): Promise<{ amount: number; last
   return { amount: after.amount, lastReset: after.lastReset, max: ENERGY_MAX };
 }
 
-/** Atomic consume. Returns ok=false with current amount if insufficient. */
+/** Atomic consume. Wraps the read-modify-write in a per-wallet Redis lock so
+ *  concurrent /api/energy POSTs can't race past the balance check. Also
+ *  increments the "pending campaign clears" counter — each unit of energy
+ *  consumed earns the wallet one credit toward a campaign clear submission,
+ *  which the clear op decrements. This is the witness that prevents devtools
+ *  from minting XP cap bumps / floor progress without actually playing. */
 export async function consumeEnergy(address: string, cost: number): Promise<{ ok: boolean; amount: number; max: number }> {
   if (cost <= 0) {
     const s = await getEnergy(address);
     return { ok: true, amount: s.amount, max: s.max };
   }
-  const cur = applyRefill(await read(address));
-  if (cur.amount < cost) {
-    if (cur.lastReset !== (await read(address)).lastReset) await write(address, cur);
-    return { ok: false, amount: cur.amount, max: ENERGY_MAX };
+  const result = await withWalletLock(`energy:lock:${address.toLowerCase()}`, async () => {
+    const cur = applyRefill(await read(address));
+    if (cur.amount < cost) {
+      if (cur.lastReset !== (await read(address)).lastReset) await write(address, cur);
+      return { ok: false, amount: cur.amount, max: ENERGY_MAX };
+    }
+    const next: EnergyState = { amount: cur.amount - cost, lastReset: cur.lastReset };
+    await write(address, next);
+    // Issue clear credits matching the energy spent. Campaign floors are
+    // 1-energy each, so cost=1 ⇒ +1 credit; admin-overrides aren't a concern
+    // (they don't call consumeEnergy).
+    await incrBy(pendingClearKey(address), cost).catch(() => 0);
+    return { ok: true, amount: next.amount, max: ENERGY_MAX };
+  }, { ttlSeconds: 5, retries: 12, retryMs: 60 });
+  if (!result) {
+    // Lock contention exceeded retries — surface as 503-style "try again".
+    return { ok: false, amount: 0, max: ENERGY_MAX };
   }
-  const next: EnergyState = { amount: cur.amount - cost, lastReset: cur.lastReset };
-  await write(address, next);
-  return { ok: true, amount: next.amount, max: ENERGY_MAX };
+  return result;
+}
+
+/** Pending-clear credits — the bridge between energy spending and clear claims.
+ *  Each spent energy grants one credit; each campaign clear consumes one. */
+function pendingClearKey(address: string): string {
+  return `pendingClears:${address.toLowerCase()}`;
+}
+export async function readPendingClears(address: string): Promise<number> {
+  return await getNumber(pendingClearKey(address));
+}
+/** Atomically consume one pending-clear credit. Returns true if successful. */
+export async function consumePendingClear(address: string): Promise<boolean> {
+  const result = await withWalletLock(`energy:lock:${address.toLowerCase()}`, async () => {
+    const cur = await getNumber(pendingClearKey(address));
+    if (cur <= 0) return false;
+    await incrBy(pendingClearKey(address), -1);
+    return true;
+  }, { ttlSeconds: 5, retries: 12, retryMs: 60 });
+  return result === true;
 }
 
 /** Time (ms) until next refill boundary. */
@@ -84,20 +119,26 @@ export function msUntilNextRefill(now = Date.now()): number {
 /** Admin: add `delta` energy on top of current balance (delta < 0 also valid).
  *  Caller must verify admin status before invoking. Returns new balance. */
 export async function adminGrantEnergy(address: string, delta: number): Promise<number> {
-  const cur = applyRefill(await read(address));
-  const next: EnergyState = {
-    // No upper cap — admin grants are intentional, same as daily bonus.
-    amount: Math.max(0, cur.amount + delta),
-    lastReset: cur.lastReset,
-  };
-  await write(address, next);
-  return next.amount;
+  const r = await withWalletLock(`energy:lock:${address.toLowerCase()}`, async () => {
+    const cur = applyRefill(await read(address));
+    const next: EnergyState = {
+      // No upper cap — admin grants are intentional, same as daily bonus.
+      amount: Math.max(0, cur.amount + delta),
+      lastReset: cur.lastReset,
+    };
+    await write(address, next);
+    return next.amount;
+  }, { ttlSeconds: 5, retries: 12, retryMs: 60 });
+  return r ?? 0;
 }
 
 /** Admin: set the balance to ENERGY_MAX directly. */
 export async function adminFillEnergy(address: string): Promise<number> {
-  const cur = applyRefill(await read(address));
-  const next: EnergyState = { amount: ENERGY_MAX, lastReset: cur.lastReset };
-  await write(address, next);
-  return next.amount;
+  const r = await withWalletLock(`energy:lock:${address.toLowerCase()}`, async () => {
+    const cur = applyRefill(await read(address));
+    const next: EnergyState = { amount: ENERGY_MAX, lastReset: cur.lastReset };
+    await write(address, next);
+    return next.amount;
+  }, { ttlSeconds: 5, retries: 12, retryMs: 60 });
+  return r ?? 0;
 }

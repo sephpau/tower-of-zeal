@@ -1,4 +1,4 @@
-import { getJson, setJson, del, zaddGt, zaddLt, zrangeWithScores, zrevrank, zrevrange, incrWithExpire, hset, hmget, incrBy, incrByWithExpire, getNumber, isPrefixedEnvironment, scanAllPrefixed, delManyRaw } from "./redis.js";
+import { getJson, setJson, del, zaddGt, zaddLt, zrangeWithScores, zrevrank, zrevrange, incrWithExpire, hset, hmget, incrBy, incrByWithExpire, getNumber, isPrefixedEnvironment, scanAllPrefixed, delManyRaw, withWalletLock } from "./redis.js";
 
 // ---- Admin: leaderboard resets ----
 export type AdminResetScope = "survival" | "bossraid" | "we" | "conquer";
@@ -442,16 +442,17 @@ export async function rollBronForKills(
   // depositing vouchers, so a concurrent call sees the updated cap usage.
   await addBronRollUsed(address, safeMob, safeBoss, safeWE);
 
-  // Deposit vouchers into the wallet's shop inventory (single write).
+  // Deposit vouchers into the wallet's shop inventory (atomic via lock).
   if (drops.t1 + drops.t2 + drops.t3 + drops.t4 + drops.t5 > 0) {
-    const inv = await readShopInventory(address);
-    inv.vouchers = inv.vouchers ?? {};
-    inv.vouchers.t1 = (inv.vouchers.t1 ?? 0) + drops.t1;
-    inv.vouchers.t2 = (inv.vouchers.t2 ?? 0) + drops.t2;
-    inv.vouchers.t3 = (inv.vouchers.t3 ?? 0) + drops.t3;
-    inv.vouchers.t4 = (inv.vouchers.t4 ?? 0) + drops.t4;
-    inv.vouchers.t5 = (inv.vouchers.t5 ?? 0) + drops.t5;
-    await writeShopInventory(address, inv);
+    await mutateShopInventory(address, inv => {
+      inv.vouchers = inv.vouchers ?? {};
+      inv.vouchers.t1 = (inv.vouchers.t1 ?? 0) + drops.t1;
+      inv.vouchers.t2 = (inv.vouchers.t2 ?? 0) + drops.t2;
+      inv.vouchers.t3 = (inv.vouchers.t3 ?? 0) + drops.t3;
+      inv.vouchers.t4 = (inv.vouchers.t4 ?? 0) + drops.t4;
+      inv.vouchers.t5 = (inv.vouchers.t5 ?? 0) + drops.t5;
+      return { next: inv, result: true };
+    });
   }
 
   return {
@@ -494,7 +495,32 @@ function shopBoughtKey(itemId: ShopItemId, address: string): string {
 function shopInventoryKey(address: string): string {
   return `shop:inv:${address.toLowerCase()}`;
 }
+function shopInventoryLockKey(address: string): string {
+  return `shop:inv:lock:${address.toLowerCase()}`;
+}
 const SHOP_INV_TTL = 60 * 60 * 24 * 365; // 1 year — inventory persists indefinitely
+
+/** Per-wallet atomic mutation of shop inventory. All voucher / buff writes
+ *  MUST go through this — bare readShopInventory + writeShopInventory pairs
+ *  race against concurrent shop_buy_voucher / rollBronForKills / consumeBuff
+ *  calls and can lose updates ("last write wins" overwrites the other's
+ *  deduction, effectively duplicating items or eating vouchers).
+ *
+ *  The mutator function returns the next inventory + an optional result
+ *  payload; the helper returns the result. Returns null if the lock could
+ *  not be acquired within the retry budget (extreme contention). */
+export async function mutateShopInventory<T>(
+  address: string,
+  mutator: (inv: ShopInventory) => { next: ShopInventory; result: T } | Promise<{ next: ShopInventory; result: T }>,
+): Promise<T | null> {
+  const r = await withWalletLock(shopInventoryLockKey(address), async () => {
+    const inv = await readShopInventory(address);
+    const { next, result } = await mutator(inv);
+    await writeShopInventory(address, next);
+    return result;
+  }, { ttlSeconds: 5, retries: 12, retryMs: 60 });
+  return r ?? null;
+}
 
 export async function readShopInventory(address: string): Promise<ShopInventory> {
   const raw = await getJson<ShopInventory>(shopInventoryKey(address));
@@ -523,12 +549,13 @@ export async function markBoughtToday(itemId: ShopItemId, address: string): Prom
 
 /** Consume one of an owned buff. Returns true if the consume happened. */
 export async function consumeBuff(address: string, itemId: ShopItemId): Promise<boolean> {
-  const inv = await readShopInventory(address);
-  const cur = inv.buffs[itemId] ?? 0;
-  if (cur <= 0) return false;
-  inv.buffs[itemId] = cur - 1;
-  await writeShopInventory(address, inv);
-  return true;
+  const result = await mutateShopInventory<boolean>(address, inv => {
+    const cur = inv.buffs[itemId] ?? 0;
+    if (cur <= 0) return { next: inv, result: false };
+    inv.buffs[itemId] = cur - 1;
+    return { next: inv, result: true };
+  });
+  return result === true;
 }
 
 // ---- "Fastest to Kill World Ender" — floor-50 single-battle clears ----

@@ -31,6 +31,51 @@ const XP_TABLE = [
   3456, 3906, 4394, 4920, 5488, 6097, 6750, 7447, 8192,
 ];
 
+// Whitelist of known class ids. Mirrors src/units/classes.ts. Server rejects
+// progress writes that claim an unknown class so devtools can't invent classes
+// with arbitrary modifiers. Adding a class? Add it here AND in classes.ts.
+const VALID_CLASS_IDS = new Set<string>([
+  "fighter", "fire_mage", "sharpshooter", "water_mage",
+  "scout", "defender", "warden",
+]);
+
+// Whitelist of known skill ids. Mirrors src/skills/registry.ts entries.
+// Defensive only — a skill that doesn't exist on the client would never fire,
+// but blocking unknown ids at write time keeps the progress blob clean and
+// audit-friendly. Update when adding skills.
+const VALID_SKILL_IDS = new Set<string>([
+  // Common / baseline
+  "idle", "basic_attack", "guard", "power_strike",
+  // Mage / fire
+  "fireball", "ignite_touch", "blazing_burst", "inferno_crash",
+  // Mage / water
+  "hydro_bolt", "vortex_stream", "tidal_wave",
+  // Fighter / striker
+  "impact_strike", "focus_pulse", "colossal_slam",
+  "decimate", "twin_slash", "whirlwind_edge",
+  // Sharpshooter
+  "quick_draw", "double_tap", "apex_shot",
+  "binding_shot", "needle_shot", "mark_of_death", "horizon_strike",
+  // Scout
+  "swift_jab", "shadow_step", "phantom_flurry",
+  // Defender / Warden
+  "bash", "phalanx_wall", "earthshaker",
+  "aura_shield", "celestial_beam",
+  "iron_bulwark", "bastions_call", "unyielding_heart",
+  "lightburst", "radiant_punch", "solar_flare",
+  // Hero-signature kits
+  "soda_punch", "soda_pop", "swift_echo",
+  "body_slam", "limit_break", "all_or_nothing",
+  "tactical_hit", "analyze_vulnerability", "grandmasters_domain",
+  "siphon_pulse", "tidal_mending", "sirens_sanctuary",
+  "water_bolt", "frost_bite", "navigators_wrath",
+  "gaze_of_retribution", "iron_prophecy", "fates_rebound",
+  // Boss-only (allowed only because some debug code paths can equip them);
+  // having them here doesn't grant access — class registry still gates.
+  "slime_goo", "slime_king_goo", "slime_barrage", "spawn_slimes", "world_end",
+]);
+const MAX_EQUIPPED_SKILLS = 4;
+
 const STAT_KEYS = ["STR", "DEF", "AGI", "DEX", "VIT", "INT"] as const;
 type StatKey = (typeof STAT_KEYS)[number];
 export type ServerStats = Record<StatKey, number>;
@@ -77,15 +122,26 @@ function sanitizeUnit(input: unknown): ServerUnitProgress {
   const level = Math.max(1, Math.min(MAX_LEVEL, Math.floor(Number(src.level ?? 1))));
   const xpRaw = Math.max(0, Math.floor(Number(src.xp ?? 0)));
   const xp = level >= MAX_LEVEL ? 0 : Math.min(xpRaw, XP_TABLE[level - 1] - 1);
+  // classId is dropped silently if not in the whitelist — client will reload
+  // its canonical view and see no class set, prompting an explicit class-pick
+  // via the legit unit_class_change shop entitlement.
+  const rawClass = typeof src.classId === "string" ? src.classId : undefined;
+  const classId = rawClass && VALID_CLASS_IDS.has(rawClass) ? rawClass : undefined;
+  // equippedSkills: drop unknown ids (defensive), cap at MAX_EQUIPPED_SKILLS,
+  // and dedupe.
+  const equipRaw = Array.isArray(src.equippedSkills)
+    ? src.equippedSkills.filter((s): s is string => typeof s === "string" && VALID_SKILL_IDS.has(s))
+    : [];
+  const equippedSkills = equipRaw.length > 0
+    ? Array.from(new Set(equipRaw)).slice(0, MAX_EQUIPPED_SKILLS)
+    : undefined;
   return {
     level,
     xp,
     customStats: sanitizeStats(src.customStats),
-    classId: typeof src.classId === "string" ? src.classId : undefined,
+    classId,
     availablePoints: Math.max(0, Math.floor(Number(src.availablePoints ?? 0))),
-    equippedSkills: Array.isArray(src.equippedSkills)
-      ? src.equippedSkills.filter((s): s is string => typeof s === "string").slice(0, 4)
-      : undefined,
+    equippedSkills,
   };
 }
 
