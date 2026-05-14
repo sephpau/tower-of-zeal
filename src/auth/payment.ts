@@ -2,12 +2,7 @@
 // Works with any EIP-1193 injected provider (MetaMask, Coinbase Wallet,
 // Rabby, Ronin Wallet, Trust, etc.) that holds RON on the Ronin network.
 //
-// Detection chain (in order):
-//   1. window.ronin                — Ronin Wallet's primary injection
-//   2. window.ethereum.providers   — multi-wallet hub (EIP-5749 / "any wallet" pattern)
-//   3. window.ethereum             — single-wallet legacy injection
-//   4. tanto-connect fallback      — last-resort handshake via @sky-mavis SDK
-//
+// Detection enumerates every available wallet so the UI can present a picker.
 // The actual on-chain inclusion is awaited by the SERVER (3-block confirmation
 // check), so we don't block the UI here. Returning a tx hash is sufficient.
 
@@ -18,16 +13,15 @@ const RONIN_CHAIN_ID_HEX = "0x7e4"; // 2020 in hex
 
 interface EthereumProvider {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-  // Multi-wallet hub: when present, the "real" providers live here.
   providers?: EthereumProvider[];
-  // Wallet-specific feature flags (informational).
   isMetaMask?: boolean;
   isRonin?: boolean;
   isCoinbaseWallet?: boolean;
   isRabby?: boolean;
+  isTrust?: boolean;
+  isBraveWallet?: boolean;
 }
 
-// Declare the injected provider hooks globally without colliding with TS lib types.
 declare global {
   interface Window {
     ethereum?: EthereumProvider;
@@ -41,52 +35,124 @@ export interface PaymentResult {
   reason?: string;
 }
 
+/** A wallet the picker can offer to the player. */
+export interface WalletOption {
+  id: string;
+  name: string;
+  /** Emoji or short glyph used by the picker UI. */
+  icon: string;
+  /** True if this is a software-installed extension we already see in the
+   *  page; false if it's a fallback / SDK-mediated option. */
+  detected: boolean;
+  /** Returns the EIP-1193 provider to use for this option. May open a
+   *  separate install prompt for non-detected options. */
+  getProvider(): Promise<EthereumProvider | null>;
+}
+
+function classifyProvider(p: EthereumProvider): { id: string; name: string; icon: string } {
+  if (p.isRonin) return { id: "ronin", name: "Ronin Wallet", icon: "🐉" };
+  if (p.isMetaMask) return { id: "metamask", name: "MetaMask", icon: "🦊" };
+  if (p.isCoinbaseWallet) return { id: "coinbase", name: "Coinbase Wallet", icon: "🔵" };
+  if (p.isRabby) return { id: "rabby", name: "Rabby", icon: "🐰" };
+  if (p.isTrust) return { id: "trust", name: "Trust Wallet", icon: "🛡" };
+  if (p.isBraveWallet) return { id: "brave", name: "Brave Wallet", icon: "🦁" };
+  return { id: "unknown", name: "Web3 Wallet", icon: "💼" };
+}
+
 /** Wait briefly for late-injected providers — some wallets inject after the
  *  page's `load` event. 800ms is enough for MetaMask / Ronin Wallet on
  *  cold loads without making the user wait noticeably. */
-async function waitForProvider(maxMs = 800): Promise<EthereumProvider | null> {
+async function waitForAnyProvider(maxMs = 800): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < maxMs) {
-    const p = detectProviderSync();
-    if (p) return p;
+    if (anyProviderInjected()) return;
     await new Promise(res => setTimeout(res, 80));
   }
-  return detectProviderSync();
+}
+function anyProviderInjected(): boolean {
+  if (typeof window === "undefined") return false;
+  return !!window.ronin || !!window.ethereum;
 }
 
-function detectProviderSync(): EthereumProvider | null {
-  if (typeof window === "undefined") return null;
+/** Enumerate ALL EIP-1193 providers currently injected, deduped by classify id. */
+export async function discoverWallets(): Promise<WalletOption[]> {
+  await waitForAnyProvider();
+  const out: WalletOption[] = [];
+  const seen = new Set<string>();
 
-  // 1. Ronin Wallet exposes `window.ronin` (sometimes with `.provider`).
-  const r = window.ronin;
-  if (r) {
-    if (typeof (r as { request?: unknown }).request === "function") {
-      return r as EthereumProvider;
-    }
-    if ((r as { provider?: EthereumProvider }).provider) {
-      return (r as { provider: EthereumProvider }).provider;
+  // 1. window.ronin — Ronin Wallet's primary injection.
+  if (typeof window !== "undefined" && window.ronin) {
+    const r = window.ronin;
+    const provider: EthereumProvider | null =
+      typeof (r as { request?: unknown }).request === "function"
+        ? (r as EthereumProvider)
+        : (r as { provider?: EthereumProvider }).provider ?? null;
+    if (provider) {
+      if (!seen.has("ronin")) {
+        seen.add("ronin");
+        out.push({
+          id: "ronin",
+          name: "Ronin Wallet",
+          icon: "🐉",
+          detected: true,
+          getProvider: async () => provider,
+        });
+      }
     }
   }
 
-  // 2. Multi-wallet hub via window.ethereum.providers — prefer Ronin then MetaMask.
-  const eth = window.ethereum;
+  // 2. window.ethereum.providers[] — multi-wallet hub.
+  const eth = typeof window !== "undefined" ? window.ethereum : undefined;
   if (eth) {
-    if (Array.isArray(eth.providers) && eth.providers.length > 0) {
-      const ronin = eth.providers.find(p => p.isRonin);
-      if (ronin) return ronin;
-      const mm = eth.providers.find(p => p.isMetaMask);
-      if (mm) return mm;
-      return eth.providers[0];
+    const list = Array.isArray(eth.providers) && eth.providers.length > 0 ? eth.providers : [eth];
+    for (const p of list) {
+      const info = classifyProvider(p);
+      if (seen.has(info.id) || info.id === "unknown") continue;
+      seen.add(info.id);
+      out.push({
+        id: info.id,
+        name: info.name,
+        icon: info.icon,
+        detected: true,
+        getProvider: async () => p,
+      });
     }
-    // 3. Single injection.
-    return eth;
+    // If all flags-on detection failed, still surface a generic option so the
+    // user has SOMETHING to click.
+    if (out.length === 0) {
+      out.push({
+        id: "unknown",
+        name: "Detected wallet",
+        icon: "💼",
+        detected: true,
+        getProvider: async () => eth,
+      });
+    }
   }
 
-  return null;
+  // 3. tanto-connect Ronin Wallet fallback — always offered if not already detected.
+  if (!seen.has("ronin")) {
+    out.push({
+      id: "ronin-tanto",
+      name: "Ronin Wallet",
+      icon: "🐉",
+      detected: false,
+      getProvider: async () => {
+        try {
+          const { requestRoninWalletConnector } = await import("@sky-mavis/tanto-connect");
+          const connector = await requestRoninWalletConnector();
+          await connector.connect(RONIN_CHAIN_ID_DEC);
+          const provider = await connector.getProvider();
+          return (provider as unknown as EthereumProvider) ?? null;
+        } catch { return null; }
+      },
+    });
+  }
+
+  return out;
 }
 
-/** Make sure the connected wallet is on Ronin mainnet. If it isn't, ask the
- *  wallet to switch; if Ronin hasn't been added yet, add it. */
+/** Make sure the connected wallet is on Ronin mainnet. */
 async function ensureRoninChain(provider: EthereumProvider): Promise<{ ok: true } | { ok: false; reason: string }> {
   let chainId: string;
   try {
@@ -95,16 +161,11 @@ async function ensureRoninChain(provider: EthereumProvider): Promise<{ ok: true 
   } catch (e) {
     return { ok: false, reason: e instanceof Error ? e.message : "couldn't read wallet network" };
   }
-
-  // Already on Ronin? Accept both 0x7e4 and a numerically-equivalent form
-  // (some wallets return "0x07e4" or even the decimal as a string).
   if (chainId === RONIN_CHAIN_ID_HEX) return { ok: true };
   try {
     const asNum = parseInt(chainId, chainId.startsWith("0x") ? 16 : 10);
     if (asNum === RONIN_CHAIN_ID_DEC) return { ok: true };
   } catch { /* fall through */ }
-
-  // Try to switch to Ronin.
   try {
     await provider.request({
       method: "wallet_switchEthereumChain",
@@ -112,7 +173,6 @@ async function ensureRoninChain(provider: EthereumProvider): Promise<{ ok: true 
     });
     return { ok: true };
   } catch (switchErr) {
-    // 4902 = chain not in the wallet's known list — add it then it auto-switches.
     const errAny = switchErr as { code?: number; message?: string };
     if (errAny?.code === 4902) {
       try {
@@ -136,7 +196,6 @@ async function ensureRoninChain(provider: EthereumProvider): Promise<{ ok: true 
         };
       }
     }
-    // Other failures: user rejected the network switch, etc.
     const msg = errAny?.message ?? "failed to switch to Ronin network";
     if (/reject|denied|cancel/i.test(msg)) {
       return { ok: false, reason: "please switch to Ronin network in your wallet and try again" };
@@ -145,69 +204,32 @@ async function ensureRoninChain(provider: EthereumProvider): Promise<{ ok: true 
   }
 }
 
-/** Last-resort wallet handshake using the tanto-connect SDK. This is the same
- *  path the sign-in flow uses, so a logged-in player is guaranteed to be able
- *  to hit it even if window.ethereum / window.ronin haven't been picked up. */
-async function getProviderViaTanto(): Promise<EthereumProvider | null> {
-  try {
-    const { requestRoninWalletConnector } = await import("@sky-mavis/tanto-connect");
-    const connector = await requestRoninWalletConnector();
-    await connector.connect(RONIN_CHAIN_ID_DEC);
-    const provider = await connector.getProvider();
-    return (provider as unknown as EthereumProvider) ?? null;
-  } catch {
-    return null;
-  }
-}
+/** Send a `priceWei` RON tx to the treasury from the chosen wallet option.
+ *  Caller is responsible for opening the picker first and passing the result. */
+export async function payWithWallet(opt: WalletOption, priceWei: bigint): Promise<PaymentResult> {
+  const provider = await opt.getProvider();
+  if (!provider) return { ok: false, reason: `${opt.name} could not be opened` };
 
-/** Open the user's wallet, make sure it's on Ronin, then ask them to send
- *  `priceWei` RON to the treasury. Returns the tx hash on success. */
-export async function payForItem(priceWei: bigint): Promise<PaymentResult> {
-  let provider = await waitForProvider();
-  // Fallback to the tanto-connect path for Ronin Wallet users whose extension
-  // hasn't injected window.ronin / window.ethereum yet.
-  if (!provider) {
-    provider = await getProviderViaTanto();
-  }
-  if (!provider) {
-    return {
-      ok: false,
-      reason: "no wallet detected — install Ronin Wallet, MetaMask, or any Ronin-compatible wallet, then refresh the page",
-    };
-  }
-
-  // 1. Request accounts (this opens the wallet popup the first time).
   let address: string;
   try {
     const result = await provider.request({ method: "eth_requestAccounts" });
     const accounts = Array.isArray(result) ? result as string[] : [];
-    if (accounts.length === 0 || !accounts[0]) {
-      return { ok: false, reason: "no account returned by wallet" };
-    }
+    if (accounts.length === 0 || !accounts[0]) return { ok: false, reason: "no account returned by wallet" };
     address = accounts[0];
   } catch (e) {
     const msg = e instanceof Error ? e.message : "wallet connect rejected";
-    if (/reject|denied|cancel/i.test(msg)) {
-      return { ok: false, reason: "wallet connection cancelled" };
-    }
+    if (/reject|denied|cancel/i.test(msg)) return { ok: false, reason: "wallet connection cancelled" };
     return { ok: false, reason: msg };
   }
 
-  // 2. Ensure we're on Ronin mainnet.
   const chainCheck = await ensureRoninChain(provider);
   if (!chainCheck.ok) return { ok: false, reason: chainCheck.reason };
 
-  // 3. Build + send the tx. value is bigint → hex string for JSON-RPC.
   const valueHex = "0x" + priceWei.toString(16);
   try {
     const result = await provider.request({
       method: "eth_sendTransaction",
-      params: [{
-        from: address,
-        to: TREASURY_WALLET,
-        value: valueHex,
-        // No `data`; this is a plain RON transfer.
-      }],
+      params: [{ from: address, to: TREASURY_WALLET, value: valueHex }],
     });
     if (typeof result !== "string" || !/^0x[a-fA-F0-9]{64}$/.test(result)) {
       return { ok: false, reason: "wallet returned no tx hash" };
@@ -215,9 +237,7 @@ export async function payForItem(priceWei: bigint): Promise<PaymentResult> {
     return { ok: true, txHash: result as `0x${string}` };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "wallet send failed";
-    if (/reject|denied|cancel/i.test(msg)) {
-      return { ok: false, reason: "purchase cancelled" };
-    }
+    if (/reject|denied|cancel/i.test(msg)) return { ok: false, reason: "purchase cancelled" };
     return { ok: false, reason: msg };
   }
 }

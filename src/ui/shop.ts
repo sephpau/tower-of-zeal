@@ -11,7 +11,8 @@ import {
 } from "../core/shop";
 import { confirmModal } from "./confirmModal";
 import { loadSession, validateSession, setVerifiedPerks } from "../auth/session";
-import { payForItem } from "../auth/payment";
+import { payWithWallet } from "../auth/payment";
+import { pickWalletModal } from "./walletPicker";
 
 export async function renderShop(root: HTMLElement, onBack: () => void): Promise<void> {
   // Initial paint — empty list while we wait on the status fetch.
@@ -74,18 +75,29 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
       if (!priceWeiStr) { alert("Price not available — refresh and try again."); return; }
       const ok = await confirmModal({
         title: "Confirm Purchase",
-        message: `Buy <strong>${def.name}</strong> for <strong>${def.priceLabel}</strong>?<br><br>${def.description}<br><br>💸 Your wallet will open to approve a <strong>${def.priceLabel}</strong> transfer on the <strong>Ronin network</strong>. Any RON-compatible wallet works (MetaMask, Ronin Wallet, Rabby, etc.). The item is added to your Inventory once the payment is confirmed on-chain (a few seconds).`,
-        confirmLabel: "Approve in Wallet",
+        message: `Buy <strong>${def.name}</strong> for <strong>${def.priceLabel}</strong>?<br><br>${def.description}<br><br>💸 You'll pick a wallet next, then approve a <strong>${def.priceLabel}</strong> transfer on the <strong>Ronin network</strong>. The item is added to your Inventory once the payment is confirmed on-chain (a few seconds).`,
+        confirmLabel: "Choose Wallet",
         cancelLabel: "Cancel",
       });
       if (!ok) return;
       btn.disabled = true;
-      btn.textContent = "Open wallet…";
-      // 1. Ask the Ronin wallet to send RON to the treasury.
+      btn.textContent = "Pick wallet…";
+      // 1. Player picks the wallet they want to pay from.
+      const chosen = await pickWalletModal({
+        title: "Pay With Which Wallet?",
+        subtitle: `Approving ${def.priceLabel} to the shop treasury`,
+      });
+      if (!chosen) {
+        btn.disabled = false;
+        btn.textContent = "Buy";
+        return;
+      }
       let priceWei: bigint;
       try { priceWei = BigInt(priceWeiStr); }
       catch { alert("Bad price format from server."); btn.disabled = false; btn.textContent = "Buy"; return; }
-      const pay = await payForItem(priceWei);
+      btn.textContent = `Open ${chosen.name}…`;
+      // 2. Send the tx through the chosen wallet.
+      const pay = await payWithWallet(chosen, priceWei);
       if (!pay.ok || !pay.txHash) {
         if (pay.reason && pay.reason !== "purchase cancelled") {
           alert(`Payment failed: ${pay.reason}`);
