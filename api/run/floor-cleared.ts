@@ -14,6 +14,7 @@ import {
   grantTempMotzKey, readTempMotzKey,
   rollBronForKills,
   MAX_KILLS_PER_ROLL, MAX_BOSS_KILLS_PER_ROLL, MAX_WORLD_ENDER_KILLS_PER_ROLL,
+  ENERGY_PACK_CAP_BUMP, SCHOLARS_INSIGHT_CAP_BUMP,
 } from "../_lib/runState.js";
 
 const MAX_PARTY_SIZE = 3;
@@ -333,6 +334,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     try {
       const ok = await consumeBuff(address, itemId);
       if (!ok) { res.status(400).json({ ok: false, reason: "none owned" }); return; }
+      // Scholar's Insight gives up to +25% XP on its floor — preemptively bump
+      // the cheat-check ceiling so a player who slots Scholar's never trips
+      // the lifetime-XP audit on a high-XP clear (best case: floor 50 with
+      // full party + daily streak active).
+      if (itemId === "buff_scholars_insight") {
+        await bumpXpCap(address, SCHOLARS_INSIGHT_CAP_BUMP).catch(() => 0);
+      }
       const inv = await readShopInventory(address);
       res.status(200).json({ ok: true, inventory: inv });
       return;
@@ -350,12 +358,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     if (itemRaw !== "energy_5" && itemRaw !== "energy_10" && itemRaw !== "energy_20") {
       res.status(400).json({ error: "item must be energy_5|energy_10|energy_20" }); return;
     }
-    const itemId = itemRaw as ShopItemId;
+    const itemId = itemRaw as "energy_5" | "energy_10" | "energy_20";
     try {
       const consumed = await consumeBuff(address, itemId);
       if (!consumed) { res.status(400).json({ ok: false, reason: "none owned" }); return; }
       const grantAmount = itemId === "energy_5" ? 5 : itemId === "energy_10" ? 10 : 20;
       const newAmount = await adminGrantEnergy(address, grantAmount);
+      // Energy pack lets the player run more floors than the daily refill
+      // budget allows. Pre-bump the cheat-check ceiling by packSize × per-floor
+      // cap so the audit doesn't trip during the in-flight gap between using
+      // the pack and earning the XP. The per-clear bump still runs later;
+      // these two bumps stack intentionally for headroom.
+      await bumpXpCap(address, ENERGY_PACK_CAP_BUMP[itemId]).catch(() => 0);
       const inv = await readShopInventory(address);
       res.status(200).json({ ok: true, amount: newAmount, max: ENERGY_MAX, granted: grantAmount, inventory: inv });
       return;

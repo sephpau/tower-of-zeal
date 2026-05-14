@@ -570,14 +570,45 @@ export async function syncTopReplays(
 // every run it has ever completed. The client's claimed total XP (computed
 // from local unit progress) must not exceed this value.
 //
-// Per-floor ceiling values are intentionally generous (~2× realistic max)
-// so legit play never trips the gate.
+// Per-floor ceiling values are intentionally generous so legit play never
+// trips the gate. Sources of extra XP that must fit under the cap:
+//   - Daily streak multiplier: up to 1.1×
+//   - Scholar's Insight buff:  +25% on the consumed floor
+//   - MVP bonus:               +20% to one unit per run
+//   - Realistic max floor XP:  ~4000 on floor 50 with full party
+//   → 4000 × 1.1 × 1.25 = 5500. The 10000 cap below leaves ~1.8× headroom.
+//
+// Cap bumps happen at three points:
+//   1. On every floor cleared (runFloor / reportFloorCleared)
+//   2. When an energy pack is consumed (proactive — lets a player burn the
+//      bought energy across many floors without an in-flight cheater alarm)
+//   3. When Scholar's Insight is consumed (covers the +25% slack on top of
+//      the per-floor cap)
 export const XP_CAP_PER_FLOOR: Record<LbMode | "floor", number> = {
-  floor: 8000,
+  floor: 10000,    // raised 8000 → 10000 to absorb Scholar's + MVP + daily stacks
   survival: 200,
   boss_raid: 1500,
 };
-export const XP_CAP_SLACK = 1000; // tolerance for in-flight runs / first-run-not-yet-ended
+// Slack added to cap on the cheat-check read path. Raised 1000 → 3000 to
+// cover Scholar's Insight bonuses still in flight at the moment the audit
+// runs, and to forgive in-flight survival/boss-raid floors mid-stream.
+export const XP_CAP_SLACK = 3000;
+
+// ---- Shop-related cap bumps ----
+// Energy packs let the player run more floors than the daily energy budget;
+// each pack adds a proactive cap allowance equal to "packSize × per-floor
+// cap" so the cheat check doesn't fire between energy use and floor clears.
+// (The per-clear bump still runs as normal — these allowances are stacked
+// generously by design.)
+export const ENERGY_PACK_CAP_BUMP: Record<"energy_5" | "energy_10" | "energy_20", number> = {
+  energy_5: 5 * 10000,
+  energy_10: 10 * 10000,
+  energy_20: 20 * 10000,
+};
+// Scholar's Insight delivers up to +25% XP on the floor it's consumed on.
+// Bump cap by that exact delta on consume so the cheat check never trips
+// even if the buff is used on the highest-XP floor (floor 50).
+export const SCHOLARS_INSIGHT_CAP_BUMP = Math.floor(10000 * 0.25);
 
 export function xpCapKey(address: string): string { return `xpcap:${address.toLowerCase()}`; }
 
