@@ -20,7 +20,7 @@ import {
 import { validateAndSyncProgress, readServerProgress } from "../_lib/progressVault.js";
 import { verifyShopPayment, consumeTxHash, ITEM_PRICES_WEI } from "../_lib/payment.js";
 import { isSeasonHalted, setSeasonHalt, readSeasonHalt, SEASON_HALTED_RESPONSE } from "../_lib/season.js";
-import { bumpRonSpent, bumpVouchersAcquired, buildAnalyticsExport, rowsToCsv, bumpShopRevenue, readShopRevenue } from "../_lib/analytics.js";
+import { bumpRonSpent, bumpVouchersAcquired, buildAnalyticsExport, buildAnalyticsExportBundle, rowsToCsv, bumpShopRevenue, readShopRevenue } from "../_lib/analytics.js";
 
 const MAX_PARTY_SIZE = 3;
 /** Reject replays whose battles report >MAX_PARTY_SIZE units or duplicates —
@@ -66,15 +66,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       res.status(403).json({ error: "bad analytics key" }); return;
     }
     try {
-      const rows = await buildAnalyticsExport();
+      const bundle = await buildAnalyticsExportBundle();
       const format = req.query.format === "json" ? "json" : "csv";
       if (format === "json") {
-        res.status(200).json({ ok: true, rows, generatedAt: Date.now() });
+        res.status(200).json({ ok: true, ...bundle });
         return;
       }
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Cache-Control", "no-store");
-      res.status(200).send(rowsToCsv(rows));
+      // CSV: emit a header summary line, then the per-wallet rows.
+      const summary = `# Total RON Earned by Shop,${bundle.totalShopRevenue}\r\n# Generated At,${new Date(bundle.generatedAt).toISOString()}\r\n`;
+      res.status(200).send(summary + rowsToCsv(bundle.rows));
       return;
     } catch (e) {
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });

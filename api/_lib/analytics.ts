@@ -121,6 +121,21 @@ export async function buildAnalyticsExport(): Promise<WalletAnalyticsRow[]> {
   return rows;
 }
 
+/** Full export bundle — per-wallet rows PLUS the global shop-revenue total
+ *  so the daily sheet sync can write both in one round-trip. */
+export interface AnalyticsExportBundle {
+  rows: WalletAnalyticsRow[];
+  totalShopRevenue: number;
+  generatedAt: number;
+}
+export async function buildAnalyticsExportBundle(): Promise<AnalyticsExportBundle> {
+  const [rows, totalShopRevenue] = await Promise.all([
+    buildAnalyticsExport(),
+    readShopRevenue(),
+  ]);
+  return { rows, totalShopRevenue, generatedAt: Date.now() };
+}
+
 /** Render rows as a CSV string. RFC 4180-ish: comma-separated, double-quote
  *  escape fields containing commas/quotes/newlines, CRLF line endings. */
 export function rowsToCsv(rows: WalletAnalyticsRow[]): string {
