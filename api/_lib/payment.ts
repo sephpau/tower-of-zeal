@@ -109,7 +109,7 @@ export async function verifyShopPayment(
     // viem throws TransactionReceiptNotFoundError / WaitForTransactionReceiptTimeoutError
     // when the tx hasn't been indexed yet. Surface that as a retryable
     // "pending" so the client polls again rather than treating it as failure.
-    if (/TransactionReceiptNotFound|WaitForTransactionReceiptTimeout|timeout|could not be found|may not be processed/i.test(msg)) {
+    if (/TransactionReceiptNotFound|WaitForTransactionReceiptTimeout|TransactionNotFound|timed?\s*out|could not be found|may not be processed|to be confirmed/i.test(msg)) {
       return {
         ok: false,
         pending: true,
