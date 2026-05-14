@@ -575,26 +575,9 @@ body:has(.battle) {
 }
 .float-popup .float-icon { font-size: 16px; }
 
-/* ---------- Screen shake & flash (game-feel layer) ---------- */
-/* Applied transiently to #battle-field by battle.ts when damage events fire. */
-.battle-shake-hit  { animation: shake-hit  0.18s ease-out; }
-.battle-shake-crit { animation: shake-crit 0.32s ease-out; }
-@keyframes shake-hit {
-  0%, 100% { transform: translate(0, 0); }
-  25%      { transform: translate(-3px, 1px); }
-  50%      { transform: translate(3px, -2px); }
-  75%      { transform: translate(-2px, 2px); }
-}
-@keyframes shake-crit {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  10%      { transform: translate(-6px, 3px) scale(1.01); }
-  20%      { transform: translate(7px, -4px) scale(1.015); }
-  35%      { transform: translate(-5px, 4px) scale(1.01); }
-  50%      { transform: translate(5px, -3px) scale(1.005); }
-  70%      { transform: translate(-3px, 2px) scale(1.002); }
-}
-/* White full-field flash that fires on crits. Cosmetic only; pointer-events
-   off so battle interactions still work. */
+/* ---------- Crit flash (game-feel layer; no screen shake) ---------- */
+/* Radial gold flash overlay on crits. Cosmetic only; pointer-events off so
+   battle interactions still work. */
 .crit-flash-overlay {
   position: absolute;
   inset: 0;

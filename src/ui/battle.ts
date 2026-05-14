@@ -305,13 +305,8 @@ function flushFloats(root: HTMLElement): void {
     setTimeout(() => div.remove(), isDrop ? 1800 : 900);
   }
 
-  // ---- Screen shake + crit flash (game-feel polish) ----
+  // ---- Crit flash (game-feel polish, no shake) ----
   if (hadCrit) {
-    // Stronger shake variant.
-    field.classList.remove("battle-shake-hit", "battle-shake-crit");
-    void field.offsetWidth;
-    field.classList.add("battle-shake-crit");
-    // Fire the radial gold flash overlay so the crit feels cinematic.
     const flash = root.querySelector<HTMLElement>("#crit-flash-overlay");
     if (flash) {
       flash.classList.remove("fire");
@@ -319,13 +314,8 @@ function flushFloats(root: HTMLElement): void {
       flash.classList.add("fire");
       setTimeout(() => flash.classList.remove("fire"), 320);
     }
-    setTimeout(() => field.classList.remove("battle-shake-crit"), 360);
-  } else if (hadHit) {
-    field.classList.remove("battle-shake-hit", "battle-shake-crit");
-    void field.offsetWidth;
-    field.classList.add("battle-shake-hit");
-    setTimeout(() => field.classList.remove("battle-shake-hit"), 200);
   }
+  void hadHit; // retained for symmetry / future hooks; no shake by design
 }
 
 function visibleSkills(c: Combatant): string[] {
