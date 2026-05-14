@@ -66,3 +66,75 @@ function escapeText(s: string): string {
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   } as Record<string, string>)[c]);
 }
+
+export interface AlertOptions {
+  title?: string;
+  /** Body. May contain HTML — sanitize on the caller side if it's user input. */
+  message: string;
+  okLabel?: string;
+  /** Visual flavor — drives the title color + dot accent. */
+  kind?: "info" | "warning" | "error" | "success";
+}
+
+/** Game-styled drop-in replacement for window.alert. Single OK button.
+ *  Resolves when the user dismisses (OK click, Enter, Escape, or backdrop). */
+export function alertModal(opts: AlertOptions): Promise<void> {
+  const {
+    title,
+    message,
+    okLabel = "OK",
+    kind = "info",
+  } = opts;
+  // Default titles per kind so callers can skip passing one for common cases.
+  const defaultTitles: Record<NonNullable<AlertOptions["kind"]>, string> = {
+    info: "Notice",
+    warning: "Heads Up",
+    error: "Something Went Wrong",
+    success: "Done",
+  };
+  const finalTitle = title ?? defaultTitles[kind];
+
+  return new Promise<void>(resolve => {
+    document.querySelectorAll(".game-confirm-overlay").forEach(el => el.remove());
+
+    const overlay = document.createElement("div");
+    overlay.className = "game-confirm-overlay";
+    overlay.innerHTML = `
+      <div class="game-confirm-card game-alert-card game-alert-${kind}" role="alertdialog" aria-modal="true" aria-labelledby="game-alert-title">
+        <div class="game-alert-icon" aria-hidden="true">${alertGlyph(kind)}</div>
+        <div class="game-confirm-title game-alert-title" id="game-alert-title">${escapeText(finalTitle)}</div>
+        <div class="game-confirm-body">${message}</div>
+        <div class="game-confirm-actions">
+          <button class="confirm-btn game-confirm-ok" type="button">${escapeText(okLabel)}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = (): void => {
+      overlay.remove();
+      document.removeEventListener("keydown", onKey);
+      resolve();
+    };
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape" || e.key === "Enter") close();
+    };
+
+    overlay.querySelector<HTMLButtonElement>(".game-confirm-ok")!.addEventListener("click", close);
+    overlay.addEventListener("click", e => {
+      if (e.target === overlay) close();
+    });
+    document.addEventListener("keydown", onKey);
+
+    setTimeout(() => overlay.querySelector<HTMLButtonElement>(".game-confirm-ok")?.focus(), 0);
+  });
+}
+
+function alertGlyph(kind: NonNullable<AlertOptions["kind"]>): string {
+  switch (kind) {
+    case "warning": return "⚠";
+    case "error":   return "✕";
+    case "success": return "✓";
+    case "info":    return "ⓘ";
+  }
+}

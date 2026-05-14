@@ -2844,6 +2844,58 @@ body:has(.battle) {
   color: #fff;
 }
 .game-confirm-actions .danger-btn:hover { filter: brightness(1.1); }
+
+/* MoTZ-styled alert (single-button drop-in for window.alert). Flavors:
+   info / warning / error / success — each gets a tinted top stripe + icon. */
+.game-alert-card {
+  padding-top: 18px;
+  text-align: center;
+}
+.game-alert-icon {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid currentColor;
+  filter: drop-shadow(0 0 12px currentColor);
+}
+.game-alert-title {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+.game-alert-info    { --game-alert-accent: #7fd0ff; }
+.game-alert-warning { --game-alert-accent: #f4c542; }
+.game-alert-error   { --game-alert-accent: #ff7070; }
+.game-alert-success { --game-alert-accent: #6ade9c; }
+.game-alert-card { border-color: var(--game-alert-accent); }
+.game-alert-card::before { background: linear-gradient(90deg, transparent, var(--game-alert-accent), transparent); }
+.game-alert-card .game-alert-icon { color: var(--game-alert-accent); }
+.game-alert-card .game-alert-title { color: var(--game-alert-accent); text-shadow: 0 0 12px color-mix(in srgb, var(--game-alert-accent) 35%, transparent); }
+.game-alert-card .game-confirm-actions { margin-top: 4px; }
+.game-alert-card .game-confirm-actions .confirm-btn { min-width: 140px; }
+
+/* Inline tx-hash callout for the "Purchase Failed" payment error modal. */
+.motz-tx-hash {
+  display: inline-block;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  word-break: break-all;
+  text-align: left;
+  background: rgba(8, 11, 28, 0.7);
+  border: 1px solid var(--motz-glass-border-hi);
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: var(--gold-bright);
+  max-width: 100%;
+}
+
 @keyframes gc-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes gc-pop {
   from { opacity: 0; transform: translateY(8px) scale(0.96); }

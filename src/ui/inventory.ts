@@ -9,6 +9,7 @@ import {
   SHOP_CATALOG, ShopItemDef, ShopItemId,
   fetchShopStatus, useEnergyItem,
 } from "../core/shop";
+import { alertModal } from "./confirmModal";
 
 export async function renderInventory(root: HTMLElement, onBack: () => void): Promise<void> {
   root.innerHTML = `
@@ -105,7 +106,7 @@ async function draw(root: HTMLElement): Promise<void> {
       btn.textContent = "Using…";
       const result = await useEnergyItem(id);
       if (!result.ok) {
-        alert(result.reason ?? "Failed to use item.");
+        await alertModal({ kind: "error", title: "Couldn't Use Item", message: escapeHtml(result.reason ?? "Failed to use item.") });
       }
       // Re-render to reflect new inventory count + energy pill.
       const pill = root.querySelector<HTMLElement>(".inv-energy-pill");

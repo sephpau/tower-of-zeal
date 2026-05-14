@@ -38,7 +38,7 @@ import { showBossRaidReward, BossRaidReward } from "./ui/bossRaidReward";
 import { playBgm, stopBgm, playBattleBgm } from "./core/bgm";
 import { startRun, reportFloor, endRun, abortLiveRun, reportFloorCleared, getLiveRun, fetchFloorRetryStatus, claimDefeatRefund } from "./core/leaderboard";
 import { isAllowedOnDev } from "./auth/devBuild";
-import { confirmModal } from "./ui/confirmModal";
+import { confirmModal, alertModal } from "./ui/confirmModal";
 import { playBattleStartAnimation } from "./ui/battleStartAnim";
 import { fetchAttemptsStatus, claimAttempt, consumeShopItem, rollBron, ShopItemId } from "./core/shop";
 import { renderShop } from "./ui/shop";
@@ -298,10 +298,13 @@ let replayLabel = "";  // "Spectating: IGN" string for the header
  *  through each battle in order. */
 export function playReplay(blob: ReplayBlob): void {
   if (blob.v !== REPLAY_VERSION) {
-    alert("This replay was recorded on a different game version and can't be played.");
+    void alertModal({ kind: "warning", title: "Replay Unavailable", message: "This replay was recorded on a different game version and can't be played." });
     return;
   }
-  if (!blob.battles || blob.battles.length === 0) { alert("Empty replay."); return; }
+  if (!blob.battles || blob.battles.length === 0) {
+    void alertModal({ kind: "warning", title: "Empty Replay", message: "This replay has no battles to play." });
+    return;
+  }
 
   // Stop any in-progress runs / recordings.
   abortLiveRun();
@@ -325,7 +328,10 @@ function loadReplayBattle(): boolean {
   const rb = replayPlayer.currentBattle();
   if (!rb) return false;
   const stage = getStage(rb.stageId);
-  if (!stage) { alert("Replay references an unknown stage."); return false; }
+  if (!stage) {
+    void alertModal({ kind: "error", title: "Replay Broken", message: "This replay references a stage that no longer exists." });
+    return false;
+  }
 
   const PLAYER_BY_ID = new Map(PLAYER_ROSTER.map(t => [t.id, t]));
   const players: SquadResult["players"] = [];
@@ -346,7 +352,10 @@ function loadReplayBattle(): boolean {
       skillCooldowns: m.skillCooldowns,
     };
   });
-  if (players.length === 0) { alert("Replay has no valid party."); return false; }
+  if (players.length === 0) {
+    void alertModal({ kind: "error", title: "Replay Broken", message: "This replay's party is empty or invalid." });
+    return false;
+  }
 
   // For boss-raid replays, apply the same scaling/boons that were active when
   // the run was recorded. Without this the boss is unscaled, the fight diverges
@@ -601,8 +610,8 @@ async function advanceToNextFloor(stageId: number, party: SquadResult["players"]
 
   const r = await consumeServerEnergy(1);
   if (!r.ok) {
-    if ("error" in r) alert("Couldn't reach server. Try again.");
-    else alert(`Not enough energy (need 1, have ${r.amount}).`);
+    if ("error" in r) await alertModal({ kind: "error", message: "Couldn't reach server. Try again." });
+    else await alertModal({ kind: "warning", title: "Not Enough Energy", message: `Need <strong>1</strong> energy, you have <strong>${r.amount}</strong>.` });
     return;
   }
   currentStageId = stageId;
@@ -698,13 +707,13 @@ async function onStagePicked(pick: StagePick): Promise<void> {
     showSquadSelect();
   } else if (pick.kind === "survival") {
     if (getEnergy() < SURVIVAL_ENERGY_COST) {
-      alert(`Survival Mode requires ${SURVIVAL_ENERGY_COST} energy.`);
+      await alertModal({ kind: "warning", title: "Not Enough Energy", message: `Survival Mode requires <strong>${SURVIVAL_ENERGY_COST}</strong> energy.` });
       return;
     }
     // Daily-attempt cap check (3/day, server-enforced, can't be bypassed).
     const status = await fetchAttemptsStatus("survival");
     if (status && status.remaining <= 0) {
-      alert(`You've used all ${status.max} Survival attempts for today. Resets at 8 AM PH.`);
+      await alertModal({ kind: "warning", title: "Daily Limit Reached", message: `You've used all <strong>${status.max}</strong> Survival attempts for today. Resets at <strong>8 AM PH</strong>.` });
       return;
     }
     mode = "survival";
@@ -715,12 +724,12 @@ async function onStagePicked(pick: StagePick): Promise<void> {
     showSquadSelect();
   } else { // boss_raid
     if (getEnergy() < BOSS_RAID_ENERGY_COST) {
-      alert(`Boss Raid requires ${BOSS_RAID_ENERGY_COST} energy.`);
+      await alertModal({ kind: "warning", title: "Not Enough Energy", message: `Boss Raid requires <strong>${BOSS_RAID_ENERGY_COST}</strong> energy.` });
       return;
     }
     const status = await fetchAttemptsStatus("boss_raid");
     if (status && status.remaining <= 0) {
-      alert(`You've used all ${status.max} Boss Raid attempts for today. Resets at 8 AM PH.`);
+      await alertModal({ kind: "warning", title: "Daily Limit Reached", message: `You've used all <strong>${status.max}</strong> Boss Raid attempts for today. Resets at <strong>8 AM PH</strong>.` });
       return;
     }
     mode = "boss_raid";
@@ -765,9 +774,9 @@ async function startBattleFromSquad(squad: SquadResult): Promise<void> {
   // don't burn energy on a denied run. Server returns 429 if the cap is hit.
   if (mode === "survival" || mode === "boss_raid") {
     const claim = await claimAttempt(mode);
-    if (!claim) { alert("Couldn't reach server. Try again."); return; }
+    if (!claim) { await alertModal({ kind: "error", message: "Couldn't reach server. Try again." }); return; }
     if (!claim.ok) {
-      alert(`You've used all your ${mode === "survival" ? "Survival" : "Boss Raid"} attempts for today. Resets at 8 AM PH.`);
+      await alertModal({ kind: "warning", title: "Daily Limit Reached", message: `You've used all your <strong>${mode === "survival" ? "Survival" : "Boss Raid"}</strong> attempts for today. Resets at <strong>8 AM PH</strong>.` });
       return;
     }
   }
@@ -776,8 +785,8 @@ async function startBattleFromSquad(squad: SquadResult): Promise<void> {
   // localStorage on success — no further local consume needed.
   const r = await consumeServerEnergy(cost);
   if (!r.ok) {
-    if ("error" in r) alert("Couldn't reach server to start battle. Try again.");
-    else alert(`Not enough energy (need ${cost}, have ${r.amount}).`);
+    if ("error" in r) await alertModal({ kind: "error", message: "Couldn't reach server to start battle. Try again." });
+    else await alertModal({ kind: "warning", title: "Not Enough Energy", message: `Need <strong>${cost}</strong> energy, you have <strong>${r.amount}</strong>.` });
     return;
   }
   // Fresh run begins — clear the kill tally that feeds the server's RON roll.

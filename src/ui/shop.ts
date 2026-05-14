@@ -9,7 +9,7 @@ import {
   SHOP_CATALOG, ShopItemDef, ShopItemId,
   fetchShopStatus, buyShopItem,
 } from "../core/shop";
-import { confirmModal } from "./confirmModal";
+import { confirmModal, alertModal } from "./confirmModal";
 import { loadSession, validateSession, setVerifiedPerks } from "../auth/session";
 import { payWithWallet } from "../auth/payment";
 import { pickWalletModal } from "./walletPicker";
@@ -70,9 +70,9 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
     btn.addEventListener("click", async () => {
       const def = SHOP_CATALOG.find(i => i.id === id);
       if (!def) return;
-      if (def.comingSoon) { alert("This item isn't ready yet — check back soon."); return; }
+      if (def.comingSoon) { await alertModal({ kind: "info", title: "Coming Soon", message: "This item isn't ready yet — check back soon." }); return; }
       const priceWeiStr = status.pricesWei?.[id];
-      if (!priceWeiStr) { alert("Price not available — refresh and try again."); return; }
+      if (!priceWeiStr) { await alertModal({ kind: "warning", message: "Price not available — refresh and try again." }); return; }
       const ok = await confirmModal({
         title: "Confirm Purchase",
         message: `Buy <strong>${def.name}</strong> for <strong>${def.priceLabel}</strong>?<br><br>${def.description}<br><br>💸 You'll pick a wallet next, then approve a <strong>${def.priceLabel}</strong> transfer on the <strong>Ronin network</strong>. The item is added to your Inventory once the payment is confirmed on-chain (a few seconds).`,
@@ -94,16 +94,20 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
       }
       let priceWei: bigint;
       try { priceWei = BigInt(priceWeiStr); }
-      catch { alert("Bad price format from server."); btn.disabled = false; btn.textContent = "Buy"; return; }
+      catch {
+        btn.disabled = false; btn.textContent = "Buy";
+        await alertModal({ kind: "error", message: "Bad price format from server." });
+        return;
+      }
       btn.textContent = `Open ${chosen.name}…`;
       // 2. Send the tx through the chosen wallet.
       const pay = await payWithWallet(chosen, priceWei);
       if (!pay.ok || !pay.txHash) {
-        if (pay.reason && pay.reason !== "purchase cancelled") {
-          alert(`Payment failed: ${pay.reason}`);
-        }
         btn.disabled = false;
         btn.textContent = "Buy";
+        if (pay.reason && pay.reason !== "purchase cancelled") {
+          await alertModal({ kind: "error", title: "Payment Failed", message: escapeHtml(pay.reason) });
+        }
         return;
       }
       btn.textContent = "Verifying tx…";
@@ -111,7 +115,11 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
       //    the receipt against treasury / wallet / price / used-set, then grants.
       const result = await buyShopItem(id, pay.txHash);
       if (!result.ok) {
-        alert(`${result.reason ?? "Purchase failed"}\n\nTx hash: ${pay.txHash}\n(Save this hash — your RON was sent. Contact support if the item isn't granted.)`);
+        await alertModal({
+          kind: "error",
+          title: "Purchase Failed",
+          message: `${escapeHtml(result.reason ?? "Something went wrong")}<br><br><strong>Tx hash:</strong><br><span class="motz-tx-hash">${escapeHtml(pay.txHash)}</span><br><br>Your RON was sent. <strong>Save this hash</strong> and contact support if the item isn't granted.`,
+        });
         // Re-fetch + re-render to refresh "Bought today" state.
         await renderShop(root, onBack);
         return;
