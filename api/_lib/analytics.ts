@@ -12,10 +12,12 @@
 
 import { hincrBy, hgetAll, hmget, incrBy, getNumber } from "./redis.js";
 import { readShopInventory, VOUCHER_VALUES_RON, IGN_HASH_KEY } from "./runState.js";
+import { computeWalletTotalXp } from "./progressVault.js";
 
-export const ANALYTICS_MINUTES_KEY    = "analytics:minutes";
-export const ANALYTICS_RON_SPENT_KEY  = "analytics:ron_spent";
-export const ANALYTICS_VOUCHERS_KEY   = "analytics:vouchers_acquired";
+export const ANALYTICS_MINUTES_KEY       = "analytics:minutes";
+export const ANALYTICS_RON_SPENT_KEY     = "analytics:ron_spent";          // on-chain RON only
+export const ANALYTICS_VOUCHERS_KEY      = "analytics:vouchers_acquired";  // lifetime drops + admin grants
+export const ANALYTICS_VOUCHERS_SPENT_KEY = "analytics:vouchers_spent";    // RON value of voucher-path purchases
 /** Global shop revenue — sum of all on-chain RON payments that actually moved
  *  RON to the treasury wallet. Voucher-paid purchases are NOT counted here
  *  because they consume in-game vouchers, not real RON. Displayed on the
@@ -33,12 +35,20 @@ export async function bumpMinutesPlayed(address: string, energySpent: number): P
   await hincrBy(ANALYTICS_MINUTES_KEY, address.toLowerCase(), energySpent * MINUTES_PER_ENERGY).catch(() => 0);
 }
 
-/** Add to the lifetime RON-spent counter when a shop purchase succeeds.
- *  Both the RON-tx path and the voucher path call this — vouchers are RON-
- *  denominated currency, so spending them counts as RON spent. */
+/** Add to the lifetime RON-spent counter for ON-CHAIN purchases only. The
+ *  voucher path uses bumpVouchersSpent instead so the sheet can break out
+ *  real cash inflow vs in-game voucher redemption. */
 export async function bumpRonSpent(address: string, ronAmount: number): Promise<void> {
   if (ronAmount <= 0) return;
   await hincrBy(ANALYTICS_RON_SPENT_KEY, address.toLowerCase(), Math.floor(ronAmount)).catch(() => 0);
+}
+
+/** Add to the lifetime vouchers-spent counter when a voucher-path purchase
+ *  succeeds. Recorded as RON face value (the item's price, NOT the over-pay
+ *  total — change is refunded and doesn't count). */
+export async function bumpVouchersSpent(address: string, ronAmount: number): Promise<void> {
+  if (ronAmount <= 0) return;
+  await hincrBy(ANALYTICS_VOUCHERS_SPENT_KEY, address.toLowerCase(), Math.floor(ronAmount)).catch(() => 0);
 }
 
 /** Add to the GLOBAL shop revenue counter. Called only from the on-chain
@@ -66,8 +76,16 @@ export interface WalletAnalyticsRow {
   wallet: string;
   ign: string;
   hoursOfPlaying: number;
+  /** Lifetime XP earned across every unit on this wallet — computed live
+   *  from the canonical progress vault. */
+  totalXpEarned: number;
+  /** Lifetime RON spent via on-chain Ronin txs only. */
   ronSpentOnShop: number;
+  /** Lifetime RON value of vouchers acquired from drops + admin grants. */
   ronVouchersAcquired: number;
+  /** Lifetime RON value of voucher-path shop purchases. */
+  ronVouchersSpent: number;
+  /** Current voucher RON value still sitting in inventory. */
   remainingRonVouchers: number;
 }
 
@@ -76,15 +94,17 @@ export interface WalletAnalyticsRow {
  *  so even a wallet that's never spent RON but has played minutes shows up.
  *  IGN is looked up from the existing IGN hash (legacy storage). */
 export async function buildAnalyticsExport(): Promise<WalletAnalyticsRow[]> {
-  const [minutesMap, spentMap, acquiredMap] = await Promise.all([
+  const [minutesMap, spentMap, acquiredMap, vouchersSpentMap] = await Promise.all([
     hgetAll(ANALYTICS_MINUTES_KEY),
     hgetAll(ANALYTICS_RON_SPENT_KEY),
     hgetAll(ANALYTICS_VOUCHERS_KEY),
+    hgetAll(ANALYTICS_VOUCHERS_SPENT_KEY),
   ]);
   const wallets = new Set<string>([
     ...Object.keys(minutesMap),
     ...Object.keys(spentMap),
     ...Object.keys(acquiredMap),
+    ...Object.keys(vouchersSpentMap),
   ]);
   if (wallets.size === 0) return [];
 
@@ -95,8 +115,12 @@ export async function buildAnalyticsExport(): Promise<WalletAnalyticsRow[]> {
     const minutes = Number(minutesMap[wallet] ?? 0);
     const spent   = Number(spentMap[wallet] ?? 0);
     const acquired = Number(acquiredMap[wallet] ?? 0);
-    // Live computation of remaining voucher value.
-    const inv = await readShopInventory(wallet).catch(() => null);
+    const vouchersSpent = Number(vouchersSpentMap[wallet] ?? 0);
+    // Live computation of remaining voucher value + total XP earned.
+    const [inv, totalXp] = await Promise.all([
+      readShopInventory(wallet).catch(() => null),
+      computeWalletTotalXp(wallet).catch(() => 0),
+    ]);
     let remaining = 0;
     if (inv && inv.vouchers) {
       remaining =
@@ -110,14 +134,16 @@ export async function buildAnalyticsExport(): Promise<WalletAnalyticsRow[]> {
       wallet,
       ign: igns[i] ?? "",
       hoursOfPlaying: Math.round((minutes / 60) * 100) / 100, // 2 decimals
+      totalXpEarned: totalXp,
       ronSpentOnShop: spent,
       ronVouchersAcquired: acquired,
+      ronVouchersSpent: vouchersSpent,
       remainingRonVouchers: remaining,
     } satisfies WalletAnalyticsRow;
   }));
 
-  // Sort by hours played desc — most-active wallets at the top.
-  rows.sort((a, b) => b.hoursOfPlaying - a.hoursOfPlaying);
+  // Sort by total XP earned desc — most-progressed wallets at the top.
+  rows.sort((a, b) => b.totalXpEarned - a.totalXpEarned);
   return rows;
 }
 
@@ -136,25 +162,28 @@ export async function buildAnalyticsExportBundle(): Promise<AnalyticsExportBundl
   return { rows, totalShopRevenue, generatedAt: Date.now() };
 }
 
-/** Render rows as a CSV string. RFC 4180-ish: comma-separated, double-quote
- *  escape fields containing commas/quotes/newlines, CRLF line endings. */
+/** Render rows as a CSV string. Columns mirror the user's Google Sheet exactly:
+ *  Wallet | IGN | Hours of Playing | Total XP Earned | RON Spent on Shop |
+ *  RON Vouchers Acquired | RON Vouchers Spent | Remaining RON Vouchers
+ *  RFC 4180-ish: comma-separated, double-quote escape, CRLF line endings. */
 export function rowsToCsv(rows: WalletAnalyticsRow[]): string {
-  const header = ["#", "Wallet", "IGN", "Hours of Playing", "RON Spent on Shop", "RON Vouchers Acquired", "Remaining RON Vouchers"];
+  const header = [
+    "Wallet", "IGN", "Hours of Playing", "Total XP Earned",
+    "RON Spent on Shop", "RON Vouchers Acquired", "RON Vouchers Spent",
+    "Remaining RON Vouchers",
+  ];
   const esc = (v: string | number): string => {
     const s = String(v);
     return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const lines = [header.map(esc).join(",")];
-  rows.forEach((r, i) => {
+  for (const r of rows) {
     lines.push([
-      i + 1,
-      r.wallet,
-      r.ign,
-      r.hoursOfPlaying,
-      r.ronSpentOnShop,
-      r.ronVouchersAcquired,
+      r.wallet, r.ign,
+      r.hoursOfPlaying, r.totalXpEarned,
+      r.ronSpentOnShop, r.ronVouchersAcquired, r.ronVouchersSpent,
       r.remainingRonVouchers,
     ].map(esc).join(","));
-  });
+  }
   return lines.join("\r\n");
 }

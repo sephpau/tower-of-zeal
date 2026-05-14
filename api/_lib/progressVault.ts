@@ -25,11 +25,33 @@ const MAX_LEVEL = 30;
 // Per-level XP requirements. Mirrors src/core/levels.ts XP_TABLE. Server
 // re-validates against this so a tampered client can't claim "I have 1000 XP
 // at Level 30" — Level 30 always has xp = 0 (capped).
-const XP_TABLE = [
+export const XP_TABLE = [
   16, 31, 54, 85, 128, 182, 250, 332, 432, 549,
   686, 843, 1024, 1228, 1458, 1714, 2000, 2315, 2662, 3041,
   3456, 3906, 4394, 4920, 5488, 6097, 6750, 7447, 8192,
 ];
+
+/** Sum of all XP a unit has earned over its lifetime: every full level it
+ *  has cleared (XP_TABLE[0..level-2]) plus its in-progress XP for the
+ *  current level. Used by the analytics export to surface a wallet-wide
+ *  "Total XP Earned" stat. */
+export function totalXpForUnit(level: number, xpInLevel: number): number {
+  const lv = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
+  let total = 0;
+  for (let i = 0; i < lv - 1 && i < XP_TABLE.length; i++) total += XP_TABLE[i];
+  total += Math.max(0, Math.floor(xpInLevel));
+  return total;
+}
+
+/** Sum totalXpForUnit across every unit in a wallet's progress blob. */
+export async function computeWalletTotalXp(address: string): Promise<number> {
+  const blob = await readServerProgress(address);
+  let sum = 0;
+  for (const u of Object.values(blob.units)) {
+    sum += totalXpForUnit(u.level, u.xp);
+  }
+  return sum;
+}
 
 // Whitelist of known class ids. Mirrors src/units/classes.ts. Server rejects
 // progress writes that claim an unknown class so devtools can't invent classes

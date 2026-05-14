@@ -20,7 +20,7 @@ import {
 import { validateAndSyncProgress, readServerProgress } from "../_lib/progressVault.js";
 import { verifyShopPayment, consumeTxHash, ITEM_PRICES_WEI } from "../_lib/payment.js";
 import { isSeasonHalted, setSeasonHalt, readSeasonHalt, SEASON_HALTED_RESPONSE } from "../_lib/season.js";
-import { bumpRonSpent, bumpVouchersAcquired, buildAnalyticsExport, buildAnalyticsExportBundle, rowsToCsv, bumpShopRevenue, readShopRevenue } from "../_lib/analytics.js";
+import { bumpRonSpent, bumpVouchersSpent, bumpVouchersAcquired, buildAnalyticsExport, buildAnalyticsExportBundle, rowsToCsv, bumpShopRevenue, readShopRevenue } from "../_lib/analytics.js";
 
 const MAX_PARTY_SIZE = 3;
 /** Reject replays whose battles report >MAX_PARTY_SIZE units or duplicates —
@@ -696,9 +696,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         const r = await grantTempMotzKey(address);
         locked.grantPayload = { type: "temp_motz_key", expiresAt: r.expiresAt };
       }
-      // Analytics: lifetime RON spent on shop (voucher path — counts at the
-      // item's RON price, NOT the over-pay total, because change is refunded).
-      void bumpRonSpent(address, priceRon);
+      // Analytics: lifetime RON value of vouchers spent on shop (separate
+      // counter from on-chain RON-spent so the sheet can show both lines).
+      // Records the item's RON price (NOT the over-pay total — change is
+      // refunded and doesn't count as a spend).
+      void bumpVouchersSpent(address, priceRon);
       res.status(200).json({
         ok: true,
         grant: locked.grantPayload,
