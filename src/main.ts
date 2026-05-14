@@ -17,7 +17,6 @@ import {
   isForcedClassPickPending, markForcedClassPickComplete,
   getPendingForcedStatAllocUnit, clearPendingForcedStatAllocUnit, markForcedStatAllocSeen,
 } from "./core/progress";
-import { renderForcedClassPick, renderForcedStatAlloc } from "./ui/forcedOnboarding";
 import { awardXp } from "./core/levels";
 import {
   startReplayRecording, abortRecording, finalizeReplay,
@@ -653,23 +652,38 @@ function showHome(): void {
   battle = null;
   playBgm();
   // ---- Forced onboarding gates ----
-  // After tutorial, if no unit has a class AND no unit is past Lv 1, force
-  // the player to pick a class for one of their units before reaching home.
-  // After the FIRST time any unit reaches Lv 2, force them to allocate
-  // those 4 points before reaching home (one-shot per player).
+  // After tutorial, if no unit has a class AND no unit is past Lv 1, send
+  // the player straight into the Units screen with the first unit's class
+  // picker open and back button hidden. They MUST pick a class to escape.
   if (isForcedClassPickPending()) {
-    renderForcedClassPick(root!, () => {
-      markForcedClassPickComplete();
-      showHome();
+    const firstUnit = "soda"; // Soda is the canonical starter unit
+    screen = "units";
+    renderUnitsScreen(root!, () => { /* back disabled — no-op */ }, {
+      forceClassPickFor: firstUnit,
+      hideBack: true,
+      topBanner: `<strong>🎯 Pick a class for Soda</strong> · Choose one to begin your run. The class shapes growth and unlocks starting skills.`,
+      onForcedComplete: () => {
+        markForcedClassPickComplete();
+        showHome();
+      },
     });
     return;
   }
+  // After the FIRST time any unit reaches Lv 2, send the player to the
+  // Units screen with the allocator already open on that unit and back
+  // button hidden. One-shot per player.
   const pendingAllocUnit = getPendingForcedStatAllocUnit();
   if (pendingAllocUnit) {
-    renderForcedStatAlloc(root!, pendingAllocUnit, () => {
-      markForcedStatAllocSeen();
-      clearPendingForcedStatAllocUnit();
-      showHome();
+    screen = "units";
+    renderUnitsScreen(root!, () => { /* back disabled — no-op */ }, {
+      forceStatAllocFor: pendingAllocUnit,
+      hideBack: true,
+      topBanner: `<strong>⬆ First Level Up!</strong> · Allocate your stat points to continue. Spend at least one point to lock in your build.`,
+      onForcedComplete: () => {
+        markForcedStatAllocSeen();
+        clearPendingForcedStatAllocUnit();
+        showHome();
+      },
     });
     return;
   }

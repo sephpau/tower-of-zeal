@@ -32,22 +32,52 @@ export interface RenderUnitsScreenOpts {
   /** When set, restrict the roster grid to a single template id. Used by the
    *  tutorial stats step so the player only sees the unit they just chose. */
   onlyUnitId?: string;
+  /** Forced onboarding: auto-opens the class picker for this unit and locks
+   *  the player on the screen until they pick a class. Hides back button. */
+  forceClassPickFor?: string;
+  /** Forced onboarding: auto-opens the stat allocator on this unit and locks
+   *  the player on the screen until they finalize their allocation. */
+  forceStatAllocFor?: string;
+  /** Called when the forced action completes (class chosen OR points spent).
+   *  Caller should clear its pending flag and route the player onward. */
+  onForcedComplete?: () => void;
+  /** When true, hides the back button (used by forced flows). */
+  hideBack?: boolean;
+  /** Optional banner shown above the roster grid — used by forced flows to
+   *  tell the player exactly what they need to do. */
+  topBanner?: string;
 }
 
 export function renderUnitsScreen(root: HTMLElement, onBack: () => void, opts: RenderUnitsScreenOpts = {}): void {
   const pickingFor = new Set<string>();
   const editingSkillsFor = new Set<string>();
+  // Pre-arm the class picker on the forced unit so the player lands directly
+  // on the class-pick UI inside that unit's card.
+  if (opts.forceClassPickFor) pickingFor.add(opts.forceClassPickFor);
+  // Pre-arm the allocator on the forced unit.
+  if (opts.forceStatAllocFor) {
+    allocatingFor = opts.forceStatAllocFor;
+    const cur = getProgress(opts.forceStatAllocFor);
+    allocDraft = { ...cur.customStats };
+  }
   const settings = loadSettings();
   const admin = isAdmin();
+  // In forced mode, the player only sees the target unit so there's no
+  // confusion about which card to interact with.
+  const forcedTargetId = opts.forceClassPickFor ?? opts.forceStatAllocFor;
   const roster = opts.onlyUnitId
     ? PLAYER_ROSTER.filter(t => t.id === opts.onlyUnitId)
+    : forcedTargetId
+    ? PLAYER_ROSTER.filter(t => t.id === forcedTargetId)
     : PLAYER_ROSTER;
 
   const draw = () => {
+    const backVisible = !opts.hideBack;
     root.innerHTML = `
       <div class="screen-frame units-screen">
         <div class="units-sticky-header">
-          ${topBarHtml("Units", true)}
+          ${topBarHtml("Units", backVisible)}
+          ${opts.topBanner ? `<div class="units-forced-banner">${opts.topBanner}</div>` : ""}
           ${hexLegendHtml()}
         </div>
         <div class="units-section">
@@ -59,10 +89,29 @@ export function renderUnitsScreen(root: HTMLElement, onBack: () => void, opts: R
       </div>
       ${allocatingFor ? allocModalHtml(allocatingFor) : ""}
     `;
-    root.querySelector("#back-btn")?.addEventListener("click", onBack);
+    if (backVisible) root.querySelector("#back-btn")?.addEventListener("click", onBack);
     wireOpenAlloc(root, draw);
-    wireAllocModal(root, draw);
-    wireClassPicker(root, pickingFor, settings.devUnlockClass || admin, draw);
+    wireAllocModal(root, () => {
+      // After every alloc-modal redraw, check if the player just completed
+      // the forced action — `allocatingFor` becomes null when they Save.
+      if (opts.forceStatAllocFor && allocatingFor === null && opts.onForcedComplete) {
+        opts.onForcedComplete();
+        return;
+      }
+      draw();
+    });
+    wireClassPicker(root, pickingFor, settings.devUnlockClass || admin, () => {
+      // After class picker action, if the player just confirmed a class on
+      // the forced unit, fire the complete callback and bail out.
+      if (opts.forceClassPickFor) {
+        const cur = getProgress(opts.forceClassPickFor);
+        if (cur.classId && opts.onForcedComplete) {
+          opts.onForcedComplete();
+          return;
+        }
+      }
+      draw();
+    });
     wireSkillLoadout(root, editingSkillsFor, draw);
     wireAdminControls(root, admin, draw);
   };
