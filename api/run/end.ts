@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifyRun } from "../_lib/jwt.js";
 import { getRun, saveRun, deleteRun, submitToLeaderboard, MIN_AVG_FLOOR_MS, sanitizeIgn, setIgnIfAllowed, syncTopReplays } from "../_lib/runState.js";
+import { isSeasonHalted, SEASON_HALTED_RESPONSE } from "../_lib/season.js";
 
 const MAX_PARTY_SIZE = 3;
 
@@ -47,6 +48,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   if (payload.runId !== runId) { res.status(401).json({ error: "token mismatch" }); return; }
 
   try {
+    // Season-halt gate — block all leaderboard submissions during off-season
+    // so the LB freezes the moment admin presses Halt. The run already
+    // happened, so its state is preserved — the player just can't submit
+    // it for ranking until the next season opens.
+    if (await isSeasonHalted()) {
+      res.status(SEASON_HALTED_RESPONSE.status).json(SEASON_HALTED_RESPONSE.body);
+      return;
+    }
     const state = await getRun(runId);
     if (!state) { res.status(404).json({ error: "no run" }); return; }
     if (state.address.toLowerCase() !== payload.address.toLowerCase()) { res.status(401).json({ error: "address mismatch" }); return; }

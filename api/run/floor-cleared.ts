@@ -780,6 +780,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     }
 
     // Default: clear event
+    // Season-halt gate — a halted season blocks XP cap bumps + LB submissions
+    // alongside run starts, so a player can't accumulate during off-season.
+    if (await isSeasonHalted()) {
+      res.status(SEASON_HALTED_RESPONSE.status).json(SEASON_HALTED_RESPONSE.body);
+      return;
+    }
     const dailyMul = await getCurrentMultiplier(address).catch(() => 1.0);
     const cap = await bumpXpCap(address, XP_CAP_PER_FLOOR.floor * dailyMul);
 

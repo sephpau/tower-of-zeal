@@ -108,6 +108,15 @@ export async function incrBy(key: string, amount: number): Promise<number> {
   return await call(["INCRBY", key, Math.floor(amount)]) as number;
 }
 
+/** Increment a counter by `amount` and ensure a TTL is set. We refresh the
+ *  TTL each call — the caller is expected to pass the same boundary-derived
+ *  TTL throughout the day, so this is idempotent for daily-rolling counters. */
+export async function incrByWithExpire(key: string, amount: number, ttlSeconds: number): Promise<number> {
+  const n = await call(["INCRBY", key, Math.floor(amount)]) as number;
+  await call(["EXPIRE", key, ttlSeconds]);
+  return n;
+}
+
 export async function getNumber(key: string): Promise<number> {
   const r = await call(["GET", key]);
   if (typeof r !== "string") return 0;

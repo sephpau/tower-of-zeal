@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifyRun } from "../_lib/jwt.js";
 import { getRun, saveRun, MAX_FLOOR, bumpXpCap, XP_CAP_PER_FLOOR } from "../_lib/runState.js";
 import { getCurrentMultiplier } from "../_lib/daily.js";
+import { isSeasonHalted, SEASON_HALTED_RESPONSE } from "../_lib/season.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== "POST") { res.status(405).json({ error: "method" }); return; }
@@ -20,6 +21,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   if (payload.runId !== runId) { res.status(401).json({ error: "token mismatch" }); return; }
 
   try {
+    if (await isSeasonHalted()) {
+      res.status(SEASON_HALTED_RESPONSE.status).json(SEASON_HALTED_RESPONSE.body);
+      return;
+    }
     const state = await getRun(runId);
     if (!state) { res.status(404).json({ error: "no run" }); return; }
     if (state.status !== "live") { res.status(409).json({ error: "run ended" }); return; }

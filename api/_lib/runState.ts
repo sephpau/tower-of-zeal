@@ -1,4 +1,4 @@
-import { getJson, setJson, del, zaddGt, zaddLt, zrangeWithScores, zrevrank, zrevrange, incrWithExpire, hset, hmget, incrBy, getNumber, isPrefixedEnvironment, scanAllPrefixed, delManyRaw } from "./redis.js";
+import { getJson, setJson, del, zaddGt, zaddLt, zrangeWithScores, zrevrank, zrevrange, incrWithExpire, hset, hmget, incrBy, incrByWithExpire, getNumber, isPrefixedEnvironment, scanAllPrefixed, delManyRaw } from "./redis.js";
 
 // ---- Admin: leaderboard resets ----
 export type AdminResetScope = "survival" | "bossraid" | "we" | "conquer";
@@ -340,6 +340,36 @@ export const MAX_KILLS_PER_ROLL = 50;
 export const MAX_BOSS_KILLS_PER_ROLL = 13;     // survival has 13 boss floors max
 export const MAX_WORLD_ENDER_KILLS_PER_ROLL = 1; // there's exactly one
 
+/** Daily ceiling on cumulative kills credited to bron rolls. Without this the
+ *  per-call cap is meaningless — a script could call bron_roll N times per
+ *  PH-day. Even with max 3 boss-raid attempts (3×13=39 bosses), 3 survival
+ *  runs (~3×50=150 mobs), and 50 campaign floors (~50×30=1500 mobs + ~10 bosses
+ *  + 1 WE), a legit player tops out around 1700 mobs / 50 bosses / 1 WE per
+ *  day. We give 2× headroom so streaks of fast clears don't trip it. */
+export const MAX_KILLS_PER_DAY = 3500;
+export const MAX_BOSS_KILLS_PER_DAY = 100;
+export const MAX_WORLD_ENDER_KILLS_PER_DAY = 4;
+function bronRollDailyKey(address: string, scope: "mob" | "boss" | "we"): string {
+  return `bronroll:${scope}:${address.toLowerCase()}:${phDayBoundary()}`;
+}
+async function readBronRollUsed(address: string): Promise<{ mob: number; boss: number; we: number }> {
+  const [m, b, w] = await Promise.all([
+    getNumber(bronRollDailyKey(address, "mob")),
+    getNumber(bronRollDailyKey(address, "boss")),
+    getNumber(bronRollDailyKey(address, "we")),
+  ]);
+  return { mob: m, boss: b, we: w };
+}
+async function addBronRollUsed(address: string, mob: number, boss: number, we: number): Promise<void> {
+  const remainingMs = phDayBoundary() + 24 * 60 * 60 * 1000 - Date.now();
+  const ttl = Math.max(60, Math.floor(remainingMs / 1000));
+  const ops: Promise<number>[] = [];
+  if (mob > 0)  ops.push(incrByWithExpire(bronRollDailyKey(address, "mob"),  mob,  ttl));
+  if (boss > 0) ops.push(incrByWithExpire(bronRollDailyKey(address, "boss"), boss, ttl));
+  if (we > 0)   ops.push(incrByWithExpire(bronRollDailyKey(address, "we"),   we,   ttl));
+  await Promise.all(ops);
+}
+
 /** Drop tiers — chance / amount paired. Rarest first so we break on first hit. */
 const BRON_DROP_TABLE: { tier: "t1" | "t2" | "t3" | "t4" | "t5"; chance: number; amount: number }[] = [
   { tier: "t5", chance: 0.0000016, amount: 200 },
@@ -380,9 +410,17 @@ export async function rollBronForKills(
   bossKills: number,
   worldEnderKills: number,
 ): Promise<BronRollResult> {
-  const safeMob = Math.max(0, Math.min(MAX_KILLS_PER_ROLL, Math.floor(kills)));
-  const safeBoss = Math.max(0, Math.min(MAX_BOSS_KILLS_PER_ROLL, Math.floor(bossKills)));
-  const safeWE = Math.max(0, Math.min(MAX_WORLD_ENDER_KILLS_PER_ROLL, Math.floor(worldEnderKills)));
+  // Per-call cap first (per-floor / per-run sanity bound).
+  let safeMob  = Math.max(0, Math.min(MAX_KILLS_PER_ROLL, Math.floor(kills)));
+  let safeBoss = Math.max(0, Math.min(MAX_BOSS_KILLS_PER_ROLL, Math.floor(bossKills)));
+  let safeWE   = Math.max(0, Math.min(MAX_WORLD_ENDER_KILLS_PER_ROLL, Math.floor(worldEnderKills)));
+  // Per-day cap second (anti-scripted-spam). We TRIM the over-cap portion
+  // rather than reject — that way a player who hits the cap mid-day still
+  // gets credit for the partial roll and the rest is silently ignored.
+  const used = await readBronRollUsed(address);
+  safeMob  = Math.max(0, Math.min(safeMob,  MAX_KILLS_PER_DAY        - used.mob));
+  safeBoss = Math.max(0, Math.min(safeBoss, MAX_BOSS_KILLS_PER_DAY   - used.boss));
+  safeWE   = Math.max(0, Math.min(safeWE,   MAX_WORLD_ENDER_KILLS_PER_DAY - used.we));
   const drops = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, total: 0 };
 
   function rollOnce(mul: number): void {
@@ -399,6 +437,10 @@ export async function rollBronForKills(
   for (let i = 0; i < safeMob; i++)  rollOnce(1.0);
   for (let i = 0; i < safeBoss; i++) rollOnce(BOSS_DROP_MULTIPLIER);
   for (let i = 0; i < safeWE; i++)   rollOnce(WORLD_ENDER_DROP_MULTIPLIER);
+
+  // Atomically record the kills consumed against the daily budget BEFORE
+  // depositing vouchers, so a concurrent call sees the updated cap usage.
+  await addBronRollUsed(address, safeMob, safeBoss, safeWE);
 
   // Deposit vouchers into the wallet's shop inventory (single write).
   if (drops.t1 + drops.t2 + drops.t3 + drops.t4 + drops.t5 > 0) {
