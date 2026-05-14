@@ -148,6 +148,26 @@ export async function buyShopItem(item: ShopItemId, txHash: `0x${string}`): Prom
 
 export interface VoucherSpend { t1?: number; t2?: number; t3?: number; t4?: number; t5?: number; }
 
+/** Preview-only change computation — the server runs the same greedy
+ *  largest-first algorithm with its own constants, and is the sole authority
+ *  on what the player actually receives. We mirror it here so the confirm
+ *  modal can show what to expect; a tampered client value just produces a
+ *  wrong preview, never a wrong actual refund. */
+export function previewChange(
+  excessRon: number,
+  values: { t1: number; t2: number; t3: number; t4: number; t5: number },
+): { t1: number; t2: number; t3: number; t4: number; t5: number; total: number } {
+  const out = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, total: 0 };
+  if (excessRon <= 0) return out;
+  let rem = excessRon;
+  for (const t of ["t5", "t4", "t3", "t2", "t1"] as const) {
+    const take = Math.floor(rem / values[t]);
+    if (take > 0) { out[t] = take; rem -= take * values[t]; }
+  }
+  out.total = excessRon - rem; // = excessRon for our denominations
+  return out;
+}
+
 /** Buy a shop item using RON vouchers from inventory (no wallet signature).
  *  Server validates the player actually owns the submitted vouchers and that
  *  their total face value covers the item price — devtool tampering on the

@@ -552,14 +552,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       }
 
-      // Deduct vouchers from inventory and grant the item in ONE write. Excess
-      // RON value above the price is forfeited (no change is given — players
-      // should pick the most efficient combination of tiers themselves).
+      // Deduct vouchers from inventory.
       inv.vouchers.t1 = owned.t1 - spend.t1;
       inv.vouchers.t2 = owned.t2 - spend.t2;
       inv.vouchers.t3 = owned.t3 - spend.t3;
       inv.vouchers.t4 = owned.t4 - spend.t4;
       inv.vouchers.t5 = owned.t5 - spend.t5;
+
+      // ---- CHANGE MAKING (server-authoritative) ----
+      // Excess voucher value above the item price is refunded as smaller-tier
+      // vouchers using greedy largest-first (t5 → t1). Every input here is
+      // server-trusted: the price comes from ITEM_PRICES_WEI, the tier values
+      // from VOUCHER_VALUES_RON, the spend totals from the just-validated
+      // owned-counts check. No client field influences the change amount.
+      //
+      // Note: t5 IS eligible for change (covers the corner case where someone
+      // pays 2× t5 for a 5 RON item — change = 395, needs 1× t5 + smaller).
+      // The greedy algorithm is exact for our denominations because each tier
+      // value (5, 10, 20, 50, 200) is a positive integer multiple of the next
+      // smaller one OR fully expressible from smaller tiers (50 = 2×20 + 1×10).
+      const changeRon = totalSpendRon - priceRon;
+      const changeOut = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0 };
+      if (changeRon > 0) {
+        let rem = changeRon;
+        for (const t of ["t5", "t4", "t3", "t2", "t1"] as const) {
+          const v = VOUCHER_VALUES_RON[t];
+          const take = Math.floor(rem / v);
+          if (take > 0) {
+            changeOut[t] = take;
+            rem -= take * v;
+          }
+        }
+        // Credit change back into inventory.
+        inv.vouchers.t1 += changeOut.t1;
+        inv.vouchers.t2 += changeOut.t2;
+        inv.vouchers.t3 += changeOut.t3;
+        inv.vouchers.t4 += changeOut.t4;
+        inv.vouchers.t5 += changeOut.t5;
+      }
 
       // Apply the grant in the SAME inventory blob we'll write below, so the
       // voucher deduction and the item grant happen as one atomic write.
@@ -592,6 +622,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         spent: spend,
         spentRon: totalSpendRon,
         priceRon,
+        change: changeOut,
+        changeRon,
         vouchers: inv.vouchers,
       });
       return;

@@ -8,7 +8,7 @@ import { getEnergy, ENERGY_MAX } from "../core/energy";
 import {
   SHOP_CATALOG, ShopItemDef, ShopItemId,
   fetchShopStatus, buyShopItem,
-  buyShopItemWithVouchers, pickVouchersToSpend,
+  buyShopItemWithVouchers, pickVouchersToSpend, previewChange,
   type ShopStatus,
 } from "../core/shop";
 import { confirmModal, alertModal } from "./confirmModal";
@@ -218,9 +218,17 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
         (spend.t4 ?? 0) * status.voucherValuesRon.t4 +
         (spend.t5 ?? 0) * status.voucherValuesRon.t5;
       const wasted = totalSpent - priceRon;
-      const wasteLine = wasted > 0
-        ? `<br><br>⚠ This combination spends <strong>${totalSpent} RON</strong> in vouchers — <strong>${wasted} RON of excess value is forfeited</strong> (no change is given). This is the cheapest combo your current inventory supports.`
-        : `<br><br>✓ Exact cover — no value wasted.`;
+      let wasteLine: string;
+      if (wasted > 0) {
+        const change = previewChange(wasted, status.voucherValuesRon);
+        const changeLabel = (["t5", "t4", "t3", "t2", "t1"] as const)
+          .filter(t => change[t] > 0)
+          .map(t => `${change[t]} × Tier ${t.slice(1)} (${status.voucherValuesRon[t]} RON)`)
+          .join(" + ") || "—";
+        wasteLine = `<br><br>You'll spend <strong>${totalSpent} RON</strong> total and receive <strong>${wasted} RON in change</strong>: <strong>${changeLabel}</strong>. (Change is credited as smaller-tier vouchers, largest first.)`;
+      } else {
+        wasteLine = `<br><br>✓ Exact cover — no change needed.`;
+      }
       const ok = await confirmModal({
         title: "Pay With RON Vouchers?",
         message: `Buy <strong>${def.name}</strong> for <strong>${priceRon} RON</strong>?<br><br>Spend: <strong>${spendLabel}</strong>${wasteLine}<br><br>No wallet signature required — vouchers are deducted server-side and the item lands in your Inventory immediately.`,
