@@ -3,7 +3,7 @@ import { topBarHtml } from "./settings";
 import { loadSession } from "../auth/session";
 import { isAdmin } from "../core/admin";
 import { ReplayBlob } from "../core/replay";
-import { confirmModal } from "./confirmModal";
+import { confirmModal, alertModal } from "./confirmModal";
 
 export function renderLeaderboard(root: HTMLElement, onBack: () => void, onPlayReplay?: (blob: ReplayBlob) => void): void {
   const myAddr = loadSession()?.address.toLowerCase() ?? null;
@@ -77,7 +77,11 @@ export function renderLeaderboard(root: HTMLElement, onBack: () => void, onPlayR
         if (r.ok) {
           renderLeaderboard(root, onBack, onPlayReplay);
         } else {
-          alert(`Reset failed: ${r.error ?? "unknown"}`);
+          await alertModal({
+            kind: "error",
+            title: "Reset Failed",
+            message: `Couldn't reset the leaderboard: ${r.error ?? "unknown error"}`,
+          });
         }
       });
     });

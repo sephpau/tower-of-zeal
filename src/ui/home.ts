@@ -149,7 +149,11 @@ function renderDailyWidget(slot: HTMLElement, status: DailyStatus): void {
     const result = await claimDailyBonus();
     if (!result) {
       if (btn) btn.disabled = false;
-      alert("Couldn't reach server. Try again.");
+      await alertModal({
+        kind: "error",
+        title: "Couldn't Reach Server",
+        message: "We couldn't claim your daily bonus right now. Check your connection and try again.",
+      });
       return;
     }
     if (!result.ok) {

@@ -204,12 +204,18 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
 
   root.querySelector<HTMLButtonElement>("#admin-add-energy")?.addEventListener("click", async () => {
     const amt = await adminGrantServerEnergy(5);
-    if (amt === null) { addEnergy(5); alert("Server unreachable — local-only +5 (won't persist)."); }
+    if (amt === null) {
+      addEnergy(5);
+      await alertModal({ kind: "warning", title: "Server Unreachable", message: "Granted <strong>+5 energy locally only</strong> — this won't persist across reloads." });
+    }
     onClose(); renderSettings(root, onClose);
   });
   root.querySelector<HTMLButtonElement>("#admin-fill-energy")?.addEventListener("click", async () => {
     const amt = await adminFillServerEnergy();
-    if (amt === null) { addEnergy(ENERGY_MAX); alert("Server unreachable — local-only fill (won't persist)."); }
+    if (amt === null) {
+      addEnergy(ENERGY_MAX);
+      await alertModal({ kind: "warning", title: "Server Unreachable", message: "Filled energy <strong>locally only</strong> — this won't persist across reloads." });
+    }
     onClose(); renderSettings(root, onClose);
   });
   root.querySelector<HTMLButtonElement>("#admin-wipe-dev")?.addEventListener("click", async () => {
@@ -223,7 +229,7 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
     if (!ok) return;
     const r = await adminWipeDevServerData();
     if (!r.ok) {
-      alert(`Wipe failed: ${r.error ?? "unknown"}`);
+      await alertModal({ kind: "error", title: "Wipe Failed", message: `Server returned: ${r.error ?? "unknown error"}` });
       return;
     }
     // Also nuke localStorage so the current player isn't left with stale
@@ -231,7 +237,11 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
     // empty server.
     try { localStorage.clear(); } catch { /* ignore */ }
     clearSession();
-    alert(`Dev wipe complete — scanned ${r.scanned}, deleted ${r.deleted} keys. Reloading…`);
+    await alertModal({
+      kind: "success",
+      title: "Dev Wipe Complete",
+      message: `Scanned <strong>${r.scanned}</strong> keys, deleted <strong>${r.deleted}</strong>. Reloading now.`,
+    });
     location.reload();
   });
 
@@ -288,9 +298,12 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
     await alertModal({ kind: "success", title: "Season Resumed", message: "Runs are live again." });
   });
 
-  root.querySelector<HTMLButtonElement>("#link-wallet")?.addEventListener("click", () => {
+  root.querySelector<HTMLButtonElement>("#link-wallet")?.addEventListener("click", async () => {
     const v = root.querySelector<HTMLInputElement>("#setting-wallet")?.value?.trim() || "";
-    alert(v ? `Wallet ${v.slice(0, 10)}… linked (placeholder).` : "Paste an address first.");
+    await alertModal(v
+      ? { kind: "info", title: "Wallet Linked", message: `Wallet <strong>${v.slice(0, 10)}…</strong> linked (placeholder).` }
+      : { kind: "warning", title: "No Address", message: "Paste an address first." }
+    );
   });
 
   // ---- Wallet session management ----

@@ -9,7 +9,7 @@ import { xpToNext, MAX_LEVEL } from "../core/levels";
 import { CLASS_SKILLS, CHARACTER_SKILLS, getSkill } from "../skills/registry";
 import { isAdmin } from "../core/admin";
 import { portraitInner, capeHtml, isUnitLocked } from "../units/art";
-import { confirmModal } from "./confirmModal";
+import { confirmModal, alertModal } from "./confirmModal";
 
 const LORE: Record<string, string> = {
   soda: "A fizzy elemental from the spring. Said to fight harder when shaken.",
@@ -459,7 +459,11 @@ function wireSkillLoadout(root: HTMLElement, editing: Set<string>, redraw: () =>
       if (cb.checked) {
         if (equipped.size >= MAX_EQUIPPED_SKILLS) {
           cb.checked = false;
-          alert(`Max ${MAX_EQUIPPED_SKILLS} skills.`);
+          void alertModal({
+            kind: "warning",
+            title: "Loadout Full",
+            message: `You can equip at most <strong>${MAX_EQUIPPED_SKILLS} skills</strong>. Uncheck one you're already using to free a slot.`,
+          });
           return;
         }
         equipped.add(sid);
