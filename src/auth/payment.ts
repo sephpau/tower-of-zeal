@@ -2,12 +2,11 @@
 // Works with any EIP-1193 injected provider (MetaMask, Coinbase Wallet,
 // Rabby, Ronin Wallet, Trust, etc.) that holds RON on the Ronin network.
 //
-// Flow:
-//   1. Detect injected wallet (window.ethereum)
-//   2. Request accounts (wallet popup if not yet connected)
-//   3. Ensure wallet is on Ronin chain (id 2020) — auto-switch or auto-add if needed
-//   4. eth_sendTransaction with value = priceWei, to = TREASURY_WALLET
-//   5. Return the tx hash → server verifies receipt on-chain before granting
+// Detection chain (in order):
+//   1. window.ronin                — Ronin Wallet's primary injection
+//   2. window.ethereum.providers   — multi-wallet hub (EIP-5749 / "any wallet" pattern)
+//   3. window.ethereum             — single-wallet legacy injection
+//   4. tanto-connect fallback      — last-resort handshake via @sky-mavis SDK
 //
 // The actual on-chain inclusion is awaited by the SERVER (3-block confirmation
 // check), so we don't block the UI here. Returning a tx hash is sufficient.
@@ -19,18 +18,20 @@ const RONIN_CHAIN_ID_HEX = "0x7e4"; // 2020 in hex
 
 interface EthereumProvider {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-  // Wallet-specific feature flags (informational, not required).
+  // Multi-wallet hub: when present, the "real" providers live here.
+  providers?: EthereumProvider[];
+  // Wallet-specific feature flags (informational).
   isMetaMask?: boolean;
   isRonin?: boolean;
   isCoinbaseWallet?: boolean;
   isRabby?: boolean;
 }
 
-// Declare the injected provider hook globally without colliding with the rest
-// of the TS lib types.
+// Declare the injected provider hooks globally without colliding with TS lib types.
 declare global {
   interface Window {
     ethereum?: EthereumProvider;
+    ronin?: { provider?: EthereumProvider } | EthereumProvider;
   }
 }
 
@@ -40,9 +41,48 @@ export interface PaymentResult {
   reason?: string;
 }
 
-function detectWallet(): EthereumProvider | null {
+/** Wait briefly for late-injected providers — some wallets inject after the
+ *  page's `load` event. 800ms is enough for MetaMask / Ronin Wallet on
+ *  cold loads without making the user wait noticeably. */
+async function waitForProvider(maxMs = 800): Promise<EthereumProvider | null> {
+  const start = Date.now();
+  while (Date.now() - start < maxMs) {
+    const p = detectProviderSync();
+    if (p) return p;
+    await new Promise(res => setTimeout(res, 80));
+  }
+  return detectProviderSync();
+}
+
+function detectProviderSync(): EthereumProvider | null {
   if (typeof window === "undefined") return null;
-  return window.ethereum ?? null;
+
+  // 1. Ronin Wallet exposes `window.ronin` (sometimes with `.provider`).
+  const r = window.ronin;
+  if (r) {
+    if (typeof (r as { request?: unknown }).request === "function") {
+      return r as EthereumProvider;
+    }
+    if ((r as { provider?: EthereumProvider }).provider) {
+      return (r as { provider: EthereumProvider }).provider;
+    }
+  }
+
+  // 2. Multi-wallet hub via window.ethereum.providers — prefer Ronin then MetaMask.
+  const eth = window.ethereum;
+  if (eth) {
+    if (Array.isArray(eth.providers) && eth.providers.length > 0) {
+      const ronin = eth.providers.find(p => p.isRonin);
+      if (ronin) return ronin;
+      const mm = eth.providers.find(p => p.isMetaMask);
+      if (mm) return mm;
+      return eth.providers[0];
+    }
+    // 3. Single injection.
+    return eth;
+  }
+
+  return null;
 }
 
 /** Make sure the connected wallet is on Ronin mainnet. If it isn't, ask the
@@ -105,12 +145,35 @@ async function ensureRoninChain(provider: EthereumProvider): Promise<{ ok: true 
   }
 }
 
+/** Last-resort wallet handshake using the tanto-connect SDK. This is the same
+ *  path the sign-in flow uses, so a logged-in player is guaranteed to be able
+ *  to hit it even if window.ethereum / window.ronin haven't been picked up. */
+async function getProviderViaTanto(): Promise<EthereumProvider | null> {
+  try {
+    const { requestRoninWalletConnector } = await import("@sky-mavis/tanto-connect");
+    const connector = await requestRoninWalletConnector();
+    await connector.connect(RONIN_CHAIN_ID_DEC);
+    const provider = await connector.getProvider();
+    return (provider as unknown as EthereumProvider) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Open the user's wallet, make sure it's on Ronin, then ask them to send
  *  `priceWei` RON to the treasury. Returns the tx hash on success. */
 export async function payForItem(priceWei: bigint): Promise<PaymentResult> {
-  const provider = detectWallet();
+  let provider = await waitForProvider();
+  // Fallback to the tanto-connect path for Ronin Wallet users whose extension
+  // hasn't injected window.ronin / window.ethereum yet.
   if (!provider) {
-    return { ok: false, reason: "no Web3 wallet detected — install MetaMask, Ronin Wallet, or any Ronin-compatible wallet" };
+    provider = await getProviderViaTanto();
+  }
+  if (!provider) {
+    return {
+      ok: false,
+      reason: "no wallet detected — install Ronin Wallet, MetaMask, or any Ronin-compatible wallet, then refresh the page",
+    };
   }
 
   // 1. Request accounts (this opens the wallet popup the first time).
