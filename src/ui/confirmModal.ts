@@ -138,3 +138,67 @@ function alertGlyph(kind: NonNullable<AlertOptions["kind"]>): string {
     case "info":    return "ⓘ";
   }
 }
+
+export interface PromptOptions {
+  title?: string;
+  message: string;
+  placeholder?: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  danger?: boolean;
+}
+
+/** Game-styled drop-in replacement for window.prompt. Used by destructive
+ *  admin actions where we need the user to type a phrase verbatim before
+ *  proceeding. Resolves to the entered string on confirm, or null on
+ *  cancel / Escape / backdrop click. */
+export function promptModal(opts: PromptOptions): Promise<string | null> {
+  const {
+    title = "Type to Confirm",
+    message,
+    placeholder = "",
+    confirmLabel = "Confirm",
+    cancelLabel = "Cancel",
+    danger = false,
+  } = opts;
+
+  return new Promise<string | null>(resolve => {
+    document.querySelectorAll(".game-confirm-overlay").forEach(el => el.remove());
+
+    const overlay = document.createElement("div");
+    overlay.className = "game-confirm-overlay";
+    overlay.innerHTML = `
+      <div class="game-confirm-card" role="dialog" aria-modal="true" aria-labelledby="game-prompt-title">
+        <div class="game-confirm-title" id="game-prompt-title">${escapeText(title)}</div>
+        <div class="game-confirm-body">${message}</div>
+        <input class="game-prompt-input" id="game-prompt-input" type="text" placeholder="${escapeText(placeholder)}" autocomplete="off" spellcheck="false" />
+        <div class="game-confirm-actions">
+          <button class="confirm-btn ghost-btn game-confirm-cancel" type="button">${escapeText(cancelLabel)}</button>
+          <button class="confirm-btn ${danger ? "danger-btn" : ""} game-confirm-ok" type="button">${escapeText(confirmLabel)}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const input = overlay.querySelector<HTMLInputElement>("#game-prompt-input")!;
+
+    const close = (result: string | null): void => {
+      overlay.remove();
+      document.removeEventListener("keydown", onKey);
+      resolve(result);
+    };
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") close(null);
+      else if (e.key === "Enter") close(input.value);
+    };
+
+    overlay.querySelector<HTMLButtonElement>(".game-confirm-ok")!.addEventListener("click", () => close(input.value));
+    overlay.querySelector<HTMLButtonElement>(".game-confirm-cancel")!.addEventListener("click", () => close(null));
+    overlay.addEventListener("click", e => {
+      if (e.target === overlay) close(null);
+    });
+    document.addEventListener("keydown", onKey);
+
+    setTimeout(() => input.focus(), 0);
+  });
+}

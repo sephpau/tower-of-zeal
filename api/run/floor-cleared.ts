@@ -6,7 +6,7 @@ import {
   adminClearAllLeaderboards, adminClearLeaderboard, AdminResetScope,
   recordFloorModeClear,
   saveReplayBlob, loadReplayBlob,
-  adminWipeDevData,
+  adminWipeDevData, adminWipeAllData,
   readAttempts, bumpAttempts, attemptsCap,
   readShopInventory, writeShopInventory, mutateShopInventory,
   readBoughtToday, markBoughtToday, consumeBuff,
@@ -119,6 +119,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     try {
       const keys = await adminClearLeaderboard(scope as AdminResetScope);
       res.status(200).json({ ok: true, cleared: keys });
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+    }
+    return;
+  }
+  if (op === "admin_wipe_all_data") {
+    // Production wipe — admin-only AND requires a magic confirmation token
+    // in the body to prevent accidental fires from devtools / replay. Wipes
+    // every known game-related key prefix in Redis. The client UI guards
+    // this with 3 confirmation modals before sending.
+    if (!isAdmin(address)) { res.status(403).json({ error: "admin only" }); return; }
+    const confirm = typeof (req.body as { confirm?: unknown }).confirm === "string"
+      ? (req.body as { confirm: string }).confirm : "";
+    if (confirm !== "WIPE EVERYTHING NOW") {
+      res.status(400).json({ error: "missing or wrong confirm token" }); return;
+    }
+    try {
+      const r = await adminWipeAllData();
+      res.status(200).json({ ok: true, scanned: r.scanned, deleted: r.deleted, patternHits: r.patternHits });
     } catch (e) {
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
     }

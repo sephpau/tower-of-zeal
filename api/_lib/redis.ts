@@ -206,6 +206,31 @@ export function isPrefixedEnvironment(): boolean {
  *  the MATCH pattern) and return every matching key. Used for the dev wipe
  *  operation. NOTE: bypasses withPrefix() because SCAN's key-of-interest is
  *  in MATCH, not at args[1] (which is the cursor). */
+/** SCAN every key matching `pattern`. Pages through SCAN cursors with a
+ *  safety cap of 1000 iterations × 500 = 500k keys. Used by destructive
+ *  admin ops to enumerate the keyspace before deleting. */
+export async function scanAllByPattern(pattern: string): Promise<string[]> {
+  const all: string[] = [];
+  let cursor = "0";
+  for (let i = 0; i < 1000; i++) {
+    const args = ["SCAN", cursor, "MATCH", pattern, "COUNT", "500"];
+    const r = await fetch(URL!, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify(args),
+    });
+    if (!r.ok) throw new Error(`upstash SCAN ${r.status}: ${await r.text()}`);
+    const data = await r.json() as { result?: [string, string[]]; error?: string };
+    if (data.error) throw new Error(`upstash SCAN: ${data.error}`);
+    if (!data.result || !Array.isArray(data.result)) break;
+    const [nextCursor, batch] = data.result;
+    for (const k of batch) all.push(k);
+    cursor = String(nextCursor);
+    if (cursor === "0") break;
+  }
+  return all;
+}
+
 export async function scanAllPrefixed(): Promise<string[]> {
   if (!KEY_PREFIX) return [];
   const pattern = `${KEY_PREFIX}*`;

@@ -3,10 +3,10 @@ import { addEnergy, getEnergy, ENERGY_MAX, msUntilNextRefill } from "../core/ene
 import { isAdmin } from "../core/admin";
 import { scopedKey } from "../auth/scope";
 import { saveServerIgn, formatCooldown } from "../auth/ign";
-import { adminGrantServerEnergy, adminFillServerEnergy, adminWipeDevServerData } from "../auth/energyApi";
+import { adminGrantServerEnergy, adminFillServerEnergy, adminWipeAllProdData } from "../auth/energyApi";
 import { fetchSeasonStatus, adminSetSeasonHalt, setCachedSeasonStatus } from "../core/season";
 import { isDevBuild } from "../auth/devBuild";
-import { confirmModal, alertModal } from "./confirmModal";
+import { confirmModal, alertModal, promptModal } from "./confirmModal";
 import { clearSession } from "../auth/session";
 import { getSfxVolume, setSfxVolume, sfx } from "../core/audio";
 import { getBgmVolume, setBgmVolume } from "../core/bgm";
@@ -117,10 +117,10 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
               <input type="checkbox" id="setting-dev-class" ${s.devUnlockClass ? "checked" : ""} />
               <span>Allow class re-pick anytime</span>
             </label>
-            ${isDevBuild() ? `
-              <div class="admin-row" style="margin-top: 8px;">
-                <span class="admin-info">⚠ Dev build only — wipes EVERY wallet's data on this dev environment.</span>
-                <button class="ghost-btn" id="admin-wipe-dev" type="button" style="border-color:#ff5a6b;color:#ff5a6b;">Wipe All Dev Data</button>
+            ${!isDevBuild() ? `
+              <div class="admin-row admin-wipe-prod-row" style="margin-top: 8px; flex-direction: column; align-items: flex-start; gap: 4px;">
+                <span class="admin-info" style="color:#ff5a6b;">☠ <strong>PRODUCTION WIPE</strong> — irreversibly deletes EVERY wallet's progress, energy, vouchers, leaderboards, shop inventory, run state, and analytics. Three confirmations required.</span>
+                <button class="ghost-btn admin-wipe-prod-btn" id="admin-wipe-prod" type="button">☠ Wipe ALL Production Data</button>
               </div>
             ` : ""}
             <div class="admin-row" style="margin-top: 8px; flex-direction: column; align-items: flex-start; gap: 6px;">
@@ -218,29 +218,62 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
     }
     onClose(); renderSettings(root, onClose);
   });
-  root.querySelector<HTMLButtonElement>("#admin-wipe-dev")?.addEventListener("click", async () => {
-    const ok = await confirmModal({
-      title: "Wipe All Dev Data?",
-      message: `This deletes EVERY wallet's run / energy / leaderboard / replay / progress entry from the dev Redis (KEY_PREFIX=dev:).<br><br>Live data is untouched. After the wipe, the page will reload — you'll need to sign in again.`,
+  // ---- PRODUCTION wipe (main builds only) ----
+  // Three-layer confirmation gauntlet. Each layer escalates the consequences
+  // so the admin can't button-mash through it. The final layer asks the
+  // admin to type a phrase verbatim — no accidental confirms possible.
+  root.querySelector<HTMLButtonElement>("#admin-wipe-prod")?.addEventListener("click", async () => {
+    // Layer 1: scary preamble + admit it's a real prod wipe.
+    const ok1 = await confirmModal({
+      title: "☠ Wipe ALL Production Data?",
+      message: `This <strong>permanently and irreversibly</strong> deletes:<br>
+        • Every wallet's level / XP / stats / class<br>
+        • Every wallet's energy / inventory / vouchers<br>
+        • All leaderboards, replays, and conqueror trophies<br>
+        • All season halt state, shop revenue counters, analytics<br><br>
+        <strong style="color:#ff5a6b;">There is no undo.</strong> Are you sure?`,
+      confirmLabel: "I understand — continue",
+      cancelLabel: "Cancel",
+      danger: true,
+    });
+    if (!ok1) return;
+    // Layer 2: financial / community impact reminder.
+    const ok2 = await confirmModal({
+      title: "☠ Final Warning — Are You ABSOLUTELY Sure?",
+      message: `Players who have <strong>spent real RON</strong> in the shop will <strong>lose their purchases</strong>. Leaderboard standings from this season will be permanently gone. Voucher holders will be wiped.<br><br>
+        Only continue if you are deliberately resetting the season or recovering from a catastrophic data issue.`,
+      confirmLabel: "Yes — I am ABSOLUTELY sure",
+      cancelLabel: "Cancel",
+      danger: true,
+    });
+    if (!ok2) return;
+    // Layer 3: type-to-confirm phrase. Closes the door on autofill / muscle memory.
+    const phrase = await promptModal({
+      title: "Type to Confirm",
+      message: `To proceed, type the following phrase EXACTLY (uppercase included):<br><br><strong style="font-family:monospace; font-size:14px;">DELETE ALL DATA</strong>`,
+      placeholder: "DELETE ALL DATA",
       confirmLabel: "Wipe Everything",
       cancelLabel: "Cancel",
       danger: true,
     });
-    if (!ok) return;
-    const r = await adminWipeDevServerData();
+    if (phrase !== "DELETE ALL DATA") {
+      if (phrase !== null) {
+        await alertModal({ kind: "warning", title: "Wipe Aborted", message: "Phrase did not match. Nothing was deleted." });
+      }
+      return;
+    }
+    // All three gates passed — fire it.
+    const r = await adminWipeAllProdData();
     if (!r.ok) {
       await alertModal({ kind: "error", title: "Wipe Failed", message: `Server returned: ${r.error ?? "unknown error"}` });
       return;
     }
-    // Also nuke localStorage so the current player isn't left with stale
-    // cached state (saved IGN, energy, progress, etc.) that contradicts the
-    // empty server.
     try { localStorage.clear(); } catch { /* ignore */ }
     clearSession();
     await alertModal({
       kind: "success",
-      title: "Dev Wipe Complete",
-      message: `Scanned <strong>${r.scanned}</strong> keys, deleted <strong>${r.deleted}</strong>. Reloading now.`,
+      title: "Production Wipe Complete",
+      message: `Scanned <strong>${r.scanned}</strong> keys, deleted <strong>${r.deleted}</strong>. Reloading now — the game is now in a fresh-season state.`,
     });
     location.reload();
   });

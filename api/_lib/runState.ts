@@ -1,4 +1,4 @@
-import { getJson, setJson, del, zaddGt, zaddLt, zrangeWithScores, zrevrank, zrevrange, incrWithExpire, hset, hmget, incrBy, incrByWithExpire, getNumber, isPrefixedEnvironment, scanAllPrefixed, delManyRaw, withWalletLock } from "./redis.js";
+import { getJson, setJson, del, zaddGt, zaddLt, zrangeWithScores, zrevrank, zrevrange, incrWithExpire, hset, hmget, incrBy, incrByWithExpire, getNumber, isPrefixedEnvironment, scanAllPrefixed, scanAllByPattern, delManyRaw, withWalletLock } from "./redis.js";
 import { bumpVouchersAcquired } from "./analytics.js";
 
 // ---- Admin: leaderboard resets ----
@@ -33,6 +33,49 @@ export async function adminWipeDevData(): Promise<{ ok: boolean; reason?: string
   if (keys.length === 0) return { ok: true, scanned: 0, deleted: 0 };
   const deleted = await delManyRaw(keys);
   return { ok: true, scanned: keys.length, deleted };
+}
+
+/** Wipe EVERY known game-related key in Redis (production-safe in the sense
+ *  that the API op is admin-gated). Targets each top-level prefix the game
+ *  uses so we don't accidentally nuke unrelated keys if the Upstash instance
+ *  is ever shared. Returns aggregate scanned/deleted counts. */
+export async function adminWipeAllData(): Promise<{ ok: boolean; scanned: number; deleted: number; patternHits: Record<string, number> }> {
+  // Every top-level pattern the game writes to. Update when adding new keyspaces.
+  const PATTERNS = [
+    "progress:*",
+    "energy:*",
+    "lb:*",
+    "attempts:*",
+    "retries:*",
+    "shop:*",
+    "paymenttx:*",
+    "bronroll:*",
+    "analytics:*",
+    "pendingClears:*",
+    "season:*",
+    "run:*",
+    "starts:*",
+    "ign_set_at",
+    "igns",
+    "fastest_we:*",
+    "first_conquer",
+    "max_floor:*",
+    "xpcap:*",
+    "challenges:*",
+    "daily:*",
+  ];
+  const patternHits: Record<string, number> = {};
+  let totalScanned = 0;
+  let totalDeleted = 0;
+  for (const pattern of PATTERNS) {
+    const keys = await scanAllByPattern(pattern);
+    patternHits[pattern] = keys.length;
+    totalScanned += keys.length;
+    if (keys.length === 0) continue;
+    const deleted = await delManyRaw(keys);
+    totalDeleted += deleted;
+  }
+  return { ok: true, scanned: totalScanned, deleted: totalDeleted, patternHits };
 }
 
 // A live survival run. Stored at Redis key `run:{runId}` with a TTL.

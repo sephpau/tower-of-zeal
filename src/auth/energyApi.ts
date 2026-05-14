@@ -80,6 +80,27 @@ export async function adminWipeDevServerData(): Promise<{ ok: boolean; scanned?:
   }
 }
 
+/** Admin: PRODUCTION wipe of EVERY game-related Redis key (progress, energy,
+ *  leaderboards, runs, shop inventory, vouchers, analytics, season state...).
+ *  Requires a magic confirm token so a stray devtools call can't fire it.
+ *  Caller MUST chain at least 3 confirmation prompts before invoking. */
+export async function adminWipeAllProdData(): Promise<{ ok: boolean; scanned?: number; deleted?: number; error?: string }> {
+  const tok = token();
+  if (!tok) return { ok: false, error: "not signed in" };
+  try {
+    const r = await fetch("/api/run/floor-cleared", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "admin_wipe_all_data", confirm: "WIPE EVERYTHING NOW" }),
+    });
+    const data = await r.json().catch(() => ({} as { error?: string; scanned?: number; deleted?: number }));
+    if (!r.ok) return { ok: false, error: data.error ?? `http ${r.status}` };
+    return { ok: true, scanned: data.scanned, deleted: data.deleted };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "network" };
+  }
+}
+
 /** POST /api/energy/consume. Returns ok:false with the server's current amount on insufficient. */
 export async function consumeServerEnergy(cost: number): Promise<ConsumeResult> {
   const tok = token();

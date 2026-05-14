@@ -3017,6 +3017,43 @@ body:has(.battle) {
 }
 .game-confirm-actions .danger-btn:hover { filter: brightness(1.1); }
 
+/* Prompt input — used by destructive admin actions that require the user
+   to type a phrase verbatim. Sits between the body text and the action
+   buttons in a promptModal. */
+.game-prompt-input {
+  margin: 6px 0 4px;
+  padding: 9px 12px;
+  font-family: var(--motz-font-mono, "JetBrains Mono", monospace);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--motz-glass-border-hi);
+  border-radius: 6px;
+  color: var(--text);
+  outline: none;
+}
+.game-prompt-input:focus {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 12px rgba(244, 211, 94, 0.35);
+}
+
+/* Production wipe button — explicit dread styling beyond the normal admin
+   ghost-btn so the admin can't miss what they're about to do. */
+.admin-wipe-prod-btn {
+  background: linear-gradient(180deg, rgba(160, 30, 50, 0.55), rgba(80, 10, 20, 0.55)) !important;
+  border: 1px solid #ff5a6b !important;
+  color: #ffd6dc !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em;
+  padding: 8px 14px !important;
+  box-shadow: 0 0 14px rgba(255, 90, 107, 0.30);
+}
+.admin-wipe-prod-btn:hover {
+  background: linear-gradient(180deg, rgba(190, 40, 60, 0.75), rgba(100, 15, 25, 0.75)) !important;
+  box-shadow: 0 0 20px rgba(255, 90, 107, 0.55);
+}
+.admin-wipe-prod-row { padding: 8px; border: 1px dashed rgba(255, 90, 107, 0.35); border-radius: 8px; background: rgba(255, 90, 107, 0.04); }
+
 /* MoTZ-styled alert (single-button drop-in for window.alert). Flavors:
    info / warning / error / success — each gets a tinted top stripe + icon. */
 .game-alert-card {
