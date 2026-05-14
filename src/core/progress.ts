@@ -95,27 +95,39 @@ function schedulePushProgress(): void {
   }, 500);
 }
 
-/** Append any newly-unlocked class/character skills to the loadout, capped at
- *  MAX_EQUIPPED_SKILLS. Idempotent: never removes, never duplicates. Useful
- *  on class change, level change (admin or normal), or first-time setup. */
+/** Auto-equip the strongest MAX_EQUIPPED_SKILLS skills the unit is allowed to
+ *  equip at its current level. Called on every level-up (normal + admin) and
+ *  class change — newly unlocked high-tier skills replace lower-tier ones
+ *  automatically so the loadout always reflects the best gear available.
+ *
+ *  Ranking is by `unlockLevel` descending (higher unlock = stronger). Stable
+ *  sort ties: character signatures win over class basics at the same tier.
+ *
+ *  Trade-off: a player who manually picked a low-tier skill in "Edit Loadout"
+ *  WILL see it replaced on the next level-up if a higher-tier one is now
+ *  unlocked. Manual picks are session-scoped; level transitions reset to
+ *  strongest-N. This matches the requested behavior ("do auto equip"). */
 export function autoEquipNewlyUnlocked(
   templateId: string,
   classId: string | undefined,
   level: number,
-  current: string[],
+  _current: string[],
 ): string[] {
-  const equipped = [...current];
+  void _current; // intentionally unused — auto-equip is fully recomputed
   const candidates = new Set<string>();
   for (const id of (CHARACTER_SKILLS[templateId] ?? [])) candidates.add(id);
   if (classId) for (const id of (CLASS_SKILLS[classId] ?? [])) candidates.add(id);
+  const unlocked: { id: string; tier: number }[] = [];
   for (const id of candidates) {
-    if (equipped.length >= MAX_EQUIPPED_SKILLS) break;
-    if (equipped.includes(id)) continue;
     const skill = getSkill(id);
     const unlockAt = skill.unlockLevel ?? 1;
-    if (level >= unlockAt) equipped.push(id);
+    if (level >= unlockAt) unlocked.push({ id, tier: unlockAt });
   }
-  return equipped;
+  // Strongest-first sort. Iteration order through Set above preserves the
+  // character-then-class precedence, so .sort() (stable) keeps character
+  // signatures ahead of class basics when unlock tiers match.
+  unlocked.sort((a, b) => b.tier - a.tier);
+  return unlocked.slice(0, MAX_EQUIPPED_SKILLS).map(u => u.id);
 }
 
 export function resetAllProgress(): void {
