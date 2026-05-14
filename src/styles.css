@@ -4034,42 +4034,19 @@ body:has(.battle) {
   padding: 24px;
   position: relative;
   isolation: isolate;
-  /* MoTZ mascot tile fills the right portion of the screen. A single shared
-     artwork covers both victory and defeat outcomes.
-     File lives at: /public/victory and defeat summary background.png */
   background:
     radial-gradient(ellipse at top, rgba(244,211,94,0.04), transparent 60%),
     var(--bg);
   overflow: hidden;
 }
-.run-summary-screen::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: url("/victory%20and%20defeat%20summary%20background.png");
-  background-position: right center;
-  background-repeat: no-repeat;
-  background-size: auto 100%;
-  pointer-events: none;
-  z-index: 0;
-  /* Soft left-to-right mask so the card sits over the dark side cleanly
-     while the artwork breathes on the right. */
-  mask-image: linear-gradient(90deg,
-    rgba(0,0,0,0)   0%,
-    rgba(0,0,0,0.6) 30%,
-    rgba(0,0,0,1)   55%,
-    rgba(0,0,0,1)   100%);
-  -webkit-mask-image: linear-gradient(90deg,
-    rgba(0,0,0,0)   0%,
-    rgba(0,0,0,0.6) 30%,
-    rgba(0,0,0,1)   55%,
-    rgba(0,0,0,1)   100%);
-}
 .run-summary-screen .rs-card { position: relative; z-index: 1; }
 
-/* ---------- Victory: gold rim + falling confetti + sparkles ---------- */
-.run-summary-screen.rs-victory::before {
-  filter: brightness(1.08) saturate(1.12) drop-shadow(0 0 40px rgba(255, 215, 64, 0.25));
+/* ---------- Victory: gold rim treatment over the card ---------- */
+.run-summary-screen.rs-victory .rs-card {
+  box-shadow:
+    var(--motz-sh-card),
+    0 0 32px rgba(255, 215, 64, 0.18),
+    0 24px 60px rgba(0, 0, 0, 0.50);
 }
 .rs-victory-fx {
   position: absolute;
@@ -4123,37 +4100,53 @@ body:has(.battle) {
   100% { opacity: 0; transform: scale(0.4) rotate(540deg); }
 }
 
-/* ---------- Defeat: dim the mascot like Ego himself lost ---------- */
-.run-summary-screen.rs-defeat::before {
-  filter: brightness(0.5) saturate(0.7) contrast(0.95);
+/* ---------- Defeat: dim the mascot like Ego himself lost ----------
+   The card's bottom background layer carries the mascot image — defeat
+   states layer a near-black wash over the right portion to "dim" it. */
+.run-summary-screen.rs-defeat .rs-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 38%),
+    linear-gradient(90deg,
+      rgba(12, 16, 36, 0.94) 0%,
+      rgba(12, 16, 36, 0.90) 30%,
+      rgba(12, 16, 36, 0.70) 60%,
+      rgba(12, 16, 36, 0.55) 100%),
+    linear-gradient(90deg,
+      rgba(0, 0, 0, 0) 0%,
+      rgba(0, 0, 0, 0.35) 60%,
+      rgba(0, 0, 0, 0.55) 100%),
+    url("/victory%20and%20defeat%20summary%20background.png") right center / auto 100% no-repeat,
+    var(--bg);
+  box-shadow:
+    var(--motz-sh-card),
+    0 24px 60px rgba(0, 0, 0, 0.60);
+  filter: saturate(0.7);
 }
-/* Soft red-grey overlay so the mood reads "loss" without overwhelming the card. */
-.run-summary-screen.rs-defeat::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(40, 10, 20, 0.18), rgba(0, 0, 0, 0.28));
-  pointer-events: none;
-  z-index: 0;
-}
-
-@media (max-width: 900px) {
-  .run-summary-screen::before { opacity: 0.35; background-size: auto 75%; }
-}
-/* MoTZ glass card — layered alpha gradient + hairline border + inset highlight,
-   matches the unit cards / campaign tiles / leaderboard surfaces. */
+/* MoTZ glass card — layered backgrounds, top-to-bottom:
+     1. Subtle highlight gradient (top-light edge)
+     2. Dark glass tint, fading left-to-right so the mascot shows on the right
+     3. The shared mascot artwork (positioned right, full height)
+     4. App bg fallback (visible only if the image fails to load)
+   Card content (rs-header, banner, totals, etc.) renders on top naturally. */
 .rs-card {
   width: 100%;
   max-width: 720px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0) 38%),
-    linear-gradient(180deg, rgba(15, 20, 50, 0.78) 0%, rgba(10, 13, 34, 0.78) 100%);
+    linear-gradient(90deg,
+      rgba(12, 16, 36, 0.92) 0%,
+      rgba(12, 16, 36, 0.88) 30%,
+      rgba(12, 16, 36, 0.50) 60%,
+      rgba(12, 16, 36, 0.20) 100%),
+    url("/victory%20and%20defeat%20summary%20background.png") right center / auto 100% no-repeat,
+    var(--bg);
   border: 1px solid var(--motz-glass-border-hi);
   border-radius: 18px;
   padding: 30px 34px;
   display: flex;
   flex-direction: column;
   gap: 18px;
+  overflow: hidden;
   box-shadow:
     var(--motz-sh-card),
     0 24px 60px rgba(0, 0, 0, 0.50);
