@@ -656,60 +656,44 @@ body:has(.battle) {
   100% { opacity: 0; }
 }
 
-/* ---------- Combo counter ----------
-   Top-center floating counter that grows with each chained hit. Resets to
-   nothing after a brief idle window — see COMBO_RESET_MS in battle.ts. */
-.combo-counter {
-  position: absolute;
-  top: 18px;
-  left: 50%;
-  transform: translateX(-50%) scale(0);
-  pointer-events: none;
-  z-index: 7;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
+/* ---------- Inline combo badge ----------
+   Appears inside each .float-popup beside the damage number when a chain is
+   active (x2+). Each rendered popup carries its own current combo value, so
+   the badge value progresses naturally as more hits land. */
+.float-combo {
   font-family: "Cinzel", serif;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85),
-               0 0 18px rgba(255, 215, 64, 0.65);
-  opacity: 0;
-  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease-out;
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(255, 215, 64, 0.22), rgba(255, 110, 40, 0.18));
+  border: 1px solid rgba(255, 215, 64, 0.6);
+  color: #FFD93D;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 10px rgba(255, 215, 64, 0.35);
+  animation: float-combo-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+  vertical-align: middle;
 }
-.combo-counter.show {
-  transform: translateX(-50%) scale(1);
-  opacity: 1;
+.float-combo-big {
+  font-size: 16px;
+  border-color: rgba(255, 165, 0, 0.85);
+  color: #ffb14a;
+  box-shadow: 0 0 14px rgba(255, 130, 30, 0.55);
 }
-.combo-counter .combo-x {
-  font-size: 42px;
-  background: linear-gradient(180deg, #FFF6A8 0%, #FFD93D 50%, #FF7A1A 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  line-height: 1;
+.float-combo-huge {
+  font-size: 18px;
+  border-color: rgba(255, 80, 30, 0.95);
+  color: #ff7a1a;
+  background: linear-gradient(135deg, rgba(255, 110, 40, 0.30), rgba(255, 60, 0, 0.22));
+  box-shadow: 0 0 18px rgba(255, 80, 20, 0.75);
 }
-.combo-counter .combo-label {
-  font-size: 11px;
-  color: var(--gold-bright, #FFD93D);
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
+@keyframes float-combo-pop {
+  0%   { transform: scale(0.4) rotate(-6deg); opacity: 0; }
+  60%  { transform: scale(1.25) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1)    rotate(0);   opacity: 1; }
 }
-/* Bigger pop when the counter increments. */
-.combo-counter.bump .combo-x {
-  animation: combo-bump 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-@keyframes combo-bump {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(1.45) rotate(-3deg); }
-  100% { transform: scale(1) rotate(0); }
-}
-/* High-tier combo colors. */
-.combo-counter[data-tier="big"] .combo-x  { filter: drop-shadow(0 0 8px rgba(255, 165, 0, 0.8)); }
-.combo-counter[data-tier="huge"] .combo-x { filter: drop-shadow(0 0 14px rgba(255, 80, 30, 0.95)); }
-.combo-counter[data-tier="huge"] .combo-label { color: #ff9648; }
 
 /* ---------- World End! camera zoom ----------
    Slight scale + tighten of the battle field when the World Ender uses

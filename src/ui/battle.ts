@@ -77,10 +77,6 @@ export function renderBattle(
         </div>
         <div class="float-layer" id="float-layer"></div>
         <div class="crit-flash-overlay" id="crit-flash-overlay"></div>
-        <div class="combo-counter" id="combo-counter" aria-hidden="true">
-          <span class="combo-x" id="combo-x">x2</span>
-          <span class="combo-label">COMBO</span>
-        </div>
       </div>
 
       <div class="action-panel">
@@ -284,13 +280,13 @@ function flushFloats(root: HTMLElement): void {
 
   const fieldRect = field.getBoundingClientRect();
 
-  // Track whether any event in this batch is a crit / hit / World End! —
-  // drives the crit flash, combo counter, and signature-skill zoom.
-  // Cosmetic drops (moneybag) and misses don't contribute.
+  // Track per-batch flags for crit flash + World End! zoom. The combo
+  // counter is incremented inline below (one increment per non-drop hit),
+  // so each popup can carry its own combo badge.
   let hadCrit = false;
-  let hadHit = false;
-  let hitCount = 0;
   let hadWorldEnd = false;
+  // Refresh the idle timer — each batch with real hits extends the chain.
+  if (comboTimer != null) clearTimeout(comboTimer);
   // Targets that should get a kill-burst ring (HP went to 0 from this batch).
   // We can't reliably know the post-event HP here without combat state, so we
   // proxy "kill" with: the next render-pass will mark the combatant `.dead`
@@ -305,12 +301,22 @@ function flushFloats(root: HTMLElement): void {
     const y = r.top - fieldRect.top + 6;
 
     const isDrop = e.icon === "moneybag";
+    // Increment combo BEFORE building the popup so each real hit shows its
+    // own current chain count beside the damage number.
+    let comboBadgeHtml = "";
+    if (!isDrop) {
+      comboCount += 1;
+      if (comboCount >= 2) {
+        const tier = comboCount >= 10 ? "huge" : comboCount >= 5 ? "big" : "small";
+        comboBadgeHtml = `<span class="float-combo float-combo-${tier}">x${comboCount}</span>`;
+      }
+    }
     const div = document.createElement("div");
     div.className = "float-popup" + (e.crit ? " crit" : "") + (isDrop ? " bron-drop" : "");
     div.style.left = `${x}px`;
     div.style.top = `${y}px`;
     div.style.color = e.color;
-    div.innerHTML = `<span class="float-icon">${iconGlyph(e.icon)}</span><span class="float-text">${escapeHtml(e.text)}</span>${e.crit ? `<span class="float-crit">CRIT!</span>` : ""}`;
+    div.innerHTML = `<span class="float-icon">${iconGlyph(e.icon)}</span><span class="float-text">${escapeHtml(e.text)}</span>${e.crit ? `<span class="float-crit">CRIT!</span>` : ""}${comboBadgeHtml}`;
     layer.appendChild(div);
 
     // Hit-flash on target — but not for cosmetic drop popups (target is
@@ -319,8 +325,6 @@ function flushFloats(root: HTMLElement): void {
       tgt.classList.remove("hit-flash");
       void tgt.offsetWidth;
       tgt.classList.add("hit-flash");
-      hadHit = true;
-      hitCount++;
       if (e.crit) hadCrit = true;
       if (e.skillId === "world_end") hadWorldEnd = true;
     }
@@ -328,6 +332,9 @@ function flushFloats(root: HTMLElement): void {
     // Drops linger longer so the player has time to see what dropped.
     setTimeout(() => div.remove(), isDrop ? 1800 : 900);
   }
+
+  // Arm the idle reset — chain dies COMBO_RESET_MS after the last hit.
+  comboTimer = window.setTimeout(() => { comboCount = 0; }, COMBO_RESET_MS);
 
   // ---- Crit flash (game-feel polish, no shake) ----
   if (hadCrit) {
@@ -337,37 +344,6 @@ function flushFloats(root: HTMLElement): void {
       void flash.offsetWidth;
       flash.classList.add("fire");
       setTimeout(() => flash.classList.remove("fire"), 320);
-    }
-  }
-
-  // ---- Combo counter (game-feel polish) ----
-  // Each fresh hit increments the chain; the counter shows on x2+. The chain
-  // resets after COMBO_RESET_MS of no new hits. Multi-target AOEs that fire
-  // many hits in the same flush batch all count as one event each, so a
-  // big AOE can spike the counter in a single tick.
-  if (hadHit && hitCount > 0) {
-    comboCount += hitCount;
-    if (comboTimer != null) clearTimeout(comboTimer);
-    comboTimer = window.setTimeout(() => {
-      comboCount = 0;
-      const counter = root.querySelector<HTMLElement>("#combo-counter");
-      counter?.classList.remove("show", "bump");
-      counter?.removeAttribute("data-tier");
-    }, COMBO_RESET_MS);
-
-    if (comboCount >= 2) {
-      const counter = root.querySelector<HTMLElement>("#combo-counter");
-      const xEl = root.querySelector<HTMLElement>("#combo-x");
-      if (counter && xEl) {
-        xEl.textContent = `x${comboCount}`;
-        const tier = comboCount >= 10 ? "huge" : comboCount >= 5 ? "big" : "small";
-        counter.setAttribute("data-tier", tier);
-        counter.classList.add("show");
-        // Retrigger the pop animation on every increment.
-        counter.classList.remove("bump");
-        void counter.offsetWidth;
-        counter.classList.add("bump");
-      }
     }
   }
 
