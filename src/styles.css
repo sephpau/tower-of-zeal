@@ -2880,6 +2880,191 @@ body:has(.battle) {
 .game-alert-card .game-confirm-actions { margin-top: 4px; }
 .game-alert-card .game-confirm-actions .confirm-btn { min-width: 140px; }
 
+/* ===================== Transaction progress overlay ===================== */
+.txp-overlay {
+  position: fixed; inset: 0; z-index: 2200;
+  background: rgba(4, 6, 22, 0.88);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: grid; place-items: center;
+  animation: gc-fade 0.16s ease-out;
+}
+.txp-card {
+  position: relative;
+  width: min(94vw, 440px);
+  padding: 22px 22px 20px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(212, 169, 62, 0.05) 0%, transparent 30%),
+    var(--panel);
+  border: 1px solid var(--gold);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(212, 169, 62, 0.2) inset;
+  animation: gc-pop 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  text-align: center;
+}
+.txp-card::before {
+  content: ""; position: absolute; top: 0; left: 18px; right: 18px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-bright), transparent);
+  opacity: 0.65;
+}
+.txp-state-complete { border-color: #6ade9c; }
+.txp-state-complete::before { background: linear-gradient(90deg, transparent, #6ade9c, transparent); }
+.txp-state-failed { border-color: #ff7070; }
+.txp-state-failed::before { background: linear-gradient(90deg, transparent, #ff7070, transparent); }
+
+/* Item info card at the top */
+.txp-item-card {
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--motz-glass-border-hi);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 50%),
+    rgba(8, 11, 28, 0.7);
+}
+.txp-item-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--motz-glass-border);
+  margin-bottom: 10px;
+}
+.txp-item-icon-img, .txp-item-icon-glyph {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.30));
+}
+.txp-item-icon-img { object-fit: contain; }
+.txp-item-meta { text-align: left; min-width: 0; }
+.txp-item-name {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gold-bright);
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+.txp-item-price {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.06em;
+}
+.txp-wallet-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+.txp-wallet-label { opacity: 0.75; }
+.txp-wallet-icon-img, .txp-wallet-icon-glyph {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+.txp-wallet-icon-img { object-fit: contain; }
+.txp-wallet-name {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-weight: 700;
+  color: var(--gold-bright);
+  letter-spacing: 0.04em;
+}
+
+/* State-specific body content */
+.txp-body { padding: 4px 4px 0; }
+.txp-title {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--gold-bright);
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+  text-shadow: 0 0 12px rgba(212, 169, 62, 0.25);
+}
+.txp-state-complete .txp-title { color: #6ade9c; text-shadow: 0 0 12px rgba(106, 222, 156, 0.3); }
+.txp-state-failed .txp-title { color: #ff9c9c; text-shadow: 0 0 12px rgba(255, 112, 112, 0.3); }
+.txp-sub {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+.txp-sub strong { color: var(--gold-bright); }
+.txp-spinner {
+  width: 44px;
+  height: 44px;
+  margin: 4px auto 14px;
+  border-radius: 50%;
+  border: 3px solid rgba(251, 191, 36, 0.18);
+  border-top-color: var(--gold-bright);
+  animation: txp-spin 0.9s linear infinite;
+}
+@keyframes txp-spin { to { transform: rotate(360deg); } }
+.txp-check, .txp-x {
+  width: 56px;
+  height: 56px;
+  margin: 4px auto 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  font-weight: 800;
+  border: 2px solid currentColor;
+  filter: drop-shadow(0 0 14px currentColor);
+}
+.txp-check { color: #6ade9c; }
+.txp-x { color: #ff7070; }
+.txp-hash {
+  margin: 10px 0 14px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--motz-glass-border-hi);
+  background: rgba(8, 11, 28, 0.7);
+  text-align: left;
+}
+.txp-hash-label {
+  display: block;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--gold-bright);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  opacity: 0.85;
+}
+.txp-hash-note {
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: #ffb0b0;
+  line-height: 1.5;
+}
+.txp-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.txp-actions .confirm-btn,
+.txp-actions .ghost-btn { min-width: 140px; }
+
 /* Inline tx-hash callout for the "Purchase Failed" payment error modal. */
 .motz-tx-hash {
   display: inline-block;

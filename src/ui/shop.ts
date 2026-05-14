@@ -13,6 +13,7 @@ import { confirmModal, alertModal } from "./confirmModal";
 import { loadSession, validateSession, setVerifiedPerks } from "../auth/session";
 import { payWithWallet } from "../auth/payment";
 import { pickWalletModal } from "./walletPicker";
+import { showTxProgress } from "./txProgressOverlay";
 
 export async function renderShop(root: HTMLElement, onBack: () => void): Promise<void> {
   // Initial paint — empty list while we wait on the status fetch.
@@ -99,31 +100,44 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
         await alertModal({ kind: "error", message: "Bad price format from server." });
         return;
       }
-      btn.textContent = `Open ${chosen.name}…`;
+      // Open the blocking transaction-progress overlay. From this point the
+      // player can't do anything else until the flow resolves to complete or
+      // failed; they can only Cancel during the "approving" state.
+      const tx = showTxProgress({
+        itemName: def.name,
+        itemIcon: iconFor(def),
+        priceLabel: def.priceLabel,
+        walletName: chosen.name,
+        walletIcon: chosen.icon,
+        walletIconUrl: chosen.iconUrl,
+      });
       // 2. Send the tx through the chosen wallet.
       const pay = await payWithWallet(chosen, priceWei);
       if (!pay.ok || !pay.txHash) {
+        tx.setState("failed", {
+          reason: pay.reason ?? "Wallet didn't return a transaction hash.",
+        });
+        await tx.closed;
         btn.disabled = false;
         btn.textContent = "Buy";
-        if (pay.reason && pay.reason !== "purchase cancelled") {
-          await alertModal({ kind: "error", title: "Payment Failed", message: escapeHtml(pay.reason) });
-        }
         return;
       }
-      btn.textContent = "Verifying tx…";
-      // 2. Hand the tx hash to the server. Server polls Ronin RPC, validates
+      // 3. Hand the tx hash to the server. Server polls Ronin RPC, validates
       //    the receipt against treasury / wallet / price / used-set, then grants.
+      tx.setState("verifying", { txHash: pay.txHash });
       const result = await buyShopItem(id, pay.txHash);
       if (!result.ok) {
-        await alertModal({
-          kind: "error",
-          title: "Purchase Failed",
-          message: `${escapeHtml(result.reason ?? "Something went wrong")}<br><br><strong>Tx hash:</strong><br><span class="motz-tx-hash">${escapeHtml(pay.txHash)}</span><br><br>Your RON was sent. <strong>Save this hash</strong> and contact support if the item isn't granted.`,
+        tx.setState("failed", {
+          reason: result.reason ?? "Something went wrong on the server.",
+          txHash: pay.txHash,
         });
+        await tx.closed;
         // Re-fetch + re-render to refresh "Bought today" state.
         await renderShop(root, onBack);
         return;
       }
+      tx.setState("complete", { txHash: pay.txHash });
+      await tx.closed;
       // Temp MoTZ Key applies to perks immediately — refresh the verified
       // perks cache so locked unit overlays clear without waiting for the
       // next periodic /auth/me poll.
