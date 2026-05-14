@@ -4048,7 +4048,44 @@ body:has(.battle) {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: radial-gradient(ellipse at top, rgba(244,211,94,0.04), transparent 60%), var(--bg);
+  position: relative;
+  isolation: isolate;
+  /* MoTZ mascot tile sits to the right; gold radial pulse + base bg behind.
+     The mascot image lives at /public/run-summary-bg.png — if the file is
+     missing the background gracefully falls back to the gradient only. */
+  background:
+    radial-gradient(ellipse at top, rgba(244,211,94,0.04), transparent 60%),
+    var(--bg);
+  overflow: hidden;
+}
+.run-summary-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/run-summary-bg.png");
+  background-position: right center;
+  background-repeat: no-repeat;
+  /* Cover the right portion of the screen; on narrow screens it shifts off
+     to the right so the card stays readable. */
+  background-size: auto 95%;
+  opacity: 0.45;
+  pointer-events: none;
+  z-index: -1;
+  /* Subtle dark gradient bleeds in from the left so the card reads on top
+     of the mascot without obscuring the art. */
+  mask-image: linear-gradient(90deg,
+    rgba(0,0,0,0.0) 0%,
+    rgba(0,0,0,0.4) 35%,
+    rgba(0,0,0,1) 60%,
+    rgba(0,0,0,1) 100%);
+  -webkit-mask-image: linear-gradient(90deg,
+    rgba(0,0,0,0.0) 0%,
+    rgba(0,0,0,0.4) 35%,
+    rgba(0,0,0,1) 60%,
+    rgba(0,0,0,1) 100%);
+}
+@media (max-width: 900px) {
+  .run-summary-screen::before { opacity: 0.22; background-size: auto 70%; }
 }
 /* MoTZ glass card — layered alpha gradient + hairline border + inset highlight,
    matches the unit cards / campaign tiles / leaderboard surfaces. */
