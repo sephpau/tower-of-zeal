@@ -4050,151 +4050,49 @@ body:has(.battle) {
   padding: 24px;
   position: relative;
   isolation: isolate;
+  /* MoTZ mascot tile fills the right portion of the screen. Two separate
+     image files — victory and defeat — let the user-supplied artwork carry
+     the emotion (celebrating ego vs scolding ego). Files live at:
+       /public/run-summary-victory.png
+       /public/run-summary-defeat.png
+     If a file is missing the gradient bg shows through cleanly. */
   background:
     radial-gradient(ellipse at top, rgba(244,211,94,0.04), transparent 60%),
     var(--bg);
   overflow: hidden;
 }
-/* Ego mascot on the right — different mood per outcome. The ::before pseudo
-   carries the sprite + animation; the .rs-mascot-fx layer holds particle
-   overlays (sparkles for victory, exclamation marks for defeat). */
 .run-summary-screen::before {
   content: "";
   position: absolute;
-  top: 50%;
-  right: -40px;
-  width: 520px;
-  height: 520px;
-  transform: translateY(-50%);
-  background-image: url("/units/ego.webp");
-  background-position: center;
+  inset: 0;
+  background-position: right center;
   background-repeat: no-repeat;
-  background-size: contain;
+  background-size: auto 100%;
   pointer-events: none;
   z-index: 0;
-  filter: drop-shadow(0 18px 32px rgba(0, 0, 0, 0.55));
+  /* Soft left-to-right mask so the card sits over the dark side cleanly
+     while the artwork breathes on the right. */
+  mask-image: linear-gradient(90deg,
+    rgba(0,0,0,0)   0%,
+    rgba(0,0,0,0.6) 30%,
+    rgba(0,0,0,1)   55%,
+    rgba(0,0,0,1)   100%);
+  -webkit-mask-image: linear-gradient(90deg,
+    rgba(0,0,0,0)   0%,
+    rgba(0,0,0,0.6) 30%,
+    rgba(0,0,0,1)   55%,
+    rgba(0,0,0,1)   100%);
+}
+.run-summary-screen.rs-victory::before {
+  background-image: url("/run-summary-victory.png");
+}
+.run-summary-screen.rs-defeat::before {
+  background-image: url("/run-summary-defeat.png");
 }
 .run-summary-screen .rs-card { position: relative; z-index: 1; }
 
-/* ---------- Victory: Ego celebrates ----------
-   Joyful bounce, warm gold rim-light, slight scale pulse. */
-.run-summary-screen.rs-victory::before {
-  animation: rs-ego-cheer 1.6s ease-in-out infinite;
-  filter: drop-shadow(0 0 28px rgba(255, 215, 64, 0.55))
-          drop-shadow(0 18px 32px rgba(0, 0, 0, 0.55))
-          brightness(1.08) saturate(1.15);
-}
-@keyframes rs-ego-cheer {
-  0%, 100% { transform: translateY(-50%) translateY(0)    rotate(-3deg) scale(1.00); }
-  25%      { transform: translateY(-50%) translateY(-14px) rotate(2deg)  scale(1.03); }
-  50%      { transform: translateY(-50%) translateY(0)    rotate(-2deg) scale(1.00); }
-  75%      { transform: translateY(-50%) translateY(-10px) rotate(3deg)  scale(1.02); }
-}
-
-/* ---------- Defeat: Ego scolds ----------
-   Lean forward + slow disapproving head-shake, redder rim, dimmer. */
-.run-summary-screen.rs-defeat::before {
-  animation: rs-ego-scold 1.4s ease-in-out infinite;
-  filter: drop-shadow(0 0 22px rgba(255, 60, 80, 0.35))
-          drop-shadow(0 18px 32px rgba(0, 0, 0, 0.55))
-          brightness(0.92) saturate(0.95) contrast(1.05);
-}
-@keyframes rs-ego-scold {
-  0%, 100% { transform: translateY(-50%) rotate(0deg)   skewX(0); }
-  20%      { transform: translateY(-50%) rotate(-2.5deg) skewX(-1deg); }
-  50%      { transform: translateY(-50%) rotate(0deg)   skewX(0); }
-  80%      { transform: translateY(-50%) rotate(2.5deg)  skewX(1deg); }
-}
-
-/* ---------- Particle FX layer ---------- */
-.rs-mascot-fx {
-  position: absolute;
-  top: 50%;
-  right: 80px;
-  width: 520px;
-  height: 520px;
-  transform: translateY(-50%);
-  pointer-events: none;
-  z-index: 0;
-}
-.rs-fx { position: absolute; opacity: 0; will-change: transform, opacity; }
-
-/* Victory sparkles — gold/cream stars and confetti rectangles popping around Ego. */
-.rs-mascot-fx-victory .rs-spark {
-  font-family: "Cinzel", serif;
-  font-weight: 900;
-  color: #FFD93D;
-  text-shadow: 0 0 14px rgba(255, 215, 64, 0.95), 0 0 24px rgba(255, 180, 0, 0.6);
-  animation: rs-spark-pop 1.4s ease-out infinite;
-}
-.rs-mascot-fx-victory .rs-spark-1 { top: 12%;  left: 32%; font-size: 28px; animation-delay: 0s; }
-.rs-mascot-fx-victory .rs-spark-2 { top: 28%;  left: 78%; font-size: 22px; animation-delay: 0.25s; }
-.rs-mascot-fx-victory .rs-spark-3 { top: 58%;  left: 22%; font-size: 26px; animation-delay: 0.5s; }
-.rs-mascot-fx-victory .rs-spark-4 { top: 72%;  left: 70%; font-size: 18px; animation-delay: 0.75s; }
-.rs-mascot-fx-victory .rs-spark-5 { top: 42%;  left: 88%; font-size: 24px; animation-delay: 1.0s; }
-@keyframes rs-spark-pop {
-  0%   { opacity: 0; transform: scale(0.2) rotate(0deg); }
-  30%  { opacity: 1; transform: scale(1.3) rotate(180deg); }
-  70%  { opacity: 0.6; transform: scale(1.0) rotate(360deg); }
-  100% { opacity: 0; transform: scale(0.4) rotate(540deg); }
-}
-
-.rs-mascot-fx-victory .rs-confetti {
-  width: 8px; height: 14px;
-  border-radius: 2px;
-  box-shadow: 0 0 6px currentColor;
-  animation: rs-confetti-fall 2s linear infinite;
-}
-.rs-mascot-fx-victory .rs-confetti-1 { top: 0%;  left: 40%; background: #FF6B6B; color: #FF6B6B; animation-delay: 0s; }
-.rs-mascot-fx-victory .rs-confetti-2 { top: 0%;  left: 55%; background: #4ECDC4; color: #4ECDC4; animation-delay: 0.4s; }
-.rs-mascot-fx-victory .rs-confetti-3 { top: 0%;  left: 68%; background: #FFD93D; color: #FFD93D; animation-delay: 0.8s; }
-.rs-mascot-fx-victory .rs-confetti-4 { top: 0%;  left: 30%; background: #95E1D3; color: #95E1D3; animation-delay: 1.2s; }
-@keyframes rs-confetti-fall {
-  0%   { opacity: 0; transform: translateY(0) rotate(0deg); }
-  10%  { opacity: 1; }
-  90%  { opacity: 1; }
-  100% { opacity: 0; transform: translateY(420px) rotate(720deg); }
-}
-
-/* Defeat — anger marks float up + sweat drops slide down. */
-.rs-mascot-fx-defeat .rs-anger {
-  font-family: "Cinzel", serif;
-  font-weight: 900;
-  color: #ff6b6b;
-  text-shadow: 0 0 12px rgba(255, 80, 90, 0.85);
-  animation: rs-anger-pop 1.4s ease-out infinite;
-}
-.rs-mascot-fx-defeat .rs-anger-1 { top: 8%;  left: 35%; font-size: 34px; animation-delay: 0s; }
-.rs-mascot-fx-defeat .rs-anger-2 { top: 16%; left: 58%; font-size: 28px; animation-delay: 0.35s; }
-.rs-mascot-fx-defeat .rs-anger-3 { top: 24%; left: 76%; font-size: 22px; animation-delay: 0.7s; }
-@keyframes rs-anger-pop {
-  0%   { opacity: 0; transform: translateY(8px) scale(0.4); }
-  25%  { opacity: 1; transform: translateY(0)   scale(1.3); }
-  50%  { opacity: 1; transform: translateY(-6px) scale(1.0); }
-  100% { opacity: 0; transform: translateY(-20px) scale(0.8); }
-}
-.rs-mascot-fx-defeat .rs-sweat {
-  font-size: 22px;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
-  animation: rs-sweat-drop 1.8s ease-in infinite;
-}
-.rs-mascot-fx-defeat .rs-sweat-1 { top: 36%; left: 48%; animation-delay: 0.2s; }
-.rs-mascot-fx-defeat .rs-sweat-2 { top: 32%; left: 64%; animation-delay: 0.9s; }
-@keyframes rs-sweat-drop {
-  0%   { opacity: 0; transform: translateY(-10px) scale(0.6); }
-  20%  { opacity: 1; transform: translateY(0)     scale(1.0); }
-  80%  { opacity: 1; transform: translateY(80px)  scale(0.9); }
-  100% { opacity: 0; transform: translateY(120px) scale(0.7); }
-}
-
-/* ---------- Mobile / narrow screens ---------- */
 @media (max-width: 900px) {
-  .run-summary-screen::before {
-    width: 340px; height: 340px;
-    right: -60px;
-    opacity: 0.6;
-  }
-  .rs-mascot-fx { width: 340px; height: 340px; right: 0; opacity: 0.6; }
+  .run-summary-screen::before { opacity: 0.35; background-size: auto 75%; }
 }
 /* MoTZ glass card — layered alpha gradient + hairline border + inset highlight,
    matches the unit cards / campaign tiles / leaderboard surfaces. */

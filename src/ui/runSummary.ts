@@ -88,23 +88,6 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
 
   root.innerHTML = `
     <div class="run-summary-screen rs-${summary.outcome}">
-      <div class="rs-mascot-fx rs-mascot-fx-${summary.outcome}" aria-hidden="true">
-        ${summary.outcome === "victory"
-          ? `<span class="rs-fx rs-spark rs-spark-1">✦</span>
-             <span class="rs-fx rs-spark rs-spark-2">★</span>
-             <span class="rs-fx rs-spark rs-spark-3">✦</span>
-             <span class="rs-fx rs-spark rs-spark-4">✶</span>
-             <span class="rs-fx rs-spark rs-spark-5">★</span>
-             <span class="rs-fx rs-confetti rs-confetti-1"></span>
-             <span class="rs-fx rs-confetti rs-confetti-2"></span>
-             <span class="rs-fx rs-confetti rs-confetti-3"></span>
-             <span class="rs-fx rs-confetti rs-confetti-4"></span>`
-          : `<span class="rs-fx rs-anger rs-anger-1">!</span>
-             <span class="rs-fx rs-anger rs-anger-2">!</span>
-             <span class="rs-fx rs-anger rs-anger-3">!</span>
-             <span class="rs-fx rs-sweat rs-sweat-1">💧</span>
-             <span class="rs-fx rs-sweat rs-sweat-2">💧</span>`}
-      </div>
       <div class="rs-card">
         <div class="rs-header">
           <div class="rs-mode-tag rs-mode-${summary.mode}">${modeLabel}</div>
