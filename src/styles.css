@@ -4471,6 +4471,83 @@ body:has(.battle) {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 18px 20px;
+  /* So anchor-scrolled headings land below the sticky top bar instead of
+     being hidden behind it. Bumped to ~88px = top-bar height + breathing room. */
+  scroll-margin-top: 88px;
+}
+
+/* Table of Contents block at the top of the codex. */
+.codex-toc {
+  padding: 16px 18px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--motz-glass-border-hi);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0) 38%),
+    linear-gradient(180deg, rgba(15, 20, 50, 0.72) 0%, rgba(10, 13, 34, 0.72) 100%);
+  box-shadow: var(--motz-sh-card);
+  position: relative;
+}
+.codex-toc::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 18px; right: 18px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-bright), transparent);
+  opacity: 0.65;
+}
+.codex-toc-title {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--motz-glass-border);
+}
+.codex-toc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 6px;
+}
+.codex-toc-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--motz-glass-border);
+  background: rgba(8, 11, 28, 0.55);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.12s ease, background 0.12s ease, transform 0.06s ease;
+}
+.codex-toc-item:hover {
+  border-color: rgba(251, 191, 36, 0.55);
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.08) 0%, rgba(251, 191, 36, 0.02) 100%),
+    rgba(8, 11, 28, 0.6);
+  transform: translateY(-1px);
+}
+.codex-toc-icon {
+  font-size: 16px;
+  width: 22px;
+  text-align: center;
+  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.25));
+}
+.codex-toc-label {
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--gold-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .codex-h2 {
   font-family: "Cinzel", "Times New Roman", serif;

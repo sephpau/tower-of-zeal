@@ -3,6 +3,20 @@
 
 import { topBarHtml } from "./settings";
 
+interface CodexTocEntry { id: string; icon: string; label: string; }
+const CODEX_TOC: CodexTocEntry[] = [
+  { id: "modes",     icon: "🎮", label: "Game Modes" },
+  { id: "stats",     icon: "📊", label: "Stats" },
+  { id: "sources",   icon: "🧬", label: "Stat Sources" },
+  { id: "actions",   icon: "⚙",  label: "Universal Actions" },
+  { id: "aoe",       icon: "🎯", label: "Single vs AOE" },
+  { id: "shop",      icon: "🛒", label: "Shop & Inventory" },
+  { id: "buffs-c",   icon: "⚡", label: "Campaign Buffs" },
+  { id: "vouchers",  icon: "💰", label: "RON Vouchers" },
+  { id: "buffs",     icon: "⬆", label: "Buffs" },
+  { id: "debuffs",   icon: "⬇", label: "Debuffs" },
+];
+
 export function renderCodex(root: HTMLElement, onBack: () => void): void {
   root.innerHTML = `
     <div class="screen-frame codex-screen">
@@ -12,7 +26,19 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
 
       <div class="codex-body">
 
-        <section class="codex-section">
+        <nav class="codex-toc" aria-label="Codex sections">
+          <div class="codex-toc-title">Table of Contents</div>
+          <div class="codex-toc-grid">
+            ${CODEX_TOC.map(e => `
+              <button class="codex-toc-item" data-codex-jump="${e.id}" type="button">
+                <span class="codex-toc-icon">${e.icon}</span>
+                <span class="codex-toc-label">${e.label}</span>
+              </button>
+            `).join("")}
+          </div>
+        </nav>
+
+        <section class="codex-section" id="codex-modes">
           <h2 class="codex-h2">🎮 Game Modes</h2>
           <p class="codex-intro">Three ways to play — pick what you're trying to accomplish.</p>
           <div class="codex-list">
@@ -31,7 +57,7 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
           </div>
         </section>
 
-        <section class="codex-section">
+        <section class="codex-section" id="codex-stats">
           <h2 class="codex-h2">📊 Stats</h2>
           <p class="codex-intro">Each stat feeds multiple derived combat values.</p>
           <div class="codex-grid">
@@ -56,7 +82,7 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
           </div>
         </section>
 
-        <section class="codex-section">
+        <section class="codex-section" id="codex-sources">
           <h2 class="codex-h2">🧬 Three Sources of Stats</h2>
           <div class="codex-list">
             <div class="codex-source unit">
@@ -75,7 +101,7 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
           <p class="codex-tip"><strong>Effective stat</strong> = Unit Base + Class Base + Custom. The hex chart on each unit card shows all three layers stacked.</p>
         </section>
 
-        <section class="codex-section">
+        <section class="codex-section" id="codex-actions">
           <h2 class="codex-h2">⚙ Universal Actions</h2>
           <p class="codex-intro">Every unit always has these three on top of their kit.</p>
           <div class="codex-list">
@@ -94,7 +120,7 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
           </div>
         </section>
 
-        <section class="codex-section">
+        <section class="codex-section" id="codex-aoe">
           <h2 class="codex-h2">🎯 Single vs AOE</h2>
           <div class="codex-list">
             <div class="codex-pair">
@@ -108,7 +134,7 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
           </div>
         </section>
 
-        <section class="codex-section">
+        <section class="codex-section" id="codex-shop">
           <h2 class="codex-h2">🛒 Shop &amp; Inventory</h2>
           <p class="codex-intro">The <strong>Tower Exchange</strong> (Home → Shop) carries five item families. Every item can be purchased <strong>once per PH day</strong>; resets at 8 AM PH.</p>
           <div class="codex-list">
@@ -127,7 +153,7 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
           </div>
         </section>
 
-        <section class="codex-section">
+        <section class="codex-section" id="codex-buffs-c">
           <h2 class="codex-h2">⚡ Campaign Buffs</h2>
           <p class="codex-intro">Choose one before starting a campaign floor. Each charge is consumed on use.</p>
           <div class="codex-effects">
@@ -140,7 +166,7 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
           <p class="codex-tip"><strong>Floor 50 (World Ender) disables all buffs.</strong> The capstone fight is intentionally a fair fight — slotted buffs are not consumed and have no effect there.</p>
         </section>
 
-        <section class="codex-section">
+        <section class="codex-section" id="codex-vouchers">
           <h2 class="codex-h2">💰 RON Vouchers</h2>
           <p class="codex-intro">A rare drop from enemy kills. Vouchers stack in your Inventory by tier; redeem at end of season for the indicated RON value.</p>
           <div class="codex-effects">
@@ -153,7 +179,7 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
           <p class="codex-tip"><strong>Boss kills get 2× drop chance per tier</strong>, and the <strong>World Ender drops 4×</strong> — the cosmic-tier boss is the best per-kill chance to score a high-value voucher. Drop rolls happen entirely server-side; a money-bag popup appears over killed enemies as visual feedback.</p>
         </section>
 
-        <section class="codex-section">
+        <section class="codex-section" id="codex-buffs">
           <h2 class="codex-h2">⬆ Buffs</h2>
           <div class="codex-effects">
             ${effectRow("⚔", "Atk Up", "buff", "+X% physical or magical attack for N actions.")}
@@ -166,7 +192,7 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
           </div>
         </section>
 
-        <section class="codex-section">
+        <section class="codex-section" id="codex-debuffs">
           <h2 class="codex-h2">⬇ Debuffs</h2>
           <div class="codex-effects">
             ${effectRow("🔥", "Burn", "debuff", "Take X damage at the start of each of your actions for N actions.")}
@@ -185,6 +211,16 @@ export function renderCodex(root: HTMLElement, onBack: () => void): void {
     </div>
   `;
   root.querySelector<HTMLButtonElement>("#back-btn")?.addEventListener("click", onBack);
+
+  // TOC click handlers — smooth-scroll to the matching section. scroll-margin-top
+  // on each section accounts for the sticky header so the heading lands clear of it.
+  root.querySelectorAll<HTMLButtonElement>("[data-codex-jump]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = `codex-${btn.dataset.codexJump}`;
+      const target = root.querySelector<HTMLElement>(`#${id}`);
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
 }
 
 function statCard(key: string, name: string, summary: string, bullets: string[]): string {
