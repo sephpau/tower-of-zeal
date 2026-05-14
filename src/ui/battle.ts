@@ -26,13 +26,6 @@ interface Targeting {
 }
 let targeting: Targeting | null = null;
 
-// ---- Combo counter state (module-level) ----
-// Tracks consecutive damage events within COMBO_RESET_MS. Reset on idle. The
-// counter only counts NON-cosmetic damage hits (no moneybag drops, no misses).
-let comboCount = 0;
-let comboTimer: number | null = null;
-const COMBO_RESET_MS = 800;
-
 export interface RenderBattleOpts {
   /** When false, victory/defeat suppress the Return-to-Home / Tower-Stages buttons (used between survival floors). */
   showPostBattleButtons?: boolean;
@@ -280,13 +273,9 @@ function flushFloats(root: HTMLElement): void {
 
   const fieldRect = field.getBoundingClientRect();
 
-  // Track per-batch flags for crit flash + World End! zoom. The combo
-  // counter is incremented inline below (one increment per non-drop hit),
-  // so each popup can carry its own combo badge.
+  // Track per-batch flags for crit flash + World End! zoom.
   let hadCrit = false;
   let hadWorldEnd = false;
-  // Refresh the idle timer — each batch with real hits extends the chain.
-  if (comboTimer != null) clearTimeout(comboTimer);
   // Targets that should get a kill-burst ring (HP went to 0 from this batch).
   // We can't reliably know the post-event HP here without combat state, so we
   // proxy "kill" with: the next render-pass will mark the combatant `.dead`
@@ -301,22 +290,12 @@ function flushFloats(root: HTMLElement): void {
     const y = r.top - fieldRect.top + 6;
 
     const isDrop = e.icon === "moneybag";
-    // Increment combo BEFORE building the popup so each real hit shows its
-    // own current chain count beside the damage number.
-    let comboBadgeHtml = "";
-    if (!isDrop) {
-      comboCount += 1;
-      if (comboCount >= 2) {
-        const tier = comboCount >= 10 ? "huge" : comboCount >= 5 ? "big" : "small";
-        comboBadgeHtml = `<span class="float-combo float-combo-${tier}">x${comboCount}</span>`;
-      }
-    }
     const div = document.createElement("div");
     div.className = "float-popup" + (e.crit ? " crit" : "") + (isDrop ? " bron-drop" : "");
     div.style.left = `${x}px`;
     div.style.top = `${y}px`;
     div.style.color = e.color;
-    div.innerHTML = `<span class="float-icon">${iconGlyph(e.icon)}</span><span class="float-text">${escapeHtml(e.text)}</span>${e.crit ? `<span class="float-crit">CRIT!</span>` : ""}${comboBadgeHtml}`;
+    div.innerHTML = `<span class="float-icon">${iconGlyph(e.icon)}</span><span class="float-text">${escapeHtml(e.text)}</span>${e.crit ? `<span class="float-crit">CRIT!</span>` : ""}`;
     layer.appendChild(div);
 
     // Hit-flash on target — but not for cosmetic drop popups (target is
@@ -332,9 +311,6 @@ function flushFloats(root: HTMLElement): void {
     // Drops linger longer so the player has time to see what dropped.
     setTimeout(() => div.remove(), isDrop ? 1800 : 900);
   }
-
-  // Arm the idle reset — chain dies COMBO_RESET_MS after the last hit.
-  comboTimer = window.setTimeout(() => { comboCount = 0; }, COMBO_RESET_MS);
 
   // ---- Crit flash (game-feel polish, no shake) ----
   if (hadCrit) {

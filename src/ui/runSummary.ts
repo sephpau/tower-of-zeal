@@ -88,23 +88,23 @@ export function renderRunSummary(root: HTMLElement, summary: RunSummary, onClose
 
   root.innerHTML = `
     <div class="run-summary-screen rs-${summary.outcome}">
-      ${summary.outcome === "victory" ? `
-        <div class="rs-victory-fx" aria-hidden="true">
-          <span class="rs-confetti rs-confetti-1"></span>
-          <span class="rs-confetti rs-confetti-2"></span>
-          <span class="rs-confetti rs-confetti-3"></span>
-          <span class="rs-confetti rs-confetti-4"></span>
-          <span class="rs-confetti rs-confetti-5"></span>
-          <span class="rs-confetti rs-confetti-6"></span>
-          <span class="rs-confetti rs-confetti-7"></span>
-          <span class="rs-confetti rs-confetti-8"></span>
-          <span class="rs-spark rs-spark-1">✦</span>
-          <span class="rs-spark rs-spark-2">✶</span>
-          <span class="rs-spark rs-spark-3">★</span>
-          <span class="rs-spark rs-spark-4">✦</span>
-        </div>
-      ` : ""}
       <div class="rs-card">
+        ${summary.outcome === "victory" ? `
+          <div class="rs-victory-fx" aria-hidden="true">
+            <span class="rs-confetti rs-confetti-1"></span>
+            <span class="rs-confetti rs-confetti-2"></span>
+            <span class="rs-confetti rs-confetti-3"></span>
+            <span class="rs-confetti rs-confetti-4"></span>
+            <span class="rs-confetti rs-confetti-5"></span>
+            <span class="rs-confetti rs-confetti-6"></span>
+            <span class="rs-confetti rs-confetti-7"></span>
+            <span class="rs-confetti rs-confetti-8"></span>
+            <span class="rs-spark rs-spark-1">✦</span>
+            <span class="rs-spark rs-spark-2">✶</span>
+            <span class="rs-spark rs-spark-3">★</span>
+            <span class="rs-spark rs-spark-4">✦</span>
+          </div>
+        ` : ""}
         <div class="rs-header">
           <div class="rs-mode-tag rs-mode-${summary.mode}">${modeLabel}</div>
           <div class="rs-outcome rs-outcome-${summary.outcome}">${outcomeLabel}</div>
