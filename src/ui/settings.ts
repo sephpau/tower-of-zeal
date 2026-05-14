@@ -68,6 +68,19 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
         </label>
 
         <div class="setting-row">
+          <span class="setting-label">Wallet session</span>
+          <div class="wallet-actions">
+            <button class="ghost-btn" id="setting-switch-wallet" type="button">Switch Wallet</button>
+            <button class="ghost-btn wallet-sign-out" id="setting-sign-out" type="button">Sign Out</button>
+          </div>
+          <span class="setting-hint">
+            <strong>Switch Wallet</strong> ends this session and asks you to re-sign with a different wallet.
+            <strong>Sign Out</strong> ends this session entirely. Both require a fresh signature on next login —
+            session caching is bypassed, so a tampered localStorage can't impersonate you.
+          </span>
+        </div>
+
+        <div class="setting-row">
           <span class="setting-label">Audio</span>
           <div class="audio-toggles">
             <label class="toggle">
@@ -217,6 +230,42 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
   root.querySelector<HTMLButtonElement>("#link-wallet")?.addEventListener("click", () => {
     const v = root.querySelector<HTMLInputElement>("#setting-wallet")?.value?.trim() || "";
     alert(v ? `Wallet ${v.slice(0, 10)}… linked (placeholder).` : "Paste an address first.");
+  });
+
+  // ---- Wallet session management ----
+  // Both actions end the current session and force a fresh signature on next
+  // login. The 24-hour JWT auto-restore in bootstrap() is bypassed because
+  // clearSession() wipes the stored token entirely — loadSession() will
+  // return null on reload, and the wallet gate's challenge → personal_sign →
+  // verify dance is the only way back in. This is the defense against a
+  // devtools-tampered localStorage impersonating the player's wallet.
+  root.querySelector<HTMLButtonElement>("#setting-sign-out")?.addEventListener("click", async () => {
+    const ok = await confirmModal({
+      title: "Sign Out?",
+      message: "End this session and return to the wallet gate. Next login will require a fresh signature in your wallet.",
+      confirmLabel: "Sign Out",
+      cancelLabel: "Cancel",
+    });
+    if (!ok) return;
+    clearSession();
+    location.reload();
+  });
+  root.querySelector<HTMLButtonElement>("#setting-switch-wallet")?.addEventListener("click", async () => {
+    const ok = await confirmModal({
+      title: "Switch Wallet?",
+      message: "End this session and let you re-sign in with a different wallet. You'll be asked to <strong>sign a fresh challenge</strong> with the new wallet — there's no way to switch without a signature, so devtools can't change your linked wallet on you.",
+      confirmLabel: "Switch Wallet",
+      cancelLabel: "Cancel",
+    });
+    if (!ok) return;
+    clearSession();
+    // Also clear the player-name + cached wallet-address from settings so the
+    // wallet gate doesn't pre-fill stale info from the previous wallet.
+    try {
+      const cur = loadSettings();
+      saveSettings({ ...cur, walletAddress: "" });
+    } catch { /* ignore */ }
+    location.reload();
   });
 }
 

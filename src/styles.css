@@ -2319,6 +2319,23 @@ body:has(.battle) {
   width: 100%;
 }
 .setting-row { display: flex; flex-direction: column; gap: 6px; }
+
+/* Wallet-session row: Switch Wallet + Sign Out side-by-side. */
+.wallet-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.wallet-actions .ghost-btn { min-width: 140px; }
+.wallet-actions .wallet-sign-out {
+  border-color: #d96a6a;
+  color: #ffb0b0;
+}
+.wallet-actions .wallet-sign-out:hover {
+  border-color: #ff8888;
+  color: #ffd0d0;
+  background: rgba(255, 100, 100, 0.08);
+}
 .setting-label {
   font-size: 11px;
   text-transform: uppercase;
