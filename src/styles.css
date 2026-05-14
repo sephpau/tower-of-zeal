@@ -4844,8 +4844,23 @@ body:has(.battle) {
   display: flex;
   gap: 6px;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .shop-buy-btn { min-width: 90px; padding: 6px 14px; font-size: 12px; }
+.shop-buy-voucher-btn {
+  padding: 6px 12px;
+  font-size: 11px;
+  border-color: rgba(168, 132, 246, 0.55);
+  color: #d3c3ff;
+  background: rgba(120, 90, 220, 0.10);
+}
+.shop-buy-voucher-btn:hover:not(:disabled) {
+  border-color: rgba(168, 132, 246, 0.95);
+  color: #ece5ff;
+  background: rgba(120, 90, 220, 0.20);
+}
+.shop-buy-voucher-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .shop-slot-btn { padding: 6px 10px; font-size: 11px; }
 .shop-slot-btn.slotted {
   background: rgba(251, 191, 36, 0.18);

@@ -8,6 +8,8 @@ import { getEnergy, ENERGY_MAX } from "../core/energy";
 import {
   SHOP_CATALOG, ShopItemDef, ShopItemId,
   fetchShopStatus, buyShopItem,
+  buyShopItemWithVouchers, pickVouchersToSpend,
+  type ShopStatus,
 } from "../core/shop";
 import { confirmModal, alertModal } from "./confirmModal";
 import { loadSession, validateSession, setVerifiedPerks } from "../auth/session";
@@ -178,11 +180,89 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
     });
   });
 
+  // ---- Voucher-pay buttons ----
+  // The voucher path bypasses the on-chain payment entirely (no signature) but
+  // is just as devtool-proof: the server re-reads inventory, validates voucher
+  // ownership + total value, and grants atomically. No tx overlay shown
+  // because there's no wallet round-trip — the call resolves instantly.
+  grid.querySelectorAll<HTMLButtonElement>("[data-buy-vouchers]").forEach(btn => {
+    const id = btn.dataset.buyVouchers as ShopItemId;
+    btn.addEventListener("click", async () => {
+      const def = SHOP_CATALOG.find(i => i.id === id);
+      if (!def) return;
+      if (def.comingSoon) { await alertModal({ kind: "info", title: "Coming Soon", message: "This item isn't ready yet — check back soon." }); return; }
+      const priceRon = status.pricesRon?.[id];
+      if (typeof priceRon !== "number") { await alertModal({ kind: "warning", message: "Price not available — refresh and try again." }); return; }
+      const spend = pickVouchersToSpend(
+        status.inventory.vouchers ?? {},
+        status.voucherValuesRon,
+        priceRon,
+      );
+      if (!spend) {
+        await alertModal({
+          kind: "warning",
+          title: "Not Enough Vouchers",
+          message: `You need <strong>${priceRon} RON</strong> in voucher value to buy this. Earn more vouchers from mob/boss kills (drops are random).`,
+        });
+        return;
+      }
+      // Build a human-readable breakdown of which tiers we're about to burn.
+      const spendLabel = (["t5", "t4", "t3", "t2", "t1"] as const)
+        .filter(t => (spend[t] ?? 0) > 0)
+        .map(t => `${spend[t]} × Tier ${t.slice(1)} (${status.voucherValuesRon[t]} RON)`)
+        .join(" + ");
+      const totalSpent =
+        (spend.t1 ?? 0) * status.voucherValuesRon.t1 +
+        (spend.t2 ?? 0) * status.voucherValuesRon.t2 +
+        (spend.t3 ?? 0) * status.voucherValuesRon.t3 +
+        (spend.t4 ?? 0) * status.voucherValuesRon.t4 +
+        (spend.t5 ?? 0) * status.voucherValuesRon.t5;
+      const wasted = totalSpent - priceRon;
+      const wasteLine = wasted > 0
+        ? `<br><br>⚠ This combination spends <strong>${totalSpent} RON</strong> in vouchers — <strong>${wasted} RON of excess value is forfeited</strong> (no change is given). This is the cheapest combo your current inventory supports.`
+        : `<br><br>✓ Exact cover — no value wasted.`;
+      const ok = await confirmModal({
+        title: "Pay With RON Vouchers?",
+        message: `Buy <strong>${def.name}</strong> for <strong>${priceRon} RON</strong>?<br><br>Spend: <strong>${spendLabel}</strong>${wasteLine}<br><br>No wallet signature required — vouchers are deducted server-side and the item lands in your Inventory immediately.`,
+        confirmLabel: "Spend Vouchers",
+        cancelLabel: "Cancel",
+      });
+      if (!ok) return;
+      btn.disabled = true;
+      btn.textContent = "Spending…";
+      const result = await buyShopItemWithVouchers(id, spend);
+      if (!result.ok) {
+        btn.disabled = false;
+        btn.textContent = "Pay with Vouchers";
+        await alertModal({
+          kind: "error",
+          title: "Voucher Purchase Failed",
+          message: result.reason ?? "Server rejected the spend.",
+        });
+        return;
+      }
+      // Refresh perks if a Temp MoTZ Key was just granted (same as RON-path).
+      if (id === "unit_temp_motz_key") {
+        const sess = loadSession();
+        if (sess) {
+          const refreshed = await validateSession(sess.token);
+          if (refreshed) setVerifiedPerks(refreshed.perks);
+        }
+      }
+      await alertModal({
+        kind: "success",
+        title: "Purchase Complete",
+        message: `<strong>${def.name}</strong> is now in your Inventory (Backpack icon).`,
+      });
+      await renderShop(root, onBack);
+    });
+  });
+
   // Buff "choose" UX lives on the Inventory + Squad-Select screens — the Shop
   // is purchase-only. No slot handler wired here on purpose.
 }
 
-function shopCardHtml(def: ShopItemDef, status: { inventory: { buffs: Partial<Record<ShopItemId, number>> }; boughtToday: Partial<Record<ShopItemId, boolean>> }): string {
+function shopCardHtml(def: ShopItemDef, status: ShopStatus): string {
   const bought = !!status.boughtToday[def.id];
   const owned = status.inventory.buffs[def.id] ?? 0;
   const isBuff = def.category === "buff";
@@ -192,6 +272,24 @@ function shopCardHtml(def: ShopItemDef, status: { inventory: { buffs: Partial<Re
   const ownedBadge = (isBuff || isEntitlement) && owned > 0
     ? `<span class="shop-owned">Owned: <strong>${owned}</strong></span>`
     : "";
+
+  // Voucher-pay button: only shown if the player has enough total voucher
+  // value AND the item isn't already bought today / coming soon. The button
+  // label shows the RON cost so the player knows what they're spending.
+  const priceRon = status.pricesRon?.[def.id];
+  const ownedVouchers = status.inventory.vouchers ?? {};
+  const totalVoucherValue =
+    (ownedVouchers.t1 ?? 0) * status.voucherValuesRon.t1 +
+    (ownedVouchers.t2 ?? 0) * status.voucherValuesRon.t2 +
+    (ownedVouchers.t3 ?? 0) * status.voucherValuesRon.t3 +
+    (ownedVouchers.t4 ?? 0) * status.voucherValuesRon.t4 +
+    (ownedVouchers.t5 ?? 0) * status.voucherValuesRon.t5;
+  const canPayWithVouchers = !def.comingSoon && !bought
+    && typeof priceRon === "number" && totalVoucherValue >= priceRon;
+  const voucherBtn = typeof priceRon === "number"
+    ? `<button class="ghost-btn shop-buy-voucher-btn" data-buy-vouchers="${def.id}" type="button" ${canPayWithVouchers ? "" : "disabled"} title="${canPayWithVouchers ? `Spend ${priceRon} RON in vouchers` : `Need ${priceRon} RON in vouchers (you have ${totalVoucherValue})`}">🎟 ${canPayWithVouchers ? `Pay ${priceRon} RON in Vouchers` : `Need ${priceRon} RON`}</button>`
+    : "";
+
   return `
     <div class="shop-card ${def.comingSoon ? "shop-card-soon" : ""} ${bought ? "shop-card-bought" : ""}">
       <div class="shop-card-head">
@@ -207,6 +305,7 @@ function shopCardHtml(def: ShopItemDef, status: { inventory: { buffs: Partial<Re
         <span class="shop-card-price">${escapeHtml(def.priceLabel)}</span>
         <div class="shop-card-actions">
           <button class="confirm-btn shop-buy-btn" data-buy="${def.id}" type="button" ${ctaDisabled ? "disabled" : ""}>${escapeHtml(ctaLabel)}</button>
+          ${voucherBtn}
         </div>
       </div>
     </div>

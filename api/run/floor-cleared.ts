@@ -15,6 +15,7 @@ import {
   rollBronForKills,
   MAX_KILLS_PER_ROLL, MAX_BOSS_KILLS_PER_ROLL, MAX_WORLD_ENDER_KILLS_PER_ROLL,
   ENERGY_PACK_CAP_BUMP, SCHOLARS_INSIGHT_CAP_BUMP,
+  VOUCHER_VALUES_RON,
 } from "../_lib/runState.js";
 import { validateAndSyncProgress, readServerProgress } from "../_lib/progressVault.js";
 import { verifyShopPayment, consumeTxHash, ITEM_PRICES_WEI } from "../_lib/payment.js";
@@ -311,11 +312,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       // because clients shouldn't be doing math on the raw wei values anyway
       // (just passing them to viem's `value` field).
       const pricesWei: Record<string, string> = {};
+      const pricesRon: Record<string, number> = {};
       for (const id of allItems) {
         const v = ITEM_PRICES_WEI[id];
-        if (v !== undefined) pricesWei[id] = v.toString();
+        if (v !== undefined) {
+          pricesWei[id] = v.toString();
+          pricesRon[id] = Number(v / 10n ** 18n);
+        }
       }
-      res.status(200).json({ ok: true, inventory: inv, boughtToday: bought, tempMotzKey, pricesWei });
+      res.status(200).json({
+        ok: true, inventory: inv, boughtToday: bought, tempMotzKey,
+        pricesWei, pricesRon,
+        voucherValuesRon: VOUCHER_VALUES_RON,
+      });
       return;
     } catch (e) {
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
@@ -429,6 +438,162 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       }
       res.status(500).json({ error: "no grant handler" });
+      return;
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+      return;
+    }
+  }
+
+  // shop_buy_voucher — pay for a shop item using RON vouchers from inventory
+  // instead of an on-chain RON tx. No wallet signature needed; the server is
+  // the sole authority for both inventory and grant. Devtool-proof because:
+  //   - vouchers can only have arrived via server-rolled drops (rollBronForKills)
+  //     or the admin grant op — there is no client-writable path to inventory
+  //   - the server re-reads the wallet's inventory before deducting, so a
+  //     localStorage-tampered "vouchers" claim can't overdraw what's actually
+  //     stored in Redis
+  //   - voucher face values come from the server-side VOUCHER_VALUES_RON
+  //     constant; the client can't claim a t1 is worth 1000 RON
+  //   - daily 1-per-item cap is enforced the same way as the RON-paid path
+  //   - inventory deduction and item grant are written in a single Redis
+  //     update, so a partial failure can't leave the wallet missing vouchers
+  //     without the item (or vice versa)
+  if (op === "shop_buy_voucher") {
+    const itemRaw = (req.body as { item?: unknown }).item;
+    if (typeof itemRaw !== "string") { res.status(400).json({ error: "item required" }); return; }
+    const itemId = itemRaw as ShopItemId;
+    const known: ShopItemId[] = [
+      "energy_5", "energy_10", "energy_20",
+      "unit_stat_reset", "unit_class_change", "unit_temp_motz_key",
+      ...SHOP_BUFF_IDS,
+    ];
+    if (!known.includes(itemId)) { res.status(400).json({ error: "unknown item" }); return; }
+
+    // Parse the submitted voucher spend. Each tier must be a non-negative
+    // integer; we clamp obviously bogus sizes to short-circuit attacks early.
+    const vRaw = (req.body as { vouchers?: unknown }).vouchers;
+    if (!vRaw || typeof vRaw !== "object") {
+      res.status(400).json({ error: "vouchers required: { t1, t2, t3, t4, t5 }" }); return;
+    }
+    const parseSpend = (v: unknown): number => {
+      if (typeof v !== "number" || !Number.isFinite(v)) return 0;
+      const n = Math.floor(v);
+      if (n < 0 || n > 9999) return -1;
+      return n;
+    };
+    const spend = {
+      t1: parseSpend((vRaw as Record<string, unknown>).t1),
+      t2: parseSpend((vRaw as Record<string, unknown>).t2),
+      t3: parseSpend((vRaw as Record<string, unknown>).t3),
+      t4: parseSpend((vRaw as Record<string, unknown>).t4),
+      t5: parseSpend((vRaw as Record<string, unknown>).t5),
+    };
+    if (spend.t1 < 0 || spend.t2 < 0 || spend.t3 < 0 || spend.t4 < 0 || spend.t5 < 0) {
+      res.status(400).json({ error: "voucher counts must be non-negative integers" }); return;
+    }
+    const totalSpendRon =
+      spend.t1 * VOUCHER_VALUES_RON.t1 +
+      spend.t2 * VOUCHER_VALUES_RON.t2 +
+      spend.t3 * VOUCHER_VALUES_RON.t3 +
+      spend.t4 * VOUCHER_VALUES_RON.t4 +
+      spend.t5 * VOUCHER_VALUES_RON.t5;
+    if (totalSpendRon <= 0) {
+      res.status(400).json({ error: "must spend at least one voucher" }); return;
+    }
+
+    // Resolve the item's RON price from the wei table — single source of truth.
+    const priceWei = ITEM_PRICES_WEI[itemId];
+    if (priceWei === undefined) {
+      res.status(400).json({ error: "no price set for item" }); return;
+    }
+    const priceRon = Number(priceWei / 10n ** 18n);
+
+    if (totalSpendRon < priceRon) {
+      res.status(402).json({
+        ok: false,
+        reason: `submitted vouchers worth ${totalSpendRon} RON, need ${priceRon} RON`,
+      });
+      return;
+    }
+
+    try {
+      // Daily cap gate FIRST — fails fast without burning vouchers if already
+      // bought today. Atomic via incrWithExpire after we verify everything else.
+      const already = await readBoughtToday(itemId, address);
+      if (already) { res.status(429).json({ ok: false, reason: "already bought today" }); return; }
+
+      // Re-read the server-canonical inventory and verify the wallet actually
+      // owns enough of each tier. NEVER trust the client's claimed vouchers
+      // for this — only trust what Redis says we wrote on the deposit side.
+      const inv = await readShopInventory(address);
+      inv.vouchers = inv.vouchers ?? {};
+      const owned = {
+        t1: inv.vouchers.t1 ?? 0,
+        t2: inv.vouchers.t2 ?? 0,
+        t3: inv.vouchers.t3 ?? 0,
+        t4: inv.vouchers.t4 ?? 0,
+        t5: inv.vouchers.t5 ?? 0,
+      };
+      if (spend.t1 > owned.t1 || spend.t2 > owned.t2 || spend.t3 > owned.t3 ||
+          spend.t4 > owned.t4 || spend.t5 > owned.t5) {
+        res.status(402).json({
+          ok: false,
+          reason: "you don't own enough vouchers for this spend",
+        });
+        return;
+      }
+
+      // Atomically bump the daily-cap counter. If another claim raced past us,
+      // bail BEFORE deducting vouchers.
+      const after = await markBoughtToday(itemId, address);
+      if (after > 1) {
+        res.status(429).json({ ok: false, reason: "already bought today" });
+        return;
+      }
+
+      // Deduct vouchers from inventory and grant the item in ONE write. Excess
+      // RON value above the price is forfeited (no change is given — players
+      // should pick the most efficient combination of tiers themselves).
+      inv.vouchers.t1 = owned.t1 - spend.t1;
+      inv.vouchers.t2 = owned.t2 - spend.t2;
+      inv.vouchers.t3 = owned.t3 - spend.t3;
+      inv.vouchers.t4 = owned.t4 - spend.t4;
+      inv.vouchers.t5 = owned.t5 - spend.t5;
+
+      // Apply the grant in the SAME inventory blob we'll write below, so the
+      // voucher deduction and the item grant happen as one atomic write.
+      let grantPayload: Record<string, unknown> = { itemId };
+      if (itemId === "energy_5" || itemId === "energy_10" || itemId === "energy_20") {
+        inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
+        await writeShopInventory(address, inv);
+        grantPayload = { type: "energy_pack", itemId, owned: inv.buffs[itemId] };
+      } else if (itemId === "unit_temp_motz_key") {
+        await writeShopInventory(address, inv); // burn vouchers first
+        const r = await grantTempMotzKey(address);
+        grantPayload = { type: "temp_motz_key", expiresAt: r.expiresAt };
+      } else if (itemId === "unit_stat_reset" || itemId === "unit_class_change") {
+        inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
+        await writeShopInventory(address, inv);
+        grantPayload = { type: "entitlement", itemId, owned: inv.buffs[itemId] };
+      } else if (SHOP_BUFF_IDS.includes(itemId)) {
+        const grantQty = BUFF_GRANT_SIZE[itemId] ?? 1;
+        inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + grantQty;
+        await writeShopInventory(address, inv);
+        grantPayload = { type: "buff", itemId, owned: inv.buffs[itemId], qty: grantQty };
+      } else {
+        res.status(500).json({ error: "no grant handler" });
+        return;
+      }
+
+      res.status(200).json({
+        ok: true,
+        grant: grantPayload,
+        spent: spend,
+        spentRon: totalSpendRon,
+        priceRon,
+        vouchers: inv.vouchers,
+      });
       return;
     } catch (e) {
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });

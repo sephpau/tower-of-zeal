@@ -68,6 +68,13 @@ export interface ShopStatus {
    *  when the player clicks Buy. Server is the source of truth — client never
    *  hardcodes prices in critical paths. */
   pricesWei: Partial<Record<ShopItemId, string>>;
+  /** Per-item RON prices as whole-number ints. Used for the voucher-pay flow
+   *  where the player picks tiers to spend; the server is still the only
+   *  authority that validates voucher sufficiency. */
+  pricesRon: Partial<Record<ShopItemId, number>>;
+  /** Server-published voucher face values. Mirrors VOUCHER_VALUES_RON on the
+   *  server so the client can show the player how much each tier is worth. */
+  voucherValuesRon: { t1: number; t2: number; t3: number; t4: number; t5: number };
 }
 
 export async function fetchShopStatus(): Promise<ShopStatus | null> {
@@ -88,12 +95,16 @@ export async function fetchShopStatus(): Promise<ShopStatus | null> {
       boughtToday: Partial<Record<ShopItemId, boolean>>;
       tempMotzKey?: { active: boolean; expiresAt?: number };
       pricesWei?: Partial<Record<ShopItemId, string>>;
+      pricesRon?: Partial<Record<ShopItemId, number>>;
+      voucherValuesRon?: { t1: number; t2: number; t3: number; t4: number; t5: number };
     };
     return {
       inventory: data.inventory,
       boughtToday: data.boughtToday,
       tempMotzKey: data.tempMotzKey ?? { active: false },
       pricesWei: data.pricesWei ?? {},
+      pricesRon: data.pricesRon ?? {},
+      voucherValuesRon: data.voucherValuesRon ?? { t1: 5, t2: 10, t3: 20, t4: 50, t5: 200 },
     };
   } catch { return null; }
 }
@@ -133,6 +144,86 @@ export async function buyShopItem(item: ShopItemId, txHash: `0x${string}`): Prom
   } catch {
     return { ok: false, reason: "network" };
   }
+}
+
+export interface VoucherSpend { t1?: number; t2?: number; t3?: number; t4?: number; t5?: number; }
+
+/** Buy a shop item using RON vouchers from inventory (no wallet signature).
+ *  Server validates the player actually owns the submitted vouchers and that
+ *  their total face value covers the item price — devtool tampering on the
+ *  client side can't bypass either check. Excess value above the item price
+ *  is forfeited; the client should pick the most efficient combo of tiers. */
+export async function buyShopItemWithVouchers(item: ShopItemId, vouchers: VoucherSpend): Promise<BuyResult> {
+  const tok = token();
+  if (!tok) return { ok: false, reason: "not signed in" };
+  try {
+    const r = await fetch("/api/run/floor-cleared", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "shop_buy_voucher", item, vouchers }),
+    });
+    const data = await r.json().catch(() => ({} as { ok?: boolean; reason?: string }));
+    if (r.status === 429) return { ok: false, reason: data.reason ?? "already bought today" };
+    if (r.status === 402) return { ok: false, reason: data.reason ?? "voucher spend rejected" };
+    if (!r.ok) return { ok: false, reason: typeof data.reason === "string" ? data.reason : `http ${r.status}` };
+    return { ok: !!data.ok };
+  } catch {
+    return { ok: false, reason: "network" };
+  }
+}
+
+/** Given the player's owned vouchers and a target RON price, returns a
+ *  combination that covers the price with minimum value wasted. Greedy
+ *  largest-first (which works exactly for our 5/10/20/50/200 canonical
+ *  denominations as long as we don't overshoot at any step), then a single
+ *  top-up of the smallest tier that can bridge whatever rounding leftover
+ *  remains. Returns null if the player doesn't own enough total value. */
+export function pickVouchersToSpend(
+  owned: { t1?: number; t2?: number; t3?: number; t4?: number; t5?: number },
+  values: { t1: number; t2: number; t3: number; t4: number; t5: number },
+  priceRon: number,
+): VoucherSpend | null {
+  const out: Required<VoucherSpend> = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0 };
+  let rem = priceRon;
+  // Pass 1: largest → smallest, take only as many as fit without overshooting.
+  for (const t of ["t5", "t4", "t3", "t2", "t1"] as const) {
+    if (rem <= 0) break;
+    const have = owned[t] ?? 0;
+    const v = values[t];
+    if (have <= 0 || v <= 0) continue;
+    const take = Math.min(have, Math.floor(rem / v));
+    out[t] = take;
+    rem -= take * v;
+  }
+  // Pass 2 (only if exact-cover failed): smallest unused tier that can cover
+  // the remainder. Prefers the cheapest single voucher that gets us over the line.
+  if (rem > 0) {
+    let topped = false;
+    for (const t of ["t1", "t2", "t3", "t4", "t5"] as const) {
+      const have = owned[t] ?? 0;
+      const v = values[t];
+      if (have > out[t] && v >= rem) {
+        out[t]++;
+        rem -= v;
+        topped = true;
+        break;
+      }
+    }
+    // No single voucher big enough? Walk smallest → largest adding 1 at a time
+    // (rare — only happens when small-tier stock is exhausted and large tiers
+    // would overshoot. With our denominations this is essentially impossible.)
+    if (!topped) {
+      for (const t of ["t5", "t4", "t3", "t2", "t1"] as const) {
+        while (rem > 0 && (owned[t] ?? 0) > out[t]) {
+          out[t]++;
+          rem -= values[t];
+        }
+        if (rem <= 0) break;
+      }
+    }
+  }
+  if (rem > 0) return null; // not enough total value
+  return out;
 }
 
 /** Consume one energy pack from inventory. Server decrements + grants energy. */

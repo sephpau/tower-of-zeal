@@ -354,6 +354,14 @@ const BRON_DROP_TABLE: { tier: "t1" | "t2" | "t3" | "t4" | "t5"; chance: number;
 export const BOSS_DROP_MULTIPLIER = 2.0;
 export const WORLD_ENDER_DROP_MULTIPLIER = 4.0;
 
+/** Face value of each voucher tier in RON (whole units). Source of truth for
+ *  the voucher-pay path in the shop. Server uses this to validate that the
+ *  submitted vouchers cover the item's RON price — devtool-tampered client
+ *  values are ignored, only these constants are trusted. */
+export const VOUCHER_VALUES_RON: Record<"t1" | "t2" | "t3" | "t4" | "t5", number> = {
+  t1: 5, t2: 10, t3: 20, t4: 50, t5: 200,
+};
+
 export interface BronRollResult {
   drops: { t1: number; t2: number; t3: number; t4: number; t5: number; total: number };
   killsCounted: number;
