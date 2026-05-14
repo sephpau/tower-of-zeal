@@ -103,9 +103,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
   if (op === "admin_grant_vouchers") {
+    // Hard gate: only the admin wallet (server-side allowlist in api/_lib/admin.ts)
+    // can fire this. `address` comes from the JWT-verified session, so the body
+    // can't spoof it. Grants are ALWAYS to the caller's own wallet — no `target`
+    // parameter — so there's no way for any other wallet to receive vouchers
+    // through this path, even via an admin call.
     if (!isAdmin(address)) { res.status(403).json({ error: "admin only" }); return; }
     try {
-      const body = req.body as { t1?: unknown; t2?: unknown; t3?: unknown; t4?: unknown; t5?: unknown; target?: unknown };
+      const body = req.body as { t1?: unknown; t2?: unknown; t3?: unknown; t4?: unknown; t5?: unknown };
       const num = (v: unknown, def: number): number => {
         if (typeof v !== "number" || !Number.isFinite(v)) return def;
         return Math.max(0, Math.min(999, Math.floor(v)));
@@ -114,21 +119,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         t1: num(body.t1, 1), t2: num(body.t2, 1), t3: num(body.t3, 1),
         t4: num(body.t4, 1), t5: num(body.t5, 1),
       };
-      // Optional explicit target (admin-only). Defaults to the admin's own wallet.
-      let target = address;
-      if (typeof body.target === "string" && body.target) {
-        try { target = getAddress(body.target); }
-        catch { res.status(400).json({ error: "bad target address" }); return; }
-      }
-      const inv = await readShopInventory(target);
+      const inv = await readShopInventory(address);
       inv.vouchers = inv.vouchers ?? {};
       inv.vouchers.t1 = (inv.vouchers.t1 ?? 0) + grant.t1;
       inv.vouchers.t2 = (inv.vouchers.t2 ?? 0) + grant.t2;
       inv.vouchers.t3 = (inv.vouchers.t3 ?? 0) + grant.t3;
       inv.vouchers.t4 = (inv.vouchers.t4 ?? 0) + grant.t4;
       inv.vouchers.t5 = (inv.vouchers.t5 ?? 0) + grant.t5;
-      await writeShopInventory(target, inv);
-      res.status(200).json({ ok: true, target, vouchers: inv.vouchers });
+      await writeShopInventory(address, inv);
+      res.status(200).json({ ok: true, vouchers: inv.vouchers });
     } catch (e) {
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
     }
