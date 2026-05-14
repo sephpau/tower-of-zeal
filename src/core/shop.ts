@@ -64,6 +64,10 @@ export interface ShopStatus {
   boughtToday: Partial<Record<ShopItemId, boolean>>;
   /** State of the seasonal pass — if active, expiresAt is a UTC timestamp. */
   tempMotzKey: { active: boolean; expiresAt?: number };
+  /** Per-item RON prices in wei (stringified). Used to build the wallet tx
+   *  when the player clicks Buy. Server is the source of truth — client never
+   *  hardcodes prices in critical paths. */
+  pricesWei: Partial<Record<ShopItemId, string>>;
 }
 
 export async function fetchShopStatus(): Promise<ShopStatus | null> {
@@ -83,11 +87,13 @@ export async function fetchShopStatus(): Promise<ShopStatus | null> {
       };
       boughtToday: Partial<Record<ShopItemId, boolean>>;
       tempMotzKey?: { active: boolean; expiresAt?: number };
+      pricesWei?: Partial<Record<ShopItemId, string>>;
     };
     return {
       inventory: data.inventory,
       boughtToday: data.boughtToday,
       tempMotzKey: data.tempMotzKey ?? { active: false },
+      pricesWei: data.pricesWei ?? {},
     };
   } catch { return null; }
 }
@@ -97,17 +103,22 @@ export interface BuyResult {
   reason?: string;
 }
 
-export async function buyShopItem(item: ShopItemId): Promise<BuyResult> {
+/** Submit a purchase. `txHash` is the Ronin payment tx hash from the wallet —
+ *  required server-side, where the receipt is verified against the treasury
+ *  wallet and the item's price before any grant happens. */
+export async function buyShopItem(item: ShopItemId, txHash: `0x${string}`): Promise<BuyResult> {
   const tok = token();
   if (!tok) return { ok: false, reason: "not signed in" };
   try {
     const r = await fetch("/api/run/floor-cleared", {
       method: "POST",
       headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ op: "shop_buy", item }),
+      body: JSON.stringify({ op: "shop_buy", item, txHash }),
     });
     const data = await r.json().catch(() => ({} as { ok?: boolean; reason?: string }));
     if (r.status === 429) return { ok: false, reason: data.reason ?? "already bought today" };
+    // 402 Payment Required → tx verification failed (bad to/from/value, used hash, reverted, etc.)
+    if (r.status === 402) return { ok: false, reason: data.reason ?? "payment verification failed" };
     if (!r.ok) return { ok: false, reason: typeof data.reason === "string" ? data.reason : `http ${r.status}` };
     // Every purchase now goes to inventory — energy packs are NOT auto-applied.
     // The player must visit Inventory and click Use to spend an energy pack.

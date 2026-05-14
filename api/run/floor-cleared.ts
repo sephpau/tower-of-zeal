@@ -17,6 +17,7 @@ import {
   ENERGY_PACK_CAP_BUMP, SCHOLARS_INSIGHT_CAP_BUMP,
 } from "../_lib/runState.js";
 import { validateAndSyncProgress, readServerProgress } from "../_lib/progressVault.js";
+import { verifyShopPayment, consumeTxHash, ITEM_PRICES_WEI } from "../_lib/payment.js";
 
 const MAX_PARTY_SIZE = 3;
 /** Reject replays whose battles report >MAX_PARTY_SIZE units or duplicates —
@@ -274,7 +275,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       const tempMotzKey = tempKey && tempKey.expiresAt > Date.now()
         ? { active: true, expiresAt: tempKey.expiresAt }
         : { active: false };
-      res.status(200).json({ ok: true, inventory: inv, boughtToday: bought, tempMotzKey });
+      // Stringified per-item prices in wei — clients need these to build the
+      // wallet tx. We send strings because JSON can't represent bigint, and
+      // because clients shouldn't be doing math on the raw wei values anyway
+      // (just passing them to viem's `value` field).
+      const pricesWei: Record<string, string> = {};
+      for (const id of allItems) {
+        const v = ITEM_PRICES_WEI[id];
+        if (v !== undefined) pricesWei[id] = v.toString();
+      }
+      res.status(200).json({ ok: true, inventory: inv, boughtToday: bought, tempMotzKey, pricesWei });
       return;
     } catch (e) {
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
@@ -294,6 +304,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     ];
     known.push("unit_temp_motz_key");
     if (!known.includes(itemId)) { res.status(400).json({ error: "unknown item" }); return; }
+    // ---- REQUIRE A PAID TX ----
+    // Every purchase must carry a Ronin tx hash that paid the item's RON price
+    // to the treasury wallet from the authenticated session wallet. The server
+    // pulls the receipt and validates before granting. Nothing on the client
+    // can fake a working tx hash.
+    const txHashRaw = (req.body as { txHash?: unknown }).txHash;
+    if (typeof txHashRaw !== "string") {
+      res.status(400).json({ error: "txHash required (paid Ronin tx)" }); return;
+    }
+    const txHash = txHashRaw;
     try {
       // ---- DAILY 1-PER-ITEM CAP (server-authoritative, devtool-proof) ----
       // Every shop item is hard-capped to ONE purchase per wallet per PH day.
@@ -309,25 +329,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       // care that it's > 0.
       const already = await readBoughtToday(itemId, address);
       if (already) { res.status(429).json({ ok: false, reason: "already bought today" }); return; }
+      // ---- VERIFY THE RON PAYMENT BEFORE BUMPING DAILY-CAP ----
+      // Bumping the cap before payment verification would lock the player out
+      // for the day if their tx is bad. Verify first, then bump.
+      const pay = await verifyShopPayment(txHash, address, itemId);
+      if (!pay.ok) {
+        res.status(402).json({ ok: false, reason: pay.reason });
+        return;
+      }
       const after = await markBoughtToday(itemId, address);
       if (after > 1) {
-        // Race: another claim raced past us. We've still bumped the counter
-        // but we shouldn't grant.
+        // Race: another claim raced past us with the SAME wallet.
+        // (Could happen if a player double-submits the buy — unlikely in
+        //  practice, but harmless: their first request granted the item.)
         res.status(429).json({ ok: false, reason: "already bought today" });
         return;
       }
       // Grant the item.
-      // NOTE: Payment verification ($crypto) is intentionally NOT wired yet —
-      // beta phase grants items free. When payment is wired, this block will
-      // verify a signed Ronin tx before granting.
-      // Energy packs no longer grant energy on purchase — they go into the
-      // inventory like every other shop item, and the player "uses" them from
-      // the Inventory screen via the inventory_use_energy op. This lets players
-      // stockpile and time their refills.
+      // Energy packs go into the inventory like every other shop item, and
+      // the player "uses" them from the Inventory screen via the
+      // inventory_use_energy op. This lets players stockpile and time their
+      // refills.
+      const paidAmount = pay.valueWei;
       if (itemId === "energy_5" || itemId === "energy_10" || itemId === "energy_20") {
         const inv = await readShopInventory(address);
         inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
         await writeShopInventory(address, inv);
+        await consumeTxHash(txHash, address, itemId, paidAmount);
         res.status(200).json({ ok: true, grant: { type: "energy_pack", itemId, owned: inv.buffs[itemId] } });
         return;
       }
@@ -336,6 +364,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       // perks.motzKey on every session check. Stacks with existing time.
       if (itemId === "unit_temp_motz_key") {
         const r = await grantTempMotzKey(address);
+        await consumeTxHash(txHash, address, itemId, paidAmount);
         res.status(200).json({ ok: true, grant: { type: "temp_motz_key", expiresAt: r.expiresAt } });
         return;
       }
@@ -347,6 +376,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         const inv = await readShopInventory(address);
         inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + 1;
         await writeShopInventory(address, inv);
+        await consumeTxHash(txHash, address, itemId, paidAmount);
         res.status(200).json({ ok: true, grant: { type: "entitlement", itemId, owned: inv.buffs[itemId] } });
         return;
       }
@@ -355,6 +385,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         const grantQty = BUFF_GRANT_SIZE[itemId] ?? 1;
         inv.buffs[itemId] = (inv.buffs[itemId] ?? 0) + grantQty;
         await writeShopInventory(address, inv);
+        await consumeTxHash(txHash, address, itemId, paidAmount);
         res.status(200).json({ ok: true, grant: { type: "buff", itemId, owned: inv.buffs[itemId], qty: grantQty } });
         return;
       }

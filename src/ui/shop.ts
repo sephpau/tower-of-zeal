@@ -11,6 +11,7 @@ import {
 } from "../core/shop";
 import { confirmModal } from "./confirmModal";
 import { loadSession, validateSession, setVerifiedPerks } from "../auth/session";
+import { payForItem } from "../auth/payment";
 
 export async function renderShop(root: HTMLElement, onBack: () => void): Promise<void> {
   // Initial paint — empty list while we wait on the status fetch.
@@ -69,18 +70,36 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
       const def = SHOP_CATALOG.find(i => i.id === id);
       if (!def) return;
       if (def.comingSoon) { alert("This item isn't ready yet — check back soon."); return; }
+      const priceWeiStr = status.pricesWei?.[id];
+      if (!priceWeiStr) { alert("Price not available — refresh and try again."); return; }
       const ok = await confirmModal({
         title: "Confirm Purchase",
-        message: `Buy <strong>${def.name}</strong> for <strong>${def.priceLabel}</strong>?<br><br>${def.description}<br><br>📦 The item will be added to your <strong>Inventory</strong> (Backpack icon). Open it to <strong>use</strong> energy packs or <strong>choose</strong> a campaign buff for the next battle.<br><br><em>Beta: RON payment integration is coming soon — purchases are free during testing. Item is locked once bought today.</em>`,
-        confirmLabel: "Buy",
+        message: `Buy <strong>${def.name}</strong> for <strong>${def.priceLabel}</strong>?<br><br>${def.description}<br><br>💸 Your Ronin wallet will open to approve a <strong>${def.priceLabel}</strong> transfer to the shop treasury. The item is added to your Inventory (Backpack icon) once the payment is confirmed on-chain (a few seconds).`,
+        confirmLabel: "Approve in Wallet",
         cancelLabel: "Cancel",
       });
       if (!ok) return;
       btn.disabled = true;
-      btn.textContent = "Buying…";
-      const result = await buyShopItem(id);
+      btn.textContent = "Open wallet…";
+      // 1. Ask the Ronin wallet to send RON to the treasury.
+      let priceWei: bigint;
+      try { priceWei = BigInt(priceWeiStr); }
+      catch { alert("Bad price format from server."); btn.disabled = false; btn.textContent = "Buy"; return; }
+      const pay = await payForItem(priceWei);
+      if (!pay.ok || !pay.txHash) {
+        if (pay.reason && pay.reason !== "purchase cancelled") {
+          alert(`Payment failed: ${pay.reason}`);
+        }
+        btn.disabled = false;
+        btn.textContent = "Buy";
+        return;
+      }
+      btn.textContent = "Verifying tx…";
+      // 2. Hand the tx hash to the server. Server polls Ronin RPC, validates
+      //    the receipt against treasury / wallet / price / used-set, then grants.
+      const result = await buyShopItem(id, pay.txHash);
       if (!result.ok) {
-        alert(result.reason ?? "Purchase failed.");
+        alert(`${result.reason ?? "Purchase failed"}\n\nTx hash: ${pay.txHash}\n(Save this hash — your RON was sent. Contact support if the item isn't granted.)`);
         // Re-fetch + re-render to refresh "Bought today" state.
         await renderShop(root, onBack);
         return;
