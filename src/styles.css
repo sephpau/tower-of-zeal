@@ -2158,7 +2158,12 @@ body:has(.battle) {
 }
 .skill-loadout-head {
   display: flex; justify-content: space-between; align-items: center;
+  gap: 8px;
 }
+.skill-loadout-actions {
+  display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;
+}
+.skill-loadout-actions .ghost-btn { font-size: 11px; padding: 4px 10px; }
 .skill-loadout-label {
   font-family: var(--motz-font-mono);
   font-size: 11px;

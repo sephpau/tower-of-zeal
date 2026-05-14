@@ -254,7 +254,10 @@ function skillLoadoutHtml(t: UnitTemplate, classId: string | undefined, level: n
       <div class="skill-loadout">
         <div class="skill-loadout-head">
           <span class="skill-loadout-label">Equipped (${eqVisible.length}/${MAX_EQUIPPED_SKILLS})</span>
-          <button class="ghost-btn" data-edit-skills="${escapeAttr(t.id)}" type="button" ${pool.length === 0 ? "disabled" : ""}>Edit Loadout</button>
+          <div class="skill-loadout-actions">
+            <button class="ghost-btn" data-auto-equip="${escapeAttr(t.id)}" type="button" ${unlocked.length === 0 ? "disabled" : ""} title="Auto-equip the strongest ${MAX_EQUIPPED_SKILLS} unlocked skills">Auto-Equip</button>
+            <button class="ghost-btn" data-edit-skills="${escapeAttr(t.id)}" type="button" ${pool.length === 0 ? "disabled" : ""}>Edit Loadout</button>
+          </div>
         </div>
         <div class="skill-chips">${equippedChips}</div>
         ${browseChips ? `
@@ -441,6 +444,18 @@ function wireSkillLoadout(root: HTMLElement, editing: Set<string>, redraw: () =>
   root.querySelectorAll<HTMLButtonElement>("[data-edit-skills]").forEach(btn => {
     btn.addEventListener("click", () => {
       editing.add(btn.dataset.editSkills!);
+      redraw();
+    });
+  });
+  // One-click "rebuild loadout from strongest N unlocked skills" — useful for
+  // units whose loadout was set by the OLD auto-equip logic and is now stuck
+  // with low-tier skills even though stronger ones are unlocked.
+  root.querySelectorAll<HTMLButtonElement>("[data-auto-equip]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const tid = btn.dataset.autoEquip!;
+      const cur = getProgress(tid);
+      const next = autoEquipNewlyUnlocked(tid, cur.classId, cur.level, cur.equippedSkills ?? []);
+      setProgress(tid, { ...cur, equippedSkills: next });
       redraw();
     });
   });
