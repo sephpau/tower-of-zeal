@@ -65,13 +65,20 @@ export function pickWalletModal(opts: { title?: string; subtitle?: string } = {}
         `;
         return;
       }
-      list.innerHTML = options.map((opt, i) => `
-        <button class="wallet-pick-btn" data-wallet-idx="${i}" type="button">
-          <span class="wallet-pick-icon">${opt.icon}</span>
-          <span class="wallet-pick-name">${escapeText(opt.name)}</span>
-          <span class="wallet-pick-status">${opt.detected ? "Detected" : "Open"}</span>
-        </button>
-      `).join("");
+      list.innerHTML = options.map((opt, i) => {
+        // Prefer the EIP-6963 icon (real wallet logo) over the emoji fallback,
+        // but keep the emoji handy if the URL fails to load.
+        const iconCell = opt.iconUrl
+          ? `<span class="wallet-pick-icon"><img src="${escapeText(opt.iconUrl)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:${JSON.stringify(opt.icon)}}))"/></span>`
+          : `<span class="wallet-pick-icon">${opt.icon}</span>`;
+        return `
+          <button class="wallet-pick-btn" data-wallet-idx="${i}" type="button">
+            ${iconCell}
+            <span class="wallet-pick-name">${escapeText(opt.name)}</span>
+            <span class="wallet-pick-status">${opt.detected ? "Detected" : "Open"}</span>
+          </button>
+        `;
+      }).join("");
       list.querySelectorAll<HTMLButtonElement>("[data-wallet-idx]").forEach(btn => {
         btn.addEventListener("click", () => {
           const idx = Number(btn.dataset.walletIdx);

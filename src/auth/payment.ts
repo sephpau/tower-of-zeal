@@ -41,12 +41,67 @@ export interface WalletOption {
   name: string;
   /** Emoji or short glyph used by the picker UI. */
   icon: string;
+  /** Optional rich icon (data URL or remote URL) from EIP-6963 announcement. */
+  iconUrl?: string;
   /** True if this is a software-installed extension we already see in the
    *  page; false if it's a fallback / SDK-mediated option. */
   detected: boolean;
   /** Returns the EIP-1193 provider to use for this option. May open a
    *  separate install prompt for non-detected options. */
   getProvider(): Promise<EthereumProvider | null>;
+}
+
+// ---- EIP-6963 multi-wallet discovery ----
+// Modern wallets (Rabby, MetaMask, Coinbase, Phantom, Brave, etc.) announce
+// themselves via the `eip6963:announceProvider` event when the page dispatches
+// `eip6963:requestProvider`. Wallets that ONLY support this protocol (no
+// window.ethereum at all) — like Rabby with MetaMask compat off — were
+// invisible to the legacy detection.
+interface Eip6963ProviderInfo {
+  uuid: string;
+  name: string;
+  icon: string;  // data URL or remote URL
+  rdns: string;  // reverse-DNS, e.g. "io.rabby"
+}
+interface Eip6963ProviderDetail {
+  info: Eip6963ProviderInfo;
+  provider: EthereumProvider;
+}
+
+/** Map well-known rdns → short emoji icon (for the picker when iconUrl is
+ *  weird or fails to load). */
+function fallbackIconForRdns(rdns: string): string {
+  const lc = rdns.toLowerCase();
+  if (lc.includes("rabby")) return "🐰";
+  if (lc.includes("ronin")) return "🐉";
+  if (lc.includes("metamask")) return "🦊";
+  if (lc.includes("coinbase")) return "🔵";
+  if (lc.includes("trust")) return "🛡";
+  if (lc.includes("brave")) return "🦁";
+  if (lc.includes("phantom")) return "👻";
+  if (lc.includes("okx")) return "🟢";
+  return "💼";
+}
+
+/** Listen for EIP-6963 announcements for `timeoutMs`, then return all unique
+ *  providers seen (deduped by rdns). */
+function discoverEip6963(timeoutMs = 600): Promise<Eip6963ProviderDetail[]> {
+  return new Promise(resolve => {
+    if (typeof window === "undefined") { resolve([]); return; }
+    const seen = new Map<string, Eip6963ProviderDetail>();
+    const onAnnounce = (event: Event) => {
+      const detail = (event as CustomEvent<Eip6963ProviderDetail>).detail;
+      if (!detail || !detail.info || !detail.provider) return;
+      if (!seen.has(detail.info.rdns)) seen.set(detail.info.rdns, detail);
+    };
+    window.addEventListener("eip6963:announceProvider", onAnnounce as EventListener);
+    // Wallets respond to this dispatched event.
+    window.dispatchEvent(new Event("eip6963:requestProvider"));
+    setTimeout(() => {
+      window.removeEventListener("eip6963:announceProvider", onAnnounce as EventListener);
+      resolve(Array.from(seen.values()));
+    }, timeoutMs);
+  });
 }
 
 function classifyProvider(p: EthereumProvider): { id: string; name: string; icon: string } {
@@ -74,51 +129,84 @@ function anyProviderInjected(): boolean {
   return !!window.ronin || !!window.ethereum;
 }
 
-/** Enumerate ALL EIP-1193 providers currently injected, deduped by classify id. */
+/** Enumerate ALL EIP-1193 providers currently available via:
+ *    a) EIP-6963 announcements (modern multi-wallet standard, Rabby+others)
+ *    b) window.ronin (Ronin Wallet primary)
+ *    c) window.ethereum.providers[] (multi-wallet hub)
+ *    d) window.ethereum (legacy single-injection)
+ *    e) tanto-connect Ronin Wallet fallback
+ *  Deduped by stable id so the same wallet doesn't appear twice. */
 export async function discoverWallets(): Promise<WalletOption[]> {
   await waitForAnyProvider();
   const out: WalletOption[] = [];
   const seen = new Set<string>();
 
-  // 1. window.ronin — Ronin Wallet's primary injection.
-  if (typeof window !== "undefined" && window.ronin) {
+  // a) EIP-6963 — wait briefly for announcements. Modern wallets (Rabby,
+  //    MetaMask 11+, Coinbase, Phantom, Brave) ONLY announce this way.
+  const announced = await discoverEip6963();
+  for (const d of announced) {
+    const id = d.info.rdns;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      name: d.info.name,
+      icon: fallbackIconForRdns(d.info.rdns),
+      iconUrl: d.info.icon,
+      detected: true,
+      getProvider: async () => d.provider,
+    });
+  }
+
+  // b) window.ronin — Ronin Wallet's primary injection.
+  if (typeof window !== "undefined" && window.ronin && !seen.has("ronin")) {
     const r = window.ronin;
     const provider: EthereumProvider | null =
       typeof (r as { request?: unknown }).request === "function"
         ? (r as EthereumProvider)
         : (r as { provider?: EthereumProvider }).provider ?? null;
     if (provider) {
-      if (!seen.has("ronin")) {
-        seen.add("ronin");
-        out.push({
-          id: "ronin",
-          name: "Ronin Wallet",
-          icon: "🐉",
-          detected: true,
-          getProvider: async () => provider,
-        });
-      }
+      seen.add("ronin");
+      out.push({
+        id: "ronin",
+        name: "Ronin Wallet",
+        icon: "🐉",
+        detected: true,
+        getProvider: async () => provider,
+      });
     }
   }
 
-  // 2. window.ethereum.providers[] — multi-wallet hub.
+  // c)+d) window.ethereum legacy paths — only add if not already covered
+  //       by an EIP-6963 announcement (avoids duplicates of MetaMask, etc.).
   const eth = typeof window !== "undefined" ? window.ethereum : undefined;
   if (eth) {
     const list = Array.isArray(eth.providers) && eth.providers.length > 0 ? eth.providers : [eth];
     for (const p of list) {
       const info = classifyProvider(p);
-      if (seen.has(info.id) || info.id === "unknown") continue;
-      seen.add(info.id);
+      if (info.id === "unknown") continue;
+      // Map legacy flags to the EIP-6963 rdns space when known so we dedupe
+      // properly.
+      const legacyId =
+        info.id === "ronin" ? "ronin" :
+        info.id === "metamask" ? "io.metamask" :
+        info.id === "coinbase" ? "com.coinbase.wallet" :
+        info.id === "rabby" ? "io.rabby" :
+        info.id === "trust" ? "com.trustwallet.app" :
+        info.id === "brave" ? "brave-wallet" :
+        info.id;
+      if (seen.has(legacyId)) continue;
+      seen.add(legacyId);
       out.push({
-        id: info.id,
+        id: legacyId,
         name: info.name,
         icon: info.icon,
         detected: true,
         getProvider: async () => p,
       });
     }
-    // If all flags-on detection failed, still surface a generic option so the
-    // user has SOMETHING to click.
+    // If absolutely nothing was found via flags, still expose the raw injected
+    // provider so the player has SOMETHING to click.
     if (out.length === 0) {
       out.push({
         id: "unknown",
@@ -130,7 +218,7 @@ export async function discoverWallets(): Promise<WalletOption[]> {
     }
   }
 
-  // 3. tanto-connect Ronin Wallet fallback — always offered if not already detected.
+  // e) tanto-connect Ronin Wallet fallback — always offered if not already detected.
   if (!seen.has("ronin")) {
     out.push({
       id: "ronin-tanto",
