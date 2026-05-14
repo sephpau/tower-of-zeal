@@ -12,7 +12,12 @@ import { getEnergy, setEnergy as setEnergyCache } from "./core/energy";
 import { fetchServerEnergy, consumeServerEnergy } from "./auth/energyApi";
 import { fetchDailyStatus, getCachedDailyMultiplier } from "./core/daily";
 import { renderRunSummary, RunSummary, RunSummaryUnit, pickMvpId } from "./ui/runSummary";
-import { getProgress, setProgress, pullCanonicalProgress, pushProgress } from "./core/progress";
+import {
+  getProgress, setProgress, pullCanonicalProgress, pushProgress,
+  isForcedClassPickPending, markForcedClassPickComplete,
+  getPendingForcedStatAllocUnit, clearPendingForcedStatAllocUnit, markForcedStatAllocSeen,
+} from "./core/progress";
+import { renderForcedClassPick, renderForcedStatAlloc } from "./ui/forcedOnboarding";
 import { awardXp } from "./core/levels";
 import {
   startReplayRecording, abortRecording, finalizeReplay,
@@ -647,6 +652,27 @@ function showHome(): void {
   screen = "home";
   battle = null;
   playBgm();
+  // ---- Forced onboarding gates ----
+  // After tutorial, if no unit has a class AND no unit is past Lv 1, force
+  // the player to pick a class for one of their units before reaching home.
+  // After the FIRST time any unit reaches Lv 2, force them to allocate
+  // those 4 points before reaching home (one-shot per player).
+  if (isForcedClassPickPending()) {
+    renderForcedClassPick(root!, () => {
+      markForcedClassPickComplete();
+      showHome();
+    });
+    return;
+  }
+  const pendingAllocUnit = getPendingForcedStatAllocUnit();
+  if (pendingAllocUnit) {
+    renderForcedStatAlloc(root!, pendingAllocUnit, () => {
+      markForcedStatAllocSeen();
+      clearPendingForcedStatAllocUnit();
+      showHome();
+    });
+    return;
+  }
   renderHome(root!, onHomeAction);
   // Pull the server-canonical progress to overwrite anything devtools may
   // have changed in localStorage while away. Server is source of truth.

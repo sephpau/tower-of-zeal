@@ -78,9 +78,61 @@ export function getProgress(templateId: string): UnitProgress {
 
 export function setProgress(templateId: string, p: UnitProgress): void {
   const map = loadAll();
+  const priorLevel = map[templateId]?.level ?? 1;
+  // ---- First-time-Lv2 onboarding hook ----
+  // Mark a pending forced stat-allocation prompt if THIS write is the first
+  // time any unit transitions from <2 to >=2 AND the player has never been
+  // through the forced allocator before. The "first time per player" promise
+  // is enforced by FORCED_ALLOC_SEEN_KEY — once true, we never set the
+  // pending key again.
+  if (!isForcedStatAllocSeen() && priorLevel < 2 && p.level >= 2 && p.availablePoints > 0) {
+    try { localStorage.setItem(PENDING_ALLOC_UNIT_KEY(), templateId); } catch { /* ignore */ }
+  }
   map[templateId] = p;
   saveAll(map);
   schedulePushProgress();
+}
+
+// ---- Forced-onboarding flags (post-tutorial gates) ----
+// 1. Force a class pick on the first unit when player exits tutorial with all
+//    units at Lv 1 and no class anywhere.
+// 2. Force stat allocation the FIRST time any unit reaches Lv 2 (once per
+//    player, not once per unit — subsequent level-ups are silent).
+const FORCED_CLASS_PICK_SEEN_KEY  = (): string => scopedKey("toz.forced.classPickSeen.v1");
+const FORCED_ALLOC_SEEN_KEY       = (): string => scopedKey("toz.forced.statAllocSeen.v1");
+const PENDING_ALLOC_UNIT_KEY      = (): string => scopedKey("toz.forced.pendingAllocUnit.v1");
+
+/** True if we should run the forced class-pick gate now. Conditions:
+ *  - Player hasn't been through it before (one-shot)
+ *  - No unit on the wallet has classId set
+ *  - No unit has reached Lv 2+ (so we never block veterans loading a fresh
+ *    device — they've earned past the gate already). */
+export function isForcedClassPickPending(): boolean {
+  try { if (localStorage.getItem(FORCED_CLASS_PICK_SEEN_KEY())) return false; } catch { /* fallthrough */ }
+  const map = loadAll();
+  for (const id of Object.keys(map)) {
+    if (map[id].classId) return false;
+    if ((map[id].level ?? 1) >= 2) return false;
+  }
+  return true;
+}
+export function markForcedClassPickComplete(): void {
+  try { localStorage.setItem(FORCED_CLASS_PICK_SEEN_KEY(), "1"); } catch { /* ignore */ }
+}
+
+/** Returns the templateId of the unit that triggered the forced stat-alloc
+ *  prompt, or null if no prompt is pending. */
+export function getPendingForcedStatAllocUnit(): string | null {
+  try { return localStorage.getItem(PENDING_ALLOC_UNIT_KEY()); } catch { return null; }
+}
+export function clearPendingForcedStatAllocUnit(): void {
+  try { localStorage.removeItem(PENDING_ALLOC_UNIT_KEY()); } catch { /* ignore */ }
+}
+export function markForcedStatAllocSeen(): void {
+  try { localStorage.setItem(FORCED_ALLOC_SEEN_KEY(), "1"); } catch { /* ignore */ }
+}
+function isForcedStatAllocSeen(): boolean {
+  try { return !!localStorage.getItem(FORCED_ALLOC_SEEN_KEY()); } catch { return false; }
 }
 
 /** Debounce coalescing multiple setProgress calls in the same tick into a
