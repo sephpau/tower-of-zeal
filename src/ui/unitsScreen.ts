@@ -93,8 +93,12 @@ export function renderUnitsScreen(root: HTMLElement, onBack: () => void, opts: R
         : "";
       bannerHtml = `<div class="units-forced-banner">${opts.topBanner ?? ""}${progress}</div>`;
     }
+    const forceClasses = [
+      opts.forceClassPickRequired ? "force-class-pick" : "",
+      opts.forceStatAllocFor ? "force-stat-alloc" : "",
+    ].filter(Boolean).join(" ");
     root.innerHTML = `
-      <div class="screen-frame units-screen">
+      <div class="screen-frame units-screen ${forceClasses}">
         <div class="units-sticky-header">
           ${topBarHtml("Units", backVisible)}
           ${bannerHtml}

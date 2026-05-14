@@ -5506,3 +5506,35 @@ body:has(.battle) {
   color: var(--gold-bright);
   font-weight: 800;
 }
+
+/* ---------- Forced-mode button highlight ----------
+   When the player is locked on the Units screen by a forced flow, the
+   relevant action button pulses with a gold halo so the player can't miss
+   it. The Pick class buttons highlight in force-class-pick mode, the
+   Allocate button highlights in force-stat-alloc mode. */
+.units-screen.force-class-pick [data-open-pick] {
+  background: rgba(244, 211, 94, 0.15);
+  border-color: var(--gold-bright);
+  color: var(--gold-bright);
+  font-weight: 800;
+  animation: forced-btn-pulse 1.4s ease-in-out infinite;
+}
+.units-screen.force-stat-alloc [data-open-alloc]:not(:disabled) {
+  background: rgba(244, 211, 94, 0.18);
+  border-color: var(--gold-bright);
+  color: var(--gold-bright);
+  font-weight: 800;
+  animation: forced-btn-pulse 1.4s ease-in-out infinite;
+}
+@keyframes forced-btn-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(244, 211, 94, 0.55),
+                0 0 8px rgba(244, 211, 94, 0.45);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(244, 211, 94, 0),
+                0 0 20px rgba(244, 211, 94, 0.95);
+    transform: scale(1.05);
+  }
+}
