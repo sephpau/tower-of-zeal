@@ -26,6 +26,13 @@ interface Targeting {
 }
 let targeting: Targeting | null = null;
 
+// ---- Combo counter state (module-level) ----
+// Tracks consecutive damage events within COMBO_RESET_MS. Reset on idle. The
+// counter only counts NON-cosmetic damage hits (no moneybag drops, no misses).
+let comboCount = 0;
+let comboTimer: number | null = null;
+const COMBO_RESET_MS = 800;
+
 export interface RenderBattleOpts {
   /** When false, victory/defeat suppress the Return-to-Home / Tower-Stages buttons (used between survival floors). */
   showPostBattleButtons?: boolean;
@@ -70,6 +77,10 @@ export function renderBattle(
         </div>
         <div class="float-layer" id="float-layer"></div>
         <div class="crit-flash-overlay" id="crit-flash-overlay"></div>
+        <div class="combo-counter" id="combo-counter" aria-hidden="true">
+          <span class="combo-x" id="combo-x">x2</span>
+          <span class="combo-label">COMBO</span>
+        </div>
       </div>
 
       <div class="action-panel">
@@ -136,13 +147,22 @@ export function updateLive(root: HTMLElement, b: Battle): void {
       if (c.maxMp > 0) setBar(el, "mp", c.mp, c.maxMp, true);
       // Enemies render their own ATB on the chip; players render ATB in the action row only.
       if (c.side === "enemy") setBar(el, "atb", c.gauge, ATB_FULL, false);
-      // Detect alive → dead transition for the gold kill-burst ring.
+      // Detect alive → dead transition for the gold kill-burst ring AND the
+      // brief kill-cam slow-mo on the whole battle field.
       const wasAlive = !el.classList.contains("dead");
       if (wasAlive && !c.alive) {
         el.classList.remove("kill-burst");
         void el.offsetWidth;
         el.classList.add("kill-burst");
         setTimeout(() => el.classList.remove("kill-burst"), 750);
+        // Apply kill-cam slow-mo to the whole battle scene for ~500ms.
+        const battleRoot = root.querySelector<HTMLElement>(".battle");
+        if (battleRoot && !battleRoot.classList.contains("slowmo")) {
+          battleRoot.classList.remove("kill-cam");
+          void battleRoot.offsetWidth;
+          battleRoot.classList.add("kill-cam");
+          setTimeout(() => battleRoot.classList.remove("kill-cam"), 520);
+        }
       }
       el.classList.toggle("dead", !c.alive);
       el.classList.toggle("ready", c.alive && c.gauge >= ATB_FULL);
@@ -264,11 +284,13 @@ function flushFloats(root: HTMLElement): void {
 
   const fieldRect = field.getBoundingClientRect();
 
-  // Track whether any event in this batch is a crit / kill — drives the
-  // screen-shake intensity + crit flash overlay. Real-damage events only;
-  // cosmetic drops (moneybag) don't contribute.
+  // Track whether any event in this batch is a crit / hit / World End! —
+  // drives the crit flash, combo counter, and signature-skill zoom.
+  // Cosmetic drops (moneybag) and misses don't contribute.
   let hadCrit = false;
   let hadHit = false;
+  let hitCount = 0;
+  let hadWorldEnd = false;
   // Targets that should get a kill-burst ring (HP went to 0 from this batch).
   // We can't reliably know the post-event HP here without combat state, so we
   // proxy "kill" with: the next render-pass will mark the combatant `.dead`
@@ -298,7 +320,9 @@ function flushFloats(root: HTMLElement): void {
       void tgt.offsetWidth;
       tgt.classList.add("hit-flash");
       hadHit = true;
+      hitCount++;
       if (e.crit) hadCrit = true;
+      if (e.skillId === "world_end") hadWorldEnd = true;
     }
 
     // Drops linger longer so the player has time to see what dropped.
@@ -315,7 +339,47 @@ function flushFloats(root: HTMLElement): void {
       setTimeout(() => flash.classList.remove("fire"), 320);
     }
   }
-  void hadHit; // retained for symmetry / future hooks; no shake by design
+
+  // ---- Combo counter (game-feel polish) ----
+  // Each fresh hit increments the chain; the counter shows on x2+. The chain
+  // resets after COMBO_RESET_MS of no new hits. Multi-target AOEs that fire
+  // many hits in the same flush batch all count as one event each, so a
+  // big AOE can spike the counter in a single tick.
+  if (hadHit && hitCount > 0) {
+    comboCount += hitCount;
+    if (comboTimer != null) clearTimeout(comboTimer);
+    comboTimer = window.setTimeout(() => {
+      comboCount = 0;
+      const counter = root.querySelector<HTMLElement>("#combo-counter");
+      counter?.classList.remove("show", "bump");
+      counter?.removeAttribute("data-tier");
+    }, COMBO_RESET_MS);
+
+    if (comboCount >= 2) {
+      const counter = root.querySelector<HTMLElement>("#combo-counter");
+      const xEl = root.querySelector<HTMLElement>("#combo-x");
+      if (counter && xEl) {
+        xEl.textContent = `x${comboCount}`;
+        const tier = comboCount >= 10 ? "huge" : comboCount >= 5 ? "big" : "small";
+        counter.setAttribute("data-tier", tier);
+        counter.classList.add("show");
+        // Retrigger the pop animation on every increment.
+        counter.classList.remove("bump");
+        void counter.offsetWidth;
+        counter.classList.add("bump");
+      }
+    }
+  }
+
+  // ---- World End! cinematic zoom ----
+  // Only triggers for the literal World Ender's signature skill — every other
+  // skill is intentionally left alone so the zoom stays special.
+  if (hadWorldEnd) {
+    field.classList.remove("world-end-zoom");
+    void field.offsetWidth;
+    field.classList.add("world-end-zoom");
+    setTimeout(() => field.classList.remove("world-end-zoom"), 820);
+  }
 }
 
 function visibleSkills(c: Combatant): string[] {

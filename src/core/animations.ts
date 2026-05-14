@@ -35,6 +35,9 @@ export interface FloatEvent {
   icon: DamageIcon;
   color: string;
   crit?: boolean;
+  /** Skill id that produced this event. Used by battle.ts to trigger
+   *  signature-skill cinematic effects (e.g. World End! camera zoom). */
+  skillId?: string;
 }
 
 const queue: FloatEvent[] = [];
@@ -54,9 +57,8 @@ export function pushDamage(
   kind: "physical" | "magical",
   range: "melee" | "range",
   crit = false,
-  _ctx?: HitSfxContext,
+  ctx?: HitSfxContext,
 ): void {
-  void _ctx;
   const icon: DamageIcon =
     kind === "physical" ? (range === "melee" ? "sword" : "bow") :
     /*    magical    */ (range === "melee" ? "staff" : "wizard");
@@ -66,6 +68,7 @@ export function pushDamage(
     icon,
     color: "#ef4444",
     crit,
+    skillId: ctx?.skillId,
   });
   // Stagger rapid back-to-back hit SFX so multi-hit / AOE skills play as a
   // sequence ("tat-tat-tat") instead of one piled-up thud.

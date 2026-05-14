@@ -625,6 +625,107 @@ body:has(.battle) {
   }
 }
 
+/* ---------- Kill-cam slow motion ----------
+   Briefly slows the entire battle scene's animations + transitions when a unit
+   dies. Applied transiently to .battle by battle.ts. Uses the (non-standard
+   but well-supported) animation-duration / transition-duration multiplier via
+   a CSS variable so anything that respects the variable scales together. */
+.battle.kill-cam {
+  animation-duration: 1.6s !important;
+}
+.battle.kill-cam .combatant,
+.battle.kill-cam .bar .fill,
+.battle.kill-cam .float-popup {
+  animation-duration: 1.6s;
+  transition-duration: 0.5s;
+}
+.battle.kill-cam .battle-field::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%,
+              rgba(255, 255, 255, 0.10) 0%,
+              rgba(0, 0, 0, 0.35) 80%);
+  pointer-events: none;
+  z-index: 4;
+  animation: kill-cam-vignette 0.5s ease-out;
+}
+@keyframes kill-cam-vignette {
+  0%   { opacity: 0; }
+  30%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ---------- Combo counter ----------
+   Top-center floating counter that grows with each chained hit. Resets to
+   nothing after a brief idle window — see COMBO_RESET_MS in battle.ts. */
+.combo-counter {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%) scale(0);
+  pointer-events: none;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-family: "Cinzel", serif;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85),
+               0 0 18px rgba(255, 215, 64, 0.65);
+  opacity: 0;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease-out;
+}
+.combo-counter.show {
+  transform: translateX(-50%) scale(1);
+  opacity: 1;
+}
+.combo-counter .combo-x {
+  font-size: 42px;
+  background: linear-gradient(180deg, #FFF6A8 0%, #FFD93D 50%, #FF7A1A 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  line-height: 1;
+}
+.combo-counter .combo-label {
+  font-size: 11px;
+  color: var(--gold-bright, #FFD93D);
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+}
+/* Bigger pop when the counter increments. */
+.combo-counter.bump .combo-x {
+  animation: combo-bump 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes combo-bump {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.45) rotate(-3deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+/* High-tier combo colors. */
+.combo-counter[data-tier="big"] .combo-x  { filter: drop-shadow(0 0 8px rgba(255, 165, 0, 0.8)); }
+.combo-counter[data-tier="huge"] .combo-x { filter: drop-shadow(0 0 14px rgba(255, 80, 30, 0.95)); }
+.combo-counter[data-tier="huge"] .combo-label { color: #ff9648; }
+
+/* ---------- World End! camera zoom ----------
+   Slight scale + tighten of the battle field when the World Ender uses
+   World End! Reset after ~700ms. Pointer-events stay on so action isn't
+   interrupted. */
+.battle-field.world-end-zoom {
+  animation: world-end-zoom 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: center center;
+}
+@keyframes world-end-zoom {
+  0%   { transform: scale(1);    filter: brightness(1); }
+  18%  { transform: scale(1.08); filter: brightness(1.25) saturate(1.4); }
+  45%  { transform: scale(1.06); filter: brightness(1.15) saturate(1.25); }
+  100% { transform: scale(1);    filter: brightness(1); }
+}
+
 /* Kill burst — expanding gold ring on enemy death. Applied via .kill-burst
    class on the combatant for ~0.6s when its HP hits 0. */
 .combatant.kill-burst {
