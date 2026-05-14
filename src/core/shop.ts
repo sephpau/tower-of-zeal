@@ -101,6 +101,9 @@ export async function fetchShopStatus(): Promise<ShopStatus | null> {
 export interface BuyResult {
   ok: boolean;
   reason?: string;
+  /** True iff the server returned 202 — tx broadcast but RPC node hasn't
+   *  indexed the receipt yet. Caller should wait and retry with the same hash. */
+  pending?: boolean;
 }
 
 /** Submit a purchase. `txHash` is the Ronin payment tx hash from the wallet —
@@ -115,8 +118,12 @@ export async function buyShopItem(item: ShopItemId, txHash: `0x${string}`): Prom
       headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
       body: JSON.stringify({ op: "shop_buy", item, txHash }),
     });
-    const data = await r.json().catch(() => ({} as { ok?: boolean; reason?: string }));
+    const data = await r.json().catch(() => ({} as { ok?: boolean; reason?: string; pending?: boolean }));
     if (r.status === 429) return { ok: false, reason: data.reason ?? "already bought today" };
+    // 202 Accepted → tx is on-chain but receipt not yet visible. Caller
+    // should poll. Daily-cap key was NOT bumped on the server, so retries
+    // are safe.
+    if (r.status === 202) return { ok: false, pending: true, reason: data.reason ?? "transaction still pending" };
     // 402 Payment Required → tx verification failed (bad to/from/value, used hash, reverted, etc.)
     if (r.status === 402) return { ok: false, reason: data.reason ?? "payment verification failed" };
     if (!r.ok) return { ok: false, reason: typeof data.reason === "string" ? data.reason : `http ${r.status}` };

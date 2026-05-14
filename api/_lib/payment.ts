@@ -68,7 +68,7 @@ async function markTxHashUsed(txHash: string, rec: UsedTxRecord): Promise<void> 
 
 export type VerifyResult =
   | { ok: true; valueWei: bigint }
-  | { ok: false; reason: string };
+  | { ok: false; reason: string; pending?: boolean };
 
 /** Pulls the receipt from Ronin RPC and validates every constraint. Does NOT
  *  mark the hash as used — caller does that after granting the item to keep
@@ -87,30 +87,40 @@ export async function verifyShopPayment(
     return { ok: false, reason: "tx already used for a prior purchase" };
   }
 
-  let receipt: Awaited<ReturnType<typeof roninClient.getTransactionReceipt>>;
+  // Use viem's waitForTransactionReceipt so we transparently poll for the
+  // receipt — broadcasting wallets return a tx hash before nodes index it,
+  // and our RPC node can lag a few seconds behind the chain head. We give
+  // it ~8 seconds with confirmation depth = REQUIRED_CONFIRMATIONS. If the
+  // receipt still isn't visible after that window, we tell the caller to
+  // retry by setting `pending: true`. Vercel's serverless function timeout
+  // (10s on Hobby) is the upper bound here — keep the wait conservative.
+  let receipt: Awaited<ReturnType<typeof roninClient.waitForTransactionReceipt>>;
   let tx: Awaited<ReturnType<typeof roninClient.getTransaction>>;
   try {
-    [receipt, tx] = await Promise.all([
-      roninClient.getTransactionReceipt({ hash: txHash as `0x${string}` }),
-      roninClient.getTransaction({ hash: txHash as `0x${string}` }),
-    ]);
+    receipt = await roninClient.waitForTransactionReceipt({
+      hash: txHash as `0x${string}`,
+      confirmations: Number(REQUIRED_CONFIRMATIONS),
+      timeout: 8_000,
+      pollingInterval: 1_500,
+    });
+    tx = await roninClient.getTransaction({ hash: txHash as `0x${string}` });
   } catch (e) {
-    return { ok: false, reason: `rpc error: ${e instanceof Error ? e.message : "unknown"}` };
+    const msg = e instanceof Error ? e.message : "unknown";
+    // viem throws TransactionReceiptNotFoundError / WaitForTransactionReceiptTimeoutError
+    // when the tx hasn't been indexed yet. Surface that as a retryable
+    // "pending" so the client polls again rather than treating it as failure.
+    if (/TransactionReceiptNotFound|WaitForTransactionReceiptTimeout|timeout|could not be found|may not be processed/i.test(msg)) {
+      return {
+        ok: false,
+        pending: true,
+        reason: "transaction not yet confirmed on-chain — still waiting for the network",
+      };
+    }
+    return { ok: false, reason: `rpc error: ${msg}` };
   }
-  if (!receipt) return { ok: false, reason: "tx not found on-chain (still pending?)" };
+  if (!receipt) return { ok: false, pending: true, reason: "tx not found on-chain yet" };
   if (receipt.status !== "success") return { ok: false, reason: `tx reverted (status: ${receipt.status})` };
   if (!tx) return { ok: false, reason: "tx body not retrievable" };
-
-  // Confirmation depth check.
-  try {
-    const head = await roninClient.getBlockNumber();
-    const conf = head - receipt.blockNumber + 1n;
-    if (conf < REQUIRED_CONFIRMATIONS) {
-      return { ok: false, reason: `only ${conf} confirmation(s) — need ${REQUIRED_CONFIRMATIONS}` };
-    }
-  } catch (e) {
-    return { ok: false, reason: `block lookup failed: ${e instanceof Error ? e.message : "unknown"}` };
-  }
 
   // `to` must be the treasury wallet.
   const to = receipt.to ? getAddress(receipt.to) : null;

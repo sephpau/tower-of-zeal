@@ -334,6 +334,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       // for the day if their tx is bad. Verify first, then bump.
       const pay = await verifyShopPayment(txHash, address, itemId);
       if (!pay.ok) {
+        // Pending = tx broadcast but RPC node hasn't indexed the receipt yet.
+        // Surface as 202 Accepted so the client polls again rather than
+        // treating it as a hard failure. The daily-cap key has NOT been
+        // bumped yet, so the player can retry freely.
+        if (pay.pending) {
+          res.status(202).json({ ok: false, pending: true, reason: pay.reason });
+          return;
+        }
         res.status(402).json({ ok: false, reason: pay.reason });
         return;
       }

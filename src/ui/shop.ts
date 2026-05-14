@@ -124,8 +124,33 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
       }
       // 3. Hand the tx hash to the server. Server polls Ronin RPC, validates
       //    the receipt against treasury / wallet / price / used-set, then grants.
+      //    The server has only ~8s per request before Vercel cuts it off, so
+      //    when the receipt isn't indexed yet it returns 202 pending → we
+      //    retry up to MAX_VERIFY_ATTEMPTS with a delay between attempts.
+      const MAX_VERIFY_ATTEMPTS = 8;
+      const RETRY_DELAY_MS = 4000;
       tx.setState("verifying", { txHash: pay.txHash });
-      const result = await buyShopItem(id, pay.txHash);
+      let result = await buyShopItem(id, pay.txHash);
+      let attempt = 1;
+      while (result.pending && attempt < MAX_VERIFY_ATTEMPTS) {
+        attempt += 1;
+        tx.setState("verifying", {
+          txHash: pay.txHash,
+          // Pass the attempt counter through reason so the overlay can show progress.
+          reason: `Waiting for the Ronin RPC to index your transaction (attempt ${attempt} of ${MAX_VERIFY_ATTEMPTS})…`,
+        });
+        await new Promise<void>(r => setTimeout(r, RETRY_DELAY_MS));
+        result = await buyShopItem(id, pay.txHash);
+      }
+      if (result.pending) {
+        tx.setState("failed", {
+          reason: "We couldn't confirm your transaction within the wait window. The tx may still finalize — wait a minute, then try buying this item again with the same hash (you won't be double-charged because the daily cap blocks re-buys).",
+          txHash: pay.txHash,
+        });
+        await tx.closed;
+        await renderShop(root, onBack);
+        return;
+      }
       if (!result.ok) {
         tx.setState("failed", {
           reason: result.reason ?? "Something went wrong on the server.",

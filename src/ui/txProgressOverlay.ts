@@ -135,10 +135,15 @@ function renderStateContent(state: TxState, o: TxProgressOptions, extras: { txHa
       const hashHtml = extras.txHash
         ? `<div class="txp-hash"><span class="txp-hash-label">Tx hash</span><span class="motz-tx-hash">${escapeText(extras.txHash)}</span></div>`
         : "";
+      // If the caller passes a `reason` while in verifying state, treat it
+      // as a status update (retry-progress message) and show it as the body.
+      const sub = extras.reason
+        ? escapeText(extras.reason)
+        : "Waiting for 3 block confirmations. This usually takes ~10 seconds. Don't close this tab.";
       return `
         <div class="txp-spinner"></div>
         <div class="txp-title">Verifying on-chain…</div>
-        <div class="txp-sub">Waiting for 3 block confirmations. This usually takes ~10 seconds. Don't close this tab.</div>
+        <div class="txp-sub">${sub}</div>
         ${hashHtml}
       `;
     }
