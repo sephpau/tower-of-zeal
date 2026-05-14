@@ -102,6 +102,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     }
     return;
   }
+  if (op === "admin_grant_vouchers") {
+    if (!isAdmin(address)) { res.status(403).json({ error: "admin only" }); return; }
+    try {
+      const body = req.body as { t1?: unknown; t2?: unknown; t3?: unknown; t4?: unknown; t5?: unknown; target?: unknown };
+      const num = (v: unknown, def: number): number => {
+        if (typeof v !== "number" || !Number.isFinite(v)) return def;
+        return Math.max(0, Math.min(999, Math.floor(v)));
+      };
+      const grant = {
+        t1: num(body.t1, 1), t2: num(body.t2, 1), t3: num(body.t3, 1),
+        t4: num(body.t4, 1), t5: num(body.t5, 1),
+      };
+      // Optional explicit target (admin-only). Defaults to the admin's own wallet.
+      let target = address;
+      if (typeof body.target === "string" && body.target) {
+        try { target = getAddress(body.target); }
+        catch { res.status(400).json({ error: "bad target address" }); return; }
+      }
+      const inv = await readShopInventory(target);
+      inv.vouchers = inv.vouchers ?? {};
+      inv.vouchers.t1 = (inv.vouchers.t1 ?? 0) + grant.t1;
+      inv.vouchers.t2 = (inv.vouchers.t2 ?? 0) + grant.t2;
+      inv.vouchers.t3 = (inv.vouchers.t3 ?? 0) + grant.t3;
+      inv.vouchers.t4 = (inv.vouchers.t4 ?? 0) + grant.t4;
+      inv.vouchers.t5 = (inv.vouchers.t5 ?? 0) + grant.t5;
+      await writeShopInventory(target, inv);
+      res.status(200).json({ ok: true, target, vouchers: inv.vouchers });
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+    }
+    return;
+  }
   if (op === "admin_grant_energy" || op === "admin_fill_energy") {
     if (!isAdmin(address)) { res.status(403).json({ error: "admin only" }); return; }
     try {
