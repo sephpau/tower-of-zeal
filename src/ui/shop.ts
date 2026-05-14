@@ -212,14 +212,14 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
         await alertModal({
           kind: "warning",
           title: "Not Enough Vouchers",
-          message: `You need <strong>${priceRon} RON</strong> in voucher value to buy this. Earn more vouchers from mob/boss kills (drops are random).`,
+          message: `You need <strong>${priceRon} bRON</strong> in voucher value to buy this. Earn more vouchers from mob/boss kills (drops are random).`,
         });
         return;
       }
       // Build a human-readable breakdown of which tiers we're about to burn.
       const spendLabel = (["t5", "t4", "t3", "t2", "t1"] as const)
         .filter(t => (spend[t] ?? 0) > 0)
-        .map(t => `${spend[t]} × Tier ${t.slice(1)} (${status.voucherValuesRon[t]} RON)`)
+        .map(t => `${spend[t]} × Tier ${t.slice(1)} (${status.voucherValuesRon[t]} bRON)`)
         .join(" + ");
       const totalSpent =
         (spend.t1 ?? 0) * status.voucherValuesRon.t1 +
@@ -233,15 +233,15 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
         const change = previewChange(wasted, status.voucherValuesRon);
         const changeLabel = (["t5", "t4", "t3", "t2", "t1"] as const)
           .filter(t => change[t] > 0)
-          .map(t => `${change[t]} × Tier ${t.slice(1)} (${status.voucherValuesRon[t]} RON)`)
+          .map(t => `${change[t]} × Tier ${t.slice(1)} (${status.voucherValuesRon[t]} bRON)`)
           .join(" + ") || "—";
-        wasteLine = `<br><br>You'll spend <strong>${totalSpent} RON</strong> total and receive <strong>${wasted} RON in change</strong>: <strong>${changeLabel}</strong>. (Change is credited as smaller-tier vouchers, largest first.)`;
+        wasteLine = `<br><br>You'll spend <strong>${totalSpent} bRON</strong> total and receive <strong>${wasted} bRON in change</strong>: <strong>${changeLabel}</strong>. (Change is credited as smaller-tier vouchers, largest first.)`;
       } else {
         wasteLine = `<br><br>✓ Exact cover — no change needed.`;
       }
       const ok = await confirmModal({
-        title: "Pay With RON Vouchers?",
-        message: `Buy <strong>${def.name}</strong> for <strong>${priceRon} RON</strong>?<br><br>Spend: <strong>${spendLabel}</strong>${wasteLine}<br><br>No wallet signature required — vouchers are deducted server-side and the item lands in your Inventory immediately.`,
+        title: "Pay With bRON Vouchers?",
+        message: `Buy <strong>${def.name}</strong> for <strong>${priceRon} RON</strong> worth of vouchers?<br><br>Spend: <strong>${spendLabel}</strong>${wasteLine}<br><br>No wallet signature required — vouchers are deducted server-side and the item lands in your Inventory immediately.`,
         confirmLabel: "Spend Vouchers",
         cancelLabel: "Cancel",
       });
@@ -305,7 +305,7 @@ function shopCardHtml(def: ShopItemDef, status: ShopStatus): string {
   const canPayWithVouchers = !def.comingSoon && !bought
     && typeof priceRon === "number" && totalVoucherValue >= priceRon;
   const voucherBtn = typeof priceRon === "number"
-    ? `<button class="ghost-btn shop-buy-voucher-btn" data-buy-vouchers="${def.id}" type="button" ${canPayWithVouchers ? "" : "disabled"} title="${canPayWithVouchers ? `Spend ${priceRon} RON in vouchers` : `Need ${priceRon} RON in vouchers (you have ${totalVoucherValue})`}">🎟 ${canPayWithVouchers ? `Pay ${priceRon} RON in Vouchers` : `Need ${priceRon} RON`}</button>`
+    ? `<button class="ghost-btn shop-buy-voucher-btn" data-buy-vouchers="${def.id}" type="button" ${canPayWithVouchers ? "" : "disabled"} title="${canPayWithVouchers ? `Spend ${priceRon} bRON in vouchers` : `Need ${priceRon} bRON in vouchers (you have ${totalVoucherValue})`}">🎟 ${canPayWithVouchers ? `Pay ${priceRon} bRON in Vouchers` : `Need ${priceRon} bRON`}</button>`
     : "";
 
   return `

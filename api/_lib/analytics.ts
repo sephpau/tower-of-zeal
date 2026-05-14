@@ -169,8 +169,8 @@ export async function buildAnalyticsExportBundle(): Promise<AnalyticsExportBundl
 export function rowsToCsv(rows: WalletAnalyticsRow[]): string {
   const header = [
     "Wallet", "IGN", "Hours of Playing", "Total XP Earned",
-    "RON Spent on Shop", "RON Vouchers Acquired", "RON Vouchers Spent",
-    "Remaining RON Vouchers",
+    "RON Spent on Shop", "bRON Vouchers Acquired", "bRON Vouchers Spent",
+    "Remaining bRON Vouchers",
   ];
   const esc = (v: string | number): string => {
     const s = String(v);

@@ -140,7 +140,7 @@ function ronVouchersSectionHtml(v: { t1?: number; t2?: number; t3?: number; t4?:
               <span class="inv-voucher-name">${t.label} Voucher</span>
               <span class="inv-voucher-count">×${count}</span>
             </div>
-            <div class="inv-voucher-meta">${t.value} RON each · subtotal <strong>${subtotal.toLocaleString()}</strong> RON</div>
+            <div class="inv-voucher-meta">${t.value} bRON each · subtotal <strong>${subtotal.toLocaleString()}</strong> bRON</div>
           </div>
         </div>
       `;
@@ -148,8 +148,8 @@ function ronVouchersSectionHtml(v: { t1?: number; t2?: number; t3?: number; t4?:
   return `
     <div class="inv-section">
       <div class="inv-section-title">
-        RON Vouchers
-        <span class="inv-section-aside">Total value: <strong>${totalRon.toLocaleString()}</strong> RON · Redeem at end of season</span>
+        bRON Vouchers
+        <span class="inv-section-aside">Total value: <strong>${totalRon.toLocaleString()}</strong> bRON · Redeem at end of season</span>
       </div>
       <div class="inv-voucher-grid">${cards}</div>
     </div>

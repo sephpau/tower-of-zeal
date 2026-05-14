@@ -225,7 +225,7 @@ function ronBannerHtml(drops: { t1: number; t2: number; t3: number; t4: number; 
     .join("");
   return `
     <div class="rs-bron-banner">
-      <div class="rs-bron-head">💰 <strong>+${drops.total.toLocaleString()} RON</strong> earned this run</div>
+      <div class="rs-bron-head">💰 <strong>+${drops.total.toLocaleString()} bRON</strong> earned this run</div>
       ${chips ? `<div class="rs-bron-chips">${chips}</div>` : ""}
     </div>
   `;
