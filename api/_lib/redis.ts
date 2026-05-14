@@ -135,6 +135,33 @@ export async function hset(key: string, field: string, value: string): Promise<v
   await call(["HSET", key, field, value]);
 }
 
+/** Atomically increments a numeric hash field. Used by lifetime analytics
+ *  counters (minutes played, RON spent, vouchers acquired) — one hash per
+ *  metric, one field per wallet. */
+export async function hincrBy(key: string, field: string, amount: number): Promise<number> {
+  return await call(["HINCRBY", key, field, Math.floor(amount)]) as number;
+}
+
+/** Read every field from a hash. Returns a record { field: value }. Used by
+ *  the analytics export to enumerate every wallet at once. Returns {} on miss. */
+export async function hgetAll(key: string): Promise<Record<string, string>> {
+  const r = await call(["HGETALL", key]);
+  if (!r) return {};
+  // Upstash returns alternating [k, v, k, v, ...]
+  if (Array.isArray(r)) {
+    const out: Record<string, string> = {};
+    for (let i = 0; i + 1 < r.length; i += 2) {
+      const k = String(r[i]);
+      const v = String(r[i + 1]);
+      out[k] = v;
+    }
+    return out;
+  }
+  // Some Upstash configs return an object map directly.
+  if (typeof r === "object") return r as Record<string, string>;
+  return {};
+}
+
 /** Acquire a short-lived lock for a critical section. Retries up to `retries`
  *  times with `retryMs` backoff. Returns a release fn (idempotent) or null if
  *  the lock could not be acquired. Caller MUST call release in a finally block.

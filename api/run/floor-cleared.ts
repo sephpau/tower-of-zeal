@@ -20,6 +20,7 @@ import {
 import { validateAndSyncProgress, readServerProgress } from "../_lib/progressVault.js";
 import { verifyShopPayment, consumeTxHash, ITEM_PRICES_WEI } from "../_lib/payment.js";
 import { isSeasonHalted, setSeasonHalt, readSeasonHalt, SEASON_HALTED_RESPONSE } from "../_lib/season.js";
+import { bumpRonSpent, bumpVouchersAcquired, buildAnalyticsExport, rowsToCsv } from "../_lib/analytics.js";
 
 const MAX_PARTY_SIZE = 3;
 /** Reject replays whose battles report >MAX_PARTY_SIZE units or duplicates —
@@ -53,6 +54,34 @@ import { adminGrantEnergy, adminFillEnergy, ENERGY_MAX, consumePendingClear } fr
 //
 // Body: { stageId: number, op?: string, ms?: number }
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+  // ---- ANALYTICS EXPORT (unauthenticated GET, key-gated) ----
+  // Piggybacks on this endpoint to stay under the Vercel 12-function cap.
+  // GET /api/run/floor-cleared?op=analytics_export&key=ANALYTICS_KEY&format=csv|json
+  // Used by the Google Apps Script daily sync at 08:00 PH. The key is stored
+  // as `ANALYTICS_KEY` in Vercel env and pasted into the Apps Script.
+  if (req.method === "GET" && (req.query?.op === "analytics_export")) {
+    const expectedKey = process.env.ANALYTICS_KEY;
+    const submittedKey = typeof req.query.key === "string" ? req.query.key : "";
+    if (!expectedKey || submittedKey !== expectedKey) {
+      res.status(403).json({ error: "bad analytics key" }); return;
+    }
+    try {
+      const rows = await buildAnalyticsExport();
+      const format = req.query.format === "json" ? "json" : "csv";
+      if (format === "json") {
+        res.status(200).json({ ok: true, rows, generatedAt: Date.now() });
+        return;
+      }
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      res.status(200).send(rowsToCsv(rows));
+      return;
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+      return;
+    }
+  }
+
   if (req.method !== "POST") { res.status(405).json({ error: "method" }); return; }
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) { res.status(401).json({ error: "no token" }); return; }
@@ -159,6 +188,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       inv.vouchers.t4 = (inv.vouchers.t4 ?? 0) + grant.t4;
       inv.vouchers.t5 = (inv.vouchers.t5 ?? 0) + grant.t5;
       await writeShopInventory(address, inv);
+      // Analytics: admin-granted vouchers count toward the wallet's lifetime
+      // voucher acquisition (so the spreadsheet reflects total RON value
+      // entering the inventory, regardless of source).
+      const acquiredRon =
+        grant.t1 * VOUCHER_VALUES_RON.t1 +
+        grant.t2 * VOUCHER_VALUES_RON.t2 +
+        grant.t3 * VOUCHER_VALUES_RON.t3 +
+        grant.t4 * VOUCHER_VALUES_RON.t4 +
+        grant.t5 * VOUCHER_VALUES_RON.t5;
+      void bumpVouchersAcquired(address, acquiredRon);
       res.status(200).json({ ok: true, vouchers: inv.vouchers });
     } catch (e) {
       res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
@@ -473,6 +512,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
       }
       await consumeTxHash(txHash, address, itemId, paidAmount);
+      // Analytics: lifetime RON spent on shop (RON-tx path).
+      void bumpRonSpent(address, Number(paidAmount / 10n ** 18n));
       res.status(200).json({ ok: true, grant });
       return;
     } catch (e) {
@@ -646,6 +687,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         const r = await grantTempMotzKey(address);
         locked.grantPayload = { type: "temp_motz_key", expiresAt: r.expiresAt };
       }
+      // Analytics: lifetime RON spent on shop (voucher path — counts at the
+      // item's RON price, NOT the over-pay total, because change is refunded).
+      void bumpRonSpent(address, priceRon);
       res.status(200).json({
         ok: true,
         grant: locked.grantPayload,

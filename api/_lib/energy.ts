@@ -3,6 +3,7 @@
 // Refill rule mirrors the client: full reset to ENERGY_MAX at 08:00 Asia/Manila.
 
 import { getJson, setJson, withWalletLock, incrBy, getNumber } from "./redis.js";
+import { bumpMinutesPlayed } from "./analytics.js";
 
 export const ENERGY_MAX = 20;
 const PH_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -83,6 +84,9 @@ export async function consumeEnergy(address: string, cost: number): Promise<{ ok
     // 1-energy each, so cost=1 ⇒ +1 credit; admin-overrides aren't a concern
     // (they don't call consumeEnergy).
     await incrBy(pendingClearKey(address), cost).catch(() => 0);
+    // Lifetime play-time counter (analytics export → daily spreadsheet sync).
+    // Estimate ~2 minutes per energy unit consumed.
+    void bumpMinutesPlayed(address, cost);
     return { ok: true, amount: next.amount, max: ENERGY_MAX };
   }, { ttlSeconds: 5, retries: 12, retryMs: 60 });
   if (!result) {

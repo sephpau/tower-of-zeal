@@ -1,4 +1,5 @@
 import { getJson, setJson, del, zaddGt, zaddLt, zrangeWithScores, zrevrank, zrevrange, incrWithExpire, hset, hmget, incrBy, incrByWithExpire, getNumber, isPrefixedEnvironment, scanAllPrefixed, delManyRaw, withWalletLock } from "./redis.js";
+import { bumpVouchersAcquired } from "./analytics.js";
 
 // ---- Admin: leaderboard resets ----
 export type AdminResetScope = "survival" | "bossraid" | "we" | "conquer";
@@ -453,6 +454,9 @@ export async function rollBronForKills(
       inv.vouchers.t5 = (inv.vouchers.t5 ?? 0) + drops.t5;
       return { next: inv, result: true };
     });
+    // Analytics: lifetime RON value of vouchers acquired. `drops.total` is
+    // already the summed RON value (BRON_DROP_TABLE amounts).
+    void bumpVouchersAcquired(address, drops.total);
   }
 
   return {
