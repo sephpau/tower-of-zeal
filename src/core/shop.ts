@@ -8,6 +8,17 @@ import { setEnergy } from "./energy";
 
 function token(): string | null { return loadSession()?.token ?? null; }
 
+// ---- Treasury wallet ----
+// Destination address for RON shop payments. When payment integration is
+// wired, the client will build a tx whose `to` field equals this address
+// and post the signed tx hash to the server for verification.
+// Source of truth lives on the server (api/_lib/treasury.ts); the value
+// is duplicated here only so the client can pre-fill the wallet popup —
+// the SERVER is the one that validates the actual tx's `to` field matches
+// before granting the item, so a tampered client value just makes purchases
+// fail rather than succeeding against the wrong address.
+export const TREASURY_WALLET: `0x${string}` = "0xfD0F26Ac22Cc5bcd302C3c1140f15d37699097b6";
+
 export type ShopItemId =
   | "energy_5" | "energy_10" | "energy_20"
   | "unit_stat_reset" | "unit_class_change" | "unit_temp_motz_key"

@@ -255,7 +255,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     known.push("unit_temp_motz_key");
     if (!known.includes(itemId)) { res.status(400).json({ error: "unknown item" }); return; }
     try {
-      // Atomic daily-buy gate.
+      // ---- DAILY 1-PER-ITEM CAP (server-authoritative, devtool-proof) ----
+      // Every shop item is hard-capped to ONE purchase per wallet per PH day.
+      // The cap lives in Redis (shop:bought:<itemId>:<wallet>:<phDay>) with a
+      // TTL that expires at the next 08:00 PH boundary. Nothing the client
+      // can do — localStorage edits, request retries, manual API calls —
+      // bypasses this; the server is the sole arbiter.
+      //
+      // The check is atomic: incrWithExpire returns the post-bump count, so
+      // even two simultaneous requests both see count > 1 on the loser side
+      // and bail out (without granting the item). Worst case is the counter
+      // sits at 2 for the rest of the day, which is harmless because we only
+      // care that it's > 0.
       const already = await readBoughtToday(itemId, address);
       if (already) { res.status(429).json({ ok: false, reason: "already bought today" }); return; }
       const after = await markBoughtToday(itemId, address);
