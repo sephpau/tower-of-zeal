@@ -69,11 +69,13 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
   root.querySelectorAll<HTMLButtonElement>(".home-tile").forEach(btn => {
     btn.addEventListener("click", async () => {
       const action = btn.dataset.action as HomeAction;
-      if (action === "tower" && getCachedSeasonStatus().halted) {
+      if (getCachedSeasonStatus().halted && (action === "tower" || action === "shop")) {
         await alertModal({
           kind: "info",
           title: "Season Ended",
-          message: "The current season is over — run starts are paused until the next season begins. The <strong>Shop</strong> and <strong>Inventory</strong> are still open if you want to redeem vouchers or use items.",
+          message: action === "tower"
+            ? "The current season is over — run starts are paused until the next season begins. Your <strong>Inventory</strong> is still open if you want to use items you already own."
+            : "The shop is closed for the off-season — new purchases are paused until the next season starts. Your <strong>Inventory</strong> still has everything you bought, and items there still work.",
         });
         return;
       }
@@ -88,6 +90,7 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
 async function mountSeasonBanner(root: HTMLElement): Promise<void> {
   const banner = root.querySelector<HTMLElement>("#season-halt-banner");
   const towerTile = root.querySelector<HTMLButtonElement>('.home-tile[data-action="tower"]');
+  const shopTile = root.querySelector<HTMLButtonElement>('.home-tile[data-action="shop"]');
   const s = await refreshSeasonStatus();
   if (!banner) return;
   if (s.halted) {
@@ -96,14 +99,17 @@ async function mountSeasonBanner(root: HTMLElement): Promise<void> {
       <span class="season-halt-icon">⏸</span>
       <div class="season-halt-text">
         <strong>Season Ended</strong>
-        <span>Run starts are paused. The Shop and Inventory remain open.</span>
+        <span>Run starts AND new shop purchases are paused. Your Inventory still works.</span>
       </div>
     `;
-    if (towerTile) {
-      towerTile.classList.add("home-tile-disabled");
-      const titleEl = towerTile.querySelector<HTMLElement>(".tile-title");
-      if (titleEl) titleEl.textContent = "Ascend (Paused)";
-    }
+    const grayTile = (tile: HTMLButtonElement | null, label: string): void => {
+      if (!tile) return;
+      tile.classList.add("home-tile-disabled");
+      const titleEl = tile.querySelector<HTMLElement>(".tile-title");
+      if (titleEl) titleEl.textContent = label;
+    };
+    grayTile(towerTile, "Ascend (Paused)");
+    grayTile(shopTile, "Shop (Closed)");
   } else {
     banner.hidden = true;
   }

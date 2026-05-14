@@ -369,6 +369,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     }
   }
 
+  // Both shop-buy paths gate on the season halt too — when the admin ends the
+  // season, the shop closes alongside run starts. shop_status / shop_consume /
+  // inventory_use_energy remain open so players can still SEE what they own
+  // and use already-purchased items.
+  if (op === "shop_buy" || op === "shop_buy_voucher") {
+    if (await isSeasonHalted()) {
+      res.status(SEASON_HALTED_RESPONSE.status).json(SEASON_HALTED_RESPONSE.body);
+      return;
+    }
+  }
+
   if (op === "shop_buy") {
     const itemRaw = (req.body as { item?: unknown }).item;
     if (typeof itemRaw !== "string") { res.status(400).json({ error: "item required" }); return; }
