@@ -16,6 +16,7 @@ import {
   MAX_KILLS_PER_ROLL, MAX_BOSS_KILLS_PER_ROLL, MAX_WORLD_ENDER_KILLS_PER_ROLL,
   ENERGY_PACK_CAP_BUMP, SCHOLARS_INSIGHT_CAP_BUMP,
 } from "../_lib/runState.js";
+import { validateAndSyncProgress, readServerProgress } from "../_lib/progressVault.js";
 
 const MAX_PARTY_SIZE = 3;
 /** Reject replays whose battles report >MAX_PARTY_SIZE units or duplicates —
@@ -121,6 +122,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
 
   // Replay fetch — public-ish, allows anyone to view another wallet's replay.
+  // ---- Progress vault ops (devtool-proof XP / stat audit) ----
+  // progress_get  → return the server-canonical per-unit progress map.
+  // progress_sync → accept the client's claimed progress, validate, persist if
+  //                 legitimate, return the new canonical. Rejected claims get
+  //                 the existing canonical back so the client can overwrite
+  //                 localStorage and unwind any tampering.
+  if (op === "progress_get") {
+    try {
+      const blob = await readServerProgress(address);
+      res.status(200).json({ ok: true, canonical: blob });
+      return;
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+      return;
+    }
+  }
+  if (op === "progress_sync") {
+    const claimedRaw = (req.body as { claimed?: unknown }).claimed;
+    if (!claimedRaw || typeof claimedRaw !== "object" || Array.isArray(claimedRaw)) {
+      res.status(400).json({ error: "claimed must be an object" }); return;
+    }
+    try {
+      const result = await validateAndSyncProgress(address, claimedRaw as Record<string, unknown>);
+      // 200 in both ok and rejected cases — the client uses the returned
+      // canonical to overwrite localStorage either way. We surface `accepted`
+      // so the UI can show a "your save was reverted" notice on rejection.
+      res.status(200).json({
+        ok: result.ok,
+        canonical: result.canonical,
+        reason: result.reason,
+      });
+      return;
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+      return;
+    }
+  }
+
   if (op === "get_replay") {
     const scope = typeof (req.body as { scope?: unknown }).scope === "string" ? (req.body as { scope: string }).scope : "";
     const targetRaw = typeof (req.body as { address?: unknown }).address === "string" ? (req.body as { address: string }).address : "";

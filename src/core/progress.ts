@@ -80,6 +80,19 @@ export function setProgress(templateId: string, p: UnitProgress): void {
   const map = loadAll();
   map[templateId] = p;
   saveAll(map);
+  schedulePushProgress();
+}
+
+/** Debounce coalescing multiple setProgress calls in the same tick into a
+ *  single /api/progress_sync POST. The server's response can roll back our
+ *  localStorage if the merged claim doesn't validate. */
+let pushTimer: ReturnType<typeof setTimeout> | null = null;
+function schedulePushProgress(): void {
+  if (pushTimer !== null) return;
+  pushTimer = setTimeout(() => {
+    pushTimer = null;
+    void pushProgress();
+  }, 500);
 }
 
 /** Append any newly-unlocked class/character skills to the loadout, capped at
@@ -120,4 +133,73 @@ export function restoreAllProgress(snapshot: string | null): void {
     if (snapshot === null) localStorage.removeItem(KEY());
     else localStorage.setItem(KEY(), snapshot);
   } catch { /* ignore */ }
+}
+
+// ---- Server-canonical progress sync ----
+// The localStorage map is a cache. The server holds the canonical record
+// and validates every claim — if the client's localStorage was tampered with
+// (level/XP/customStats edited directly), the server rejects the claim and
+// returns the canonical state, which we then write back into localStorage
+// to undo the tampering. This is the devtool-proofing layer for XP and stats.
+
+import { loadSession } from "../auth/session";
+
+interface ProgressSyncResponse {
+  ok: boolean;
+  canonical: { units: Record<string, UnitProgress> };
+  reason?: string;
+}
+
+/** Fetch the server's canonical progress and write it into localStorage,
+ *  replacing whatever was there. Call at app init / home-screen entry so
+ *  any device-side tampering is undone on every visit. */
+export async function pullCanonicalProgress(): Promise<{ ok: boolean; reason?: string } | null> {
+  const sess = loadSession();
+  if (!sess) return null;
+  try {
+    const r = await fetch("/api/run/floor-cleared", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${sess.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "progress_get" }),
+    });
+    if (!r.ok) return null;
+    const data = await r.json() as ProgressSyncResponse;
+    if (data.canonical && data.canonical.units) {
+      // First-time wallet: server has no canonical yet. Don't clobber the
+      // local cache — let it persist + sync on the next push. Only overwrite
+      // when the server actually has units recorded.
+      if (Object.keys(data.canonical.units).length > 0) {
+        saveAll(data.canonical.units);
+      }
+    }
+    return { ok: true };
+  } catch { return null; }
+}
+
+/** Push the local progress map up to the server. The server validates, then:
+ *    - if valid: persists the claim as the new canonical → returns ok=true
+ *    - if invalid: returns the existing canonical → we overwrite localStorage,
+ *      effectively rolling back any tampering since the last sync.
+ *  Call after every legitimate progress write (battle XP, stat allocation,
+ *  class change, skill equip). */
+export async function pushProgress(): Promise<{ ok: boolean; reason?: string } | null> {
+  const sess = loadSession();
+  if (!sess) return null;
+  const claimed = loadAll();
+  try {
+    const r = await fetch("/api/run/floor-cleared", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${sess.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "progress_sync", claimed }),
+    });
+    if (!r.ok) return null;
+    const data = await r.json() as ProgressSyncResponse;
+    if (!data.ok && data.canonical && data.canonical.units) {
+      // Tampering detected — overwrite localStorage with the server canonical
+      // so further reads pick up the rolled-back state.
+      saveAll(data.canonical.units);
+      return { ok: false, reason: data.reason };
+    }
+    return { ok: true };
+  } catch { return null; }
 }

@@ -12,7 +12,7 @@ import { getEnergy, setEnergy as setEnergyCache } from "./core/energy";
 import { fetchServerEnergy, consumeServerEnergy } from "./auth/energyApi";
 import { fetchDailyStatus, getCachedDailyMultiplier } from "./core/daily";
 import { renderRunSummary, RunSummary, RunSummaryUnit, pickMvpId } from "./ui/runSummary";
-import { getProgress, setProgress } from "./core/progress";
+import { getProgress, setProgress, pullCanonicalProgress, pushProgress } from "./core/progress";
 import { awardXp } from "./core/levels";
 import {
   startReplayRecording, abortRecording, finalizeReplay,
@@ -502,6 +502,11 @@ async function showRunSummary(outcome: "victory" | "defeat", floorsCleared: numb
     }
   }
 
+  // Sync the post-battle progress to the server canonical record. If a
+  // devtools-tampered claim was made before/during this run, the server will
+  // overwrite localStorage with the canonical state when this returns.
+  void pushProgress();
+
   // Ask the server to roll RON drops for this run's kills. Server uses its
   // own crypto RNG, caps mob kills at 50 and boss kills at 1 per call, and
   // credits the wallet itself — there's nothing on the client to tamper with
@@ -629,6 +634,9 @@ function showHome(): void {
   battle = null;
   playBgm();
   renderHome(root!, onHomeAction);
+  // Pull the server-canonical progress to overwrite anything devtools may
+  // have changed in localStorage while away. Server is source of truth.
+  void pullCanonicalProgress();
 }
 
 function onHomeAction(a: HomeAction): void {
