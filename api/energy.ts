@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifySession } from "./_lib/jwt.js";
 import { getEnergy, consumeEnergy, msUntilNextRefill } from "./_lib/energy.js";
+import { isSeasonHalted, SEASON_HALTED_RESPONSE } from "./_lib/season.js";
 
 // Combined energy endpoint to stay under the Vercel Hobby 12-function cap.
 // GET  /api/energy           — current balance + next refill timer
@@ -24,6 +25,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       return;
     }
     if (req.method === "POST") {
+      // Energy spend gates the start of every campaign floor — block during
+      // season halt. GET is left alone so players can still see their balance.
+      if (await isSeasonHalted()) {
+        res.status(SEASON_HALTED_RESPONSE.status).json(SEASON_HALTED_RESPONSE.body);
+        return;
+      }
       const body = (req.body ?? {}) as { cost?: unknown };
       const cost = typeof body.cost === "number" ? Math.floor(body.cost) : null;
       if (cost === null || cost < 0 || cost > 50) { res.status(400).json({ error: "cost out of range" }); return; }

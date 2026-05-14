@@ -5,6 +5,7 @@ import { verifySession, signRun } from "../_lib/jwt.js";
 import { saveRun, bumpStartCounter, MAX_STARTS_PER_HOUR, isLbMode } from "../_lib/runState.js";
 import { holdsMotzKey } from "../_lib/ronin.js";
 import { isDevBypassWallet } from "../_lib/devBypass.js";
+import { isSeasonHalted, SEASON_HALTED_RESPONSE } from "../_lib/season.js";
 
 const MOTZ_KEY_LOCKED_UNITS = new Set(["hera", "nova", "oge", "shego"]);
 /** Hard cap — must match src/units/roster.ts MAX_PARTY_SIZE. */
@@ -27,6 +28,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
 
   try {
+    // Season-end kill switch — blocks ALL run starts (survival, boss raid,
+    // campaign-via-energy-spend). Admin-flipped via floor-cleared op.
+    if (await isSeasonHalted()) {
+      res.status(SEASON_HALTED_RESPONSE.status).json(SEASON_HALTED_RESPONSE.body);
+      return;
+    }
     const starts = await bumpStartCounter(address);
     if (starts > MAX_STARTS_PER_HOUR) { res.status(429).json({ error: "too many runs" }); return; }
 

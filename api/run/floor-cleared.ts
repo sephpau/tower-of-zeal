@@ -19,6 +19,7 @@ import {
 } from "../_lib/runState.js";
 import { validateAndSyncProgress, readServerProgress } from "../_lib/progressVault.js";
 import { verifyShopPayment, consumeTxHash, ITEM_PRICES_WEI } from "../_lib/payment.js";
+import { isSeasonHalted, setSeasonHalt, readSeasonHalt, SEASON_HALTED_RESPONSE } from "../_lib/season.js";
 
 const MAX_PARTY_SIZE = 3;
 /** Reject replays whose battles report >MAX_PARTY_SIZE units or duplicates —
@@ -103,6 +104,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     }
     return;
   }
+  // ---- Season kill switch ----
+  // Admin presses Halt → no wallet can start a run (campaign, survival, raid).
+  // The flag lives in Redis (api/_lib/season.ts) and is checked by every
+  // run-start gate: /api/run/start, POST /api/energy, and the
+  // attempts_claim op below. Public read via season_status — clients use
+  // this to gray out Start buttons and show an "off-season" banner.
+  if (op === "admin_season_halt" || op === "admin_season_resume") {
+    if (!isAdmin(address)) { res.status(403).json({ error: "admin only" }); return; }
+    try {
+      const rec = await setSeasonHalt(op === "admin_season_halt", address);
+      res.status(200).json({ ok: true, halted: rec.halted, setAt: rec.setAt, setBy: rec.setBy });
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+    }
+    return;
+  }
+  if (op === "season_status") {
+    try {
+      const rec = await readSeasonHalt();
+      res.status(200).json({
+        ok: true,
+        halted: !!(rec && rec.halted),
+        setAt: rec?.setAt ?? null,
+      });
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+    }
+    return;
+  }
+
   if (op === "admin_grant_vouchers") {
     // Hard gate: only the admin wallet (server-side allowlist in api/_lib/admin.ts)
     // can fire this. `address` comes from the JWT-verified session, so the body
@@ -262,6 +293,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         const used = await readAttempts(mode, address);
         const cap = attemptsCap(mode);
         res.status(200).json({ ok: true, used, remaining: Math.max(0, cap - used), max: cap });
+        return;
+      }
+      // Season-halt gate — block the actual claim, but allow status reads
+      // above so the UI can still render the cap counter while paused.
+      if (await isSeasonHalted()) {
+        res.status(SEASON_HALTED_RESPONSE.status).json(SEASON_HALTED_RESPONSE.body);
         return;
       }
       // attempts_claim — atomic bump-then-check. We use the post-increment

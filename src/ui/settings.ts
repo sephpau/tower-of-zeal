@@ -4,8 +4,9 @@ import { isAdmin } from "../core/admin";
 import { scopedKey } from "../auth/scope";
 import { saveServerIgn, formatCooldown } from "../auth/ign";
 import { adminGrantServerEnergy, adminFillServerEnergy, adminWipeDevServerData } from "../auth/energyApi";
+import { fetchSeasonStatus, adminSetSeasonHalt, setCachedSeasonStatus } from "../core/season";
 import { isDevBuild } from "../auth/devBuild";
-import { confirmModal } from "./confirmModal";
+import { confirmModal, alertModal } from "./confirmModal";
 import { clearSession } from "../auth/session";
 import { getSfxVolume, setSfxVolume, sfx } from "../core/audio";
 import { getBgmVolume, setBgmVolume } from "../core/bgm";
@@ -122,6 +123,14 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
                 <button class="ghost-btn" id="admin-wipe-dev" type="button" style="border-color:#ff5a6b;color:#ff5a6b;">Wipe All Dev Data</button>
               </div>
             ` : ""}
+            <div class="admin-row" style="margin-top: 8px; flex-direction: column; align-items: flex-start; gap: 6px;">
+              <span class="admin-info" id="admin-season-status">Season state: loading…</span>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="ghost-btn" id="admin-season-halt" type="button" style="border-color:#ffb14a;color:#ffd29a;">⏸ Halt Season (block all runs)</button>
+                <button class="ghost-btn" id="admin-season-resume" type="button" style="border-color:#7aff8a;color:#bfffc8;">▶ Resume Season</button>
+              </div>
+              <span class="setting-hint">Halting blocks every wallet from starting campaign / survival / boss raid runs server-side. The shop stays open. Toggle is global and persists across deploys.</span>
+            </div>
           </div>
         ` : ""}
 
@@ -224,6 +233,59 @@ export function renderSettings(root: HTMLElement, onClose: () => void): void {
     clearSession();
     alert(`Dev wipe complete — scanned ${r.scanned}, deleted ${r.deleted} keys. Reloading…`);
     location.reload();
+  });
+
+  // ---- Season halt admin controls ----
+  // The two buttons hit admin_season_halt / admin_season_resume on the server.
+  // Server re-verifies isAdmin from the JWT — these UI buttons are just a
+  // convenient surface, the real authorization is server-side.
+  const statusEl = root.querySelector<HTMLElement>("#admin-season-status");
+  const updateStatusLabel = (halted: boolean | null, setAt: number | null): void => {
+    if (!statusEl) return;
+    if (halted === null) { statusEl.textContent = "Season state: unknown (server unreachable)"; return; }
+    if (halted) {
+      const when = setAt ? new Date(setAt).toLocaleString() : "—";
+      statusEl.innerHTML = `Season state: <strong style="color:#ffb14a;">⏸ HALTED</strong> · since ${when}`;
+    } else {
+      statusEl.innerHTML = `Season state: <strong style="color:#7aff8a;">▶ RUNNING</strong>`;
+    }
+  };
+  if (isAdmin()) {
+    void (async (): Promise<void> => {
+      const s = await fetchSeasonStatus();
+      if (!s) { updateStatusLabel(null, null); return; }
+      setCachedSeasonStatus(s);
+      updateStatusLabel(s.halted, s.setAt);
+    })();
+  }
+  root.querySelector<HTMLButtonElement>("#admin-season-halt")?.addEventListener("click", async () => {
+    const ok = await confirmModal({
+      title: "Halt Season?",
+      message: "This <strong>blocks every wallet</strong> from starting campaign, survival, and boss raid runs server-side. The shop stays open so players can still spend RON / vouchers. Use this when ending a season.",
+      confirmLabel: "Halt Season",
+      cancelLabel: "Cancel",
+      danger: true,
+    });
+    if (!ok) return;
+    const result = await adminSetSeasonHalt(true);
+    if (!result) { await alertModal({ kind: "error", message: "Halt request failed." }); return; }
+    setCachedSeasonStatus(result);
+    updateStatusLabel(result.halted, result.setAt);
+    await alertModal({ kind: "success", title: "Season Halted", message: "All run-starts are now blocked. Visit Resume Season to lift the block." });
+  });
+  root.querySelector<HTMLButtonElement>("#admin-season-resume")?.addEventListener("click", async () => {
+    const ok = await confirmModal({
+      title: "Resume Season?",
+      message: "This re-enables run starts for all wallets. Use when a new season begins.",
+      confirmLabel: "Resume Season",
+      cancelLabel: "Cancel",
+    });
+    if (!ok) return;
+    const result = await adminSetSeasonHalt(false);
+    if (!result) { await alertModal({ kind: "error", message: "Resume request failed." }); return; }
+    setCachedSeasonStatus(result);
+    updateStatusLabel(result.halted, result.setAt);
+    await alertModal({ kind: "success", title: "Season Resumed", message: "Runs are live again." });
   });
 
   root.querySelector<HTMLButtonElement>("#link-wallet")?.addEventListener("click", () => {

@@ -3,6 +3,8 @@ import { getEnergy, ENERGY_MAX, msUntilNextRefill } from "../core/energy";
 import { startEnergyTimerLoop, formatRefillCountdown } from "./energyTimer";
 import { fetchDailyStatus, claimDailyBonus, DailyStatus } from "../core/daily";
 import { setEnergy } from "../core/energy";
+import { refreshSeasonStatus, getCachedSeasonStatus } from "../core/season";
+import { alertModal } from "./confirmModal";
 
 export type HomeAction = "tower" | "units" | "settings" | "tutorial" | "leaderboard" | "codex" | "shop" | "inventory";
 
@@ -34,6 +36,7 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
         <span class="energy-timer" data-energy-timer>${formatRefillCountdown(msUntilNextRefill())}</span>
       </div>
       <div class="daily-slot" id="daily-slot"></div>
+      <div class="season-halt-banner" id="season-halt-banner" hidden></div>
       <div class="home-header">
         <div class="home-greeting">Welcome, ${escapeHtml(s.playerName)}</div>
         <h1 class="home-title">Gauntlet Tower</h1>
@@ -59,11 +62,51 @@ export function renderHome(root: HTMLElement, onAction: (a: HomeAction) => void)
   root.querySelector("#open-tutorial")?.addEventListener("click", () => onAction("tutorial"));
   root.querySelector("#open-codex")?.addEventListener("click", () => onAction("codex"));
   root.querySelector("#open-inventory")?.addEventListener("click", () => onAction("inventory"));
+  // Run-start gate: if season is halted, the "Ascend!" tile shows an alert
+  // explaining the pause instead of navigating into the tower. The actual
+  // server enforcement still runs — this is just a faster UX path so the
+  // player doesn't have to start a run before learning it's blocked.
   root.querySelectorAll<HTMLButtonElement>(".home-tile").forEach(btn => {
-    btn.addEventListener("click", () => onAction(btn.dataset.action as HomeAction));
+    btn.addEventListener("click", async () => {
+      const action = btn.dataset.action as HomeAction;
+      if (action === "tower" && getCachedSeasonStatus().halted) {
+        await alertModal({
+          kind: "info",
+          title: "Season Ended",
+          message: "The current season is over — run starts are paused until the next season begins. The <strong>Shop</strong> and <strong>Inventory</strong> are still open if you want to redeem vouchers or use items.",
+        });
+        return;
+      }
+      onAction(action);
+    });
   });
 
   void mountDailyWidget(root);
+  void mountSeasonBanner(root);
+}
+
+async function mountSeasonBanner(root: HTMLElement): Promise<void> {
+  const banner = root.querySelector<HTMLElement>("#season-halt-banner");
+  const towerTile = root.querySelector<HTMLButtonElement>('.home-tile[data-action="tower"]');
+  const s = await refreshSeasonStatus();
+  if (!banner) return;
+  if (s.halted) {
+    banner.hidden = false;
+    banner.innerHTML = `
+      <span class="season-halt-icon">⏸</span>
+      <div class="season-halt-text">
+        <strong>Season Ended</strong>
+        <span>Run starts are paused. The Shop and Inventory remain open.</span>
+      </div>
+    `;
+    if (towerTile) {
+      towerTile.classList.add("home-tile-disabled");
+      const titleEl = towerTile.querySelector<HTMLElement>(".tile-title");
+      if (titleEl) titleEl.textContent = "Ascend (Paused)";
+    }
+  } else {
+    banner.hidden = true;
+  }
 }
 
 async function mountDailyWidget(root: HTMLElement): Promise<void> {

@@ -4861,6 +4861,33 @@ body:has(.battle) {
   background: rgba(120, 90, 220, 0.20);
 }
 .shop-buy-voucher-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.season-halt-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 12px auto;
+  padding: 12px 18px;
+  max-width: 640px;
+  background: linear-gradient(135deg, rgba(255, 177, 74, 0.14), rgba(255, 90, 107, 0.10));
+  border: 1px solid rgba(255, 177, 74, 0.55);
+  border-radius: 10px;
+  color: #ffd6a0;
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 13px;
+  box-shadow: 0 0 18px rgba(255, 177, 74, 0.18);
+}
+.season-halt-icon { font-size: 22px; line-height: 1; }
+.season-halt-text { display: flex; flex-direction: column; gap: 2px; }
+.season-halt-text strong { color: #ffe1b3; font-size: 14px; letter-spacing: 0.5px; }
+.home-tile-disabled {
+  opacity: 0.5;
+  filter: grayscale(0.4);
+}
+.home-tile-disabled .tile-title::after {
+  content: " ⏸";
+  opacity: 0.7;
+}
 .shop-slot-btn { padding: 6px 10px; font-size: 11px; }
 .shop-slot-btn.slotted {
   background: rgba(251, 191, 36, 0.18);
