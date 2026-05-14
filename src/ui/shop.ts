@@ -74,7 +74,7 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
       if (!priceWeiStr) { alert("Price not available — refresh and try again."); return; }
       const ok = await confirmModal({
         title: "Confirm Purchase",
-        message: `Buy <strong>${def.name}</strong> for <strong>${def.priceLabel}</strong>?<br><br>${def.description}<br><br>💸 Your Ronin wallet will open to approve a <strong>${def.priceLabel}</strong> transfer to the shop treasury. The item is added to your Inventory (Backpack icon) once the payment is confirmed on-chain (a few seconds).`,
+        message: `Buy <strong>${def.name}</strong> for <strong>${def.priceLabel}</strong>?<br><br>${def.description}<br><br>💸 Your wallet will open to approve a <strong>${def.priceLabel}</strong> transfer on the <strong>Ronin network</strong>. Any RON-compatible wallet works (MetaMask, Ronin Wallet, Rabby, etc.). The item is added to your Inventory once the payment is confirmed on-chain (a few seconds).`,
         confirmLabel: "Approve in Wallet",
         cancelLabel: "Cancel",
       });
