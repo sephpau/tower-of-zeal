@@ -4037,8 +4037,8 @@ body:has(.battle) {
   /* MoTZ mascot tile fills the right portion of the screen. Two separate
      image files — victory and defeat — let the user-supplied artwork carry
      the emotion (celebrating ego vs scolding ego). Files live at:
-       /public/run-summary-victory.png
-       /public/run-summary-defeat.png
+       /public/victory.png
+       /public/defeat.png
      If a file is missing the gradient bg shows through cleanly. */
   background:
     radial-gradient(ellipse at top, rgba(244,211,94,0.04), transparent 60%),
@@ -4068,10 +4068,10 @@ body:has(.battle) {
     rgba(0,0,0,1)   100%);
 }
 .run-summary-screen.rs-victory::before {
-  background-image: url("/run-summary-victory.png");
+  background-image: url("/victory.png");
 }
 .run-summary-screen.rs-defeat::before {
-  background-image: url("/run-summary-defeat.png");
+  background-image: url("/defeat.png");
 }
 .run-summary-screen .rs-card { position: relative; z-index: 1; }
 
