@@ -32,9 +32,10 @@ export interface RenderUnitsScreenOpts {
   /** When set, restrict the roster grid to a single template id. Used by the
    *  tutorial stats step so the player only sees the unit they just chose. */
   onlyUnitId?: string;
-  /** Forced onboarding: auto-opens the class picker for this unit and locks
-   *  the player on the screen until they pick a class. Hides back button. */
-  forceClassPickFor?: string;
+  /** Forced onboarding: locks the player on this screen until they have
+   *  picked a class for AT LEAST this many distinct units. Player chooses
+   *  which units and which classes themselves — full roster stays visible. */
+  forceClassPickRequired?: number;
   /** Forced onboarding: auto-opens the stat allocator on this unit and locks
    *  the player on the screen until they finalize their allocation. */
   forceStatAllocFor?: string;
@@ -51,10 +52,8 @@ export interface RenderUnitsScreenOpts {
 export function renderUnitsScreen(root: HTMLElement, onBack: () => void, opts: RenderUnitsScreenOpts = {}): void {
   const pickingFor = new Set<string>();
   const editingSkillsFor = new Set<string>();
-  // Pre-arm the class picker on the forced unit so the player lands directly
-  // on the class-pick UI inside that unit's card.
-  if (opts.forceClassPickFor) pickingFor.add(opts.forceClassPickFor);
-  // Pre-arm the allocator on the forced unit.
+  // Pre-arm the allocator on the forced unit (stat alloc only — class pick
+  // mode shows the full roster and lets the player choose which unit).
   if (opts.forceStatAllocFor) {
     allocatingFor = opts.forceStatAllocFor;
     const cur = getProgress(opts.forceStatAllocFor);
@@ -62,22 +61,43 @@ export function renderUnitsScreen(root: HTMLElement, onBack: () => void, opts: R
   }
   const settings = loadSettings();
   const admin = isAdmin();
-  // In forced mode, the player only sees the target unit so there's no
-  // confusion about which card to interact with.
-  const forcedTargetId = opts.forceClassPickFor ?? opts.forceStatAllocFor;
+  // Forced stat-alloc shows just the unit being leveled; everything else
+  // (incl. forced class pick) shows the full roster so the player picks
+  // which units they want to class up.
   const roster = opts.onlyUnitId
     ? PLAYER_ROSTER.filter(t => t.id === opts.onlyUnitId)
-    : forcedTargetId
-    ? PLAYER_ROSTER.filter(t => t.id === forcedTargetId)
+    : opts.forceStatAllocFor
+    ? PLAYER_ROSTER.filter(t => t.id === opts.forceStatAllocFor)
     : PLAYER_ROSTER;
+
+  // Helper: how many units currently have a class assigned? Drives the
+  // forced-class-pick completion check and the banner progress count.
+  const countClassedUnits = (): number => {
+    let n = 0;
+    for (const t of PLAYER_ROSTER) {
+      if (getProgress(t.id).classId) n++;
+    }
+    return n;
+  };
 
   const draw = () => {
     const backVisible = !opts.hideBack;
+    // Compose the banner: caller-supplied + live progress counter for the
+    // forced class-pick flow.
+    let bannerHtml = "";
+    if (opts.topBanner || opts.forceClassPickRequired) {
+      const required = opts.forceClassPickRequired ?? 0;
+      const have = required > 0 ? countClassedUnits() : 0;
+      const progress = required > 0
+        ? `<span class="units-forced-progress">${have}/${required} classes picked</span>`
+        : "";
+      bannerHtml = `<div class="units-forced-banner">${opts.topBanner ?? ""}${progress}</div>`;
+    }
     root.innerHTML = `
       <div class="screen-frame units-screen">
         <div class="units-sticky-header">
           ${topBarHtml("Units", backVisible)}
-          ${opts.topBanner ? `<div class="units-forced-banner">${opts.topBanner}</div>` : ""}
+          ${bannerHtml}
           ${hexLegendHtml()}
         </div>
         <div class="units-section">
@@ -92,8 +112,7 @@ export function renderUnitsScreen(root: HTMLElement, onBack: () => void, opts: R
     if (backVisible) root.querySelector("#back-btn")?.addEventListener("click", onBack);
     wireOpenAlloc(root, draw);
     wireAllocModal(root, () => {
-      // After every alloc-modal redraw, check if the player just completed
-      // the forced action — `allocatingFor` becomes null when they Save.
+      // Forced stat-alloc completes when the player Saves the allocator.
       if (opts.forceStatAllocFor && allocatingFor === null && opts.onForcedComplete) {
         opts.onForcedComplete();
         return;
@@ -101,11 +120,10 @@ export function renderUnitsScreen(root: HTMLElement, onBack: () => void, opts: R
       draw();
     });
     wireClassPicker(root, pickingFor, settings.devUnlockClass || admin, () => {
-      // After class picker action, if the player just confirmed a class on
-      // the forced unit, fire the complete callback and bail out.
-      if (opts.forceClassPickFor) {
-        const cur = getProgress(opts.forceClassPickFor);
-        if (cur.classId && opts.onForcedComplete) {
+      // Forced class-pick completes when N total units have classIds.
+      if (opts.forceClassPickRequired && opts.onForcedComplete) {
+        const have = countClassedUnits();
+        if (have >= opts.forceClassPickRequired) {
           opts.onForcedComplete();
           return;
         }

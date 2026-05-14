@@ -656,12 +656,11 @@ function showHome(): void {
   // the player straight into the Units screen with the first unit's class
   // picker open and back button hidden. They MUST pick a class to escape.
   if (isForcedClassPickPending()) {
-    const firstUnit = "soda"; // Soda is the canonical starter unit
     screen = "units";
     renderUnitsScreen(root!, () => { /* back disabled — no-op */ }, {
-      forceClassPickFor: firstUnit,
+      forceClassPickRequired: 3,
       hideBack: true,
-      topBanner: `<strong>🎯 Pick a class for Soda</strong> · Choose one to begin your run. The class shapes growth and unlocks starting skills.`,
+      topBanner: `<strong>🎯 Pick a class for 3 units</strong> · Choose any three units from the roster to build your starting party. Each unit's class shapes growth and unlocks starting skills.`,
       onForcedComplete: () => {
         markForcedClassPickComplete();
         showHome();

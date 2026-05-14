@@ -5493,3 +5493,16 @@ body:has(.battle) {
   box-shadow: 0 0 16px rgba(244,211,94,0.18);
 }
 .units-forced-banner strong { color: var(--gold-bright); font-weight: 800; }
+.units-forced-progress {
+  display: inline-block;
+  margin-left: 14px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(244, 211, 94, 0.45);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--gold-bright);
+  font-weight: 800;
+}
