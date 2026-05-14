@@ -4067,6 +4067,76 @@ body:has(.battle) {
 }
 .run-summary-screen .rs-card { position: relative; z-index: 1; }
 
+/* ---------- Victory: gold rim + falling confetti + sparkles ---------- */
+.run-summary-screen.rs-victory::before {
+  filter: brightness(1.08) saturate(1.12) drop-shadow(0 0 40px rgba(255, 215, 64, 0.25));
+}
+.rs-victory-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+.rs-victory-fx .rs-confetti {
+  position: absolute;
+  top: -20px;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  box-shadow: 0 0 6px currentColor;
+  animation: rs-confetti-fall 3.2s linear infinite;
+}
+/* Spread the 8 pieces across the full screen width with varied timing and
+   colors. Slow + sparse so it reads as "celebration", not "noise". */
+.rs-victory-fx .rs-confetti-1 { left:  8%; background: #FF6B6B; color: #FF6B6B; animation-delay: 0s;    animation-duration: 3.4s; }
+.rs-victory-fx .rs-confetti-2 { left: 18%; background: #FFD93D; color: #FFD93D; animation-delay: 0.5s;  animation-duration: 3.0s; }
+.rs-victory-fx .rs-confetti-3 { left: 30%; background: #4ECDC4; color: #4ECDC4; animation-delay: 1.1s;  animation-duration: 3.6s; }
+.rs-victory-fx .rs-confetti-4 { left: 42%; background: #FF8FB1; color: #FF8FB1; animation-delay: 1.7s;  animation-duration: 3.2s; }
+.rs-victory-fx .rs-confetti-5 { left: 56%; background: #95E1D3; color: #95E1D3; animation-delay: 0.3s;  animation-duration: 3.5s; }
+.rs-victory-fx .rs-confetti-6 { left: 68%; background: #FFD93D; color: #FFD93D; animation-delay: 0.9s;  animation-duration: 3.1s; }
+.rs-victory-fx .rs-confetti-7 { left: 80%; background: #C792EA; color: #C792EA; animation-delay: 1.4s;  animation-duration: 3.3s; }
+.rs-victory-fx .rs-confetti-8 { left: 92%; background: #FFAB70; color: #FFAB70; animation-delay: 2.0s;  animation-duration: 3.4s; }
+@keyframes rs-confetti-fall {
+  0%   { opacity: 0; transform: translateY(0) rotate(0deg); }
+  8%   { opacity: 1; }
+  92%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(110vh) rotate(720deg); }
+}
+.rs-victory-fx .rs-spark {
+  position: absolute;
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  color: #FFD93D;
+  text-shadow: 0 0 16px rgba(255, 215, 64, 0.95), 0 0 28px rgba(255, 180, 0, 0.65);
+  opacity: 0;
+  animation: rs-spark-twinkle 2.4s ease-out infinite;
+}
+.rs-victory-fx .rs-spark-1 { top: 22%; left: 12%; font-size: 28px; animation-delay: 0.2s; }
+.rs-victory-fx .rs-spark-2 { top: 58%; left: 20%; font-size: 22px; animation-delay: 0.8s; }
+.rs-victory-fx .rs-spark-3 { top: 38%; left: 76%; font-size: 30px; animation-delay: 1.4s; }
+.rs-victory-fx .rs-spark-4 { top: 72%; left: 84%; font-size: 24px; animation-delay: 2.0s; }
+@keyframes rs-spark-twinkle {
+  0%   { opacity: 0; transform: scale(0.3) rotate(0deg); }
+  30%  { opacity: 1; transform: scale(1.2) rotate(180deg); }
+  60%  { opacity: 0.7; transform: scale(1.0) rotate(360deg); }
+  100% { opacity: 0; transform: scale(0.4) rotate(540deg); }
+}
+
+/* ---------- Defeat: dim the mascot like Ego himself lost ---------- */
+.run-summary-screen.rs-defeat::before {
+  filter: brightness(0.5) saturate(0.7) contrast(0.95);
+}
+/* Soft red-grey overlay so the mood reads "loss" without overwhelming the card. */
+.run-summary-screen.rs-defeat::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(40, 10, 20, 0.18), rgba(0, 0, 0, 0.28));
+  pointer-events: none;
+  z-index: 0;
+}
+
 @media (max-width: 900px) {
   .run-summary-screen::before { opacity: 0.35; background-size: auto 75%; }
 }
