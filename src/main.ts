@@ -661,8 +661,13 @@ function showHome(): void {
       forceClassPickRequired: 3,
       hideBack: true,
       topBanner: `<strong>🎯 Pick a class for 3 units</strong> · Choose any three units from the roster to build your starting party. Each unit's class shapes growth and unlocks starting skills.`,
-      onForcedComplete: () => {
+      // ASYNC — push the just-saved class picks to the server BEFORE we
+      // leave the forced screen. Otherwise the subsequent pullCanonicalProgress
+      // in showHome() races the 500ms-debounced push and can overwrite the
+      // freshly-picked third class with stale server data.
+      onForcedComplete: async () => {
         markForcedClassPickComplete();
+        await pushProgress();
         showHome();
       },
     });
@@ -678,9 +683,10 @@ function showHome(): void {
       forceStatAllocFor: pendingAllocUnit,
       hideBack: true,
       topBanner: `<strong>⬆ First Level Up!</strong> · Allocate your stat points to continue. Spend at least one point to lock in your build.`,
-      onForcedComplete: () => {
+      onForcedComplete: async () => {
         markForcedStatAllocSeen();
         clearPendingForcedStatAllocUnit();
+        await pushProgress();
         showHome();
       },
     });
