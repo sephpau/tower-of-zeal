@@ -69,6 +69,7 @@ export function renderBattle(
           ${playerStackHtml(b)}
         </div>
         <div class="float-layer" id="float-layer"></div>
+        <div class="crit-flash-overlay" id="crit-flash-overlay"></div>
       </div>
 
       <div class="action-panel">
@@ -135,6 +136,14 @@ export function updateLive(root: HTMLElement, b: Battle): void {
       if (c.maxMp > 0) setBar(el, "mp", c.mp, c.maxMp, true);
       // Enemies render their own ATB on the chip; players render ATB in the action row only.
       if (c.side === "enemy") setBar(el, "atb", c.gauge, ATB_FULL, false);
+      // Detect alive → dead transition for the gold kill-burst ring.
+      const wasAlive = !el.classList.contains("dead");
+      if (wasAlive && !c.alive) {
+        el.classList.remove("kill-burst");
+        void el.offsetWidth;
+        el.classList.add("kill-burst");
+        setTimeout(() => el.classList.remove("kill-burst"), 750);
+      }
       el.classList.toggle("dead", !c.alive);
       el.classList.toggle("ready", c.alive && c.gauge >= ATB_FULL);
       el.classList.toggle("casting", !!c.casting);
@@ -255,6 +264,17 @@ function flushFloats(root: HTMLElement): void {
 
   const fieldRect = field.getBoundingClientRect();
 
+  // Track whether any event in this batch is a crit / kill — drives the
+  // screen-shake intensity + crit flash overlay. Real-damage events only;
+  // cosmetic drops (moneybag) don't contribute.
+  let hadCrit = false;
+  let hadHit = false;
+  // Targets that should get a kill-burst ring (HP went to 0 from this batch).
+  // We can't reliably know the post-event HP here without combat state, so we
+  // proxy "kill" with: the next render-pass will mark the combatant `.dead`
+  // — and we re-apply the burst class for one animation cycle when that
+  // transition is observed. For now, this batch tracks visible damage hits.
+
   for (const e of events) {
     const tgt = root.querySelector<HTMLElement>(`[data-id="${cssAttr(e.targetId)}"]`);
     if (!tgt) continue;
@@ -277,10 +297,34 @@ function flushFloats(root: HTMLElement): void {
       tgt.classList.remove("hit-flash");
       void tgt.offsetWidth;
       tgt.classList.add("hit-flash");
+      hadHit = true;
+      if (e.crit) hadCrit = true;
     }
 
     // Drops linger longer so the player has time to see what dropped.
     setTimeout(() => div.remove(), isDrop ? 1800 : 900);
+  }
+
+  // ---- Screen shake + crit flash (game-feel polish) ----
+  if (hadCrit) {
+    // Stronger shake variant.
+    field.classList.remove("battle-shake-hit", "battle-shake-crit");
+    void field.offsetWidth;
+    field.classList.add("battle-shake-crit");
+    // Fire the radial gold flash overlay so the crit feels cinematic.
+    const flash = root.querySelector<HTMLElement>("#crit-flash-overlay");
+    if (flash) {
+      flash.classList.remove("fire");
+      void flash.offsetWidth;
+      flash.classList.add("fire");
+      setTimeout(() => flash.classList.remove("fire"), 320);
+    }
+    setTimeout(() => field.classList.remove("battle-shake-crit"), 360);
+  } else if (hadHit) {
+    field.classList.remove("battle-shake-hit", "battle-shake-crit");
+    void field.offsetWidth;
+    field.classList.add("battle-shake-hit");
+    setTimeout(() => field.classList.remove("battle-shake-hit"), 200);
   }
 }
 
@@ -473,7 +517,25 @@ function playerChipHtml(c: Combatant): string {
 
 function setBar(host: HTMLElement, kind: "hp" | "mp" | "atb", cur: number, max: number, withText = true): void {
   const fill = host.querySelector<HTMLElement>(`.bar.${kind} .fill`);
-  if (fill) fill.style.width = `${(cur / max) * 100}%`;
+  if (fill) {
+    const newPct = (cur / max) * 100;
+    // Damage flash: if the HP bar is SHRINKING from its prior visible width,
+    // pulse the red glow keyframe. Cosmetic only; never blocks the actual width
+    // update. ATB / MP shrinkage is normal (spends, ticks) so they don't flash.
+    if (kind === "hp") {
+      const prev = parseFloat(fill.style.width || "100");
+      if (Number.isFinite(prev) && newPct < prev - 0.01) {
+        const bar = fill.parentElement;
+        if (bar) {
+          bar.classList.remove("dmg-flash");
+          void bar.offsetWidth;
+          bar.classList.add("dmg-flash");
+          setTimeout(() => bar.classList.remove("dmg-flash"), 500);
+        }
+      }
+    }
+    fill.style.width = `${newPct}%`;
+  }
   if (withText) {
     const text = host.querySelector<HTMLElement>(`.bar.${kind} .bar-text`);
     if (text) text.textContent = `${Math.round(cur)}/${max}`;

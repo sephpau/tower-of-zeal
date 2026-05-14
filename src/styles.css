@@ -539,8 +539,128 @@ body:has(.battle) {
   white-space: nowrap;
   z-index: 5;
 }
-.float-popup.crit { font-size: 24px; }
+/* CRIT pops — make every crit feel like a slot machine win.
+   Bigger, gold-gradient text, neon glow, slight rotation kick on entry. */
+.float-popup.crit {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  animation: float-up-crit 1.8s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+  filter: drop-shadow(0 0 12px rgba(255, 215, 64, 0.85))
+          drop-shadow(0 0 24px rgba(255, 100, 30, 0.55));
+}
+.float-popup.crit .float-text {
+  background: linear-gradient(180deg, #FFF6A8 0%, #FFD93D 45%, #FF7A1A 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  text-shadow: none;
+}
+.float-popup.crit .float-icon {
+  font-size: 22px;
+  animation: crit-icon-spin 0.6s ease-out;
+}
+@keyframes crit-icon-spin {
+  0%   { transform: rotate(-20deg) scale(0.6); }
+  50%  { transform: rotate(20deg)  scale(1.4); }
+  100% { transform: rotate(0deg)   scale(1.0); }
+}
+@keyframes float-up-crit {
+  0%   { opacity: 0; transform: translate(-50%, 20px) scale(0.4) rotate(-8deg); }
+  12%  { opacity: 1; transform: translate(-50%, -18px) scale(1.45) rotate(4deg); }
+  25%  { transform: translate(-50%, -32px) scale(1.15) rotate(-2deg); }
+  70%  { opacity: 1; transform: translate(-50%, -68px) scale(1.0) rotate(0deg); }
+  100% { opacity: 0; transform: translate(-50%, -108px) scale(0.85) rotate(0deg); }
+}
 .float-popup .float-icon { font-size: 16px; }
+
+/* ---------- Screen shake & flash (game-feel layer) ---------- */
+/* Applied transiently to #battle-field by battle.ts when damage events fire. */
+.battle-shake-hit  { animation: shake-hit  0.18s ease-out; }
+.battle-shake-crit { animation: shake-crit 0.32s ease-out; }
+@keyframes shake-hit {
+  0%, 100% { transform: translate(0, 0); }
+  25%      { transform: translate(-3px, 1px); }
+  50%      { transform: translate(3px, -2px); }
+  75%      { transform: translate(-2px, 2px); }
+}
+@keyframes shake-crit {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  10%      { transform: translate(-6px, 3px) scale(1.01); }
+  20%      { transform: translate(7px, -4px) scale(1.015); }
+  35%      { transform: translate(-5px, 4px) scale(1.01); }
+  50%      { transform: translate(5px, -3px) scale(1.005); }
+  70%      { transform: translate(-3px, 2px) scale(1.002); }
+}
+/* White full-field flash that fires on crits. Cosmetic only; pointer-events
+   off so battle interactions still work. */
+.crit-flash-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%,
+              rgba(255, 240, 200, 0.55) 0%,
+              rgba(255, 200, 80, 0.18) 40%,
+              transparent 75%);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 6;
+  mix-blend-mode: screen;
+}
+.crit-flash-overlay.fire { animation: crit-flash 0.28s ease-out; }
+@keyframes crit-flash {
+  0%   { opacity: 0; }
+  20%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* HP bar damage flash — pulses red when value drops. Triggered by setBar
+   in battle.ts when newWidth < currentWidth. */
+.bar.hp.dmg-flash .fill {
+  animation: hp-dmg-flash 0.45s ease-out;
+}
+@keyframes hp-dmg-flash {
+  0%   { filter: brightness(1) drop-shadow(0 0 0 transparent); }
+  30%  { filter: brightness(1.8) drop-shadow(0 0 8px rgba(255, 80, 80, 0.95)); }
+  100% { filter: brightness(1) drop-shadow(0 0 0 transparent); }
+}
+
+/* ATB-ready stronger aura — when a unit's gauge hits 100%, pulse a gold
+   glow around the portrait so the player notices instantly. The .ready
+   class is already applied by battle.ts; this just amplifies it. */
+.combatant.ready .portrait {
+  animation: atb-ready-aura 1.0s ease-in-out infinite;
+}
+@keyframes atb-ready-aura {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 215, 64, 0.55),
+                0 0 6px rgba(255, 215, 64, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 215, 64, 0),
+                0 0 16px rgba(255, 215, 64, 0.85);
+  }
+}
+
+/* Kill burst — expanding gold ring on enemy death. Applied via .kill-burst
+   class on the combatant for ~0.6s when its HP hits 0. */
+.combatant.kill-burst {
+  position: relative;
+}
+.combatant.kill-burst::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 215, 64, 0.9);
+  pointer-events: none;
+  animation: kill-burst-ring 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes kill-burst-ring {
+  0%   { transform: scale(0.4); opacity: 1; border-width: 5px; }
+  60%  { transform: scale(1.6); opacity: 0.6; border-width: 2px; }
+  100% { transform: scale(2.2); opacity: 0; border-width: 1px; }
+}
 
 /* RON drop popup — bigger, slower, gold-glowing. Cosmetic only; real
    reward is server-side at run-end. */
