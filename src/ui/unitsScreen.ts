@@ -116,28 +116,29 @@ export function renderUnitsScreen(root: HTMLElement, onBack: () => void, opts: R
     if (backVisible) root.querySelector("#back-btn")?.addEventListener("click", onBack);
     wireOpenAlloc(root, draw);
     wireAllocModal(root, () => {
-      // Forced stat-alloc completes when the player SAVES the allocator
-      // (availablePoints actually decreased). Cancel keeps them on the
-      // screen so they can re-open and try again.
+      // ALWAYS redraw first so the alloc modal HTML is removed from the DOM
+      // immediately after Save (allocatingFor was already cleared by the
+      // save handler). Without this, the modal stays visually open during
+      // the async pushProgress + showHome navigation — player thinks the
+      // page froze.
+      draw();
       if (opts.forceStatAllocFor && allocatingFor === null && opts.onForcedComplete) {
         const cur = getProgress(opts.forceStatAllocFor);
         if (cur.availablePoints < statAllocBaseline) {
           opts.onForcedComplete();
-          return;
         }
       }
-      draw();
     });
     wireClassPicker(root, pickingFor, settings.devUnlockClass || admin, () => {
-      // Forced class-pick completes when N total units have classIds.
+      // Same pattern — redraw first so the class-picker UI updates with the
+      // just-saved class assignment before we navigate away.
+      draw();
       if (opts.forceClassPickRequired && opts.onForcedComplete) {
         const have = countClassedUnits();
         if (have >= opts.forceClassPickRequired) {
           opts.onForcedComplete();
-          return;
         }
       }
-      draw();
     });
     wireSkillLoadout(root, editingSkillsFor, draw);
     wireAdminControls(root, admin, draw);
