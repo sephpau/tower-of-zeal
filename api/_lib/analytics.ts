@@ -148,10 +148,13 @@ export async function buildAnalyticsExport(): Promise<WalletAnalyticsRow[]> {
         (inv.vouchers.t4 ?? 0) * VOUCHER_VALUES_RON.t4 +
         (inv.vouchers.t5 ?? 0) * VOUCHER_VALUES_RON.t5;
     }
-    // Energy fallback: for wallets that played BEFORE the energy_used
-    // counter was added, infer the value from minutes (minutes / 2). New
-    // wallets will track it directly going forward.
-    const energyUsed = energyUsedHash > 0 ? energyUsedHash : Math.floor(minutes / 2);
+    // Energy reconciliation: minutes is incremented by cost × MINUTES_PER_ENERGY
+    // on every consumeEnergy call, so `minutes / MINUTES_PER_ENERGY` is the
+    // canonical lifetime energy spend. The dedicated energy_used counter was
+    // added later, so it may lag for wallets that played before that deploy.
+    // Take the LARGER of the two so historical play counts correctly.
+    const energyFromMinutes = Math.floor(minutes / MINUTES_PER_ENERGY);
+    const energyUsed = Math.max(energyUsedHash, energyFromMinutes);
     return {
       wallet,
       ign: igns[i] ?? "",
