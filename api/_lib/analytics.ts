@@ -11,13 +11,14 @@
 // "Hours of playing" is derived from minutes / 60 in the export.
 
 import { hincrBy, hgetAll, hmget, incrBy, getNumber } from "./redis.js";
-import { readShopInventory, VOUCHER_VALUES_RON, IGN_HASH_KEY } from "./runState.js";
+import { readShopInventory, VOUCHER_VALUES_RON, IGN_HASH_KEY, getMaxFloorCleared } from "./runState.js";
 import { computeWalletTotalXp } from "./progressVault.js";
 
 export const ANALYTICS_MINUTES_KEY       = "analytics:minutes";
 export const ANALYTICS_RON_SPENT_KEY     = "analytics:ron_spent";          // on-chain RON only
 export const ANALYTICS_VOUCHERS_KEY      = "analytics:vouchers_acquired";  // lifetime drops + admin grants
 export const ANALYTICS_VOUCHERS_SPENT_KEY = "analytics:vouchers_spent";    // RON value of voucher-path purchases
+export const ANALYTICS_ENERGY_USED_KEY    = "analytics:energy_used";       // lifetime sum of consumed energy
 /** Global shop revenue — sum of all on-chain RON payments that actually moved
  *  RON to the treasury wallet. Voucher-paid purchases are NOT counted here
  *  because they consume in-game vouchers, not real RON. Displayed on the
@@ -33,6 +34,13 @@ const MINUTES_PER_ENERGY = 2;
 export async function bumpMinutesPlayed(address: string, energySpent: number): Promise<void> {
   if (energySpent <= 0) return;
   await hincrBy(ANALYTICS_MINUTES_KEY, address.toLowerCase(), energySpent * MINUTES_PER_ENERGY).catch(() => 0);
+}
+
+/** Add to the lifetime energy-consumed counter. Called from consumeEnergy
+ *  alongside bumpMinutesPlayed so both columns stay in sync. */
+export async function bumpEnergyUsed(address: string, amount: number): Promise<void> {
+  if (amount <= 0) return;
+  await hincrBy(ANALYTICS_ENERGY_USED_KEY, address.toLowerCase(), Math.floor(amount)).catch(() => 0);
 }
 
 /** Add to the lifetime RON-spent counter for ON-CHAIN purchases only. The
@@ -87,6 +95,10 @@ export interface WalletAnalyticsRow {
   ronVouchersSpent: number;
   /** Current voucher RON value still sitting in inventory. */
   remainingRonVouchers: number;
+  /** Highest floor cleared in campaign mode (1-50). */
+  highestFloorCleared: number;
+  /** Lifetime energy units consumed (campaign / survival / boss raid combined). */
+  energyUsed: number;
 }
 
 /** Build the full export — one row per wallet that has played at least once.
@@ -94,17 +106,19 @@ export interface WalletAnalyticsRow {
  *  so even a wallet that's never spent RON but has played minutes shows up.
  *  IGN is looked up from the existing IGN hash (legacy storage). */
 export async function buildAnalyticsExport(): Promise<WalletAnalyticsRow[]> {
-  const [minutesMap, spentMap, acquiredMap, vouchersSpentMap] = await Promise.all([
+  const [minutesMap, spentMap, acquiredMap, vouchersSpentMap, energyUsedMap] = await Promise.all([
     hgetAll(ANALYTICS_MINUTES_KEY),
     hgetAll(ANALYTICS_RON_SPENT_KEY),
     hgetAll(ANALYTICS_VOUCHERS_KEY),
     hgetAll(ANALYTICS_VOUCHERS_SPENT_KEY),
+    hgetAll(ANALYTICS_ENERGY_USED_KEY),
   ]);
   const wallets = new Set<string>([
     ...Object.keys(minutesMap),
     ...Object.keys(spentMap),
     ...Object.keys(acquiredMap),
     ...Object.keys(vouchersSpentMap),
+    ...Object.keys(energyUsedMap),
   ]);
   if (wallets.size === 0) return [];
 
@@ -116,10 +130,14 @@ export async function buildAnalyticsExport(): Promise<WalletAnalyticsRow[]> {
     const spent   = Number(spentMap[wallet] ?? 0);
     const acquired = Number(acquiredMap[wallet] ?? 0);
     const vouchersSpent = Number(vouchersSpentMap[wallet] ?? 0);
-    // Live computation of remaining voucher value + total XP earned.
-    const [inv, totalXp] = await Promise.all([
+    const energyUsedHash = Number(energyUsedMap[wallet] ?? 0);
+    // Live computation of remaining voucher value, total XP earned, and
+    // the highest floor cleared. All three read per-wallet keys, so they
+    // run in parallel.
+    const [inv, totalXp, highestFloor] = await Promise.all([
       readShopInventory(wallet).catch(() => null),
       computeWalletTotalXp(wallet).catch(() => 0),
+      getMaxFloorCleared(wallet).catch(() => 0),
     ]);
     let remaining = 0;
     if (inv && inv.vouchers) {
@@ -130,6 +148,10 @@ export async function buildAnalyticsExport(): Promise<WalletAnalyticsRow[]> {
         (inv.vouchers.t4 ?? 0) * VOUCHER_VALUES_RON.t4 +
         (inv.vouchers.t5 ?? 0) * VOUCHER_VALUES_RON.t5;
     }
+    // Energy fallback: for wallets that played BEFORE the energy_used
+    // counter was added, infer the value from minutes (minutes / 2). New
+    // wallets will track it directly going forward.
+    const energyUsed = energyUsedHash > 0 ? energyUsedHash : Math.floor(minutes / 2);
     return {
       wallet,
       ign: igns[i] ?? "",
@@ -139,6 +161,8 @@ export async function buildAnalyticsExport(): Promise<WalletAnalyticsRow[]> {
       ronVouchersAcquired: acquired,
       ronVouchersSpent: vouchersSpent,
       remainingRonVouchers: remaining,
+      highestFloorCleared: highestFloor,
+      energyUsed,
     } satisfies WalletAnalyticsRow;
   }));
 
@@ -170,7 +194,7 @@ export function rowsToCsv(rows: WalletAnalyticsRow[]): string {
   const header = [
     "Wallet", "IGN", "Hours of Playing", "Total XP Earned",
     "RON Spent on Shop", "bRON Vouchers Acquired", "bRON Vouchers Spent",
-    "Remaining bRON Vouchers",
+    "Remaining bRON Vouchers", "Highest Floor Cleared", "Energy Used",
   ];
   const esc = (v: string | number): string => {
     const s = String(v);
@@ -183,6 +207,7 @@ export function rowsToCsv(rows: WalletAnalyticsRow[]): string {
       r.hoursOfPlaying, r.totalXpEarned,
       r.ronSpentOnShop, r.ronVouchersAcquired, r.ronVouchersSpent,
       r.remainingRonVouchers,
+      r.highestFloorCleared, r.energyUsed,
     ].map(esc).join(","));
   }
   return lines.join("\r\n");
