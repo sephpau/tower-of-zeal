@@ -63,12 +63,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const totalMs = state.lastFloorAt - state.startedAt;
     const floor = state.currentFloor;
 
+    // ---- Competitive thresholds ----
+    // Survival LB only accepts runs that cleared at least MIN_SURVIVAL_FLOORS.
+    // Boss Raid LB only accepts runs that cleared at least MIN_BOSS_RAID_BOSSES.
+    // The run still completes and the player keeps any XP / rewards — they
+    // just don't land on the public board with a sub-threshold score. Keeps
+    // top entries meaningful and grindable instead of cluttered with
+    // single-floor / single-boss attempts.
+    const MIN_SURVIVAL_FLOORS = 25;
+    const MIN_BOSS_RAID_BOSSES = 5;
     let submitted = false;
     let rejectedReason: string | null = null;
     if (floor > 0) {
       const avg = totalMs / floor;
       if (avg < MIN_AVG_FLOOR_MS) {
         rejectedReason = "average floor time below threshold";
+      } else if (state.mode === "survival" && floor < MIN_SURVIVAL_FLOORS) {
+        rejectedReason = `survival leaderboard requires at least ${MIN_SURVIVAL_FLOORS} floors cleared (you cleared ${floor})`;
+      } else if (state.mode === "boss_raid" && floor < MIN_BOSS_RAID_BOSSES) {
+        rejectedReason = `boss raid leaderboard requires at least ${MIN_BOSS_RAID_BOSSES} bosses defeated (you defeated ${floor})`;
       } else {
         await submitToLeaderboard(state.address, floor, totalMs, state.mode);
         // Cooldown is intentionally silent here — keep the old name on conflict.
