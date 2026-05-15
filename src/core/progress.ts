@@ -169,25 +169,55 @@ function schedulePushProgress(): void {
   }, 500);
 }
 
-/** Auto-equip the strongest MAX_EQUIPPED_SKILLS skills the unit is allowed to
- *  equip at its current level. Called on every level-up (normal + admin) and
- *  class change — newly unlocked high-tier skills replace lower-tier ones
- *  automatically so the loadout always reflects the best gear available.
+/** Non-destructive auto-equip — called on every level-up and class change.
+ *  Keeps existing manual picks, only ADDS newly-unlocked skills if there's
+ *  room (slots < MAX_EQUIPPED_SKILLS). Never reorders, never removes a
+ *  manually-equipped low-tier skill in favor of a high-tier one.
  *
- *  Ranking is by `unlockLevel` descending (higher unlock = stronger). Stable
- *  sort ties: character signatures win over class basics at the same tier.
- *
- *  Trade-off: a player who manually picked a low-tier skill in "Edit Loadout"
- *  WILL see it replaced on the next level-up if a higher-tier one is now
- *  unlocked. Manual picks are session-scoped; level transitions reset to
- *  strongest-N. This matches the requested behavior ("do auto equip"). */
+ *  Players who specifically want to rebuild to "strongest-N" use the
+ *  Auto-Equip button on the Units screen, which calls
+ *  rebuildLoadoutToStrongest(...) instead. */
 export function autoEquipNewlyUnlocked(
   templateId: string,
   classId: string | undefined,
   level: number,
-  _current: string[],
+  current: string[],
 ): string[] {
-  void _current; // intentionally unused — auto-equip is fully recomputed
+  const equipped = [...current];
+  // Drop stale ids (e.g. skills no longer in the unit's class after a
+  // class change) so the slot accounting is accurate.
+  const validForUnit = new Set<string>();
+  for (const id of (CHARACTER_SKILLS[templateId] ?? [])) validForUnit.add(id);
+  if (classId) for (const id of (CLASS_SKILLS[classId] ?? [])) validForUnit.add(id);
+  for (let i = equipped.length - 1; i >= 0; i--) {
+    if (!validForUnit.has(equipped[i])) equipped.splice(i, 1);
+  }
+  // Fill empty slots with newly-unlocked skills, ordered by unlockLevel
+  // ascending so the unit always has its earliest unlocks first.
+  const candidates: { id: string; tier: number }[] = [];
+  for (const id of validForUnit) {
+    if (equipped.includes(id)) continue;
+    const skill = getSkill(id);
+    const unlockAt = skill.unlockLevel ?? 1;
+    if (level >= unlockAt) candidates.push({ id, tier: unlockAt });
+  }
+  candidates.sort((a, b) => a.tier - b.tier);
+  for (const c of candidates) {
+    if (equipped.length >= MAX_EQUIPPED_SKILLS) break;
+    equipped.push(c.id);
+  }
+  return equipped;
+}
+
+/** Rebuild a unit's loadout to the strongest MAX_EQUIPPED_SKILLS skills
+ *  available at the current level + class. Called by the Auto-Equip button
+ *  in the Units screen when the player explicitly opts in to a rebuild.
+ *  Ranks by unlockLevel descending (higher = stronger). */
+export function rebuildLoadoutToStrongest(
+  templateId: string,
+  classId: string | undefined,
+  level: number,
+): string[] {
   const candidates = new Set<string>();
   for (const id of (CHARACTER_SKILLS[templateId] ?? [])) candidates.add(id);
   if (classId) for (const id of (CLASS_SKILLS[classId] ?? [])) candidates.add(id);
@@ -197,9 +227,6 @@ export function autoEquipNewlyUnlocked(
     const unlockAt = skill.unlockLevel ?? 1;
     if (level >= unlockAt) unlocked.push({ id, tier: unlockAt });
   }
-  // Strongest-first sort. Iteration order through Set above preserves the
-  // character-then-class precedence, so .sort() (stable) keeps character
-  // signatures ahead of class basics when unlock tiers match.
   unlocked.sort((a, b) => b.tier - a.tier);
   return unlocked.slice(0, MAX_EQUIPPED_SKILLS).map(u => u.id);
 }

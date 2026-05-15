@@ -4,7 +4,7 @@ import { Stats, ZERO_STATS, sumStats, deriveStats, STAT_KEYS, StatKey } from "..
 import { classBaseAtLevel, getClass, CLASSES } from "../units/classes";
 import { topBarHtml, loadSettings } from "./settings";
 import { hexStatSvg, hexLegendHtml } from "./hexStat";
-import { getProgress, setProgress, UnitProgress, MAX_EQUIPPED_SKILLS, autoEquipNewlyUnlocked } from "../core/progress";
+import { getProgress, setProgress, UnitProgress, MAX_EQUIPPED_SKILLS, autoEquipNewlyUnlocked, rebuildLoadoutToStrongest } from "../core/progress";
 import { xpToNext, MAX_LEVEL } from "../core/levels";
 import { CLASS_SKILLS, CHARACTER_SKILLS, getSkill } from "../skills/registry";
 import { isAdmin } from "../core/admin";
@@ -531,7 +531,10 @@ function wireSkillLoadout(root: HTMLElement, editing: Set<string>, redraw: () =>
     btn.addEventListener("click", () => {
       const tid = btn.dataset.autoEquip!;
       const cur = getProgress(tid);
-      const next = autoEquipNewlyUnlocked(tid, cur.classId, cur.level, cur.equippedSkills ?? []);
+      // Explicit player action — rebuild to the strongest N skills. The
+      // automatic per-level-up function (autoEquipNewlyUnlocked) is
+      // intentionally non-destructive; only this button rebuilds.
+      const next = rebuildLoadoutToStrongest(tid, cur.classId, cur.level);
       setProgress(tid, { ...cur, equippedSkills: next });
       redraw();
     });
