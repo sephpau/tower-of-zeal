@@ -57,9 +57,8 @@ export async function adminWipeAllData(): Promise<{ ok: boolean; scanned: number
     "starts:*",
     "ign_set_at",
     "igns",
-    "fastest_we:*",
     "first_conquer",
-    "max_floor:*",
+    "maxfloor:*",    // was wrong as "max_floor:*" — actual key uses no underscore
     "xpcap:*",
     "challenges:*",
     "daily:*",
