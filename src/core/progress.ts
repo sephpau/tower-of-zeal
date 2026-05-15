@@ -229,12 +229,12 @@ export async function pullCanonicalProgress(): Promise<{ ok: boolean; reason?: s
     if (!r.ok) return null;
     const data = await r.json() as ProgressSyncResponse;
     if (data.canonical && data.canonical.units) {
-      // First-time wallet: server has no canonical yet. Don't clobber the
-      // local cache — let it persist + sync on the next push. Only overwrite
-      // when the server actually has units recorded.
-      if (Object.keys(data.canonical.units).length > 0) {
-        saveAll(data.canonical.units);
-      }
+      // Always overwrite from the server canonical, even when it's empty.
+      // The previous "skip overwrite when empty" guard was meant to protect
+      // first-time wallets but it made post-wipe recovery impossible —
+      // players' stale localStorage would survive a server wipe forever.
+      // The server is authoritative; if it says empty, we go empty.
+      saveAll(data.canonical.units);
     }
     return { ok: true };
   } catch { return null; }

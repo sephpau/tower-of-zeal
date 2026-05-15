@@ -307,26 +307,25 @@ export async function validateAndSyncProgress(
   for (const [id, u] of Object.entries(claimed)) {
     sanitizedClaim[id] = sanitizeUnit(u);
   }
-  // ---- Wipe-recovery gate ----
+  // ---- Wipe / cheat sanity gate via XP cap ----
   // The wallet's XP cap is bumped only when battles are CLEARED on the
-  // server (api/run/floor.ts / floor-cleared.ts). After a production wipe
-  // it resets to 0. If the cap is 0 but the client is claiming any
-  // non-trivial progress (any unit past Lv 1 or with XP), the local cache
-  // is stale and must be reset to canonical. This prevents the post-wipe
-  // accept-and-restore loop where progressVault would otherwise re-store
-  // the wallet's pre-wipe state from the player's localStorage.
+  // server. claimed.totalXp may legitimately exceed cap by a small slack
+  // (mid-battle XP awards before the next bump fires), but a massive
+  // overshoot means the client cache is stale (post-wipe) or tampered.
+  // In either case we reject so the client overwrites localStorage with
+  // canonical on the next pull.
+  const XP_CAP_SLACK = 3000;
   const xpCap = await getNumber(`xpcap:${address.toLowerCase()}`).catch(() => 0);
-  if (xpCap === 0) {
-    const claimsAnyProgress = Object.values(sanitizedClaim).some(
-      u => u.level > 1 || u.xp > 0,
-    );
-    if (claimsAnyProgress) {
-      return {
-        ok: false,
-        canonical,
-        reason: "server has no battle history for this wallet — claim rejected (post-wipe / fresh wallet)",
-      };
-    }
+  let claimedTotalXp = 0;
+  for (const u of Object.values(sanitizedClaim)) {
+    claimedTotalXp += sumXpAtState(u.level, u.xp);
+  }
+  if (claimedTotalXp > xpCap + XP_CAP_SLACK) {
+    return {
+      ok: false,
+      canonical,
+      reason: `claimed total XP (${claimedTotalXp}) exceeds server ceiling (${xpCap}) — claim rejected (post-wipe or stale cache)`,
+    };
   }
   const result = validateProgressClaim(sanitizedClaim, canonical.units);
   if (!result.ok) {
