@@ -661,13 +661,12 @@ function showHome(): void {
       forceClassPickRequired: 3,
       hideBack: true,
       topBanner: `<strong>🎯 Pick a class for 3 units</strong> · Choose any three units from the roster to build your starting party. Each unit's class shapes growth and unlocks starting skills.`,
-      // ASYNC — push the just-saved class picks to the server BEFORE we
-      // leave the forced screen. Otherwise the subsequent pullCanonicalProgress
-      // in showHome() races the 500ms-debounced push and can overwrite the
-      // freshly-picked third class with stale server data.
-      onForcedComplete: async () => {
+      // Navigate home immediately so the screen doesn't appear frozen during
+      // the network round-trip. showHome() now sequences pushProgress() ->
+      // pullCanonicalProgress() so the race that previously lost the 3rd
+      // class is closed at the home-render level instead of here.
+      onForcedComplete: () => {
         markForcedClassPickComplete();
-        await pushProgress();
         showHome();
       },
     });
@@ -683,19 +682,21 @@ function showHome(): void {
       forceStatAllocFor: pendingAllocUnit,
       hideBack: true,
       topBanner: `<strong>⬆ First Level Up!</strong> · Allocate your stat points to continue. Spend at least one point to lock in your build.`,
-      onForcedComplete: async () => {
+      onForcedComplete: () => {
         markForcedStatAllocSeen();
         clearPendingForcedStatAllocUnit();
-        await pushProgress();
         showHome();
       },
     });
     return;
   }
   renderHome(root!, onHomeAction);
-  // Pull the server-canonical progress to overwrite anything devtools may
-  // have changed in localStorage while away. Server is source of truth.
-  void pullCanonicalProgress();
+  // Push FIRST, then pull. Forces any pending debounced progress writes
+  // (e.g. a just-completed forced stat alloc or class pick) to the server
+  // before we read the canonical state back — otherwise the pull races
+  // the 500ms-debounced push and can overwrite localStorage with stale
+  // server data, "losing" the just-saved progress.
+  void pushProgress().then(() => pullCanonicalProgress()).catch(() => undefined);
 }
 
 function onHomeAction(a: HomeAction): void {
