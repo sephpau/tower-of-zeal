@@ -90,9 +90,24 @@ export function renderBattle(
   // the lifetime ceiling we've recorded. Admin wallets are exempt server-side.
   // Network failures fall through silently — never block a legit player.
   void runCheatCheck().then(result => {
-    if (result && !result.ok) {
-      mountCheaterOverlay(root, result.claimed, result.cap);
+    if (!result || result.ok) return;
+    // ---- WIPE-RECOVERY PATH ----
+    // If the server XP cap is 0 while the client claims any XP, the server
+    // was wiped (or this is a brand-new wallet with stale localStorage from
+    // a previous account). Don't accuse the player — silently reset the
+    // local cache to match the fresh server state and reload.
+    if (result.cap === 0) {
+      try {
+        // Preserve the JWT session so the player doesn't have to re-sign in.
+        const sessionRaw = localStorage.getItem("toz.session");
+        localStorage.clear();
+        if (sessionRaw) localStorage.setItem("toz.session", sessionRaw);
+      } catch { /* ignore */ }
+      location.reload();
+      return;
     }
+    // Real cheat (claimed > cap > 0) — show the overlay as before.
+    mountCheaterOverlay(root, result.claimed, result.cap);
   });
 }
 
