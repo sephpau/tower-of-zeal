@@ -121,9 +121,31 @@ export function markForcedClassPickComplete(): void {
 }
 
 /** Returns the templateId of the unit that triggered the forced stat-alloc
- *  prompt, or null if no prompt is pending. */
+ *  prompt, or null if no prompt is pending. Self-heals invalid states:
+ *  if the pending key points to a unit that no longer has any available
+ *  points (e.g. after a server wipe reset their progress), the key is
+ *  cleared so the player isn't trapped on a screen with a disabled button. */
 export function getPendingForcedStatAllocUnit(): string | null {
-  try { return localStorage.getItem(PENDING_ALLOC_UNIT_KEY()); } catch { return null; }
+  let pending: string | null = null;
+  try { pending = localStorage.getItem(PENDING_ALLOC_UNIT_KEY()); } catch { return null; }
+  if (!pending) return null;
+  // Self-heal #1: gate is one-shot per player. If they've already been
+  // through it before, PENDING shouldn't fire again — clear and bail.
+  if (isForcedStatAllocSeen()) {
+    try { localStorage.removeItem(PENDING_ALLOC_UNIT_KEY()); } catch { /* ignore */ }
+    return null;
+  }
+  // Self-heal #2: the unit actually has points to allocate. If progress
+  // was reset (post-wipe) the unit may be back at Lv 1 / 0 points — the
+  // forced screen would render with a disabled Allocate button and trap
+  // the player. Clear the flag instead.
+  const map = loadAll();
+  const entry = map[pending];
+  if (!entry || (entry.availablePoints ?? 0) <= 0) {
+    try { localStorage.removeItem(PENDING_ALLOC_UNIT_KEY()); } catch { /* ignore */ }
+    return null;
+  }
+  return pending;
 }
 export function clearPendingForcedStatAllocUnit(): void {
   try { localStorage.removeItem(PENDING_ALLOC_UNIT_KEY()); } catch { /* ignore */ }
