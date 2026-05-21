@@ -46,6 +46,7 @@ import { getCurrentMultiplier } from "../_lib/daily.js";
 import { isAdmin } from "../_lib/admin.js";
 import { adminGrantEnergy, adminFillEnergy, ENERGY_MAX, consumePendingClear } from "../_lib/energy.js";
 import { captureReferral, getReferralDashboard, fireFloorMilestone, fireRonMilestone, getReferralClaimable, claimReferralRewards } from "../_lib/referral.js";
+import { recordPurchase, readPurchaseHistory } from "../_lib/shopHistory.js";
 
 // Floor-mode battle event endpoint. Handles three operations to stay under
 // the Vercel Hobby 12-function cap:
@@ -574,6 +575,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     }
   }
 
+  // ---- Shop purchase history (read-only) ----
+  if (op === "shop_history") {
+    try {
+      const history = await readPurchaseHistory(address);
+      res.status(200).json({ ok: true, history });
+      return;
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+      return;
+    }
+  }
+
   // Both shop-buy paths gate on the season halt too — when the admin ends the
   // season, the shop closes alongside run starts. shop_status / shop_consume /
   // inventory_use_energy remain open so players can still SEE what they own
@@ -611,7 +624,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       ? (req.body as { txHash: string }).txHash : "";
     if (!txHash) { res.status(400).json({ error: "txHash required" }); return; }
     try {
-      const { readOffer, grantOfferBundle } = await import("../_lib/firstEnergyOffer.js");
+      const { readOffer, grantOfferBundle, FIRST_OFFER_ENERGY_GRANT } = await import("../_lib/firstEnergyOffer.js");
       const cur = await readOffer(address);
       if (cur.status === "consumed") {
         res.status(409).json({ ok: false, reason: "offer already consumed" }); return;
@@ -633,6 +646,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       const ronPrice = Number((ITEM_PRICES_WEI["energy_first_offer"] ?? 0n) / 10n ** 18n);
       await bumpRonSpent(address, ronPrice).catch(() => undefined);
       void bumpShopRevenue(ronPrice);
+      void recordPurchase(address, {
+        item: "energy_first_offer",
+        detail: `+${FIRST_OFFER_ENERGY_GRANT} Energy`,
+        cost: `${ronPrice} RON`,
+        via: "ron",
+        txHash,
+      }).catch(() => undefined);
       // Referral RON-spend reward — this offer purchase counts toward the
       // referee's 10-RON milestone.
       await fireRonMilestone(address).catch(() => undefined);
@@ -740,13 +760,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
   if (op === "first_offer_claim_voucher") {
     try {
-      const { claimWithVouchers, FIRST_OFFER_RON_PRICE } = await import("../_lib/firstEnergyOffer.js");
+      const { claimWithVouchers, FIRST_OFFER_RON_PRICE, FIRST_OFFER_ENERGY_GRANT } = await import("../_lib/firstEnergyOffer.js");
       const r = await claimWithVouchers(address);
       if (!r.ok) { res.status(400).json({ ok: false, reason: r.reason }); return; }
       // Analytics: lifetime voucher-spent (no shop-revenue bump — vouchers
       // don't move new RON to the treasury, only consume an existing in-game
       // balance that was earned earlier).
       void bumpVouchersSpent(address, FIRST_OFFER_RON_PRICE);
+      void recordPurchase(address, {
+        item: "energy_first_offer",
+        detail: `+${FIRST_OFFER_ENERGY_GRANT} Energy`,
+        cost: `${FIRST_OFFER_RON_PRICE} bRON in vouchers`,
+        via: "voucher",
+      }).catch(() => undefined);
       res.status(200).json({ ok: true, energy: r.energy, deducted: r.deducted });
       return;
     } catch (e) {
@@ -799,6 +825,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       const ronPrice = Number((ITEM_PRICES_WEI["floor20_offer_bundle"] ?? 0n) / 10n ** 18n);
       await bumpRonSpent(address, ronPrice).catch(() => undefined);
       void bumpShopRevenue(ronPrice);
+      void recordPurchase(address, {
+        item: "floor20_offer_bundle",
+        detail: "All campaign buffs → Inventory",
+        cost: `${ronPrice} RON`,
+        via: "ron",
+        txHash,
+      }).catch(() => undefined);
       // Referral RON-spend reward — this offer purchase counts toward the
       // referee's 10-RON milestone.
       await fireRonMilestone(address).catch(() => undefined);
@@ -817,6 +850,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       // Analytics: lifetime voucher-spent only (no shop-revenue bump on
       // voucher payments — same rationale as the first-energy-offer path).
       void bumpVouchersSpent(address, FLOOR20_OFFER_RON_PRICE);
+      void recordPurchase(address, {
+        item: "floor20_offer_bundle",
+        detail: "All campaign buffs → Inventory",
+        cost: `${FLOOR20_OFFER_RON_PRICE} bRON in vouchers`,
+        via: "voucher",
+      }).catch(() => undefined);
       res.status(200).json({ ok: true, grants: r.grants, deducted: r.deducted });
       return;
     } catch (e) {
@@ -852,7 +891,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       ? (req.body as { txHash: string }).txHash : "";
     if (!txHash) { res.status(400).json({ error: "txHash required" }); return; }
     try {
-      const { readFloor200Offer, grantFloor200Bundle } = await import("../_lib/floor200Offer.js");
+      const { readFloor200Offer, grantFloor200Bundle, FLOOR200_OFFER_ENERGY_GRANT } = await import("../_lib/floor200Offer.js");
       const cur = await readFloor200Offer(address);
       if (cur.status === "consumed") { res.status(409).json({ ok: false, reason: "offer already consumed" }); return; }
       if (cur.status === "pending") { res.status(403).json({ ok: false, reason: "clear floor 200 first" }); return; }
@@ -869,6 +908,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       const ronPrice = Number((ITEM_PRICES_WEI["energy_floor200_offer"] ?? 0n) / 10n ** 18n);
       await bumpRonSpent(address, ronPrice).catch(() => undefined);
       void bumpShopRevenue(ronPrice);
+      void recordPurchase(address, {
+        item: "energy_floor200_offer",
+        detail: `+${FLOOR200_OFFER_ENERGY_GRANT} Energy`,
+        cost: `${ronPrice} RON`,
+        via: "ron",
+        txHash,
+      }).catch(() => undefined);
       // Referral RON-spend reward — this purchase counts toward the 10-RON milestone.
       await fireRonMilestone(address).catch(() => undefined);
       res.status(200).json({ ok: true, energy: grant.energy });
@@ -880,11 +926,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
   if (op === "floor200_offer_claim_voucher") {
     try {
-      const { claimFloor200WithVouchers, FLOOR200_OFFER_RON_PRICE } = await import("../_lib/floor200Offer.js");
+      const { claimFloor200WithVouchers, FLOOR200_OFFER_RON_PRICE, FLOOR200_OFFER_ENERGY_GRANT } = await import("../_lib/floor200Offer.js");
       const r = await claimFloor200WithVouchers(address);
       if (!r.ok) { res.status(400).json({ ok: false, reason: r.reason }); return; }
       // Analytics: lifetime voucher-spent only (vouchers don't move new RON).
       void bumpVouchersSpent(address, FLOOR200_OFFER_RON_PRICE);
+      void recordPurchase(address, {
+        item: "energy_floor200_offer",
+        detail: `+${FLOOR200_OFFER_ENERGY_GRANT} Energy`,
+        cost: `${FLOOR200_OFFER_RON_PRICE} bRON in vouchers`,
+        via: "voucher",
+      }).catch(() => undefined);
       res.status(200).json({ ok: true, energy: r.energy, deducted: r.deducted });
       return;
     } catch (e) {
@@ -892,6 +944,81 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       return;
     }
   }
+  // ---- Oracle Energy — repeatable 50/50 RON gamble (1.5 RON → 3 or 1 energy) ----
+  if (op === "oracle_status") {
+    try {
+      const { readOraclePlaysToday, ORACLE_DAILY_CAP, ORACLE_PRICE_RON, ORACLE_WIN_ENERGY, ORACLE_LOSE_ENERGY }
+        = await import("../_lib/oracleEnergy.js");
+      const plays = await readOraclePlaysToday(address);
+      res.status(200).json({
+        ok: true,
+        playsToday: plays,
+        playsRemaining: Math.max(0, ORACLE_DAILY_CAP - plays),
+        cap: ORACLE_DAILY_CAP,
+        priceRon: ORACLE_PRICE_RON,
+        win: ORACLE_WIN_ENERGY,
+        lose: ORACLE_LOSE_ENERGY,
+      });
+      return;
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+      return;
+    }
+  }
+  if (op === "oracle_play") {
+    // Gambling path: pay 1.5 RON, server flips a crypto coin + grants energy.
+    // Season-halted shuts the oracle alongside the rest of the shop.
+    if (await isSeasonHalted()) {
+      res.status(SEASON_HALTED_RESPONSE.status).json(SEASON_HALTED_RESPONSE.body);
+      return;
+    }
+    const txHash = typeof (req.body as { txHash?: unknown }).txHash === "string"
+      ? (req.body as { txHash: string }).txHash : "";
+    if (!txHash) { res.status(400).json({ error: "txHash required" }); return; }
+    try {
+      const { readOraclePlaysToday, rollOracle, ORACLE_DAILY_CAP, ORACLE_PRICE_RON }
+        = await import("../_lib/oracleEnergy.js");
+      // Daily-cap gate BEFORE payment verification so a capped wallet is told
+      // to stop before the RON moves. The client also disables the button at
+      // 0 remaining; this is the hard server-side enforcement.
+      const plays = await readOraclePlaysToday(address);
+      if (plays >= ORACLE_DAILY_CAP) {
+        res.status(429).json({ ok: false, reason: `Daily Oracle limit reached (${ORACLE_DAILY_CAP}/day). Resets at 8 AM PH.` });
+        return;
+      }
+      const pay = await verifyShopPayment(txHash, address, "oracle_energy");
+      if (!pay.ok) {
+        res.status(pay.pending ? 202 : 400).json({ ok: false, pending: pay.pending, reason: pay.reason });
+        return;
+      }
+      const result = await rollOracle(address);
+      await consumeTxHash(txHash, address, "oracle_energy", pay.valueWei);
+      void recordPurchase(address, {
+        item: "oracle_energy",
+        detail: result.won ? `Won — +${result.energyGranted} Energy` : `Lost — +${result.energyGranted} Energy`,
+        cost: `${ORACLE_PRICE_RON} RON`,
+        via: "ron",
+        txHash,
+      }).catch(() => undefined);
+      // Analytics: real RON to treasury — lifetime RON-spent + global revenue.
+      await bumpRonSpent(address, ORACLE_PRICE_RON).catch(() => undefined);
+      void bumpShopRevenue(ORACLE_PRICE_RON);
+      // Referral RON-spend reward — oracle plays count toward the milestone.
+      await fireRonMilestone(address).catch(() => undefined);
+      res.status(200).json({
+        ok: true,
+        won: result.won,
+        energyGranted: result.energyGranted,
+        balance: result.balance,
+        playsRemaining: result.playsRemaining,
+      });
+      return;
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : "server error" });
+      return;
+    }
+  }
+
   if (op === "shop_buy" || op === "shop_buy_voucher") {
     if (await isSeasonHalted()) {
       res.status(SEASON_HALTED_RESPONSE.status).json(SEASON_HALTED_RESPONSE.body);
@@ -968,6 +1095,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       if (itemId === "unit_temp_motz_key") {
         const r = await grantTempMotzKey(address);
         await consumeTxHash(txHash, address, itemId, paidAmount);
+        void recordPurchase(address, {
+          item: itemId,
+          detail: "10-day seasonal pass",
+          cost: `${Number((ITEM_PRICES_WEI[itemId] ?? 0n) / 10n ** 18n)} RON`,
+          via: "ron",
+          txHash,
+        }).catch(() => undefined);
         res.status(200).json({ ok: true, grant: { type: "temp_motz_key", expiresAt: r.expiresAt } });
         return;
       }
@@ -1005,6 +1139,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       // lifetime RON spend over the 10-RON milestone. One-time + no-op for
       // non-referred wallets.
       await fireRonMilestone(address).catch(() => undefined);
+      void recordPurchase(address, {
+        item: itemId,
+        detail: grant.qty ? `+${grant.qty} charge${grant.qty === 1 ? "" : "s"} → Inventory` : "Added to Inventory",
+        cost: `${ronPriceForRevenue} RON`,
+        via: "ron",
+        txHash,
+      }).catch(() => undefined);
       res.status(200).json({ ok: true, grant });
       return;
     } catch (e) {
@@ -1183,6 +1324,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       // Records the item's RON price (NOT the over-pay total — change is
       // refunded and doesn't count as a spend).
       void bumpVouchersSpent(address, priceRon);
+      {
+        const q = typeof locked.grantPayload.qty === "number" ? locked.grantPayload.qty : 0;
+        void recordPurchase(address, {
+          item: itemId,
+          detail: q > 0 ? `+${q} charge${q === 1 ? "" : "s"} → Inventory` : "Added to Inventory",
+          cost: `${priceRon} bRON in vouchers`,
+          via: "voucher",
+        }).catch(() => undefined);
+      }
       res.status(200).json({
         ok: true,
         grant: locked.grantPayload,

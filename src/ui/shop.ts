@@ -8,13 +8,15 @@ import {
   SHOP_CATALOG, ShopItemDef, ShopItemId,
   fetchShopStatus, buyShopItem,
   buyShopItemWithVouchers, pickVouchersToSpend, previewChange,
-  type ShopStatus,
+  fetchShopHistory,
+  type ShopStatus, type ShopHistoryEntry,
 } from "../core/shop";
 import { confirmModal, alertModal } from "./confirmModal";
 import { loadSession, validateSession, setVerifiedPerks } from "../auth/session";
 import { payWithWallet } from "../auth/payment";
 import { pickWalletModal } from "./walletPicker";
 import { showTxProgress } from "./txProgressOverlay";
+import { openOracleModal } from "./oracleEnergy";
 
 export async function renderShop(root: HTMLElement, onBack: () => void): Promise<void> {
   // Initial paint — empty list while we wait on the status fetch.
@@ -31,6 +33,7 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
           <span class="shop-revenue-label">Total RON Earned by Shop</span>
           <span class="shop-revenue-value" id="shop-revenue-value">…</span>
         </div>
+        <button class="shop-history-btn" id="shop-history-btn" type="button">🧾 Purchase History</button>
       </div>
       <div class="shop-one-buff-notice">
         ⚡ <strong>Only ONE campaign buff can be chosen per floor.</strong> Each charge applies to a single battle — pick the buff that matters most for the fight you're about to enter.
@@ -44,6 +47,7 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
     </div>
   `;
   root.querySelector("#back-btn")?.addEventListener("click", onBack);
+  root.querySelector("#shop-history-btn")?.addEventListener("click", () => { void openHistoryModal(); });
 
   const status = await fetchShopStatus();
   const grid = root.querySelector<HTMLElement>("#shop-grid");
@@ -74,10 +78,16 @@ export async function renderShop(root: HTMLElement, onBack: () => void): Promise
         <div class="shop-section-title">${sec.label}</div>
         <div class="shop-items">
           ${items.map(i => shopCardHtml(i, status)).join("")}
+          ${sec.cat === "energy" ? oracleCardHtml() : ""}
         </div>
       </div>
     `;
   }).join("");
+
+  // Oracle Energy — opens its own gamble modal instead of the standard
+  // buy flow (server-authoritative 50/50 coin flip).
+  grid.querySelector<HTMLButtonElement>("#oracle-open-btn")
+    ?.addEventListener("click", () => { void openOracleModal(); });
 
   // Buy button handlers.
   grid.querySelectorAll<HTMLButtonElement>("[data-buy]").forEach(btn => {
@@ -330,6 +340,107 @@ function shopCardHtml(def: ShopItemDef, status: ShopStatus): string {
       </div>
     </div>
   `;
+}
+
+/** The Oracle Energy card — sits in the Energy section but opens a dedicated
+ *  gamble modal (server-authoritative 50/50 flip) rather than the standard
+ *  buy flow. Not part of SHOP_CATALOG because it has no daily-buy semantics. */
+function oracleCardHtml(): string {
+  return `
+    <div class="shop-card shop-card-oracle">
+      <div class="shop-card-head">
+        <span class="shop-card-icon">🔮</span>
+        <span class="shop-card-name">Oracle Energy</span>
+        <span class="shop-oracle-tag">GAMBLE</span>
+      </div>
+      <div class="shop-card-desc">
+        Offer <strong>1.5 RON</strong> to the Oracle for a true <strong>50/50</strong> flip — <strong>win</strong> for +3 energy, or +1 energy on a loss. You always gain energy; fortune decides how much. Up to <strong>10 consultations</strong> per day.
+      </div>
+      <div class="shop-card-foot">
+        <span class="shop-card-price">1.5 RON</span>
+        <div class="shop-card-actions">
+          <button class="confirm-btn shop-buy-btn" id="oracle-open-btn" type="button">Consult the Oracle</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ---- Purchase history modal ----
+
+/** Open the read-only purchase-history modal. Lists every RON / voucher
+ *  purchase the server recorded for this wallet, newest first. */
+async function openHistoryModal(): Promise<void> {
+  const overlay = document.createElement("div");
+  overlay.className = "shop-history-modal";
+  overlay.innerHTML = `
+    <div class="shop-history-card">
+      <div class="shop-history-head">
+        <span class="shop-history-title">🧾 Purchase History</span>
+        <button class="shop-history-close" id="sh-close" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="shop-history-body" id="sh-body">
+        <div class="shop-history-empty">Loading…</div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const close = (): void => {
+    try { overlay.remove(); } catch { /* ignore */ }
+    document.removeEventListener("keydown", onKey);
+  };
+  const onKey = (e: KeyboardEvent): void => { if (e.key === "Escape") close(); };
+  document.addEventListener("keydown", onKey);
+  overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+  overlay.querySelector("#sh-close")?.addEventListener("click", close);
+
+  const history = await fetchShopHistory();
+  const body = overlay.querySelector<HTMLElement>("#sh-body");
+  if (!body) return;
+  if (history === null) {
+    body.innerHTML = `<div class="shop-history-empty">Couldn't reach the server — please try again.</div>`;
+    return;
+  }
+  if (history.length === 0) {
+    body.innerHTML = `<div class="shop-history-empty">No purchases yet. Anything you buy from the shop will show up here.</div>`;
+    return;
+  }
+  body.innerHTML = history.map(historyRowHtml).join("");
+}
+
+function historyRowHtml(e: ShopHistoryEntry): string {
+  const viaBadge = e.via === "voucher"
+    ? `<span class="sh-via sh-via-voucher">🎟 Vouchers</span>`
+    : `<span class="sh-via sh-via-ron">RON</span>`;
+  const tx = e.txHash
+    ? `<a class="sh-tx" href="https://app.roninchain.com/tx/${escapeHtml(e.txHash)}" target="_blank" rel="noopener">↗ View tx</a>`
+    : "";
+  return `
+    <div class="shop-history-row">
+      <span class="sh-icon">${escapeHtml(e.icon)}</span>
+      <div class="sh-main">
+        <div class="sh-name">${escapeHtml(e.name)}</div>
+        ${e.detail ? `<div class="sh-detail">${escapeHtml(e.detail)}</div>` : ""}
+        <div class="sh-meta">${viaBadge}<span class="sh-date">${relTime(e.at)}</span>${tx}</div>
+      </div>
+      <div class="sh-cost">${escapeHtml(e.cost)}</div>
+    </div>
+  `;
+}
+
+/** Compact relative timestamp ("just now", "5m ago", "3d ago", or a date). */
+function relTime(at: number): string {
+  const diff = Date.now() - at;
+  if (!Number.isFinite(diff) || diff < 0) return "";
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const d = Math.floor(hr / 24);
+  if (d < 30) return `${d}d ago`;
+  return new Date(at).toLocaleDateString();
 }
 
 function iconFor(def: ShopItemDef): string {
