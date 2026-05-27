@@ -12,14 +12,59 @@ import {
   txSingleNftPrice,
   floorPriceForTrait,
   userAcquisitionsFor,
+  userAcquisitionsForCached,
   ownerOf,
   tokenMetadata,
   userStakingDepositsFor,
 } from "@/lib/marketplace";
 import { ronUsdAt, ronUsdNow } from "@/lib/coingecko";
+import { lookupManualCost } from "@/lib/manual-costs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * Extract the rarity attribute for a token, honoring `overrideTraitName`.
+ * Returns the trait name (used as part of the floor-map cache key so a
+ * "Fur=Spirit" floor never collides with a "1 of 1=spirit" floor) plus
+ * the raw value.
+ */
+function rarityFor(
+  c: TrackedCollection,
+  attributes: Record<string, string[]> | null | undefined,
+): { traitName: string; value: string; isOverride: boolean } | null {
+  if (!attributes) return null;
+  if (c.overrideTraitName) {
+    const v = attributes[c.overrideTraitName]?.[0];
+    if (v)
+      return {
+        traitName: c.overrideTraitName,
+        value: v,
+        isOverride: true,
+      };
+  }
+  const v = attributes[c.traitName]?.[0];
+  if (v) return { traitName: c.traitName, value: v, isOverride: false };
+  return null;
+}
+
+function floorKey(traitName: string, value: string): string {
+  return `${traitName}|${value}`;
+}
+
+/**
+ * Floor lookup for a token's rarity. 1-of-1 / override-trait rarities
+ * have no comparable floor by definition — return null so we don't waste
+ * an API call and the row renders with floor = "—", pnl = null.
+ */
+function floorForRarity(
+  r: { traitName: string; value: string; isOverride: boolean } | null,
+  floorMap: Map<string, number | null>,
+): number | null {
+  if (!r) return null;
+  if (r.isOverride) return null;
+  return floorMap.get(floorKey(r.traitName, r.value)) ?? null;
+}
 
 export type HoldingRow = {
   tokenId: string;
@@ -38,6 +83,21 @@ export type HoldingRow = {
   floorRon: number | null;
   floorUsd: number | null;
   pnlUsd: number | null;
+  /**
+   * Set on rows whose rarity came from the collection's overrideTraitName
+   * (e.g. Moki 1-of-1s). These have no comparable floor by design, so
+   * the UI excludes them from section totals to avoid a phantom -cost
+   * being attributed to them.
+   */
+  excludeFromTotals?: boolean;
+  /**
+   * Display currency for cost/floor values on this row. Defaults to RON
+   * for Ronin-chain collections; "ETH" for Ethereum-chain collections
+   * (Cambria Islands, etc.). The underlying numeric fields are still
+   * called costRon / floorRon / currentRonUsd for back-compat — they
+   * hold ETH for ETH-chain rows.
+   */
+  currencySymbol?: string;
 };
 
 export type CollectionHoldings = {
@@ -209,14 +269,23 @@ export async function GET(req: NextRequest) {
     const ownedFloorPromise = Promise.all(
       TRACKED_COLLECTIONS.map(async (c, ci) => {
         const contractLc = c.address.toLowerCase();
+        // Skip 1-of-1 (override) rarities — they have no comparable floor
+        // and the lookup would just waste an API call returning null.
         const ownedTraits = tokensPerCollection[ci]
-          .map((t) => t.attributes?.[c.traitName]?.[0])
-          .filter((v): v is string => !!v);
-        const distinct = Array.from(new Set(ownedTraits));
+          .map((t) => rarityFor(c, t.attributes))
+          .filter(
+            (r): r is { traitName: string; value: string; isOverride: boolean } =>
+              !!r && !r.isOverride,
+          );
+        const distinct = new Map<string, { traitName: string; value: string }>();
+        for (const r of ownedTraits) distinct.set(floorKey(r.traitName, r.value), r);
         const m = new Map<string, number | null>();
         await Promise.all(
-          distinct.map(async (v) => {
-            m.set(v, await floorPriceForTrait(c.address, c.traitName, v));
+          Array.from(distinct.values()).map(async (r) => {
+            m.set(
+              floorKey(r.traitName, r.value),
+              await floorPriceForTrait(c.address, r.traitName, r.value),
+            );
           }),
         );
         floorByCollectionAndTrait.set(contractLc, m);
@@ -251,43 +320,35 @@ export async function GET(req: NextRequest) {
             },
           )
         : Promise.resolve(new Map()),
-      // For each transferrer wallet, walk THEIR Mint+Sale activity so we
-      // can upgrade transferred rows. Process SEQUENTIALLY with a small
-      // cooldown between each — running 6 transferrers in parallel was
-      // the actual root cause of the "Load Combined" rate-limit failures:
-      // 6 paginators competing for 2 gqlLimiter slots burst the API faster
-      // than its per-minute throttle allows, tripping the breaker even
-      // though single-wallet loads work fine.
+      // Transferrer wallets: scan each via userAcquisitionsForCached, which
+      // hits disk cache (24h TTL) for already-known transferrers and only
+      // calls the API on cache miss. Sequential, but cached hits are
+      // instant — only the first refresh after a TTL expiry actually pages.
+      // Each scan still wrapped in catch so one rate-limited transferrer
+      // doesn't kill the rest.
       //
-      // Each scan is wrapped in catch so one rate-limited transferrer
-      // doesn't kill the rest. Early-exit via wantedKeys further bounds
-      // each scan once all owned tokens are found.
+      // Note: wantedKeys is intentionally NOT passed to the cached scan —
+      // the cache stores the full set of acquisitions for the transferrer
+      // across all tracked contracts, so different users with different
+      // held tokens can share the same cache. Filter happens at row build.
       transferrers.length > 0
         ? (async () => {
             const merged: Awaited<
               ReturnType<typeof userAcquisitionsFor>
             > = new Map();
-            const TRANSFERRER_COOLDOWN_MS = 2000;
-            for (let ti = 0; ti < transferrers.length; ti++) {
-              const t = transferrers[ti];
+            for (const t of transferrers) {
               try {
-                const m = await userAcquisitionsFor(
+                const m = await userAcquisitionsForCached(
                   t,
                   TRACKED_COLLECTIONS.map((c) => c.address),
                   sinceTs,
-                  200,
-                  wantedKeys,
+                  30,
                 );
                 for (const [k, v] of m) {
                   if (!merged.has(k)) merged.set(k, v);
                 }
               } catch (err) {
                 warn(`transferrer(${t})`, err);
-              }
-              if (ti < transferrers.length - 1) {
-                await new Promise((r) =>
-                  setTimeout(r, TRANSFERRER_COOLDOWN_MS),
-                );
               }
             }
             return merged;
@@ -309,11 +370,25 @@ export async function GET(req: NextRequest) {
     };
     // ownerOf throws on persistent failure — we let that bubble up so the
     // user sees an error instead of a silently-incomplete portfolio.
-    const stakedChecks = await Promise.all(
-      Array.from(stakingDeposits.values()).map(async (d) => ({
-        d,
-        currentOwner: await ownerOf(d.contract, d.tokenId),
-      })),
+    type StakedCheck = {
+      d: { contract: string; tokenId: string };
+      currentOwner: string;
+    };
+    const stakedChecksRaw = await Promise.all(
+      Array.from(stakingDeposits.values()).map(
+        async (d): Promise<StakedCheck | null> => {
+          try {
+            const currentOwner = await ownerOf(d.contract, d.tokenId);
+            return { d, currentOwner };
+          } catch (err) {
+            warn(`ownerOf(${d.contract.slice(0, 10)}...:${d.tokenId})`, err);
+            return null;
+          }
+        },
+      ),
+    );
+    const stakedChecks = stakedChecksRaw.filter(
+      (r): r is StakedCheck => r !== null,
     );
     const stakedByContract = new Map<string, StakedToken[]>();
     for (const { d, currentOwner } of stakedChecks) {
@@ -343,20 +418,157 @@ export async function GET(req: NextRequest) {
       allStaked.flatMap((s) => {
         const key = `${s.contract}:${s.tokenId}`;
         return [
-          tokenMetadata(s.contract, s.tokenId).then((meta) => {
-            if (meta) stakedMetadata.set(key, meta);
-          }),
+          tokenMetadata(s.contract, s.tokenId)
+            .then((meta) => {
+              if (meta) stakedMetadata.set(key, meta);
+            })
+            .catch((err) => warn(`stakedMetadata(${key})`, err)),
           // Ownership-verified: cached history is fresh if its most recent
           // event is "transfer TO this staking contract" (and the staking
           // contract still has it, which we confirmed via ownerOf above).
-          lastAcquisitionVerified(s.contract, s.tokenId, s.stakingContract).then(
-            (acq) => {
+          lastAcquisitionVerified(s.contract, s.tokenId, s.stakingContract)
+            .then((acq) => {
               if (acq) stakedMarketAcq.set(key, acq);
-            },
-          ),
+            })
+            .catch((err) => warn(`stakedLastAcq(${key})`, err)),
         ];
       }),
     );
+
+    // Retry pass: any staked token whose lastAcquisition didn't make it
+    // into stakedMarketAcq (was rate-limited during the parallel batch
+    // above) gets a second chance, this time SEQUENTIALLY with a small
+    // delay. The catches above logged warnings but moved on; here we try
+    // to fill in the cost-basis data those tokens are missing.
+    //
+    // Most retries hit fast because the parallel batch already populated
+    // the disk cache for the SUCCESSFUL ones, so the breaker has had
+    // time to drain between when it tripped and when the retry-pass
+    // starts. Each retry that lands here was rate-limited the first
+    // time around — slowing them down dramatically improves success.
+    const stakedMissing = allStaked.filter(
+      (s) => !stakedMarketAcq.has(`${s.contract}:${s.tokenId}`),
+    );
+    if (stakedMissing.length > 0) {
+      console.log(
+        `[/api/holdings] retry pass: ${stakedMissing.length} staked-token lastAcquisitions failed on first try, retrying sequentially`,
+      );
+      // Brief drain so the breaker fully resets before we start the
+      // retries. The breaker's auto-reset is 60s; this gives most of it.
+      await new Promise((r) => setTimeout(r, 8000));
+      for (const s of stakedMissing) {
+        try {
+          const acq = await lastAcquisitionVerified(
+            s.contract,
+            s.tokenId,
+            s.stakingContract,
+          );
+          if (acq) stakedMarketAcq.set(`${s.contract}:${s.tokenId}`, acq);
+          // Pace ourselves — 200ms between retries.
+          await new Promise((r) => setTimeout(r, 200));
+        } catch {
+          // Already counted in warnings from the first attempt. The token
+          // will just have approximate cost basis. Don't escalate.
+        }
+      }
+      // Trim the warning list to remove the stakedLastAcq entries we
+      // just successfully recovered, so the response accurately reflects
+      // the FINAL state of the load rather than the mid-load failures.
+      const stillMissing = new Set(
+        allStaked
+          .filter((s) => !stakedMarketAcq.has(`${s.contract}:${s.tokenId}`))
+          .map((s) => `stakedLastAcq(${s.contract}:${s.tokenId})`),
+      );
+      for (let i = warnings.length - 1; i >= 0; i--) {
+        const w = warnings[i];
+        if (
+          w.startsWith("stakedLastAcq(") &&
+          !Array.from(stillMissing).some((m) => w.startsWith(m))
+        ) {
+          warnings.splice(i, 1);
+        }
+      }
+      console.log(
+        `[/api/holdings] retry pass complete: ${stakedMissing.length - stillMissing.size} recovered, ${stillMissing.size} still missing`,
+      );
+    }
+
+    // Metadata retry pass: any staked token without metadata (or with
+    // metadata missing the rarity attribute) gets a second sequential
+    // chance. Critical for floor / PnL accuracy — without rarity, the
+    // floor lookup keys can't be built and the row shows blank values
+    // in the UI. We pace at 200ms after a brief drain, mirroring the
+    // lastAcquisition retry above.
+    const metaMissing = allStaked.filter((s) => {
+      const key = `${s.contract}:${s.tokenId}`;
+      const meta = stakedMetadata.get(key);
+      if (!meta) return true;
+      // Determine which trait this collection cares about and check that
+      // the token actually carries it. Otherwise the rarity lookup ends
+      // up null and the floor/pnl columns render as "—".
+      const c = TRACKED_COLLECTIONS.find(
+        (tc) => tc.address.toLowerCase() === s.contract,
+      );
+      if (!c) return false;
+      const attrs = meta.attributes ?? {};
+      const hasOverride =
+        c.overrideTraitName && attrs[c.overrideTraitName]?.[0];
+      const hasPrimary = attrs[c.traitName]?.[0];
+      return !hasOverride && !hasPrimary;
+    });
+    if (metaMissing.length > 0) {
+      console.log(
+        `[/api/holdings] metadata retry pass: ${metaMissing.length} staked tokens missing rarity metadata, retrying sequentially`,
+      );
+      await new Promise((r) => setTimeout(r, 8000));
+      let recovered = 0;
+      for (const s of metaMissing) {
+        try {
+          const meta = await tokenMetadata(s.contract, s.tokenId);
+          if (meta) {
+            stakedMetadata.set(`${s.contract}:${s.tokenId}`, meta);
+            recovered++;
+          }
+          await new Promise((r) => setTimeout(r, 200));
+        } catch (err) {
+          warn(`stakedMetadataRetry(${s.contract}:${s.tokenId})`, err);
+        }
+      }
+      // Drop the original first-pass warnings for tokens we just recovered.
+      const stillMissing = new Set(
+        metaMissing
+          .filter(
+            (s) =>
+              !stakedMetadata.has(`${s.contract}:${s.tokenId}`) ||
+              (() => {
+                const c = TRACKED_COLLECTIONS.find(
+                  (tc) => tc.address.toLowerCase() === s.contract,
+                );
+                if (!c) return true;
+                const attrs =
+                  stakedMetadata.get(`${s.contract}:${s.tokenId}`)
+                    ?.attributes ?? {};
+                const hasOverride =
+                  c.overrideTraitName && attrs[c.overrideTraitName]?.[0];
+                const hasPrimary = attrs[c.traitName]?.[0];
+                return !hasOverride && !hasPrimary;
+              })(),
+          )
+          .map((s) => `stakedMetadata(${s.contract}:${s.tokenId})`),
+      );
+      for (let i = warnings.length - 1; i >= 0; i--) {
+        const w = warnings[i];
+        if (
+          w.startsWith("stakedMetadata(") &&
+          !Array.from(stillMissing).some((m) => w.startsWith(m))
+        ) {
+          warnings.splice(i, 1);
+        }
+      }
+      console.log(
+        `[/api/holdings] metadata retry pass complete: ${recovered} recovered, ${stillMissing.size} still missing rarity`,
+      );
+    }
 
     // Await the floor queries we kicked off earlier (parallel with all the
     // userActivities work), then top up with any traits that ONLY appear on
@@ -366,24 +578,34 @@ export async function GET(req: NextRequest) {
       TRACKED_COLLECTIONS.map(async (c) => {
         const contractLc = c.address.toLowerCase();
         const stakedTraits = (stakedByContract.get(contractLc) ?? [])
-          .map(
-            (s) =>
-              stakedMetadata.get(`${contractLc}:${s.tokenId}`)?.attributes?.[
-                c.traitName
-              ]?.[0],
+          .map((s) =>
+            rarityFor(
+              c,
+              stakedMetadata.get(`${contractLc}:${s.tokenId}`)?.attributes,
+            ),
           )
-          .filter((v): v is string => !!v);
+          .filter(
+            (r): r is { traitName: string; value: string; isOverride: boolean } =>
+              !!r && !r.isOverride,
+          );
         const existing =
           floorByCollectionAndTrait.get(contractLc) ??
           new Map<string, number | null>();
-        const missing = stakedTraits.filter((v) => !existing.has(v));
-        if (missing.length === 0) {
+        const missing = new Map<string, { traitName: string; value: string }>();
+        for (const r of stakedTraits) {
+          const k = floorKey(r.traitName, r.value);
+          if (!existing.has(k)) missing.set(k, r);
+        }
+        if (missing.size === 0) {
           floorByCollectionAndTrait.set(contractLc, existing);
           return;
         }
         await Promise.all(
-          Array.from(new Set(missing)).map(async (v) => {
-            existing.set(v, await floorPriceForTrait(c.address, c.traitName, v));
+          Array.from(missing.values()).map(async (r) => {
+            existing.set(
+              floorKey(r.traitName, r.value),
+              await floorPriceForTrait(c.address, r.traitName, r.value),
+            );
           }),
         );
         floorByCollectionAndTrait.set(contractLc, existing);
@@ -425,6 +647,37 @@ export async function GET(req: NextRequest) {
         );
       }),
     );
+
+    // Apply manual cost overrides (P2P trades, OTC deals, gifts with
+    // a known value, etc.) as a final post-pass. These always win over
+    // the standard pipeline's computed cost basis. Source of truth is
+    // src/lib/manual-costs.ts — edit there, redeploy.
+    for (const col of collections) {
+      const contractLc = col.contract.toLowerCase();
+      for (const row of col.rows) {
+        const override = lookupManualCost(contractLc, row.tokenId);
+        if (!override) continue;
+        row.costRon = override.cost;
+        if (override.via) row.acquiredVia = override.via;
+        if (override.acquiredAtIso) {
+          row.acquiredAt = Math.floor(
+            new Date(override.acquiredAtIso).getTime() / 1000,
+          );
+        }
+        // Recompute USD fields off the (possibly new) acquiredAt.
+        if (row.acquiredAt) {
+          row.ronUsdAtPurchase = await ronUsdAt(row.acquiredAt);
+        }
+        row.costUsd =
+          row.ronUsdAtPurchase != null
+            ? row.costRon * row.ronUsdAtPurchase
+            : null;
+        row.pnlUsd =
+          row.costUsd != null && row.floorUsd != null
+            ? row.floorUsd - row.costUsd
+            : null;
+      }
+    }
 
     return NextResponse.json({
       address,
@@ -506,7 +759,8 @@ async function buildCollectionHoldings(
   // pipeline can't run (e.g. rate-limited mid-load). The row still shows
   // the token in the holdings list — just with unknown cost/timestamp.
   function fallbackRow(t: HoldingToken): HoldingRow {
-    const rarity = t.attributes?.[c.traitName]?.[0] ?? null;
+    const r = rarityFor(c, t.attributes);
+    const rarity = r?.value ?? null;
     return {
       tokenId: t.tokenId,
       name: t.name ?? null,
@@ -520,9 +774,10 @@ async function buildCollectionHoldings(
       ronUsdAtPurchase: null,
       costUsd: 0,
       currentRonUsd,
-      floorRon: rarity ? (floorByTrait.get(rarity) ?? null) : null,
+      floorRon: floorForRarity(r, floorByTrait),
       floorUsd: null,
       pnlUsd: null,
+      excludeFromTotals: r?.isOverride === true,
     };
   }
 
@@ -694,11 +949,12 @@ async function buildCollectionHoldings(
             ? costRon * ronUsdAtPurchase
             : null;
 
-      const rarity = t.attributes?.[c.traitName]?.[0] ?? null;
+      const rInfo = rarityFor(c, t.attributes);
+      const rarity = rInfo?.value ?? null;
       const rarityLabel = rarity
         ? (c.formatTrait?.(rarity) ?? rarity)
         : null;
-      const floorRon = rarity ? (floorByTrait.get(rarity) ?? null) : null;
+      const floorRon = floorForRarity(rInfo, floorByTrait);
       const floorUsd =
         floorRon != null && currentRonUsd != null
           ? floorRon * currentRonUsd
@@ -722,6 +978,7 @@ async function buildCollectionHoldings(
         floorRon,
         floorUsd,
         pnlUsd,
+        excludeFromTotals: rInfo?.isOverride === true,
       };
       } catch (err) {
         // A single token's enrichment failed (probably rate-limited
@@ -869,9 +1126,10 @@ async function buildCollectionHoldings(
           : costRon != null && ronUsdAtPurchase != null
             ? costRon * ronUsdAtPurchase
             : null;
-      const rarity = t.attributes?.[c.traitName]?.[0] ?? null;
+      const rInfo = rarityFor(c, t.attributes);
+      const rarity = rInfo?.value ?? null;
       const rarityLabel = rarity ? (c.formatTrait?.(rarity) ?? rarity) : null;
-      const floorRon = rarity ? (floorByTrait.get(rarity) ?? null) : null;
+      const floorRon = floorForRarity(rInfo, floorByTrait);
       const floorUsd =
         floorRon != null && currentRonUsd != null
           ? floorRon * currentRonUsd
@@ -894,6 +1152,7 @@ async function buildCollectionHoldings(
         floorRon,
         floorUsd,
         pnlUsd,
+        excludeFromTotals: rInfo?.isOverride === true,
       };
       } catch (err) {
         console.warn(

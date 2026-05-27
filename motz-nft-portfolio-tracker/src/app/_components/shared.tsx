@@ -20,6 +20,17 @@ export function fmtRon(n: number | null | undefined) {
   if (n == null) return "—";
   return `${n.toLocaleString("en-US", { maximumFractionDigits: 4 })} RON`;
 }
+/**
+ * Currency-aware formatter. Falls back to RON for legacy rows that
+ * predate the per-row currencySymbol field.
+ */
+export function fmtCoin(
+  n: number | null | undefined,
+  symbol: string | undefined,
+): string {
+  if (n == null) return "—";
+  return `${n.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${symbol || "RON"}`;
+}
 export function fmtDate(unix: number | null | undefined) {
   if (!unix) return "—";
   return new Date(unix * 1000).toLocaleString();
@@ -30,7 +41,11 @@ export function sumRows(
 ): number {
   return (
     collections?.reduce(
-      (s, c) => s + c.rows.reduce((rs, r) => rs + (f(r) ?? 0), 0),
+      (s, c) =>
+        s +
+        c.rows
+          .filter((r) => !r.excludeFromTotals)
+          .reduce((rs, r) => rs + (f(r) ?? 0), 0),
       0,
     ) ?? 0
   );
@@ -93,12 +108,203 @@ function Chevron() {
   );
 }
 
-export function CollectionSection({ c }: { c: TaggedCollectionHoldings }) {
-  const [expanded, setExpanded] = useState(true);
-  if (c.rows.length === 0) return null;
-  const costUsd = c.rows.reduce((s, r) => s + (r.costUsd ?? 0), 0);
-  const floorUsd = c.rows.reduce((s, r) => s + (r.floorUsd ?? 0), 0);
+type SortKey =
+  | "tokenId"
+  | "rarity"
+  | "acquired"
+  | "costRon"
+  | "costUsd"
+  | "floor"
+  | "pnl";
+
+// Shared null-safe numeric comparator. Nulls always sort to the bottom
+// regardless of direction so they don't pollute the top of the list when
+// sorting by columns like Cost / Floor / PnL where many rows can be null.
+function numericCompare(
+  a: number | null | undefined,
+  b: number | null | undefined,
+  dir: 1 | -1,
+): number {
+  const aN = typeof a === "number" && Number.isFinite(a) ? a : null;
+  const bN = typeof b === "number" && Number.isFinite(b) ? b : null;
+  if (aN == null && bN == null) return 0;
+  if (aN == null) return 1;
+  if (bN == null) return -1;
+  return (aN - bN) * dir;
+}
+
+// Columns where "biggest first" is the conventional default. First click on
+// these jumps to DESC so users immediately see the largest cost / floor /
+// pnl rows. Subsequent clicks toggle.
+const DESC_FIRST_COLUMNS: ReadonlySet<string> = new Set([
+  "acquired",
+  "costRon",
+  "costUsd",
+  "floor",
+  "pnl",
+  // Rarity also defaults to descending so the rarest tier shows up at
+  // the top of the list when the user clicks the column.
+  "rarity",
+]);
+
+/**
+ * Standard fantasy rarity ladder (lowest → highest). Used by the rarity
+ * sort to put Common at the bottom, Legendary at the top of asc order.
+ * Add more tier names here as new collections need them — collections
+ * that use a custom rarity scheme not in this list fall back to
+ * locale string sort.
+ */
+const RARITY_ORDER: Record<string, number> = {
+  Common: 0,
+  Uncommon: 1,
+  Rare: 2,
+  "Super Rare": 3,
+  "Ultra Rare": 4,
+  Epic: 5,
+  Legendary: 6,
+  // MoTZ Founders Coin scheme
+  Premium: 3,
+  Shiny: 4,
+};
+type SortDir = "asc" | "desc";
+
+export function CollectionSection({
+  c,
+  defaultExpanded = false,
+}: {
+  c: TaggedCollectionHoldings;
+  /** Caller can force the section open on mount (e.g. drill-down view). */
+  defaultExpanded?: boolean;
+}) {
+  // Collapsed by default so the dashboard opens to a quick summary view.
+  // User clicks the chevron to expand any collection they want to drill into.
+  // defaultExpanded lets the parent override this — used when filtering to a
+  // single collection where it makes sense to show the table immediately.
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [sortKey, setSortKey] = useState<SortKey>("tokenId");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [rarityFilter, setRarityFilter] = useState<string>("all");
+  const [acquiredFilter, setAcquiredFilter] = useState<string>("all");
+
+  // All rows in a section share a single native currency (a collection
+  // lives on one chain). Derive it from the first row's currencySymbol;
+  // defaults to RON for back-compat with snapshots predating the field.
+  const sectionCurrency = c.rows[0]?.currencySymbol ?? "RON";
+
+  // Build the set of distinct rarities and acquired-via values present in
+  // this collection for the dropdown options.
+  const distinctRarities = Array.from(
+    new Set(
+      c.rows
+        .map((r) => r.rarityLabel ?? r.rarity ?? null)
+        .filter((v): v is string => !!v),
+    ),
+  ).sort();
+  const distinctAcquired = Array.from(
+    new Set(
+      c.rows
+        .map((r) => r.acquiredVia)
+        .filter((v): v is "sale" | "mint" | "transfer" => v != null),
+    ),
+  );
+
+  // Dedupe rows by (walletTag, tokenId). Merge-protection in the snapshot
+  // pipeline can occasionally re-attribute a token to the same wallet across
+  // runs and leave a duplicate row. Duplicates produce colliding React keys,
+  // which prevents <tbody> from reordering when the sort changes — that's
+  // why a column header click could "do nothing" on a collection with dupes.
+  let view = c.rows;
+  const seen = new Set<string>();
+  const deduped: typeof c.rows = [];
+  for (const r of c.rows) {
+    const k = `${r.walletTag ?? ""}-${r.tokenId}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    deduped.push(r);
+  }
+  view = deduped;
+  if (rarityFilter !== "all") {
+    view = view.filter(
+      (r) => (r.rarityLabel ?? r.rarity) === rarityFilter,
+    );
+  }
+  if (acquiredFilter !== "all") {
+    view = view.filter((r) => r.acquiredVia === acquiredFilter);
+  }
+  view = [...view].sort((a, b) => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    switch (sortKey) {
+      case "tokenId":
+        return (Number(a.tokenId) - Number(b.tokenId)) * dir;
+      case "rarity": {
+        const ar = a.rarityLabel ?? a.rarity ?? "";
+        const br = b.rarityLabel ?? b.rarity ?? "";
+        // Three-tier comparator priority:
+        //   1. T-prefixed tier numbers (Cove T1 → Crown Dominion T5)
+        //   2. Known fantasy rarity ladder (Common → Legendary)
+        //   3. Locale string sort fallback
+        const ta = ar.match(/T(\d+)/);
+        const tb = br.match(/T(\d+)/);
+        if (ta && tb) return (Number(ta[1]) - Number(tb[1])) * dir;
+        const ai = RARITY_ORDER[ar];
+        const bi = RARITY_ORDER[br];
+        if (ai != null && bi != null) return (ai - bi) * dir;
+        return ar.localeCompare(br) * dir;
+      }
+      case "acquired":
+        // Use numericCompare so rows with null acquiredAt always sink
+        // to the bottom regardless of sort direction (previously they
+        // piled up at the top in asc, polluting the visible order).
+        return numericCompare(a.acquiredAt, b.acquiredAt, dir);
+      case "costRon":
+        return numericCompare(a.costRon, b.costRon, dir);
+      case "costUsd":
+        return numericCompare(a.costUsd, b.costUsd, dir);
+      case "floor":
+        return numericCompare(a.floorUsd, b.floorUsd, dir);
+      case "pnl":
+        return numericCompare(a.pnlUsd, b.pnlUsd, dir);
+    }
+  });
+
+  if (deduped.length === 0) return null;
+  // Total count uses the deduped row set so the section header reflects the
+  // count the user actually sees in the table.
+  const totalRowCount = deduped.length;
+  // Header totals follow whatever's currently visible: when filters are
+  // active, COST/PNL reflect the filtered subset (matches the "Showing N
+  // of M" text below). When unfiltered, view === c.rows so totals are the
+  // full collection.
+  //
+  // Rows with excludeFromTotals=true (Moki 1-of-1s like soda / Gruyere)
+  // are skipped entirely — they have no comparable floor by design, so
+  // including their cost without a real floor would attribute a phantom
+  // loss of -cost to them on every refresh.
+  const tableRows = view.filter((r) => !r.excludeFromTotals);
+  const costUsd = tableRows.reduce((s, r) => s + (r.costUsd ?? 0), 0);
+  const floorUsd = tableRows.reduce((s, r) => s + (r.floorUsd ?? 0), 0);
   const pnl = floorUsd - costUsd;
+  const isFiltered = view.length !== totalRowCount;
+
+  // Helper: when user clicks a sortable header, toggle direction if it's
+  // already the active sort, otherwise switch to that sort with asc.
+  function clickSort(k: SortKey) {
+    if (sortKey === k) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(k);
+      setSortDir(DESC_FIRST_COLUMNS.has(k) ? "desc" : "asc");
+    }
+  }
+  function sortIndicator(k: SortKey) {
+    if (sortKey !== k) return null;
+    return (
+      <span className="ml-1 text-[color:var(--motz-red)]">
+        {sortDir === "asc" ? "▲" : "▼"}
+      </span>
+    );
+  }
+
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -120,7 +326,14 @@ export function CollectionSection({ c }: { c: TaggedCollectionHoldings }) {
           <h2 className="font-display text-xl font-semibold text-zinc-100">
             {c.name}{" "}
             <span className="text-sm font-normal text-zinc-500">
-              ({c.rows.length})
+              {isFiltered ? (
+                <>
+                  ({view.length}{" "}
+                  <span className="text-zinc-600">of {totalRowCount}</span>)
+                </>
+              ) : (
+                `(${totalRowCount})`
+              )}
             </span>
           </h2>
         </button>
@@ -133,38 +346,240 @@ export function CollectionSection({ c }: { c: TaggedCollectionHoldings }) {
         </div>
       </div>
       {expanded && (
-        <div className="glass-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-white/5 text-xs uppercase tracking-wider text-zinc-400 font-mono">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium">Token</th>
-                  <th className="text-left px-4 py-3 font-medium">Rarity</th>
-                  <th className="text-left px-4 py-3 font-medium">Acquired</th>
-                  <th className="text-right px-4 py-3 font-medium">
-                    Cost (RON)
-                  </th>
-                  <th className="text-right px-4 py-3 font-medium">
-                    Cost (USD)
-                  </th>
-                  <th className="text-right px-4 py-3 font-medium">Floor</th>
-                  <th className="text-right px-4 py-3 font-medium">P&L</th>
-                </tr>
-              </thead>
-              <tbody>
-                {c.rows.map((r) => (
-                  <Row key={`${r.walletTag ?? ""}-${r.tokenId}`} r={r} />
-                ))}
-              </tbody>
-            </table>
+        <>
+          {/* Filter bar */}
+          <div className="flex flex-wrap items-center gap-3 px-1">
+            {distinctRarities.length > 0 && (
+              <FilterDropdown
+                label="Rarity"
+                value={rarityFilter}
+                onChange={setRarityFilter}
+                options={[
+                  { value: "all", label: "All rarities" },
+                  ...distinctRarities.map((r) => ({ value: r, label: r })),
+                ]}
+              />
+            )}
+            {distinctAcquired.length > 0 && (
+              <FilterDropdown
+                label="Acquired"
+                value={acquiredFilter}
+                onChange={setAcquiredFilter}
+                options={[
+                  { value: "all", label: "All" },
+                  ...distinctAcquired.map((v) => ({
+                    value: v,
+                    label:
+                      v === "mint"
+                        ? "Minted"
+                        : v === "sale"
+                          ? "Bought"
+                          : v === "transfer"
+                            ? "Transferred"
+                            : v,
+                  })),
+                ]}
+              />
+            )}
+            {(rarityFilter !== "all" || acquiredFilter !== "all") && (
+              <button
+                onClick={() => {
+                  setRarityFilter("all");
+                  setAcquiredFilter("all");
+                }}
+                className="font-mono text-[11px] uppercase tracking-wider text-zinc-500 hover:text-[color:var(--motz-red)]"
+              >
+                Clear filters
+              </button>
+            )}
+            {view.length !== totalRowCount && (
+              <span className="font-mono text-[11px] text-zinc-500 ml-auto">
+                Showing {view.length} of {totalRowCount}
+              </span>
+            )}
           </div>
-        </div>
+
+          <div className="glass-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-white/5 text-xs uppercase tracking-wider text-zinc-400 font-mono">
+                  <tr>
+                    <SortableHeader
+                      onClick={() => clickSort("tokenId")}
+                      align="left"
+                    >
+                      Token{sortIndicator("tokenId")}
+                    </SortableHeader>
+                    <SortableHeader
+                      onClick={() => clickSort("rarity")}
+                      align="left"
+                    >
+                      Rarity{sortIndicator("rarity")}
+                    </SortableHeader>
+                    <SortableHeader
+                      onClick={() => clickSort("acquired")}
+                      align="left"
+                    >
+                      Acquired{sortIndicator("acquired")}
+                    </SortableHeader>
+                    <SortableHeader
+                      onClick={() => clickSort("costRon")}
+                      align="right"
+                    >
+                      Cost ({sectionCurrency}){sortIndicator("costRon")}
+                    </SortableHeader>
+                    <SortableHeader
+                      onClick={() => clickSort("costUsd")}
+                      align="right"
+                    >
+                      Cost (USD){sortIndicator("costUsd")}
+                    </SortableHeader>
+                    <SortableHeader
+                      onClick={() => clickSort("floor")}
+                      align="right"
+                    >
+                      Floor{sortIndicator("floor")}
+                    </SortableHeader>
+                    <SortableHeader
+                      onClick={() => clickSort("pnl")}
+                      align="right"
+                    >
+                      P&L{sortIndicator("pnl")}
+                    </SortableHeader>
+                  </tr>
+                </thead>
+                <tbody>
+                  {view.map((r) => (
+                    <Row
+                      key={`${r.walletTag ?? ""}-${r.tokenId}`}
+                      r={r}
+                      collectionContract={c.contract}
+                      collectionSlug={c.slug}
+                    />
+                  ))}
+                  {view.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-4 py-8 text-center text-sm text-zinc-500"
+                      >
+                        No tokens match the current filters.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
     </section>
   );
 }
 
-export function Row({ r }: { r: TaggedHoldingRow }) {
+function SortableHeader({
+  children,
+  onClick,
+  align,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  align: "left" | "right";
+}) {
+  return (
+    <th
+      className={
+        "px-4 py-3 font-medium cursor-pointer select-none transition-colors hover:text-zinc-100 " +
+        (align === "right" ? "text-right" : "text-left")
+      }
+      onClick={onClick}
+    >
+      {children}
+    </th>
+  );
+}
+
+function FilterDropdown({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <label className="flex items-center gap-2">
+      <span className="font-mono text-[11px] uppercase tracking-wider text-zinc-500">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded-md bg-black/40 border border-white/10 px-2 py-1 font-mono text-xs text-zinc-200 focus:outline-none focus:border-[color:var(--motz-red)] focus:ring-1 focus:ring-[color:var(--motz-red)]/40"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/**
+ * Build the marketplace URL for a token. Chain-aware: ETH tokens link
+ * to OpenSea, RON tokens link to the Ronin marketplace. Returns null
+ * when we don't have enough info to build a useful URL.
+ */
+function tokenMarketplaceUrl(
+  currencySymbol: string | undefined,
+  contract: string | undefined,
+  slug: string | undefined,
+  tokenId: string,
+): string | null {
+  if (currencySymbol === "ETH") {
+    if (!contract) return null;
+    return `https://opensea.io/item/ethereum/${contract.toLowerCase()}/${tokenId}`;
+  }
+  // Default to Ronin marketplace.
+  if (!slug) return null;
+  return `https://marketplace.roninchain.com/collections/${slug}/${tokenId}`;
+}
+
+export function Row({
+  r,
+  collectionContract,
+  collectionSlug,
+}: {
+  r: TaggedHoldingRow;
+  /** Contract address for the collection this row belongs to. */
+  collectionContract?: string;
+  /** Ronin marketplace slug for this collection. */
+  collectionSlug?: string;
+}) {
+  const url = tokenMarketplaceUrl(
+    r.currencySymbol,
+    collectionContract,
+    collectionSlug,
+    r.tokenId,
+  );
+  const nameLabel = r.name || `#${r.tokenId}`;
+  const nameNode = url ? (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="hover:text-[color:var(--motz-red)] hover:underline transition-colors"
+    >
+      {nameLabel}
+    </a>
+  ) : (
+    nameLabel
+  );
   return (
     <tr className="border-t border-white/5 hover:bg-white/[0.03] transition-colors">
       <td className="px-4 py-3">
@@ -179,7 +594,7 @@ export function Row({ r }: { r: TaggedHoldingRow }) {
           )}
           <div>
             <div className="font-medium text-zinc-100 flex items-center gap-2">
-              {r.name || `#${r.tokenId}`}
+              {nameNode}
               {r.walletTag && (
                 <span className="chip chip-blue font-mono text-[10px]">
                   {shortAddr(r.walletTag)}
@@ -216,13 +631,14 @@ export function Row({ r }: { r: TaggedHoldingRow }) {
           </>
         ) : (
           <>
-            <div className="text-sm">{fmtDate(r.acquiredAt)}</div>
+            <span className="chip chip-purple">Bought</span>
+            <div className="text-sm mt-1">{fmtDate(r.acquiredAt)}</div>
             {r.acquiredTxHash && (
               <a
                 href={`https://app.roninchain.com/tx/${r.acquiredTxHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[11px] font-mono text-zinc-500 hover:text-zinc-300"
+                className="block text-[11px] font-mono text-zinc-500 hover:text-zinc-300"
               >
                 {r.acquiredTxHash.slice(0, 10)}…
               </a>
@@ -231,7 +647,7 @@ export function Row({ r }: { r: TaggedHoldingRow }) {
         )}
       </td>
       <td className="px-4 py-3 text-right font-mono">
-        <div className="text-zinc-100">{fmtRon(r.costRon)}</div>
+        <div className="text-zinc-100">{fmtCoin(r.costRon, r.currencySymbol)}</div>
         {r.acquiredVia === "mint" && (
           <div className="text-[10px] uppercase tracking-wider text-[color:var(--winner-gold)]/80">
             mint price
@@ -242,14 +658,16 @@ export function Row({ r }: { r: TaggedHoldingRow }) {
         <div className="text-zinc-100">{fmtUsd(r.costUsd)}</div>
         {r.ronUsdAtPurchase != null && (
           <div className="text-[10px] text-zinc-500">
-            @ ${r.ronUsdAtPurchase.toFixed(4)}/RON
+            @ ${r.ronUsdAtPurchase.toFixed(4)}/{r.currencySymbol ?? "RON"}
           </div>
         )}
       </td>
       <td className="px-4 py-3 text-right font-mono">
         <div className="text-zinc-100">{fmtUsd(r.floorUsd)}</div>
         {r.floorRon != null && (
-          <div className="text-[11px] text-zinc-500">{fmtRon(r.floorRon)}</div>
+          <div className="text-[11px] text-zinc-500">
+            {fmtCoin(r.floorRon, r.currencySymbol)}
+          </div>
         )}
       </td>
       <td

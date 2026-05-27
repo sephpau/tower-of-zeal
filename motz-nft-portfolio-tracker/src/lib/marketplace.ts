@@ -73,15 +73,15 @@ function makeLimiter(max: number, minIntervalMs = 0) {
     },
   };
 }
-// 2 concurrent GraphQL calls + 150ms minimum gap between subsequent calls.
-// Caps our effective rate at ~13 req/sec under steady-state, which is well
-// under most Sky Mavis tier limits while still parallelising meaningful
-// amounts of work. The 150ms gap matters most when calls fail FAST (429s
-// return in <100ms) — without it we'd cycle slots 50× per second and trip
-// the per-second cap instantly.
+// 1 concurrent GraphQL call + 300ms minimum gap between subsequent calls.
+// Effective rate ~3.3 req/sec — well under any Sky Mavis tier limit and
+// completely avoids the burst-throttle that kicks in around 5-10 req/sec.
+// Slower refreshes (~2x), but no more PARTIAL warnings from rate limits.
+// Originally 2 concurrent / 150ms; that worked most of the time but tripped
+// the burst limiter on big wallets with hundreds of staked tokens.
 // 10 concurrent RPC calls (no gap): separate pool, no rate-limit issues
 // observed on Sky Mavis's archive RPC endpoint.
-const gqlLimiter = makeLimiter(2, 150);
+const gqlLimiter = makeLimiter(1, 300);
 const rpcLimiter = makeLimiter(10);
 
 // Circuit breaker: when Sky Mavis's daily quota is exhausted, every call
@@ -266,7 +266,7 @@ export async function listHoldings(
   const seen = new Map<string, HoldingToken>();
   let maxTotal = 0;
   for (let page = 0; page < MAX_PAGES; page++) {
-    const data = await gql<R>(query, {
+    const data: R = await gql<R>(query, {
       owner: owner.toLowerCase(),
       tokenAddress: contract.toLowerCase(),
       from: page * PAGE_SIZE,
@@ -428,7 +428,7 @@ async function floorPriceForTraitImpl(
     };
   };
   try {
-    const data = await gql<R>(query, {
+    const data: R = await gql<R>(query, {
       tokenAddress: contract.toLowerCase(),
       criteria: [{ name: traitName, values: [traitValue] }],
     });
@@ -531,7 +531,7 @@ export async function userStakingDepositsFor(
     // Propagate persistent errors instead of silently returning partial
     // data — partial staking results are MUCH worse than a clean error
     // that the user can react to (reload).
-    const data = await gql<R>(query, {
+    const data: R = await gql<R>(query, {
       u: userLc,
       size: 30,
       filters: {
@@ -619,7 +619,7 @@ async function tokenMetadataImpl(
   `;
   type R = { erc721Token: HoldingToken | null };
   try {
-    const data = await gql<R>(query, {
+    const data: R = await gql<R>(query, {
       tokenAddress: contract.toLowerCase(),
       tokenId,
     });
@@ -859,7 +859,7 @@ async function lastAcquisitionImpl(
     } | null;
   };
 
-  const data = await gql<R>(query, {
+  const data: R = await gql<R>(query, {
     tokenAddress: contract.toLowerCase(),
     tokenId,
   });
@@ -1125,6 +1125,124 @@ export type UserAcquisition = {
   txHash: string | null;
 };
 
+// ---------------------------------------------------------------------------
+// Transferrer-scan cache (disk-persisted, 24h TTL).
+//
+// Empirically: 6 transferrer scans per /api/holdings request was THE root
+// cause of every snapshot-refresh rate-limit failure. Each scan paginates
+// hundreds of API calls, and we'd run them for EVERY wallet load.
+//
+// Fix: cache each transferrer wallet's full mint/sale activity for 24h.
+// A transferrer's PAST acquisitions never change (on-chain immutable
+// history), so we can cache them aggressively. Only new mints/sales from
+// the transferrer past the cache's last refresh would be missed, but the
+// transferrer wallets are typically project mints that don't actively
+// trade — so the practical staleness is negligible.
+//
+// First snapshot refresh: scans all transferrers once → caches to disk.
+// Every subsequent /api/holdings load (including holder visitors): 0
+// transferrer API calls; reads straight from disk cache.
+// ---------------------------------------------------------------------------
+const TRANSFERRER_SNAPSHOT_PATH = path.join(
+  process.cwd(),
+  "src",
+  "data",
+  "transferrer-cache.json",
+);
+const TRANSFERRER_LOCAL_CACHE_PATH = path.join(
+  process.cwd(),
+  "data",
+  "transferrer-cache.json",
+);
+const TRANSFERRER_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+type TransferrerDiskRecord = {
+  // Map serialized as [key, UserAcquisition][]
+  acquisitions: Array<[string, UserAcquisition]>;
+  at: number;
+};
+
+const transferrerCache = new Map<string, TransferrerDiskRecord>();
+
+function seedTransferrerCacheFromDisk(): void {
+  for (const p of [TRANSFERRER_SNAPSHOT_PATH, TRANSFERRER_LOCAL_CACHE_PATH]) {
+    try {
+      if (!fs.existsSync(p)) continue;
+      const obj = JSON.parse(fs.readFileSync(p, "utf8")) as Record<
+        string,
+        TransferrerDiskRecord
+      >;
+      let n = 0;
+      for (const [k, v] of Object.entries(obj)) {
+        if (!v || !Array.isArray(v.acquisitions)) continue;
+        transferrerCache.set(k, v);
+        n++;
+      }
+      if (n > 0) {
+        console.log(
+          `[marketplace] seeded ${n} transferrer scans from ${path.basename(p)}`,
+        );
+      }
+    } catch {
+      /* corrupt cache shouldn't break startup */
+    }
+  }
+}
+seedTransferrerCacheFromDisk();
+
+let transferrerPersistTimer: NodeJS.Timeout | null = null;
+function persistTransferrerCacheSoon(): void {
+  if (transferrerPersistTimer) return;
+  transferrerPersistTimer = setTimeout(() => {
+    transferrerPersistTimer = null;
+    try {
+      fs.mkdirSync(path.dirname(TRANSFERRER_LOCAL_CACHE_PATH), {
+        recursive: true,
+      });
+      const obj: Record<string, TransferrerDiskRecord> = {};
+      for (const [k, v] of transferrerCache) obj[k] = v;
+      fs.writeFileSync(TRANSFERRER_LOCAL_CACHE_PATH, JSON.stringify(obj));
+    } catch {
+      // Read-only fs on Vercel — silently skip.
+    }
+  }, 1000);
+}
+
+/**
+ * Cached wrapper around userAcquisitionsFor for transferrer wallets.
+ * Returns the cached result if it's <24h old; otherwise fetches fresh
+ * and persists the result to disk.
+ *
+ * NOTE: ignores `wantedKeys` for caching purposes — we always cache the
+ * FULL set of relevant acquisitions for this transferrer across all
+ * tracked contracts, so different users (with different held tokens)
+ * can share the same cache.
+ */
+export async function userAcquisitionsForCached(
+  transferrer: string,
+  contractAddresses: string | string[],
+  sinceTs = 0,
+  maxPages = 30,
+): Promise<Map<string, UserAcquisition>> {
+  const key = transferrer.toLowerCase();
+  const cached = transferrerCache.get(key);
+  if (cached && Date.now() - cached.at < TRANSFERRER_CACHE_TTL_MS) {
+    return new Map(cached.acquisitions);
+  }
+  const fresh = await userAcquisitionsFor(
+    transferrer,
+    contractAddresses,
+    sinceTs,
+    maxPages,
+  );
+  transferrerCache.set(key, {
+    acquisitions: Array.from(fresh.entries()),
+    at: Date.now(),
+  });
+  persistTransferrerCacheSoon();
+  return fresh;
+}
+
 /**
  * Returns every Mint+Sale activity for `userAddress` against `contractAddress`
  * (i.e. tokens the user acquired by minting them, or by buying them on the
@@ -1204,7 +1322,7 @@ export async function userAcquisitionsFor(
 
     // Propagate persistent errors (a partial cost-basis dataset would be
     // misleading — better to surface the failure so the caller can retry).
-    const data = await gql<R>(query, {
+    const data: R = await gql<R>(query, {
       u: userLc,
       size: 30,
       filters: {

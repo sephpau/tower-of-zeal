@@ -3,6 +3,11 @@
 // MoTZ Wallet tab shows them read-only to all visitors. Only edits to this
 // file change them.
 export const MOTZ_WALLETS: readonly string[] = [
+  // Primary MoTZ wallet — listed first.
+  "0x37cedb10dfa478ce14423e24f745fd640b4cd989",
+  // Secondary primary on Ethereum (holds 33 Cambria Islands; bought
+  // several T5s on OpenSea).
+  "0x535b02b47d5d0d8b08ce93066c0660f717694998",
   "markofthezeal.ron",
   "masterofcoin.ron",
   "0x27f4cea185af16f6cf784359e203e0125bea4ffb",
@@ -10,6 +15,8 @@ export const MOTZ_WALLETS: readonly string[] = [
 ];
 
 export const MOTZ_TRANSFERRERS: readonly string[] = [
+  "0x37cedb10dfa478ce14423e24f745fd640b4cd989",
+  "0x535b02b47d5d0d8b08ce93066c0660f717694998",
   "markofthezeal.ron",
   "masterofcoin.ron",
   "0x27f4cea185af16f6cf784359e203e0125bea4ffb",

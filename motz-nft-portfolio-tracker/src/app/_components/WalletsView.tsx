@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAccount, useConnect, useDisconnect } from "wagmi";
 import type { LoadedPortfolio } from "../page";
 import {
   ApiResponse,
@@ -251,6 +252,26 @@ export function WalletsView({
         </h2>
         <p className="text-xs text-zinc-500">{subtitle}</p>
 
+        {/* Connect-wallet helper, holder mode only. Lets visitors connect
+            their Ronin/Rabby/MetaMask wallet to auto-fill the address input
+            and skip typing. Manual paste-an-address still works below. */}
+        {holderMode && (
+          <ConnectWalletHelper
+            onUseAddress={(addr) => {
+              const next = [...addresses];
+              const slot = next.findIndex((v) => !v.trim());
+              const idx = slot >= 0 ? slot : 0;
+              next[idx] = addr;
+              setAddresses(next);
+              // One-click "Load my wallet": after the address is set in
+              // state, fire the load on the next microtask so React has
+              // flushed setAddresses and loadAll sees the new value.
+              setTimeout(() => loadAll(), 0);
+            }}
+            primaryLabel="Load my wallet"
+          />
+        )}
+
         {/* Transferrer UI is only meaningful for the project-owner view —
             it lets you specify upstream wallets that minted/bought tokens
             before transferring them to you, so the load can recover the
@@ -297,50 +318,83 @@ export function WalletsView({
           </div>
         )}
 
-        <div className="flex flex-col gap-2">
-          {addresses.map((v, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <span className="eyebrow w-20 shrink-0">Wallet {i + 1}</span>
-              <input
-                value={v}
-                onChange={(e) => updateInput(i, e.target.value)}
-                placeholder="0x… or RNS"
-                disabled={loading}
-                className="flex-1 rounded-md bg-black/40 border border-white/10 px-3 py-2 font-mono text-sm placeholder:text-zinc-600 focus:outline-none focus:border-[color:var(--motz-red)] focus:ring-1 focus:ring-[color:var(--motz-red)]/40"
-              />
-              <button
-                onClick={() => removeWalletRow(i)}
-                disabled={loading || addresses.length <= 1}
-                title="Remove this wallet"
-                className="h-9 w-9 rounded-md border border-white/10 bg-white/5 text-zinc-400 hover:border-[color:var(--motz-red)]/40 hover:text-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed"
-                aria-label="Remove wallet"
-              >
-                −
-              </button>
-              <StatusPill status={statuses[i] ?? { state: "idle" }} />
+        {/* Manual paste-an-address input + Add another wallet are
+            hidden in holderMode. Visitors load only their own
+            connected wallet via the Connect Wallet helper above —
+            after clicking "Use this wallet" they can hit "Load wallet"
+            here. The first wallet input is still present internally
+            (just visually hidden) because loadAll reads from
+            addresses[0]; clicking "Use this wallet" populates it. */}
+        {!holderMode && (
+          <>
+            <div className="flex flex-col gap-2">
+              {addresses.map((v, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="eyebrow w-20 shrink-0">
+                    {`Wallet ${i + 1}`}
+                  </span>
+                  <input
+                    value={v}
+                    onChange={(e) => updateInput(i, e.target.value)}
+                    placeholder="0x… or RNS"
+                    disabled={loading}
+                    className="flex-1 rounded-md bg-black/40 border border-white/10 px-3 py-2 font-mono text-sm placeholder:text-zinc-600 focus:outline-none focus:border-[color:var(--motz-red)] focus:ring-1 focus:ring-[color:var(--motz-red)]/40"
+                  />
+                  <button
+                    onClick={() => removeWalletRow(i)}
+                    disabled={loading || addresses.length <= 1}
+                    title="Remove this wallet"
+                    className="h-9 w-9 rounded-md border border-white/10 bg-white/5 text-zinc-400 hover:border-[color:var(--motz-red)]/40 hover:text-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label="Remove wallet"
+                  >
+                    −
+                  </button>
+                  <StatusPill status={statuses[i] ?? { state: "idle" }} />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={loadAll}
-            disabled={loading}
-            className="btn-primary"
-          >
-            {loading
-              ? "Loading…"
-              : cleaned.length === 1
-                ? "Load wallet"
-                : "Load combined"}
-          </button>
-          <button
-            onClick={addWalletRow}
-            disabled={loading}
-            className="font-mono text-[11px] uppercase tracking-wider text-[color:var(--motz-red)] hover:text-zinc-100 disabled:opacity-40"
-          >
-            + Add another wallet
-          </button>
-        </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={loadAll}
+                disabled={loading}
+                className="btn-primary"
+              >
+                {loading
+                  ? "Loading…"
+                  : cleaned.length === 1
+                    ? "Load wallet"
+                    : "Load combined"}
+              </button>
+              <button
+                onClick={addWalletRow}
+                disabled={loading}
+                className="font-mono text-[11px] uppercase tracking-wider text-[color:var(--motz-red)] hover:text-zinc-100 disabled:opacity-40"
+              >
+                + Add another wallet
+              </button>
+            </div>
+          </>
+        )}
+        {/* In holderMode: render the single wallet's status pill +
+            "Load" button. The address comes from the Connect Wallet
+            helper above (which writes into addresses[0]). No manual
+            paste; visitors can only view their connected wallet. */}
+        {holderMode && (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={loadAll}
+              disabled={loading || !cleaned[0]}
+              className="btn-primary"
+            >
+              {loading
+                ? "Loading…"
+                : cleaned[0]
+                  ? "Load my wallet"
+                  : "Connect a wallet to load"}
+            </button>
+            <StatusPill status={statuses[0] ?? { state: "idle" }} />
+          </div>
+        )}
         {error && (
           <div className="rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-300 whitespace-pre-wrap break-words">
             {error}
@@ -385,5 +439,125 @@ function StatusPill({ status }: { status: WalletStatus }) {
     >
       ✗ failed
     </span>
+  );
+}
+
+/**
+ * Compact connect-wallet helper for the Holder's Wallet view.
+ *
+ * - Not connected: shows a list of installed wallet connectors (Ronin
+ *   Wallet / Rabby / MetaMask / any injected) for one-click connect.
+ * - Connected: shows the address + a primary "Use this wallet" button
+ *   that pre-fills the form's first wallet input. User then clicks
+ *   "Load wallet" to fetch their portfolio.
+ *
+ * Disconnect link lets them switch wallets without leaving the page.
+ */
+export function ConnectWalletHelper({
+  onUseAddress,
+  primaryLabel = "Use this wallet",
+}: {
+  onUseAddress: (address: string) => void;
+  /** Override the connected-state primary button label. Used by holder
+   * mode to make it a single-click "Load my wallet" action. */
+  primaryLabel?: string;
+}) {
+  const { address, isConnected, connector } = useAccount();
+  const { connectors, connect, isPending, error } = useConnect();
+  const { disconnect } = useDisconnect();
+
+  // Surface ONE connect button — the user's currently-injected browser
+  // wallet (Ronin Wallet, Rabby, MetaMask, etc.). RainbowKit/wagmi
+  // duplicates injected connectors across multiple ids ("injected",
+  // "io.rabby", "metaMaskSDK") which cluttered the UI; we pick the most
+  // specific available and show only that.
+  const orderedConnectors = (() => {
+    const named = connectors.find(
+      (c) => c.id === "io.rabby" || c.id === "rabbyWallet",
+    );
+    if (named) return [named];
+    const metaMask = connectors.find((c) => c.id === "metaMaskSDK");
+    if (metaMask) return [metaMask];
+    const injected = connectors.find((c) => c.type === "injected");
+    if (injected) return [injected];
+    return connectors.slice(0, 1);
+  })();
+
+  return (
+    <div className="rounded-md border border-white/10 bg-white/[0.02] p-3 space-y-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <label className="font-mono text-[11px] uppercase tracking-wider text-[color:var(--motz-red)]">
+          Connect wallet
+        </label>
+        <span className="text-[11px] text-zinc-500">
+          Ronin Wallet · Rabby · MetaMask · any Ronin-compatible wallet
+        </span>
+      </div>
+      {isConnected && address ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="chip chip-blue font-mono text-xs">
+            {connector?.name ? `${connector.name} · ` : ""}
+            {shortAddr(address)}
+          </span>
+          <button
+            type="button"
+            onClick={() => onUseAddress(address)}
+            className="btn-primary"
+          >
+            {primaryLabel}
+          </button>
+          <button
+            type="button"
+            onClick={() => disconnect()}
+            className="font-mono text-[11px] uppercase tracking-wider text-zinc-500 hover:text-zinc-200"
+          >
+            Disconnect
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          {orderedConnectors.length === 0 ? (
+            <span className="text-xs text-zinc-500">
+              No browser wallet detected. Install{" "}
+              <a
+                href="https://wallet.roninchain.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[color:var(--motz-red)] hover:underline"
+              >
+                Ronin Wallet
+              </a>{" "}
+              or paste an address manually below.
+            </span>
+          ) : (
+            orderedConnectors.map((c) => {
+              // Prefer the connector's brand name. The generic "injected"
+              // connector reports name="Injected" which isn't useful; in
+              // that case just say "Connect Wallet".
+              const label =
+                c.name && c.name.toLowerCase() !== "injected"
+                  ? `Connect ${c.name}`
+                  : "Connect Wallet";
+              return (
+                <button
+                  key={c.uid}
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => connect({ connector: c })}
+                  className="btn-primary disabled:opacity-50"
+                >
+                  {isPending ? "Connecting…" : label}
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+      {error && (
+        <div className="text-xs text-red-400">
+          {error.message?.slice(0, 200)}
+        </div>
+      )}
+    </div>
   );
 }
