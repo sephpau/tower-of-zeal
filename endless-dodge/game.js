@@ -149,12 +149,14 @@
     .then(m => { manifest = m; })
     .catch(() => { manifest = null; });
 
-  // Per-classification filename pools for the current biome (biome-specific + shared "any").
+  // Per-classification filename pools for the current biome. Prefer the biome's
+  // own items; fall back to the shared "any" pool only when that class is empty.
   let pools = { design: [], moving: [], obstacle: [], fullobstacle: [] };
   function poolFor(biomeKey, cls) {
     const a = (manifest && manifest[biomeKey] && manifest[biomeKey][cls]) || [];
+    if (a.length) return a.slice();
     const b = (manifest && manifest.any && manifest.any[cls]) || [];
-    return a.concat(b);
+    return b.slice();
   }
   function buildBiomePool(biomeKey) {
     for (const c of CLASSES) pools[c] = poolFor(biomeKey, c);
