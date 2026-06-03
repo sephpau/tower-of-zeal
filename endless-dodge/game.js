@@ -467,27 +467,9 @@
     if (Math.random() < 0.6) spawnDecorOne(Math.random() < 0.5 ? -1 : 1);
   }
 
-  // Choose and spawn one gameplay hazard, weighted by difficulty + availability.
+  // Simplified gameplay (Long Nose Dog feel): just single obstacles to weave around.
   function spawnHazard(d) {
-    const hasObs = pools.obstacle.length || pools.fullobstacle.length;
-    const hasFull = pools.fullobstacle.length || pools.obstacle.length;
-    const hasMove = pools.moving.length;
-    const choices = [];
-    if (hasObs)  choices.push(['single', 1.0]);
-    if (hasFull) choices.push(['row',    d > 0.25 ? 0.5 + d : 0]);
-    if (hasMove) choices.push(['moving', d > 0.4  ? 0.3 + d * 0.6 : 0]);
-    const total = choices.reduce((s, c) => s + c[1], 0);
-    if (total <= 0) { if (hasObs) spawnSingle(); return; }
-    let r = Math.random() * total;
-    for (const [kind, w] of choices) {
-      r -= w;
-      if (r <= 0) {
-        if (kind === 'single') spawnSingle();
-        else if (kind === 'row') spawnRow(d);
-        else spawnMoving();
-        return;
-      }
-    }
+    if (pools.obstacle.length || pools.fullobstacle.length) spawnSingle();
   }
 
   function update(dt) {

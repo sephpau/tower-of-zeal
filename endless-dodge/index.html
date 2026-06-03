@@ -32,7 +32,8 @@
     font-variant-numeric: tabular-nums;
     text-shadow: 0 1px 2px rgba(0,0,0,0.6);
   }
-  #score { font-size: 28px; font-weight: 700; letter-spacing: 1px; }
+  #distLabel { font-size: 12px; font-weight: 700; letter-spacing: 2px; opacity: 0.7; }
+  #score { font-size: 30px; font-weight: 800; letter-spacing: 1px; line-height: 1.05; }
   #best { font-size: 13px; opacity: 0.6; margin-top: 2px; }
   #overlay {
     position: fixed; inset: 0;
@@ -60,6 +61,7 @@
   <canvas id="game"></canvas>
 </div>
 <div id="hud">
+  <div id="distLabel">DISTANCE</div>
   <div id="score">0</div>
   <div id="best">Best: 0</div>
 </div>
