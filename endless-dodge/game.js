@@ -231,7 +231,7 @@
   const PLAYER_LATERAL_SPEED = 2.6;   // worldX/sec
   const PLAYER_LATERAL_ACCEL = 18;
   const PLAYER_LATERAL_FRICTION = 16;
-  const PLAYER_CLAMP = 0.55; // keep the mech on-screen now the road is 2x wider
+  const PLAYER_CLAMP = 0.9; // can move almost to the fences (worldX ±1); camera keeps it on-screen
 
   // ---- Obstacles ----
   // Each obstacle has worldX in [-1,1] and z in [0,1] decreasing over time.
@@ -439,7 +439,7 @@
 
   // Lane slots for fullobstacle rows. Spacing (~0.44) is wider than an obstacle's
   // collision width, so any empty slot is a fair, passable gap.
-  const SLOTS = [-0.45, -0.15, 0.15, 0.45];
+  const SLOTS = [-0.7, -0.23, 0.23, 0.7];
 
   // kind: 'obstacle' (static, lethal), 'moving' (slides L<->R, lethal),
   //       'design' (decor outside the track, never lethal).
@@ -454,7 +454,7 @@
   // A single literal obstacle in a random lane.
   function spawnSingle() {
     const img = pickFrom('obstacle') || pickFrom('fullobstacle');
-    pushObstacle((Math.random() * 2 - 1) * 0.45, img);
+    pushObstacle((Math.random() * 2 - 1) * 0.7, img);
   }
 
   // A row across lane slots, ALWAYS leaving ≥1 slot open. Row size grows 1→3 with d.
@@ -488,6 +488,22 @@
     });
   }
 
+  // Find a spear-like item from the current pools (for the crossed arch/gate).
+  function spearImage() {
+    for (const cls of ['fullobstacle', 'design', 'obstacle']) {
+      const spears = (pools[cls] || []).filter(fn => fn.includes('spear'));
+      if (spears.length) return loadItem(spears[Math.floor(Math.random() * spears.length)]);
+    }
+    return null;
+  }
+  // A crossed-spear arch spanning the road that the ship passes THROUGH (non-lethal).
+  function spawnGate() {
+    const img = spearImage();
+    if (!img) return false;
+    obstacles.push({ worldX: 0, z: SPAWN_Z, img, agW: 0, kind: 'gate' });
+    return true;
+  }
+
   // Decorative scenery placed OUTSIDE the track edges; never collides.
   function spawnDecorOne(side) {
     const img = pickFrom('design');
@@ -505,6 +521,8 @@
 
   // Mix single obstacles, fullobstacle rows, and movers — weighted by difficulty.
   function spawnHazard(d) {
+    // Sometimes a pass-through arch made of crossed spears.
+    if (Math.random() < 0.18 && spawnGate()) return;
     const hasObs = pools.obstacle.length || pools.fullobstacle.length;
     const hasFull = pools.fullobstacle.length;
     const hasMove = pools.moving.length;
@@ -612,7 +630,7 @@
 
     // Collision: when a lethal obstacle reaches the player's depth (design never hits).
     for (const o of obstacles) {
-      if (o.kind === 'design') continue;
+      if (o.kind === 'design' || o.kind === 'gate') continue; // gates are pass-through
       if (o.z < PLAYER_Z + 0.06 && o.z > PLAYER_Z - 0.06) {
         const dx = Math.abs(o.worldX - player.worldX);
         if (dx < o.agW + 0.10) {
@@ -883,6 +901,33 @@
     }
   }
 
+  // Draw one spear image with its base at (bx,by) and tip at (tx,ty).
+  function drawSpear(img, bx, by, tx, ty, thick) {
+    const ang = Math.atan2(ty - by, tx - bx);
+    const len = Math.hypot(tx - bx, ty - by) * 1.08;
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.rotate(ang + Math.PI / 2); // image points up; align "up" to base->tip
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(img, -thick / 2, -len, thick, len);
+    ctx.restore();
+  }
+  // Crossed-spear arch spanning the road; the ship passes underneath.
+  function drawGate(o) {
+    const img = o.img;
+    if (!(img && img.complete && img.naturalWidth > 0)) return;
+    const z = o.z;
+    const gy = projectY(z);
+    const lx = projectX(-0.95, z), rx = projectX(0.95, z);
+    const cx = projectX(0, z);
+    const width = rx - lx;
+    const topY = gy - width * 0.5;          // apex height
+    const thick = Math.max(6, width * 0.13);
+    const cross = width * 0.12;             // tips overshoot center so they cross
+    drawSpear(img, lx, gy, cx + cross, topY, thick);  // left -> up-right
+    drawSpear(img, rx, gy, cx - cross, topY, thick);  // right -> up-left
+  }
+
   function drawObstacles(farOnly) {
     // Sort far-to-near so near ones draw on top.
     // farOnly=true: only obstacles still behind the player (behind the mech sprite).
@@ -893,6 +938,7 @@
     const sorted = list.slice().sort((a, b) => b.z - a.z);
     for (const o of sorted) {
       if (o.z > 1.02) continue;
+      if (o.kind === 'gate') { drawGate(o); continue; }
       const z = o.z;
       const s = scaleAt(z);
       const cx = projectX(o.worldX, z);
