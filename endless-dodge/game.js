@@ -28,15 +28,24 @@
   // ---- World / camera ----
   // Lateral world X: -1 = left edge of track, +1 = right edge.
   // Forward world Z: 0 = at the player (near), 1 = at the horizon (far).
-  const HORIZON_Y = VH * 0.32;
+  const HORIZON_Y = VH * 0.20; // higher horizon → ground fills most of the screen
   const FAR_SCALE = 0.18;
   const TRACK_HALF_PX = 172; // half-width of the track at the near plane (Z=0) — wider road
   const PERSP = 3.4;         // perspective strength (higher = stronger rush-in near the player)
+  const CURVE_PX = 175;      // how far the road bends at the horizon when steering
+  const CURVE_SIGN = -1;     // direction the world swings relative to steering
 
   // True-perspective depth curve: 1 at the near plane (z=0), 0 at the horizon (z=1),
   // bunched toward the horizon so objects sit small far away then accelerate as they near.
   function persp(z) {
     return (1 - z) / (1 + PERSP * z);
+  }
+  // The road bends as you steer (vanishing point shifts), pinned to no shift at the
+  // player's depth so the player itself isn't displaced — the world swings around it.
+  let roadCurve = 0; // -1..1, eases toward steering
+  const PLAYER_PERSP = (1 - 0.06) / (1 + PERSP * 0.06);
+  function curveShift(z) {
+    return roadCurve * CURVE_SIGN * (PLAYER_PERSP - persp(z)) * CURVE_PX;
   }
   function projectY(z) {
     return HORIZON_Y + (VH - HORIZON_Y) * persp(z);
@@ -45,7 +54,7 @@
     return FAR_SCALE + (1 - FAR_SCALE) * persp(z); // 1 at near, FAR_SCALE at far
   }
   function projectX(worldX, z) {
-    return VW / 2 + worldX * TRACK_HALF_PX * scaleAt(z);
+    return VW / 2 + worldX * TRACK_HALF_PX * scaleAt(z) + curveShift(z);
   }
 
   // Player sits at this depth (near the bottom). Obstacles collide here.
@@ -321,6 +330,7 @@
     portalT = 0;
     pendingBiomeKey = null;
     portalSwapped = false;
+    roadCurve = 0;
     // Runs always begin in Savannah; biome advances with score (see update()).
     setBiome('savannah');
     seedStripes();
@@ -528,6 +538,10 @@
     }
     if (player.worldX < -PLAYER_CLAMP) { player.worldX = -PLAYER_CLAMP; player.vx = 0; }
     if (player.worldX >  PLAYER_CLAMP) { player.worldX =  PLAYER_CLAMP; player.vx = 0; }
+
+    // Ease the road curve toward how hard you're steering, so the world swings.
+    const curveTarget = Math.max(-1, Math.min(1, player.vx / PLAYER_LATERAL_SPEED));
+    roadCurve += (curveTarget - roadCurve) * Math.min(1, dt * 6);
 
     // Spawn gameplay hazards; they come faster as difficulty rises.
     spawnTimer -= dt;
@@ -798,15 +812,48 @@
       ctx.fill();
     }
 
-    // Track edges (left + right) — converging toward horizon
-    ctx.strokeStyle = b.edge;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(projectX(-1, 0), projectY(0));
-    ctx.lineTo(projectX(-1, 1), projectY(1));
-    ctx.moveTo(projectX( 1, 0), projectY(0));
-    ctx.lineTo(projectX( 1, 1), projectY(1));
-    ctx.stroke();
+    drawFences();
+  }
+
+  // Wooden fences along both road edges. Posts/rails sample many z's so they
+  // follow the curving road and animate toward the camera.
+  const FENCE = { dark: '#6b4423', mid: '#9c6b33', light: '#c79a5e', rail: '#c2a06a' };
+  const POST_H = 34; // post height (px) at the near plane
+  function drawFences() {
+    const zs = stripes.map(s => s.z).sort((a, b2) => b2 - a); // far -> near
+    for (const sx of [-1, 1]) {
+      const pts = zs.map(z => {
+        const sc = scaleAt(z);
+        const gy = projectY(z);
+        return { x: projectX(sx, z), gy, top: gy - POST_H * sc, sc };
+      });
+      ctx.lineCap = 'round';
+      for (const frac of [0.74, 0.34]) {
+        for (let i = 0; i < pts.length - 1; i++) {
+          const a = pts[i], c = pts[i + 1];
+          const ay = a.gy - (a.gy - a.top) * frac;
+          const cy = c.gy - (c.gy - c.top) * frac;
+          const w = Math.max(1.5, 5 * ((a.sc + c.sc) / 2));
+          ctx.strokeStyle = FENCE.dark; ctx.lineWidth = w + 2;
+          ctx.beginPath(); ctx.moveTo(a.x, ay); ctx.lineTo(c.x, cy); ctx.stroke();
+          ctx.strokeStyle = FENCE.rail; ctx.lineWidth = w;
+          ctx.beginPath(); ctx.moveTo(a.x, ay); ctx.lineTo(c.x, cy); ctx.stroke();
+        }
+      }
+      for (const p of pts) {
+        const w = Math.max(3, 9 * p.sc);
+        const x = p.x - w / 2, y = p.top, h = p.gy - p.top, r = w * 0.42;
+        ctx.fillStyle = FENCE.dark;
+        roundRect(x - 1.5, y - 1.5, w + 3, h + 3, r); ctx.fill();
+        const g = ctx.createLinearGradient(x, 0, x + w, 0);
+        g.addColorStop(0, FENCE.dark);
+        g.addColorStop(0.35, FENCE.mid);
+        g.addColorStop(0.7, FENCE.light);
+        g.addColorStop(1, FENCE.mid);
+        ctx.fillStyle = g;
+        roundRect(x, y, w, h, r); ctx.fill();
+      }
+    }
   }
 
   function drawObstacles(farOnly) {
