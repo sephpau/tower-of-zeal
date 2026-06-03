@@ -439,14 +439,14 @@
 
   // Lane slots for fullobstacle rows. Spacing (~0.44) is wider than an obstacle's
   // collision width, so any empty slot is a fair, passable gap.
-  const SLOTS = [-0.66, -0.22, 0.22, 0.66];
+  const SLOTS = [-0.45, -0.15, 0.15, 0.45];
 
   // kind: 'obstacle' (static, lethal), 'moving' (slides L<->R, lethal),
   //       'design' (decor outside the track, never lethal).
   function pushObstacle(worldX, img, opts) {
     obstacles.push(Object.assign({
       worldX, z: SPAWN_Z, img,
-      agW: 0.15 + Math.random() * 0.04,
+      agW: 0.07 + Math.random() * 0.025, // smaller now the road is 2x wider
       kind: 'obstacle',
     }, opts || {}));
   }
@@ -503,9 +503,27 @@
     if (Math.random() < 0.6) spawnDecorOne(Math.random() < 0.5 ? -1 : 1);
   }
 
-  // Simplified gameplay (Long Nose Dog feel): just single obstacles to weave around.
+  // Mix single obstacles, fullobstacle rows, and movers — weighted by difficulty.
   function spawnHazard(d) {
-    if (pools.obstacle.length || pools.fullobstacle.length) spawnSingle();
+    const hasObs = pools.obstacle.length || pools.fullobstacle.length;
+    const hasFull = pools.fullobstacle.length;
+    const hasMove = pools.moving.length;
+    const choices = [];
+    if (hasObs)  choices.push(['single', 1.0]);
+    if (hasFull) choices.push(['row',    0.6 + d]);                 // rows from the start
+    if (hasMove) choices.push(['moving', d > 0.3 ? 0.4 + d * 0.5 : 0.15]);
+    const total = choices.reduce((s, c) => s + c[1], 0);
+    if (total <= 0) { if (hasObs) spawnSingle(); return; }
+    let r = Math.random() * total;
+    for (const [kind, w] of choices) {
+      r -= w;
+      if (r <= 0) {
+        if (kind === 'single') spawnSingle();
+        else if (kind === 'row') spawnRow(d);
+        else spawnMoving();
+        return;
+      }
+    }
   }
 
   function update(dt) {
@@ -555,7 +573,8 @@
     spawnTimer -= dt;
     if (spawnTimer <= 0) {
       spawnHazard(d);
-      spawnTimer = 1.1 - d * 0.5; // 1.1s → 0.6s between hazards
+      // Vary the gap so obstacle spacing isn't uniform/predictable.
+      spawnTimer = (1.1 - d * 0.5) * (0.55 + Math.random() * 0.95);
     }
     // Spawn decorative scenery outside the track at a steady rate.
     decorTimer -= dt;
