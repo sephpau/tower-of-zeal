@@ -275,6 +275,13 @@
   let forwardSpeed = 0.55; // world Z units / sec
   let input = { left: false, right: false };
 
+  // Portal transition between biomes (instead of an instant swap).
+  const PORTAL_DUR = 1.6; // seconds
+  let phase = 'play';     // 'play' | 'portal'
+  let portalT = 0;        // 0..1 progress through the portal animation
+  let pendingBiomeKey = null;
+  let portalSwapped = false;
+
   function reset() {
     obstacles = [];
     particles = [];
@@ -287,9 +294,31 @@
     spawnTimer = 0;
     decorTimer = 0;
     forwardSpeed = 0.55;
+    phase = 'play';
+    portalT = 0;
+    pendingBiomeKey = null;
+    portalSwapped = false;
     // Runs always begin in Savannah; biome advances with score (see update()).
     setBiome('savannah');
     seedStripes();
+  }
+
+  // Begin a portal transition to `key` (biome swaps at the midpoint flash).
+  function startPortal(key) {
+    phase = 'portal';
+    portalT = 0;
+    pendingBiomeKey = key;
+    portalSwapped = false;
+    obstacles = []; // teleport away from the old biome's hazards
+  }
+
+  function updatePortal(dt) {
+    portalT += dt / PORTAL_DUR;
+    if (!portalSwapped && portalT >= 0.5) {
+      setBiome(pendingBiomeKey);
+      portalSwapped = true;
+    }
+    if (portalT >= 1) { phase = 'play'; portalT = 0; }
   }
 
   // Switch to a biome: swap palette, rebuild item pool, reseed weather, flash banner.
@@ -455,6 +484,7 @@
   }
 
   function update(dt) {
+    if (phase === 'portal') { updatePortal(dt); return; }
     elapsed += dt;
     const d = difficulty();
     // Keep the approach reactable; difficulty scales mostly via density (rows/moving),
@@ -566,9 +596,9 @@
     score = Math.floor(elapsed * 10);
     scoreEl.textContent = score;
 
-    // Advance biome when the score crosses a threshold.
+    // Advance biome when the score crosses a threshold — via a portal transition.
     const nextKey = biomeKeyForScore(score);
-    if (nextKey !== currentBiomeKey) setBiome(nextKey);
+    if (nextKey !== currentBiomeKey) startPortal(nextKey);
 
     // Start/stop weather mid-biome (e.g. Forest rain begins at its midpoint).
     const want = shouldWeather();
@@ -893,7 +923,44 @@
     drawSmoke();
     drawWeather();
     drawParticles();
+    if (phase === 'portal') drawPortal();
     drawBanner();
+  }
+
+  // Swirling portal + teleport flash during a biome transition.
+  function drawPortal() {
+    const open = Math.sin(Math.min(1, portalT) * Math.PI); // 0 → 1 → 0
+    const cx = VW / 2, cy = projectY(0.55);
+    const R = 130 * open;
+    const sky = SKY[pendingBiomeKey] || SKY.savannah;
+
+    // Outer glow
+    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.25 + 1);
+    glow.addColorStop(0, `rgba(${sky.glow},0.85)`);
+    glow.addColorStop(0.6, `rgba(${sky.glow},0.3)`);
+    glow.addColorStop(1, `rgba(${sky.glow},0)`);
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(cx, cy, R * 1.25 + 1, 0, Math.PI * 2); ctx.fill();
+
+    // Swirling rings
+    for (let k = 0; k < 3; k++) {
+      ctx.strokeStyle = `rgba(${sky.glow},${(0.8 - k * 0.2).toFixed(2)})`;
+      ctx.lineWidth = 5 - k;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, R * (1 - k * 0.16), R * 0.72 * (1 - k * 0.16), portalT * 8 + k, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Bright core
+    ctx.fillStyle = `rgba(255,255,255,${(0.55 * open).toFixed(3)})`;
+    ctx.beginPath(); ctx.ellipse(cx, cy, R * 0.35, R * 0.25, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Teleport flash at the midpoint (where the biome swaps)
+    const flash = Math.max(0, 1 - Math.abs(portalT - 0.5) * 5);
+    if (flash > 0) {
+      ctx.fillStyle = `rgba(255,255,255,${flash.toFixed(3)})`;
+      ctx.fillRect(0, 0, VW, VH);
+    }
   }
 
   function roundRect(x, y, w, h, r) {
