@@ -248,6 +248,21 @@
   }
   seedStripes();
 
+  // Scattered ground specks/tufts that scroll toward the camera for a sense of speed.
+  let groundDetail = [];
+  function seedGroundDetail() {
+    groundDetail = [];
+    for (let i = 0; i < 70; i++) {
+      groundDetail.push({
+        u: (Math.random() * 2 - 1) * 2.3,   // lateral (wider than track to fill ground)
+        z: Math.random(),                    // 0 near .. 1 far
+        r: 2 + Math.random() * 4,            // base radius (px at near plane)
+        light: Math.random() < 0.5,          // light highlight vs dark speck
+      });
+    }
+  }
+  seedGroundDetail();
+
   function seedWeather() {
     weather = [];
     const w = currentBiome.weather;
@@ -303,6 +318,7 @@
     // Runs always begin in Savannah; biome advances with score (see update()).
     setBiome('savannah');
     seedStripes();
+    seedGroundDetail();
   }
 
   // Begin a portal transition to `key` (biome swaps at the midpoint flash).
@@ -538,6 +554,12 @@
       if (s.z < 0) s.z += 1;
     }
 
+    // Ground specks scroll toward the camera; recycle to the horizon when they pass.
+    for (const g of groundDetail) {
+      g.z -= forwardSpeed * dt;
+      if (g.z < 0) { g.z += 1; g.u = (Math.random() * 2 - 1) * 2.3; }
+    }
+
     // Weather motion
     updateWeather(dt);
 
@@ -756,6 +778,20 @@
     ctx.fillStyle = gGrad;
     ctx.fillRect(0, HORIZON_Y, VW, VH - HORIZON_Y);
 
+    // Scrolling ground specks (sense of speed)
+    for (const g of groundDetail) {
+      const sc = scaleAt(g.z);
+      const x = projectX(g.u, g.z);
+      if (x < -10 || x > VW + 10) continue;
+      const y = projectY(g.z);
+      const rr = g.r * sc;
+      const a = (0.10 + 0.12 * (1 - g.z)).toFixed(3);
+      ctx.fillStyle = g.light ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+      ctx.beginPath();
+      ctx.ellipse(x, y, rr, rr * 0.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     // Track edges (left + right) — converging toward horizon
     ctx.strokeStyle = b.edge;
     ctx.lineWidth = 2;
@@ -906,6 +942,15 @@
 
   function draw() {
     ctx.clearRect(0, 0, VW, VH);
+
+    // Gentle camera bob/sway for a livelier feel (overscan 4% so edges never show).
+    const bob = Math.sin(elapsed * 6) * 2.2;
+    const sway = Math.sin(elapsed * 2.3) * 2 + Math.max(-6, Math.min(6, -player.vx * 3));
+    ctx.save();
+    ctx.translate(VW / 2 + sway, VH / 2 + bob);
+    ctx.scale(1.04, 1.04);
+    ctx.translate(-VW / 2, -VH / 2);
+
     drawSky();
     drawGround();
     drawObstacles(true);
@@ -915,6 +960,8 @@
     drawWeather();
     drawParticles();
     if (phase === 'portal') drawPortal();
+
+    ctx.restore();
     drawBanner();
   }
 
