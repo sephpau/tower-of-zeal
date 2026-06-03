@@ -30,7 +30,7 @@
   // Forward world Z: 0 = at the player (near), 1 = at the horizon (far).
   const HORIZON_Y = VH * 0.32;
   const FAR_SCALE = 0.18;
-  const TRACK_HALF_PX = 140; // half-width of the track at the near plane (Z=0)
+  const TRACK_HALF_PX = 172; // half-width of the track at the near plane (Z=0) — wider road
 
   function projectY(z) {
     return HORIZON_Y + (VH - HORIZON_Y) * (1 - z);
@@ -252,11 +252,11 @@
   let groundDetail = [];
   function seedGroundDetail() {
     groundDetail = [];
-    for (let i = 0; i < 70; i++) {
+    for (let i = 0; i < 200; i++) {
       groundDetail.push({
-        u: (Math.random() * 2 - 1) * 2.3,   // lateral (wider than track to fill ground)
+        u: (Math.random() * 2 - 1) * 2.6,   // lateral (wider than track to fill ground)
         z: Math.random(),                    // 0 near .. 1 far
-        r: 2 + Math.random() * 4,            // base radius (px at near plane)
+        r: 3 + Math.random() * 6,            // base radius (px at near plane)
         light: Math.random() < 0.5,          // light highlight vs dark speck
       });
     }
@@ -557,7 +557,7 @@
     // Ground specks scroll toward the camera; recycle to the horizon when they pass.
     for (const g of groundDetail) {
       g.z -= forwardSpeed * dt;
-      if (g.z < 0) { g.z += 1; g.u = (Math.random() * 2 - 1) * 2.3; }
+      if (g.z < 0) { g.z += 1; g.u = (Math.random() * 2 - 1) * 2.6; }
     }
 
     // Weather motion
@@ -785,7 +785,7 @@
       if (x < -10 || x > VW + 10) continue;
       const y = projectY(g.z);
       const rr = g.r * sc;
-      const a = (0.10 + 0.12 * (1 - g.z)).toFixed(3);
+      const a = (0.16 + 0.20 * (1 - g.z)).toFixed(3);
       ctx.fillStyle = g.light ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
       ctx.beginPath();
       ctx.ellipse(x, y, rr, rr * 0.6, 0, 0, Math.PI * 2);
@@ -943,12 +943,12 @@
   function draw() {
     ctx.clearRect(0, 0, VW, VH);
 
-    // Gentle camera bob/sway for a livelier feel (overscan 4% so edges never show).
-    const bob = Math.sin(elapsed * 6) * 2.2;
-    const sway = Math.sin(elapsed * 2.3) * 2 + Math.max(-6, Math.min(6, -player.vx * 3));
+    // Camera bob/sway for a livelier feel (overscan so edges never show).
+    const bob = Math.sin(elapsed * 6.5) * 3.6 + Math.sin(elapsed * 13) * 1.2;
+    const sway = Math.sin(elapsed * 2.3) * 3 + Math.max(-8, Math.min(8, -player.vx * 4));
     ctx.save();
     ctx.translate(VW / 2 + sway, VH / 2 + bob);
-    ctx.scale(1.04, 1.04);
+    ctx.scale(1.06, 1.06);
     ctx.translate(-VW / 2, -VH / 2);
 
     drawSky();
