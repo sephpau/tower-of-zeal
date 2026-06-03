@@ -453,13 +453,18 @@
   }
 
   // Decorative scenery placed OUTSIDE the track edges; never collides.
-  function spawnDecor() {
+  function spawnDecorOne(side) {
     const img = pickFrom('design');
     if (!img) return;
-    const side = Math.random() < 0.5 ? -1 : 1;
-    pushObstacle(side * (1.25 + Math.random() * 0.6), img, {
-      kind: 'design', agW: 0.22 + Math.random() * 0.1,
+    pushObstacle(side * (1.18 + Math.random() * 0.85), img, {
+      kind: 'design', agW: 0.2 + Math.random() * 0.12,
     });
+  }
+  // Flood both roadsides with scenery each tick.
+  function spawnDecor() {
+    spawnDecorOne(-1);
+    spawnDecorOne(1);
+    if (Math.random() < 0.6) spawnDecorOne(Math.random() < 0.5 ? -1 : 1);
   }
 
   // Choose and spawn one gameplay hazard, weighted by difficulty + availability.
@@ -530,7 +535,7 @@
     decorTimer -= dt;
     if (decorTimer <= 0) {
       spawnDecor();
-      decorTimer = 0.5 + Math.random() * 0.6;
+      decorTimer = 0.18 + Math.random() * 0.18;
     }
 
     // Advance obstacles toward camera — keep them alive past the player so they fly off-screen.
@@ -796,11 +801,13 @@
       const cy = projectY(z);
       const baseW = o.agW * TRACK_HALF_PX * s * 2;
 
-      // Shadow on the ground (ellipse)
-      ctx.fillStyle = `rgba(0,0,0,${0.26 * (1 - z * 0.4)})`;
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, baseW * 0.55, baseW * 0.16, 0, 0, Math.PI * 2);
-      ctx.fill();
+      // Shadow on the ground (ellipse) — skipped for decorative scenery.
+      if (o.kind !== 'design') {
+        ctx.fillStyle = `rgba(0,0,0,${0.26 * (1 - z * 0.4)})`;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, baseW * 0.55, baseW * 0.16, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       const img = o.img;
       if (img && img.complete && img.naturalWidth > 0) {
