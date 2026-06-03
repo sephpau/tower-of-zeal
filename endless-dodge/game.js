@@ -43,6 +43,9 @@
   // The road bends as you steer (vanishing point shifts), pinned to no shift at the
   // player's depth so the player itself isn't displaced — the world swings around it.
   let roadCurve = 0; // -1..1, eases toward steering
+  let camX = 0;      // horizontal camera pan (px), follows the mech when off-center
+  const CAM_FOLLOW = 0.6; // how much the camera chases the mech's screen offset
+  const CAM_MARGIN = 150; // how far past the screen edges backgrounds are filled
   const PLAYER_PERSP = (1 - 0.06) / (1 + PERSP * 0.06);
   function curveShift(z) {
     return roadCurve * CURVE_SIGN * (PLAYER_PERSP - persp(z)) * CURVE_PX;
@@ -331,6 +334,7 @@
     pendingBiomeKey = null;
     portalSwapped = false;
     roadCurve = 0;
+    camX = 0;
     // Runs always begin in Savannah; biome advances with score (see update()).
     setBiome('savannah');
     seedStripes();
@@ -542,6 +546,10 @@
     // Ease the road curve toward how hard you're steering, so the world swings.
     const curveTarget = Math.max(-1, Math.min(1, player.vx / PLAYER_LATERAL_SPEED));
     roadCurve += (curveTarget - roadCurve) * Math.min(1, dt * 6);
+
+    // Pan the camera toward the mech when it's off-center so it stays fully visible.
+    const mechOffset = player.worldX * TRACK_HALF_PX * scaleAt(PLAYER_Z);
+    camX += (mechOffset * CAM_FOLLOW - camX) * Math.min(1, dt * 8);
 
     // Spawn gameplay hazards; they come faster as difficulty rises.
     spawnTimer -= dt;
@@ -762,32 +770,32 @@
     grad.addColorStop(0, b.skyTop);
     grad.addColorStop(1, b.skyBot);
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, VW, HORIZON_Y);
+    ctx.fillRect(-CAM_MARGIN, 0, VW + 2 * CAM_MARGIN, HORIZON_Y);
 
     drawCelestial();
     drawClouds();
 
-    // Far hill ridge
+    // Hill ridges span past the screen edges so camera pan never exposes gaps.
+    const HX0 = -CAM_MARGIN, HW = VW + 2 * CAM_MARGIN, STEP = HW / 8;
     ctx.fillStyle = b.hill2;
     ctx.beginPath();
-    ctx.moveTo(0, HORIZON_Y);
+    ctx.moveTo(HX0, HORIZON_Y);
     for (let i = 0; i <= 8; i++) {
-      const x = i * (VW / 8);
+      const x = HX0 + i * STEP;
       const y = HORIZON_Y - 22 - Math.sin(i * 0.9 + 1) * 12;
       ctx.lineTo(x, y);
     }
-    ctx.lineTo(VW, HORIZON_Y); ctx.closePath(); ctx.fill();
+    ctx.lineTo(HX0 + HW, HORIZON_Y); ctx.closePath(); ctx.fill();
 
-    // Near hill ridge
     ctx.fillStyle = b.hill;
     ctx.beginPath();
-    ctx.moveTo(0, HORIZON_Y);
+    ctx.moveTo(HX0, HORIZON_Y);
     for (let i = 0; i <= 8; i++) {
-      const x = i * (VW / 8);
+      const x = HX0 + i * STEP;
       const y = HORIZON_Y - 12 - Math.sin(i * 1.3) * 8 - (i % 2 === 0 ? 6 : 0);
       ctx.lineTo(x, y);
     }
-    ctx.lineTo(VW, HORIZON_Y); ctx.closePath(); ctx.fill();
+    ctx.lineTo(HX0 + HW, HORIZON_Y); ctx.closePath(); ctx.fill();
   }
 
   function drawGround() {
@@ -796,13 +804,13 @@
     gGrad.addColorStop(0, b.groundTop);
     gGrad.addColorStop(1, b.groundBot);
     ctx.fillStyle = gGrad;
-    ctx.fillRect(0, HORIZON_Y, VW, VH - HORIZON_Y);
+    ctx.fillRect(-CAM_MARGIN, HORIZON_Y, VW + 2 * CAM_MARGIN, VH - HORIZON_Y);
 
     // Scrolling ground specks (sense of speed)
     for (const g of groundDetail) {
       const sc = scaleAt(g.z);
       const x = projectX(g.u, g.z);
-      if (x < -10 || x > VW + 10) continue;
+      if (x < -CAM_MARGIN || x > VW + CAM_MARGIN) continue;
       const y = projectY(g.z);
       const rr = g.r * sc;
       const a = (0.16 + 0.20 * (1 - g.z)).toFixed(3);
@@ -1000,7 +1008,7 @@
     const bob = Math.sin(elapsed * 6.5) * 3.6 + Math.sin(elapsed * 13) * 1.2;
     const sway = Math.sin(elapsed * 2.3) * 3 + Math.max(-8, Math.min(8, -player.vx * 4));
     ctx.save();
-    ctx.translate(VW / 2 + sway, VH / 2 + bob);
+    ctx.translate(VW / 2 + sway - camX, VH / 2 + bob);
     ctx.scale(1.06, 1.06);
     ctx.translate(-VW / 2, -VH / 2);
 
