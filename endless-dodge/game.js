@@ -481,6 +481,7 @@
     if (!img) return;
     pushObstacle(0, img, {
       kind: 'moving',
+      agW: 0.13 + Math.random() * 0.03, // larger than static obstacles
       baseX: 0,
       oscAmp: 0.45 + Math.random() * 0.3,
       oscFreq: 1.2 + Math.random() * 0.8,
@@ -509,7 +510,7 @@
     const img = pickFrom('design');
     if (!img) return;
     pushObstacle(side * (1.05 + Math.random() * 0.55), img, {
-      kind: 'design', agW: 0.2 + Math.random() * 0.12,
+      kind: 'design', agW: 0.16 + Math.random() * 0.09,
     });
   }
   // Flood both roadsides with scenery each tick.
@@ -548,9 +549,10 @@
     if (phase === 'portal') { updatePortal(dt); return; }
     elapsed += dt;
     const d = difficulty();
-    // Keep the approach reactable; difficulty scales mostly via density (rows/moving),
-    // not raw speed. Reaction window: (SPAWN_Z-PLAYER_Z)/speed ≈ 1.5s early → 0.6s late.
-    forwardSpeed = 0.55 + d * 0.85; // 0.55 → 1.4 over ~75s
+    // Speed ramps over the first 75s, then keeps creeping slowly so long runs
+    // stay challenging (capped so it never gets unreactable).
+    const overtime = Math.max(0, elapsed - 75);
+    forwardSpeed = 0.55 + d * 0.85 + Math.min(0.75, overtime * 0.0045); // 0.55 → 1.4 → ~2.15
     if (bannerTimer > 0) bannerTimer -= dt;
 
     // Steering. Keyboard (A/D, arrows) takes priority; otherwise the pointer
@@ -591,8 +593,9 @@
     spawnTimer -= dt;
     if (spawnTimer <= 0) {
       spawnHazard(d);
-      // Vary the gap so obstacle spacing isn't uniform/predictable.
-      spawnTimer = (1.1 - d * 0.5) * (0.55 + Math.random() * 0.95);
+      // Vary the gap so spacing isn't uniform; keep tightening past the 75s plateau.
+      const baseGap = Math.max(0.42, (1.1 - d * 0.5) - overtime * 0.0012);
+      spawnTimer = baseGap * (0.55 + Math.random() * 0.95);
     }
     // Spawn decorative scenery outside the track at a steady rate.
     decorTimer -= dt;
@@ -944,14 +947,6 @@
       const cx = projectX(o.worldX, z);
       const cy = projectY(z);
       const baseW = o.agW * TRACK_HALF_PX * s * 2;
-
-      // Shadow on the ground (ellipse) — skipped for decorative scenery.
-      if (o.kind !== 'design') {
-        ctx.fillStyle = `rgba(0,0,0,${0.26 * (1 - z * 0.4)})`;
-        ctx.beginPath();
-        ctx.ellipse(cx, cy, baseW * 0.55, baseW * 0.16, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
 
       const img = o.img;
       if (img && img.complete && img.naturalWidth > 0) {
