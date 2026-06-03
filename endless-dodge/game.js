@@ -30,7 +30,7 @@
   // Forward world Z: 0 = at the player (near), 1 = at the horizon (far).
   const HORIZON_Y = VH * 0.20; // higher horizon → ground fills most of the screen
   const FAR_SCALE = 0.18;
-  const TRACK_HALF_PX = 172; // half-width of the track at the near plane (Z=0) — wider road
+  const TRACK_HALF_PX = 344; // half-width of the track at the near plane (Z=0) — 2x wider road
   const PERSP = 3.4;         // perspective strength (higher = stronger rush-in near the player)
   const CURVE_PX = 175;      // how far the road bends at the horizon when steering
   const CURVE_SIGN = -1;     // direction the world swings relative to steering
@@ -228,7 +228,7 @@
   const PLAYER_LATERAL_SPEED = 2.6;   // worldX/sec
   const PLAYER_LATERAL_ACCEL = 18;
   const PLAYER_LATERAL_FRICTION = 16;
-  const PLAYER_CLAMP = 0.92;
+  const PLAYER_CLAMP = 0.55; // keep the mech on-screen now the road is 2x wider
 
   // ---- Obstacles ----
   // Each obstacle has worldX in [-1,1] and z in [0,1] decreasing over time.
@@ -450,7 +450,7 @@
   // A single literal obstacle in a random lane.
   function spawnSingle() {
     const img = pickFrom('obstacle') || pickFrom('fullobstacle');
-    pushObstacle((Math.random() * 2 - 1) * 0.7, img);
+    pushObstacle((Math.random() * 2 - 1) * 0.45, img);
   }
 
   // A row across lane slots, ALWAYS leaving ≥1 slot open. Row size grows 1→3 with d.
@@ -488,7 +488,7 @@
   function spawnDecorOne(side) {
     const img = pickFrom('design');
     if (!img) return;
-    pushObstacle(side * (1.18 + Math.random() * 0.85), img, {
+    pushObstacle(side * (1.05 + Math.random() * 0.55), img, {
       kind: 'design', agW: 0.2 + Math.random() * 0.12,
     });
   }
