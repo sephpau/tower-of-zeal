@@ -31,19 +31,25 @@
   const HORIZON_Y = VH * 0.32;
   const FAR_SCALE = 0.18;
   const TRACK_HALF_PX = 172; // half-width of the track at the near plane (Z=0) — wider road
+  const PERSP = 3.4;         // perspective strength (higher = stronger rush-in near the player)
 
+  // True-perspective depth curve: 1 at the near plane (z=0), 0 at the horizon (z=1),
+  // bunched toward the horizon so objects sit small far away then accelerate as they near.
+  function persp(z) {
+    return (1 - z) / (1 + PERSP * z);
+  }
   function projectY(z) {
-    return HORIZON_Y + (VH - HORIZON_Y) * (1 - z);
+    return HORIZON_Y + (VH - HORIZON_Y) * persp(z);
   }
   function scaleAt(z) {
-    return 1 + (FAR_SCALE - 1) * z; // 1 at near, FAR_SCALE at far
+    return FAR_SCALE + (1 - FAR_SCALE) * persp(z); // 1 at near, FAR_SCALE at far
   }
   function projectX(worldX, z) {
     return VW / 2 + worldX * TRACK_HALF_PX * scaleAt(z);
   }
 
-  // Player sits at this depth (red line on the screen). Obstacles collide here, not at z=0.
-  const PLAYER_Z = 0.18;
+  // Player sits at this depth (near the bottom). Obstacles collide here.
+  const PLAYER_Z = 0.06;
   // Obstacles spawn at this depth (1.0 = far horizon). Larger gap to PLAYER_Z = more
   // reaction time. Reaction window ≈ (SPAWN_Z - PLAYER_Z) / forwardSpeed seconds.
   const SPAWN_Z = 1.0;
@@ -546,7 +552,7 @@
         if (o.worldX >  0.82) o.worldX =  0.82;
       }
     }
-    obstacles = obstacles.filter(o => o.z > -0.35);
+    obstacles = obstacles.filter(o => o.z > -0.1);
 
     // Ground stripes scroll forward (toward camera)
     for (const s of stripes) {
