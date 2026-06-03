@@ -508,7 +508,8 @@
   function spawnDecorOne(side) {
     const img = pickFrom('design');
     if (!img) return;
-    pushObstacle(side * (1.05 + Math.random() * 0.55), img, {
+    // Sit fully beyond the fence (worldX 1.0) so scenery never overlaps it.
+    pushObstacle(side * (1.45 + Math.random() * 0.7), img, {
       kind: 'design', agW: 0.16 + Math.random() * 0.09,
     });
   }
