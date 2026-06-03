@@ -460,9 +460,8 @@
   // A row across lane slots, ALWAYS leaving ≥1 slot open. Row size grows 1→3 with d.
   // Uses fullobstacle art if available, else falls back to obstacle art.
   function spawnRow(d) {
-    let maxCount = 1 + (d > 0.3 ? 1 : 0) + (d > 0.65 ? 1 : 0); // 1..3
-    let count = maxCount;
-    if (maxCount > 1 && Math.random() < 0.3) count = maxCount - 1;
+    // Always a real wall: 2 pieces, growing to 3 later (4 slots, so ≥1 gap stays open).
+    const count = 2 + (d > 0.5 ? 1 : 0);
     const idx = [0, 1, 2, 3];
     for (let i = idx.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
