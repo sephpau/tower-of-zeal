@@ -453,7 +453,7 @@
 
   // A single literal obstacle in a random lane.
   function spawnSingle() {
-    const img = pickFrom('obstacle') || pickFrom('fullobstacle');
+    const img = pickFrom('obstacle'); // scattered single obstacles use 'obstacle' items
     pushObstacle((Math.random() * 2 - 1) * 0.7, img);
   }
 
@@ -469,7 +469,7 @@
     const center = (Math.random() * 2 - 1) * maxC;
     const startX = center - clusterW / 2;
     for (let i = 0; i < count; i++) {
-      const img = pickFrom('fullobstacle') || pickFrom('obstacle');
+      const img = pickFrom('fullobstacle'); // clusters use 'fullobstacle' items
       pushObstacle(startX + i * spacing, img);
     }
   }
@@ -524,8 +524,8 @@
   function spawnHazard(d) {
     // Sometimes a pass-through arch made of crossed spears.
     if (Math.random() < 0.18 && spawnGate()) return;
-    const hasObs = pools.obstacle.length || pools.fullobstacle.length;
-    const hasFull = pools.fullobstacle.length;
+    const hasObs = pools.obstacle.length;     // scattered singles
+    const hasFull = pools.fullobstacle.length; // clusters/walls
     const hasMove = pools.moving.length;
     const choices = [];
     if (hasObs)  choices.push(['single', 1.0]);
