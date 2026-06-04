@@ -164,7 +164,7 @@
   }
   fetch('assets/items-manifest.json')
     .then(r => r.json())
-    .then(m => { manifest = m; })
+    .then(m => { manifest = m; buildBiomePool('savannah'); }) // warm first biome during the menu
     .catch(() => { manifest = null; });
 
   // Per-classification filename pools for the current biome. Prefer the biome's
@@ -178,10 +178,9 @@
   }
   function buildBiomePool(biomeKey) {
     for (const c of CLASSES) pools[c] = poolFor(biomeKey, c);
-    // Warm a random subset across all classes so first spawns have art ready.
+    // Preload ALL of this biome's art so spawns never show placeholder boxes.
     const all = [].concat(pools.obstacle, pools.fullobstacle, pools.moving, pools.design);
-    const warm = all.slice().sort(() => Math.random() - 0.5).slice(0, 24);
-    for (const fn of warm) loadItem(fn);
+    for (const fn of all) loadItem(fn);
   }
   function pickFrom(cls) {
     const p = pools[cls];
