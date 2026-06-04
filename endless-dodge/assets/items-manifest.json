@@ -22,10 +22,8 @@
       "design__savannah__gilded-paper-propeller.png",
       "design__savannah__hyacinthus-root-in-a-clay-pot.png",
       "design__savannah__jug.png",
-      "design__savannah__roped-tribal-spear.png",
       "design__savannah__sprout-in-a-clay-pot.png",
-      "design__savannah__tribal-shield.png",
-      "design__savannah__tribal-spear.png"
+      "design__savannah__tribal-shield.png"
     ],
     "moving": [
       "moving__savannah__tribal-mask.png",
@@ -41,7 +39,9 @@
       "obstacle__savannah__jade-jug.png",
       "obstacle__savannah__jolly-crazy-totem.png",
       "obstacle__savannah__mascot-totem.png",
-      "obstacle__savannah__toxic-vase.png"
+      "obstacle__savannah__roped-tribal-spear.png",
+      "obstacle__savannah__toxic-vase.png",
+      "obstacle__savannah__tribal-spear.png"
     ],
     "fullobstacle": [
       "fullobstacle__savannah__cactus-and-friends.png",
@@ -121,37 +121,38 @@
     "fullobstacle": []
   },
   "arctic": {
-    "design": [],
+    "design": [
+      "design__arctic__arctic-bonzai-tree.png",
+      "design__arctic__arctic-logs.png",
+      "design__arctic__bartender-s-ice-bucket.png",
+      "design__arctic__bonzai-tree.png",
+      "design__arctic__boots-of-travel.png",
+      "design__arctic__frozen-yarn.png",
+      "design__arctic__ginger-snowglobe.png",
+      "design__arctic__green-shrub.png",
+      "design__arctic__ice-bucket.png",
+      "design__arctic__icy-finely-crafted-flowers.png",
+      "design__arctic__kotaro-snowglobe.png",
+      "design__arctic__lunacian-wine-bucket.png",
+      "design__arctic__neko-cap-hanger.png",
+      "design__arctic__royal-winter-banner.png",
+      "design__arctic__toasted-logs.png",
+      "design__arctic__warm-wingboots.png",
+      "design__arctic__yarn.png"
+    ],
     "moving": [
+      "moving__arctic__coingecko.png",
       "moving__arctic__jack-in-the-box.png",
       "moving__arctic__joker.png"
     ],
     "obstacle": [
-      "arctic__arctic-bonzai-tree.png",
-      "arctic__arctic-logs.png",
-      "arctic__bartender-s-ice-bucket.png",
-      "arctic__bonzai-tree.png",
-      "arctic__boots-of-travel.png",
-      "arctic__coingecko.png",
-      "arctic__frozen-yarn.png",
-      "arctic__ginger-snowglobe.png",
-      "arctic__green-shrub.png",
-      "arctic__ice-bucket.png",
-      "arctic__icy-finely-crafted-flowers.png",
-      "arctic__kotaro-snowglobe.png",
-      "arctic__lunacian-wine-bucket.png",
-      "arctic__neko-cap-hanger.png",
-      "arctic__noir-side-table.png",
-      "arctic__puff-snowglobe.png",
-      "arctic__royal-winter-banner.png",
-      "arctic__spring-shrub.png",
-      "arctic__toasted-logs.png",
-      "arctic__warm-pile-of-wood.png",
-      "arctic__warm-wingboots.png",
       "obstacle__arctic__cozy-wool-cap-hanger.png",
       "obstacle__arctic__frozen-fishbones.png",
       "obstacle__arctic__frozen-pufferfish.png",
       "obstacle__arctic__jade-snowboard.png",
+      "obstacle__arctic__noir-side-table.png",
+      "obstacle__arctic__puff-snowglobe.png",
+      "obstacle__arctic__spring-shrub.png",
       "obstacle__arctic__wind-idol-statue.png"
     ],
     "fullobstacle": [
@@ -230,7 +231,9 @@
     "fullobstacle": []
   },
   "any": {
-    "design": [],
+    "design": [
+      "design__heatead coal.png"
+    ],
     "moving": [
       "moving__babushka-doll-family.png",
       "moving__grandmother-s-doll.png",
@@ -243,7 +246,6 @@
       "moving__the-mother.png"
     ],
     "obstacle": [
-      "arcticyarn.png",
       "genesis_rare-ruin-shard.png",
       "genesis_stella-totem.png",
       "genesis_stone-lamp.png",
