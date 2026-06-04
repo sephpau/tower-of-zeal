@@ -518,17 +518,18 @@
     if (Math.random() < 0.6) spawnDecorOne(Math.random() < 0.5 ? -1 : 1);
   }
 
-  // Mix single obstacles, fullobstacle rows, and movers — weighted by difficulty.
+  // Scattered single obstacles are the bread-and-butter; full walls and movers
+  // are occasional events, and gates are rare.
   function spawnHazard(d) {
-    // Sometimes a pass-through arch made of crossed spears.
-    if (Math.random() < 0.18 && spawnGate()) return;
-    const hasObs = pools.obstacle.length;     // scattered singles
-    const hasFull = pools.fullobstacle.length; // clusters/walls
+    // Occasionally a pass-through arch made of crossed spears.
+    if (Math.random() < 0.08 && spawnGate()) return;
+    const hasObs = pools.obstacle.length;     // scattered singles (the norm)
+    const hasFull = pools.fullobstacle.length; // full walls (occasional)
     const hasMove = pools.moving.length;
     const choices = [];
     if (hasObs)  choices.push(['single', 1.0]);
-    if (hasFull) choices.push(['row',    0.6 + d]);                 // rows from the start
-    if (hasMove) choices.push(['moving', d > 0.3 ? 0.4 + d * 0.5 : 0.15]);
+    if (hasFull) choices.push(['row',    0.15 + d * 0.35]);          // occasional walls, more late-game
+    if (hasMove) choices.push(['moving', d > 0.3 ? 0.25 + d * 0.4 : 0.12]);
     const total = choices.reduce((s, c) => s + c[1], 0);
     if (total <= 0) { if (hasObs) spawnSingle(); return; }
     let r = Math.random() * total;
