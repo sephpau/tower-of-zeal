@@ -459,18 +459,16 @@
 
   // A row across lane slots, ALWAYS leaving ≥1 slot open. Row size grows 1→3 with d.
   // Uses fullobstacle art if available, else falls back to obstacle art.
-  // A "full obstacle": a contiguous cluster of 2-3 boxes touching each other,
-  // placed at one spot on the track with open road to dodge around it.
+  // A "full obstacle": a wall of fullobstacle boxes spanning the whole track with
+  // exactly ONE small entrance — on the left, middle, or right — to steer into.
+  const WALL_HALF = 0.85;   // wall extends to ±this (just inside the fences)
+  const WALL_SPACING = 0.2; // gap between adjacent boxes (slight overlap = solid wall)
+  const WALL_GAP_HALF = 0.3; // half-width of the entrance opening
   function spawnRow(d) {
-    const count = 2 + (d > 0.5 ? 1 : 0); // 2..3 adjacent boxes
-    const spacing = 0.21;                // worldX between adjacent boxes (touching)
-    const clusterW = (count - 1) * spacing;
-    const maxC = 0.78 - clusterW / 2;    // keep the cluster inside the track, leaving a dodge lane
-    const center = (Math.random() * 2 - 1) * maxC;
-    const startX = center - clusterW / 2;
-    for (let i = 0; i < count; i++) {
-      const img = pickFrom('fullobstacle'); // clusters use 'fullobstacle' items
-      pushObstacle(startX + i * spacing, img);
+    const gapCenter = [-0.55, 0, 0.55][Math.floor(Math.random() * 3)]; // left / middle / right
+    for (let x = -WALL_HALF; x <= WALL_HALF + 1e-6; x += WALL_SPACING) {
+      if (Math.abs(x - gapCenter) < WALL_GAP_HALF) continue; // leave the entrance open
+      pushObstacle(x, pickFrom('fullobstacle'));
     }
   }
 
