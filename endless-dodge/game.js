@@ -577,10 +577,11 @@
     if (phase === 'portal') { updatePortal(dt); return; }
     elapsed += dt;
     const d = difficulty();
-    // Gentle reference pacing: an obstacle takes ~3s horizon→player early game.
-    // Ramps over 75s, then creeps slowly (capped so it never gets unreactable).
+    // Gentle reference pacing early, then ever-faster: starts ~3s horizon→player,
+    // ramps to 0.7 by 75s, then keeps accelerating to a 1.9 cap (~6 min in).
+    // Since DISTANCE integrates speed, biome gates also arrive faster over time.
     const overtime = Math.max(0, elapsed - 75);
-    forwardSpeed = 0.32 + d * 0.38 + Math.min(0.3, overtime * 0.002); // 0.32 → 0.7 → ~1.0
+    forwardSpeed = 0.32 + d * 0.38 + Math.min(1.2, overtime * 0.004);
     if (bannerTimer > 0) bannerTimer -= dt;
 
     // Steering. Keyboard (A/D, arrows) takes priority; otherwise the pointer
@@ -622,7 +623,7 @@
     if (spawnTimer <= 0) {
       spawnHazard(d);
       // Vary the gap so spacing isn't uniform; keep tightening past the 75s plateau.
-      const baseGap = Math.max(0.7, (1.7 - d * 0.6) - overtime * 0.0015);
+      const baseGap = Math.max(0.55, (1.7 - d * 0.6) - overtime * 0.0015);
       spawnTimer = baseGap * (0.55 + Math.random() * 0.95);
     }
     // Spawn decorative scenery outside the track at a steady rate.
