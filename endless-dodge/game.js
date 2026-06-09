@@ -194,6 +194,150 @@
   let best = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
   bestEl.textContent = 'Best: ' + best;
 
+  // ---- Audio (all synthesized via Web Audio, no files) ----
+  const sfx = (() => {
+    let ctxA = null, master = null, engine = null;
+    let muted = localStorage.getItem('endless-dodge-muted') === '1';
+
+    function ensure() {
+      if (ctxA) { if (ctxA.state === 'suspended') ctxA.resume(); return true; }
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      ctxA = new AC();
+      master = ctxA.createGain();
+      master.gain.value = muted ? 0 : 1;
+      master.connect(ctxA.destination);
+      return true;
+    }
+
+    // Shared noise buffer for whooshes/crashes.
+    let noiseBuf = null;
+    function noise() {
+      if (!noiseBuf) {
+        noiseBuf = ctxA.createBuffer(1, ctxA.sampleRate, ctxA.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      const src = ctxA.createBufferSource();
+      src.buffer = noiseBuf;
+      return src;
+    }
+
+    function blip(freq, t0, dur, type, peak) {
+      const o = ctxA.createOscillator();
+      const g = ctxA.createGain();
+      o.type = type || 'sine';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(peak || 0.25, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); g.connect(master);
+      o.start(t0); o.stop(t0 + dur + 0.05);
+    }
+
+    return {
+      get muted() { return muted; },
+      toggleMute() {
+        muted = !muted;
+        localStorage.setItem('endless-dodge-muted', muted ? '1' : '0');
+        if (master) master.gain.value = muted ? 0 : 1;
+        return muted;
+      },
+      // Looping thruster hum; call engineUpdate each frame with the speed.
+      engineStart() {
+        if (!ensure()) return;
+        if (engine) return;
+        const o1 = ctxA.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = 58;
+        const o2 = ctxA.createOscillator(); o2.type = 'triangle'; o2.frequency.value = 116;
+        const lp = ctxA.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520;
+        const g = ctxA.createGain(); g.gain.value = 0;
+        o1.connect(lp); o2.connect(lp); lp.connect(g); g.connect(master);
+        o1.start(); o2.start();
+        g.gain.linearRampToValueAtTime(0.05, ctxA.currentTime + 0.4);
+        engine = { o1, o2, lp, g };
+      },
+      engineUpdate(speed) {
+        if (!engine) return;
+        engine.o1.frequency.value = 50 + speed * 28;
+        engine.o2.frequency.value = 100 + speed * 56;
+        engine.lp.frequency.value = 420 + speed * 380;
+      },
+      engineStop() {
+        if (!engine) return;
+        const e = engine; engine = null;
+        e.g.gain.linearRampToValueAtTime(0, ctxA.currentTime + 0.25);
+        setTimeout(() => { e.o1.stop(); e.o2.stop(); }, 400);
+      },
+      coin() {
+        if (!ensure()) return;
+        const t = ctxA.currentTime;
+        blip(988, t, 0.09, 'sine', 0.22);
+        blip(1319, t + 0.07, 0.18, 'sine', 0.22);
+      },
+      crash() {
+        if (!ensure()) return;
+        const t = ctxA.currentTime;
+        const n = noise();
+        const f = ctxA.createBiquadFilter(); f.type = 'lowpass';
+        f.frequency.setValueAtTime(1400, t);
+        f.frequency.exponentialRampToValueAtTime(160, t + 0.45);
+        const g = ctxA.createGain();
+        g.gain.setValueAtTime(0.45, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+        n.connect(f); f.connect(g); g.connect(master);
+        n.start(t); n.stop(t + 0.55);
+        const o = ctxA.createOscillator(); o.type = 'triangle';
+        o.frequency.setValueAtTime(220, t);
+        o.frequency.exponentialRampToValueAtTime(50, t + 0.5);
+        const og = ctxA.createGain();
+        og.gain.setValueAtTime(0.3, t);
+        og.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+        o.connect(og); og.connect(master);
+        o.start(t); o.stop(t + 0.6);
+      },
+      portal() {
+        if (!ensure()) return;
+        const t = ctxA.currentTime;
+        for (const [f0, f1, det] of [[200, 950, 0], [240, 1100, 6]]) {
+          const o = ctxA.createOscillator(); o.type = 'triangle'; o.detune.value = det;
+          o.frequency.setValueAtTime(f0, t);
+          o.frequency.exponentialRampToValueAtTime(f1, t + 0.7);
+          const g = ctxA.createGain();
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(0.16, t + 0.25);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.85);
+          o.connect(g); g.connect(master);
+          o.start(t); o.stop(t + 0.9);
+        }
+      },
+      chime() { // biome-arrival ding at the portal flash
+        if (!ensure()) return;
+        const t = ctxA.currentTime;
+        blip(880, t, 0.5, 'sine', 0.2);
+        blip(1760, t + 0.02, 0.4, 'sine', 0.1);
+      },
+      whoosh() { // passing under a gate
+        if (!ensure()) return;
+        const t = ctxA.currentTime;
+        const n = noise();
+        const f = ctxA.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.2;
+        f.frequency.setValueAtTime(350, t);
+        f.frequency.exponentialRampToValueAtTime(1600, t + 0.22);
+        const g = ctxA.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.18, t + 0.08);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+        n.connect(f); f.connect(g); g.connect(master);
+        n.start(t); n.stop(t + 0.35);
+      },
+      ensure,
+    };
+  })();
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'm' || e.key === 'M') sfx.toggleMute();
+  });
+
   // ---- Sprites ----
   // Three sprites: rear (idle/straight), right (banking right), left (banking left).
   const mechRear  = new Image();
@@ -359,6 +503,7 @@
     pendingBiomeKey = key;
     portalSwapped = false;
     obstacles = []; // teleport away from the old biome's hazards
+    sfx.portal();
   }
 
   function updatePortal(dt) {
@@ -366,6 +511,7 @@
     if (!portalSwapped && portalT >= 0.5) {
       setBiome(pendingBiomeKey);
       portalSwapped = true;
+      sfx.chime();
     }
     if (portalT >= 1) { phase = 'play'; portalT = 0; }
   }
@@ -385,10 +531,14 @@
     running = true;
     overlay.classList.add('hidden');
     finalEl.style.display = 'none';
+    sfx.ensure();      // user gesture: safe to create/resume the AudioContext
+    sfx.engineStart();
   }
 
   function gameOver() {
     running = false;
+    sfx.crash();
+    sfx.engineStop();
     if (score > best) {
       best = score;
       localStorage.setItem(STORAGE_KEY, String(best));
@@ -582,6 +732,7 @@
     // Since DISTANCE integrates speed, biome gates also arrive faster over time.
     const overtime = Math.max(0, elapsed - 75);
     forwardSpeed = 0.32 + d * 0.38 + Math.min(1.2, overtime * 0.004);
+    sfx.engineUpdate(forwardSpeed);
     if (bannerTimer > 0) bannerTimer -= dt;
 
     // Steering. Keyboard (A/D, arrows) takes priority; otherwise the pointer
@@ -646,6 +797,7 @@
       if (Math.abs(c.z - PLAYER_Z) < 0.045 && Math.abs(c.worldX - player.worldX) < 0.14) {
         coinCount++;
         if (coinsEl) coinsEl.textContent = String(coinCount);
+        sfx.coin();
         const sx = projectX(c.worldX, c.z), sy = projectY(c.z);
         for (let i = 0; i < 6; i++) {
           particles.push({
@@ -669,6 +821,11 @@
         o.worldX = o.baseX + Math.sin(o.oscPhase + elapsed * o.oscFreq) * o.oscAmp;
         if (o.worldX < -0.82) o.worldX = -0.82;
         if (o.worldX >  0.82) o.worldX =  0.82;
+      }
+      // Whoosh as the ship passes under a gate arch.
+      if (o.kind === 'gate' && !o.passed && o.z <= PLAYER_Z) {
+        o.passed = true;
+        sfx.whoosh();
       }
     }
     obstacles = obstacles.filter(o => o.z > -0.1);
