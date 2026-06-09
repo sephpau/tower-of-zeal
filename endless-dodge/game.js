@@ -3,6 +3,7 @@
   const ctx = canvas.getContext('2d');
   const scoreEl = document.getElementById('score');
   const bestEl = document.getElementById('best');
+  const coinsEl = document.getElementById('coins');
   const overlay = document.getElementById('overlay');
   const startBtn = document.getElementById('startBtn');
   const finalEl = document.getElementById('finalScore');
@@ -243,6 +244,9 @@
   let particles = [];
   let smoke = [];
   let weather = [];
+  let coins = [];      // collectible coins: {worldX, z}
+  let coinCount = 0;   // collected this run
+  let coinTimer = 0;
   let smokeTimer = 0;
 
   let currentBiome = BIOMES.forest;
@@ -269,12 +273,14 @@
   let groundDetail = [];
   function seedGroundDetail() {
     groundDetail = [];
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 170; i++) {
+      const patch = Math.random() < 0.3; // big soft dark patches (reference look)
       groundDetail.push({
         u: (Math.random() * 2 - 1) * 2.6,   // lateral (wider than track to fill ground)
         z: Math.random(),                    // 0 near .. 1 far
-        r: 3 + Math.random() * 6,            // base radius (px at near plane)
-        light: Math.random() < 0.5,          // light highlight vs dark speck
+        r: patch ? 16 + Math.random() * 22 : 3 + Math.random() * 6,
+        patch,
+        light: !patch && Math.random() < 0.5,
       });
     }
   }
@@ -320,6 +326,10 @@
     obstacles = [];
     particles = [];
     smoke = [];
+    coins = [];
+    coinCount = 0;
+    coinTimer = 1.5;
+    if (coinsEl) coinsEl.textContent = '0';
     smokeTimer = 0;
     player.worldX = 0;
     player.vx = 0;
@@ -382,7 +392,7 @@
       localStorage.setItem(STORAGE_KEY, String(best));
       bestEl.textContent = 'Best: ' + best;
     }
-    finalEl.textContent = 'Score: ' + score + '   ·   Best: ' + best;
+    finalEl.textContent = 'Score: ' + score + '   ·   Best: ' + best + '   ·   Coins: ' + coinCount;
     finalEl.style.display = 'block';
     startBtn.textContent = 'Play again';
     overlay.classList.remove('hidden');
@@ -453,7 +463,25 @@
   // A single literal obstacle in a random lane.
   function spawnSingle() {
     const img = pickFrom('obstacle'); // scattered single obstacles use 'obstacle' items
-    pushObstacle((Math.random() * 2 - 1) * 0.7, img);
+    // Like the reference: obstacles often hug the road edges (near the fences),
+    // narrowing the path so you weave between sides; sometimes mid-road.
+    let worldX;
+    if (Math.random() < 0.55) {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      worldX = side * (0.62 + Math.random() * 0.26); // edge blocker
+    } else {
+      worldX = (Math.random() * 2 - 1) * 0.5;        // mid-road
+    }
+    pushObstacle(worldX, img);
+  }
+
+  // A vertical line of coins down the road at one lateral position.
+  function spawnCoinLine() {
+    const worldX = (Math.random() * 2 - 1) * 0.55;
+    const n = 3 + Math.floor(Math.random() * 2); // 3-4 coins
+    for (let i = 0; i < n; i++) {
+      coins.push({ worldX, z: SPAWN_Z + i * 0.07 });
+    }
   }
 
   // A row across lane slots, ALWAYS leaving ≥1 slot open. Row size grows 1→3 with d.
@@ -601,6 +629,34 @@
       spawnDecor();
       decorTimer = 0.18 + Math.random() * 0.18;
     }
+    // Coin lines appear every few seconds.
+    coinTimer -= dt;
+    if (coinTimer <= 0) {
+      spawnCoinLine();
+      coinTimer = 2.2 + Math.random() * 2.2;
+    }
+
+    // Advance coins; collect on touch.
+    for (const c of coins) c.z -= forwardSpeed * dt;
+    coins = coins.filter(c => {
+      if (c.z <= -0.1) return false;
+      if (Math.abs(c.z - PLAYER_Z) < 0.045 && Math.abs(c.worldX - player.worldX) < 0.14) {
+        coinCount++;
+        if (coinsEl) coinsEl.textContent = String(coinCount);
+        const sx = projectX(c.worldX, c.z), sy = projectY(c.z);
+        for (let i = 0; i < 6; i++) {
+          particles.push({
+            x: sx, y: sy - 10,
+            vx: (Math.random() - 0.5) * 160,
+            vy: -60 - Math.random() * 120,
+            life: 0.45, max: 0.45,
+            c: '#ffd24a',
+          });
+        }
+        return false;
+      }
+      return true;
+    });
 
     // Advance obstacles toward camera — keep them alive past the player so they fly off-screen.
     for (const o of obstacles) {
@@ -851,11 +907,21 @@
       if (x < -CAM_MARGIN || x > VW + CAM_MARGIN) continue;
       const y = projectY(g.z);
       const rr = g.r * sc;
-      const a = (0.16 + 0.20 * (1 - g.z)).toFixed(3);
-      ctx.fillStyle = g.light ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-      ctx.beginPath();
-      ctx.ellipse(x, y, rr, rr * 0.6, 0, 0, Math.PI * 2);
-      ctx.fill();
+      if (g.patch) {
+        // soft dark ground patch (subtle, blobby)
+        const a = (0.05 + 0.07 * (1 - g.z)).toFixed(3);
+        ctx.fillStyle = `rgba(0,0,0,${a})`;
+        ctx.beginPath();
+        ctx.ellipse(x, y, rr, rr * 0.55, 0, 0, Math.PI * 2);
+        ctx.ellipse(x + rr * 0.55, y + rr * 0.1, rr * 0.6, rr * 0.35, 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        const a = (0.16 + 0.20 * (1 - g.z)).toFixed(3);
+        ctx.fillStyle = g.light ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+        ctx.beginPath();
+        ctx.ellipse(x, y, rr, rr * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     drawFences();
@@ -927,6 +993,31 @@
     const cross = width * 0.12;             // tips overshoot center so they cross
     drawSpear(img, lx, gy, cx + cross, topY, thick);  // left -> up-right
     drawSpear(img, rx, gy, cx - cross, topY, thick);  // right -> up-left
+  }
+
+  // Gold coin pickups sitting on the road (rounded teardrop look from the reference).
+  function drawCoins() {
+    for (const c of coins) {
+      if (c.z > 1.02) continue;
+      const s = scaleAt(Math.max(c.z, 0));
+      const x = projectX(c.worldX, c.z);
+      const y = projectY(c.z);
+      const r = 13 * s;
+      const wob = Math.sin(elapsed * 5 + c.z * 20) * r * 0.08;
+      // outline
+      ctx.fillStyle = '#c8901a';
+      ctx.beginPath();
+      ctx.ellipse(x, y - r * 0.75 + wob, r * 0.78, r * 0.95, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // body
+      const g = ctx.createRadialGradient(x - r * 0.25, y - r, r * 0.1, x, y - r * 0.75, r);
+      g.addColorStop(0, '#ffe98a');
+      g.addColorStop(1, '#fcc63d');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.ellipse(x, y - r * 0.75 + wob, r * 0.65, r * 0.82, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   function drawObstacles(farOnly) {
@@ -1067,11 +1158,13 @@
     const sway = Math.sin(elapsed * 2.3) * 3 + Math.max(-8, Math.min(8, -player.vx * 4));
     ctx.save();
     ctx.translate(VW / 2 + sway - camX, VH / 2 + bob);
-    ctx.scale(1.06, 1.06);
+    ctx.rotate(roadCurve * -0.035); // world tilts slightly into the turn (reference feel)
+    ctx.scale(1.07, 1.07);
     ctx.translate(-VW / 2, -VH / 2);
 
     drawSky();
     drawGround();
+    drawCoins();
     drawObstacles(true);
     if (running || particles.length === 0) drawPlayer();
     drawObstacles(false);
