@@ -309,6 +309,7 @@
 
   let running = false;
   let score = 0;
+  let dist = 0; // float distance accumulator behind the score
   let elapsed = 0;
   let spawnTimer = 0;
   let decorTimer = 0;
@@ -334,6 +335,7 @@
     player.worldX = 0;
     player.vx = 0;
     score = 0;
+    dist = 0;
     elapsed = 0;
     spawnTimer = 0;
     decorTimer = 0;
@@ -575,10 +577,10 @@
     if (phase === 'portal') { updatePortal(dt); return; }
     elapsed += dt;
     const d = difficulty();
-    // Speed ramps over the first 75s, then keeps creeping slowly so long runs
-    // stay challenging (capped so it never gets unreactable).
+    // Gentle reference pacing: an obstacle takes ~3s horizon→player early game.
+    // Ramps over 75s, then creeps slowly (capped so it never gets unreactable).
     const overtime = Math.max(0, elapsed - 75);
-    forwardSpeed = 0.55 + d * 0.85 + Math.min(0.75, overtime * 0.0045); // 0.55 → 1.4 → ~2.15
+    forwardSpeed = 0.32 + d * 0.38 + Math.min(0.3, overtime * 0.002); // 0.32 → 0.7 → ~1.0
     if (bannerTimer > 0) bannerTimer -= dt;
 
     // Steering. Keyboard (A/D, arrows) takes priority; otherwise the pointer
@@ -620,14 +622,14 @@
     if (spawnTimer <= 0) {
       spawnHazard(d);
       // Vary the gap so spacing isn't uniform; keep tightening past the 75s plateau.
-      const baseGap = Math.max(0.42, (1.1 - d * 0.5) - overtime * 0.0012);
+      const baseGap = Math.max(0.7, (1.7 - d * 0.6) - overtime * 0.0015);
       spawnTimer = baseGap * (0.55 + Math.random() * 0.95);
     }
     // Spawn decorative scenery outside the track at a steady rate.
     decorTimer -= dt;
     if (decorTimer <= 0) {
       spawnDecor();
-      decorTimer = 0.18 + Math.random() * 0.18;
+      decorTimer = 0.35 + Math.random() * 0.35;
     }
     // Coin lines appear every few seconds.
     coinTimer -= dt;
@@ -726,7 +728,9 @@
       }
     }
 
-    score = Math.floor(elapsed * 10);
+    // DISTANCE = actual distance travelled (ticks ~2.2/s early like the reference).
+    dist += forwardSpeed * dt * 7;
+    score = Math.floor(dist);
     scoreEl.textContent = score;
 
     // Advance biome when the score crosses a threshold — via a portal transition.
