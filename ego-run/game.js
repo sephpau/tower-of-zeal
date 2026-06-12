@@ -374,6 +374,7 @@ const EGO_CUTS = {
     const parts = [];
     root.traverse((o) => {
       if (!o.isMesh) return;
+      o.material.side = THREE.DoubleSide;   // open shells: render interiors too
       const g = o.geometry.clone();
       g.applyMatrix4(o.matrixWorld);
       g.applyMatrix4(rot);
@@ -425,6 +426,17 @@ const EGO_CUTS = {
         const mesh = new THREE.Mesh(p.geo, material);
         mesh.castShadow = true; mesh.receiveShadow = true;
         grp.add(mesh);
+      }
+      // ball cap at the joint fills the socket hole while the limb swings
+      if (key !== 'body') {
+        const s = plist[0].box.getSize(new THREE.Vector3());
+        const r = Math.min(s.x, s.z) * 0.6;
+        const cap = new THREE.Mesh(
+          new THREE.SphereGeometry(r, 16, 12),
+          new THREE.MeshStandardMaterial({ color: 0xf2ede4, roughness: 0.8 })
+        );
+        cap.castShadow = true;
+        grp.add(cap);
       }
       inner.add(grp);
       egoLimbs[key] = grp;
