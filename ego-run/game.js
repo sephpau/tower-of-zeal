@@ -125,6 +125,9 @@ const buildings = [];
   }
 }
 
+// models unchecked in the gallery (models.html) don't spawn
+const DISABLED_MODELS = new Set(JSON.parse(localStorage.getItem('egoRunDisabledModels') || '[]'));
+
 // ---------- tree models (Blender exports) ----------
 const TREE_FILES = [
   'tree-branched', 'tree-columnar', 'tree-conical', 'tree-open', 'tree-oval',
@@ -138,6 +141,7 @@ const decorTrees = [];
 {
   const loader = new GLTFLoader();
   for (const name of TREE_FILES) {
+    if (DISABLED_MODELS.has(name)) continue;
     loader.load(`assets/models/${name}.glb`, (gltf) => {
       const root = gltf.scene;
       // strip helper geometry (tree-vase ships a ground plane)
@@ -193,6 +197,7 @@ const vehicleTemplates = [];   // { tpl, height } — oriented along road, lane-
 {
   const loader = new GLTFLoader();
   for (const name of VEHICLE_FILES) {
+    if (DISABLED_MODELS.has(name)) continue;
     loader.load(`assets/models/${name}.glb`, (gltf) => {
       const root = gltf.scene;
       const box = new THREE.Box3().setFromObject(root);
