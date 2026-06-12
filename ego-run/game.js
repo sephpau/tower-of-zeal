@@ -40,10 +40,10 @@ scene.add(new THREE.HemisphereLight(0xff9ad5, 0x3a1a5e, 0.9));
 const sun = new THREE.DirectionalLight(0xffd9a0, 1.6);
 sun.position.set(-8, 18, -6);
 sun.castShadow = true;
-sun.shadow.mapSize.set(1024, 1024);
-sun.shadow.camera.left = -14; sun.shadow.camera.right = 14;
-sun.shadow.camera.top = 20;   sun.shadow.camera.bottom = -20;
-sun.shadow.camera.far = 60;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -22; sun.shadow.camera.right = 22;
+sun.shadow.camera.top = 30;   sun.shadow.camera.bottom = -45;
+sun.shadow.camera.far = 90;
 scene.add(sun);
 
 // ---------- environment ----------
@@ -79,6 +79,7 @@ for (const side of [-1, 1]) {
   );
   shoulder.rotation.x = -Math.PI / 2;
   shoulder.position.set(side * 35.2, -0.02, -160);
+  shoulder.receiveShadow = true;
   scene.add(shoulder);
 }
 
@@ -133,7 +134,7 @@ const TREE_FILES = [
   'tree-branched', 'tree-columnar', 'tree-conical', 'tree-open', 'tree-oval',
   'tree-pyramidal', 'tree-round', 'tree-spreading', 'tree-vase',
 ];
-const LEAF_COLORS = [0x2ea35e, 0x3ddc97, 0x47b86b, 0xff6fae, 0xc05ce0];
+const LEAF_COLORS = [0x2ea35e, 0x3ddc97, 0x47b86b, 0x1f8a4c, 0x6fcf6f];
 const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3b2e, roughness: 0.9 });
 const treeTemplates = [];   // normalized: base at y=0, height 1
 const decorTrees = [];
