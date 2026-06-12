@@ -255,6 +255,51 @@ function makeVehicleFrom(v) {
   return { mesh, height: v.height, zHalf: v.zHalf };
 }
 
+// ---------- sword models (weapon pickups) ----------
+const SWORD_FILES = ['sword_1', 'sword_2', 'sword_3', 'sword_4', 'sword_5', 'sword_6', 'sword_7', 'sword_8', 'sword_9'];
+const SWORD_TINTS = [0xcfd6e0, 0xffd24a, 0x9ad6ff, 0xff8c6a, 0xc8a2ff];
+const swordTemplates = [];   // normalized: centered, blade along Y, length 1
+
+{
+  const loader = new GLTFLoader();
+  for (const name of SWORD_FILES) {
+    if (DISABLED_MODELS.has(name)) continue;
+    pendingLoads++;
+    loader.load(`assets/models/${name}.glb`, (gltf) => {
+      const root = gltf.scene;
+      const box = new THREE.Box3().setFromObject(root);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      root.position.set(-center.x, -center.y, -center.z);
+      const inner = new THREE.Group();
+      inner.add(root);
+      // turn the longest axis into Y so the blade stands upright
+      if (size.x >= size.y && size.x >= size.z) inner.rotation.z = -Math.PI / 2;
+      else if (size.z >= size.y && size.z >= size.x) inner.rotation.x = -Math.PI / 2;
+      const wrap = new THREE.Group();
+      wrap.add(inner);
+      wrap.scale.setScalar(1 / Math.max(size.x, size.y, size.z));
+      swordTemplates.push({ holder: wrap, name });
+      loadDone();
+    }, undefined, loadDone);
+  }
+}
+
+function makeSword(tpl) {
+  const sword = tpl.holder.clone(true);
+  const painted = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.6 });
+  const steel = new THREE.MeshStandardMaterial({
+    color: SWORD_TINTS[Math.floor(Math.random() * SWORD_TINTS.length)],
+    roughness: 0.3, metalness: 0.85,
+  });
+  sword.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = true;
+    o.material = o.geometry.getAttribute('color') ? painted : steel;
+  });
+  return sword;
+}
+
 // ---------- player: Ego himself (ported from monster-3d) ----------
 const player = new THREE.Group();
 const ego = new THREE.Group();
@@ -505,7 +550,13 @@ const egoParts = (() => {
   jetpack.visible = false;
   body.add(jetpack);
 
-  return { body, arms, legs, buddy, jetpack, flames, jetGlow };
+  // weapon mount on the right paw — picked-up swords attach here
+  const swordMount = new THREE.Group();
+  swordMount.position.set(0, -0.62, 0.2);
+  swordMount.rotation.x = -0.6;   // blade angled up-forward
+  arms[1].add(swordMount);
+
+  return { body, arms, legs, buddy, jetpack, flames, jetGlow, swordMount };
 })();
 scene.add(player);
 
@@ -571,6 +622,30 @@ function makeObstacle(type, lane, z) {
   obstacles.push({ mesh: g, type, lane, z, height, zHalf });
 }
 
+const swordPickups = [];   // { mesh, lane, taken, tpl }
+let swordsPicked = 0;
+
+function makeSwordPickup(lane, z) {
+  if (!swordTemplates.length) return;
+  const tpl = swordTemplates[Math.floor(Math.random() * swordTemplates.length)];
+  const g = new THREE.Group();
+  const sword = makeSword(tpl);
+  sword.scale.setScalar(1.5);
+  g.add(sword);
+  g.position.set(LANES[lane], 1.2, z);
+  g.rotation.z = 0.35;
+  scene.add(g);
+  swordPickups.push({ mesh: g, lane, taken: false, tpl });
+}
+
+function equipSword(tpl) {
+  while (egoParts.swordMount.children.length) egoParts.swordMount.remove(egoParts.swordMount.children[0]);
+  const sword = makeSword(tpl);
+  sword.scale.setScalar(1.6);
+  sword.position.y = 0.5;   // grip in the paw, blade up
+  egoParts.swordMount.add(sword);
+}
+
 function makeCoin(lane, z) {
   const m = new THREE.Mesh(coinGeo, coinMat);
   m.rotation.z = Math.PI / 2;
@@ -598,6 +673,11 @@ function spawnWave(z) {
     const n = 3 + Math.floor(Math.random() * 3);
     for (let i = 0; i < n; i++) makeCoin(lane, z - i * 2.2);
   }
+  // rare sword pickup in a free lane
+  if (Math.random() < 0.12 && lanes.length) {
+    const lane = lanes[Math.floor(Math.random() * lanes.length)];
+    makeSwordPickup(lane, z - 9);
+  }
 }
 
 // ---------- audio (synthesized, no assets) ----------
@@ -620,6 +700,7 @@ function beep(freq, dur, type = 'square', vol = 0.18, sweepTo = null) {
   o.start(t); o.stop(t + dur);
 }
 const sfx = {
+  sword: () => { beep(900, 0.08, 'sawtooth', 0.1, 2200); setTimeout(() => beep(1400, 0.18, 'sine', 0.12, 2800), 60); },
   jump:  () => beep(300, 0.25, 'square', 0.12, 620),
   slide: () => beep(220, 0.2, 'sawtooth', 0.1, 120),
   coin:  () => { beep(880, 0.09, 'sine', 0.16); setTimeout(() => beep(1320, 0.14, 'sine', 0.16), 70); },
@@ -660,13 +741,17 @@ let sliding = 0;                // time left in slide
 let runTime = 0;
 let best = Number(localStorage.getItem('egoRunBest') || 0);
 
-function score() { return Math.floor(distance * 2 + coinCount * 50); }
+function score() { return Math.floor(distance * 2 + coinCount * 50 + swordsPicked * 150); }
 
 function resetGame() {
   for (const o of obstacles) scene.remove(o.mesh);
   for (const c of coins) scene.remove(c.mesh);
+  for (const p of swordPickups) scene.remove(p.mesh);
   obstacles.length = 0;
   coins.length = 0;
+  swordPickups.length = 0;
+  swordsPicked = 0;
+  while (egoParts.swordMount.children.length) egoParts.swordMount.remove(egoParts.swordMount.children[0]);
   speed = START_SPEED;
   distance = 0;
   coinCount = 0;
@@ -784,6 +869,17 @@ function checkCollisions() {
       sfx.coin();
     }
   }
+  for (const p of swordPickups) {
+    if (p.taken) continue;
+    const pz = p.mesh.position.z;
+    if (Math.abs(pz - PLAYER_Z) < 1.0 && Math.abs(LANES[p.lane] - px) < 0.9 && py < 1.8) {
+      p.taken = true;
+      p.mesh.visible = false;
+      swordsPicked++;
+      equipSword(p.tpl);
+      sfx.sword();
+    }
+  }
   return false;
 }
 
@@ -805,6 +901,10 @@ function animate() {
     for (const c of coins) {
       c.mesh.position.z += speed * dt;
       c.mesh.rotation.y += dt * 5;
+    }
+    for (const p of swordPickups) {
+      p.mesh.position.z += speed * dt;
+      p.mesh.rotation.y += dt * 3.2;
     }
     for (const d of dashes) {
       d.position.z += speed * dt;
@@ -830,6 +930,12 @@ function animate() {
       if (coins[i].mesh.position.z > KILL_Z) {
         scene.remove(coins[i].mesh);
         coins.splice(i, 1);
+      }
+    }
+    for (let i = swordPickups.length - 1; i >= 0; i--) {
+      if (swordPickups[i].mesh.position.z > KILL_Z) {
+        scene.remove(swordPickups[i].mesh);
+        swordPickups.splice(i, 1);
       }
     }
     nextSpawnZ += speed * dt;
@@ -923,7 +1029,9 @@ animate();
 
 // debug introspection (used by automated checks)
 window.__egoDebug = () => ({
-  state, speed, distance, coinCount, py, vy, lane,
-  obstacles: obstacles.length, coins: coins.length,
-  decor: decorTrees.length, treeTpls: treeTemplates.length, vehicleTpls: vehicleTemplates.length,
+  state, speed, distance, coinCount, swordsPicked, py, vy, lane,
+  obstacles: obstacles.length, coins: coins.length, swordsOnRoad: swordPickups.length,
+  swordEquipped: egoParts.swordMount.children.length > 0,
+  decor: decorTrees.length, treeTpls: treeTemplates.length,
+  vehicleTpls: vehicleTemplates.length, swordTpls: swordTemplates.length,
 });

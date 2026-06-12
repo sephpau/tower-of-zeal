@@ -49,7 +49,9 @@ const MODELS = [
   'tree-pyramidal', 'tree-round', 'tree-spreading', 'tree-vase',
   'bicycle', 'bus', 'car_01', 'car_02', 'car_03', 'car_04', 'jeep_01', 'jeep_02',
   'pickup', 'truck_01', 'truck_02', 'truck_03', 'truck_04', 'truck_05',
+  'sword_1', 'sword_2', 'sword_3', 'sword_4', 'sword_5', 'sword_6', 'sword_7', 'sword_8', 'sword_9',
 ];
+const SWORD_TINTS = [0xcfd6e0, 0xffd24a, 0x9ad6ff, 0xff8c6a, 0xc8a2ff];
 const LEAF_COLORS = [0x2ea35e, 0x3ddc97, 0x47b86b, 0x1f8a4c, 0x6fcf6f];
 const BODY_COLORS = [0xff5e7a, 0x4dd0e1, 0xffd24a, 0xb04ddb, 0xf2f2f2, 0xff8c42];
 
@@ -57,8 +59,11 @@ const STORAGE_KEY = 'egoRunDisabledModels';
 const disabled = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
 const ROLES_KEY = 'egoRunModelRoles';
 const roles = JSON.parse(localStorage.getItem(ROLES_KEY) || '{}');
-const roleOf = (n) => roles[n] || (n.startsWith('tree') ? 'design' : 'obstacle');
-const metaText = (r) => r === 'obstacle' ? 'obstacle — spawns on the 3 lanes' : 'design — scenery outside the lanes';
+const isWeapon = (n) => n.startsWith('sword');
+const roleOf = (n) => isWeapon(n) ? 'weapon' : (roles[n] || (n.startsWith('tree') ? 'design' : 'obstacle'));
+const metaText = (r) => r === 'obstacle' ? 'obstacle — spawns on the 3 lanes'
+  : r === 'weapon' ? 'weapon — mounts on Ego’s right hand when picked up'
+  : 'design — scenery outside the lanes';
 
 const grid = document.getElementById('grid');
 const loader = new GLTFLoader();
@@ -93,17 +98,25 @@ for (const name of MODELS) {
   meta.textContent = metaText(roleOf(name));
   const rolesBar = document.createElement('div');
   rolesBar.className = 'roles';
-  for (const r of ['obstacle', 'design']) {
+  if (isWeapon(name)) {
     const b = document.createElement('button');
-    b.textContent = r;
-    b.classList.toggle('active', roleOf(name) === r);
-    b.addEventListener('click', () => {
-      roles[name] = r;
-      localStorage.setItem(ROLES_KEY, JSON.stringify(roles));
-      rolesBar.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
-      meta.textContent = metaText(r);
-    });
+    b.textContent = 'weapon';
+    b.classList.add('active');
+    b.disabled = true;
     rolesBar.append(b);
+  } else {
+    for (const r of ['obstacle', 'design']) {
+      const b = document.createElement('button');
+      b.textContent = r;
+      b.classList.toggle('active', roleOf(name) === r);
+      b.addEventListener('click', () => {
+        roles[name] = r;
+        localStorage.setItem(ROLES_KEY, JSON.stringify(roles));
+        rolesBar.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+        meta.textContent = metaText(r);
+      });
+      rolesBar.append(b);
+    }
   }
   card.append(canvas, label, rolesBar, meta);
   grid.append(card);
@@ -124,9 +137,12 @@ for (const name of MODELS) {
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3b2e, roughness: 0.9 });
     const painted = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 });
     const body = new THREE.MeshStandardMaterial({ color: BODY_COLORS[Math.floor(Math.random() * BODY_COLORS.length)], roughness: 0.6 });
+    const steel = new THREE.MeshStandardMaterial({ color: SWORD_TINTS[Math.floor(Math.random() * SWORD_TINTS.length)], roughness: 0.3, metalness: 0.85 });
     root.traverse((o) => {
       if (!o.isMesh) return;
       if (isTree) o.material = o.name.includes('leaves') ? leafMat : trunkMat;
+      else if (isWeapon(name)) o.material = o.geometry.getAttribute('color')
+        ? new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.6 }) : steel;
       else o.material = o.geometry.getAttribute('color') ? painted : body;
     });
 
