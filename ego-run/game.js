@@ -357,11 +357,12 @@ ego.add(egoModel);
 const egoLimbs = { body: null, armL: null, armR: null, legL: null, legR: null };
 // Cut settings — same shape as the limb editor's "copy settings JSON"
 // (monster-3d). Paste tuned values straight in here.
+// values tuned by hand in the limb editor (monster-3d) on 2026-06-13
 const EGO_CUTS = {
-  yawDeg: -90, pitchDeg: 0, rollDeg: 0,
-  hip: 0.50, legInner: 0,
-  armLo: 0.50, armHi: 0.80, armInner: 0.28,
-  legSwing: 0.7, armSwing: 0.6,
+  yawDeg: -95, pitchDeg: 20, rollDeg: 4,
+  hip: 0.23, legInner: 0.105,
+  armLo: 0.46, armHi: 0.93, armInner: 0.375,
+  legSwing: 0.6, armSwing: 0.6,
   colorMode: 'texture',   // 'texture' keeps the baked skin; 'tint' multiplies colors below onto it
   colors: { body: '#ffffff', armL: '#ffffff', armR: '#ffffff', legL: '#ffffff', legR: '#ffffff' },
 };
