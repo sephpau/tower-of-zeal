@@ -452,6 +452,7 @@ let jetting = false;
 let skating = false;
 let run = 0, jet = 0, skate = 0;  // idle->mode blends, 0..1
 let ollie = -1;                   // ollie progress, -1 = not jumping
+let trip = -1;                    // bail-stumble progress, -1 = not tripping
 let lastT = 0;
 let gx = 0, gz = 0;      // scrolling grid offset
 
@@ -477,6 +478,11 @@ function animate() {
   const op = Math.max(0, ollie);
   const air = Math.sin(Math.PI * op);            // 0 -> 1 -> 0 over the jump
 
+  // bail stumble: 0..1 over ~1s, overlaps the skate->run blend
+  if (trip >= 0) { trip += dt / 1.0; if (trip >= 1) trip = -1; }
+  const tp = Math.max(0, trip);
+  const stumble = trip >= 0 ? Math.sin(Math.PI * tp) : 0;
+
   // idle bounce vs running hops vs airborne hover
   const bounce = Math.sin(t * 3.2);
   const stride = t * 11;
@@ -485,6 +491,9 @@ function animate() {
   const hoverY = 0.95 + Math.sin(t * 1.6) * 0.16 + Math.sin(t * 4.3) * 0.04;
   const skateY = 0.27 + push * 0.04 + air * 1.15;
   chompo.position.y = lerp(lerp(lerp(idleY, hopY, e), skateY, k), hoverY, j);
+  // pitch forward over the feet and dip low while stumbling off the board
+  chompo.rotation.x = stumble * 0.6 * (1 + 0.15 * Math.sin(tp * 18));
+  chompo.position.y = Math.max(0.0, chompo.position.y - 0.1 * stumble);
   body.scale.y = 1 + bounce * 0.025 * (1 - e) * (1 - j) * (1 - k) - Math.cos(stride * 2) * 0.02 * e + air * 0.05 * k;
   body.scale.x = body.scale.z = 1 - bounce * 0.015;
 
@@ -512,12 +521,12 @@ function animate() {
   const armIdle1 = -1.05 - Math.sin(t * 3.2 + 0.4) * 0.12;
   arms[0].rotation.z = lerp(lerp(lerp(armIdle0,  0.6, e),  1.5 + Math.sin(t * 2.0) * 0.12, k),  1.45 + Math.sin(t * 2.2) * 0.08, j);
   arms[1].rotation.z = lerp(lerp(lerp(armIdle1, -0.6, e), -1.5 - Math.sin(t * 2.0 + 0.7) * 0.12, k), -1.45 - Math.sin(t * 2.2 + 0.5) * 0.08, j);
-  arms[0].rotation.x = Math.sin(stride + Math.PI) * 0.85 * e;
-  arms[1].rotation.x = Math.sin(stride) * 0.85 * e;
+  arms[0].rotation.x = Math.sin(stride + Math.PI) * 0.85 * e + Math.sin(tp * 22) * 1.1 * stumble;
+  arms[1].rotation.x = Math.sin(stride) * 0.85 * e + Math.sin(tp * 22 + 2.2) * 1.1 * stumble;
 
   // buddy hangs on — flapping in the wind while airborne
   buddy.rotation.z = -0.15 + Math.sin(t * 3.2 - 0.6) * 0.1 * (1 - e) * (1 - j) + Math.sin(t * 7) * 0.08 * j;
-  buddy.rotation.x = Math.sin(stride - 0.9) * 0.18 * e - 0.2 * j;
+  buddy.rotation.x = Math.sin(stride - 0.9) * 0.18 * e - 0.2 * j + Math.sin(tp * 20) * 0.4 * stumble;
   buddy.position.y = 2.62 + Math.max(0, Math.sin(t * 3.2 - 0.3)) * 0.05 * (1 - e)
                    + Math.abs(Math.sin(stride - 0.5)) * 0.1 * e
                    + Math.sin(Math.PI * Math.max(0, op - 0.12) / 0.88) * 0.22 * k
@@ -582,9 +591,12 @@ function refreshBtns() {
   skateBtn.classList.toggle('on', skating);
 }
 function setMode(mode) {
+  const wasSkating = skating;
   running = mode === 'run' ? !running : false;
   jetting = mode === 'jet' ? !jetting : false;
   skating = mode === 'skate' ? !skating : false;
+  // bailing off the board trips him straight into a sprint
+  if (mode === 'skate' && wasSkating && !skating) { trip = 0; running = true; }
   userInteracted = true;
   refreshBtns();
 }
