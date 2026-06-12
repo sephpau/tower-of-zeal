@@ -35,6 +35,8 @@
   }
   #jetBtn { background: linear-gradient(180deg, #7a6aff, #4a3acd); box-shadow: 0 6px 20px rgba(122, 106, 255, 0.45); }
   #skateBtn { background: linear-gradient(180deg, #4ad0a0, #1a8a70); box-shadow: 0 6px 20px rgba(74, 208, 160, 0.45); }
+  #ollieBtn { background: linear-gradient(180deg, #ffb02e, #e8762e); box-shadow: 0 6px 20px rgba(255, 176, 46, 0.45); }
+  #ollieBtn.hidden { display: none; }
   #btns button:hover { transform: scale(1.06); }
   #btns button.on { background: linear-gradient(180deg, #ffe97a, #ffb02e); color: #4a1230; box-shadow: 0 6px 24px rgba(255, 233, 122, 0.5); }
 </style>
@@ -42,12 +44,13 @@
 <body>
 <div id="label">
   <div class="t">EGO</div>
-  <div class="s">drag to spin &middot; scroll to zoom &middot; R run &middot; J jetpack &middot; S skate</div>
+  <div class="s">drag to spin &middot; scroll to zoom &middot; R run &middot; J jetpack &middot; S skate &middot; space to ollie</div>
 </div>
 <div id="btns">
   <button id="runBtn">&#9654; RUN</button>
   <button id="jetBtn">&#128640; JETPACK</button>
   <button id="skateBtn">&#128756; SKATE</button>
+  <button id="ollieBtn" class="hidden">&#11014; OLLIE</button>
 </div>
 
 <script type="importmap">
@@ -448,6 +451,7 @@ let running = false;     // target states, toggled by the buttons / keyboard
 let jetting = false;
 let skating = false;
 let run = 0, jet = 0, skate = 0;  // idle->mode blends, 0..1
+let ollie = -1;                   // ollie progress, -1 = not jumping
 let lastT = 0;
 let gx = 0, gz = 0;      // scrolling grid offset
 
@@ -468,15 +472,20 @@ function animate() {
   const k = skate * skate * (3 - 2 * skate);
   const push = Math.max(0, Math.sin(t * 2.6));   // kick-push cycle
 
+  // ollie arc: 0..1 over ~0.7s
+  if (ollie >= 0) { ollie += dt / 0.7; if (ollie >= 1) ollie = -1; }
+  const op = Math.max(0, ollie);
+  const air = Math.sin(Math.PI * op);            // 0 -> 1 -> 0 over the jump
+
   // idle bounce vs running hops vs airborne hover
   const bounce = Math.sin(t * 3.2);
   const stride = t * 11;
   const idleY = Math.max(0, bounce) * 0.06;
   const hopY = Math.abs(Math.sin(stride)) * 0.14;
   const hoverY = 0.95 + Math.sin(t * 1.6) * 0.16 + Math.sin(t * 4.3) * 0.04;
-  const skateY = 0.27 + push * 0.04;
+  const skateY = 0.27 + push * 0.04 + air * 1.15;
   chompo.position.y = lerp(lerp(lerp(idleY, hopY, e), skateY, k), hoverY, j);
-  body.scale.y = 1 + bounce * 0.025 * (1 - e) * (1 - j) * (1 - k) - Math.cos(stride * 2) * 0.02 * e;
+  body.scale.y = 1 + bounce * 0.025 * (1 - e) * (1 - j) * (1 - k) - Math.cos(stride * 2) * 0.02 * e + air * 0.05 * k;
   body.scale.x = body.scale.z = 1 - bounce * 0.015;
 
   // eager forward lean while running; cruising tilt while flying; crouch on the board
@@ -490,9 +499,12 @@ function animate() {
   const dangle1 = 0.4 + Math.sin(t * 2.6 + 1.1) * 0.12;
   legs[0].rotation.x = Math.sin(stride) * 0.95 * e + dangle0 * j;
   legs[1].rotation.x = Math.sin(stride + Math.PI) * 0.95 * e + dangle1 * j;
-  // rear foot kicks off sideways along the board while skating
-  legs[0].rotation.z = push * 0.85 * k;
+  // rear foot kicks off sideways along the board while skating;
+  // both legs tuck up mid-ollie
+  legs[0].rotation.z = push * 0.85 * k * (1 - air);
   legs[1].rotation.z = 0;
+  legs[0].rotation.x += -0.4 * air * k;
+  legs[1].rotation.x += -0.4 * air * k;
 
   // arms: sway at rest, pump at a sprint, spread wide superhero-style in the air,
   // out for balance on the board
@@ -508,11 +520,15 @@ function animate() {
   buddy.rotation.x = Math.sin(stride - 0.9) * 0.18 * e - 0.2 * j;
   buddy.position.y = 2.62 + Math.max(0, Math.sin(t * 3.2 - 0.3)) * 0.05 * (1 - e)
                    + Math.abs(Math.sin(stride - 0.5)) * 0.1 * e
+                   + Math.sin(Math.PI * Math.max(0, op - 0.12) / 0.88) * 0.22 * k
                    + body.scale.y - 1;
 
-  // skateboard: pop in under his feet
+  // skateboard: pop in under his feet; nose-up tilt through the ollie
   board.visible = skate > 0.01;
-  if (board.visible) board.scale.setScalar(0.5 + 0.5 * k);
+  if (board.visible) {
+    board.scale.setScalar(0.5 + 0.5 * k);
+    board.rotation.z = 0.5 * air * (1 - 1.4 * op);
+  }
 
   // jetpack: pop in, flicker the flames, glow
   jetpack.visible = jet > 0.01;
@@ -554,7 +570,10 @@ controls.addEventListener('start', () => { userInteracted = true; });
 const runBtn = document.getElementById('runBtn');
 const jetBtn = document.getElementById('jetBtn');
 const skateBtn = document.getElementById('skateBtn');
+const ollieBtn = document.getElementById('ollieBtn');
+function doOllie() { if (skating && ollie < 0) ollie = 0; }
 function refreshBtns() {
+  ollieBtn.classList.toggle('hidden', !skating);
   runBtn.textContent = running ? '■ STOP' : '▶ RUN';
   runBtn.classList.toggle('on', running);
   jetBtn.textContent = jetting ? '■ LAND' : '🚀 JETPACK';
@@ -572,8 +591,14 @@ function setMode(mode) {
 runBtn.addEventListener('click', () => setMode('run'));
 jetBtn.addEventListener('click', () => setMode('jet'));
 skateBtn.addEventListener('click', () => setMode('skate'));
+ollieBtn.addEventListener('click', doOllie);
 addEventListener('keydown', (e) => {
-  if (e.code === 'KeyR' || e.code === 'Space') { e.preventDefault(); setMode('run'); }
+  if (e.code === 'Space' || e.code === 'ArrowUp') {
+    e.preventDefault();
+    if (skating) doOllie(); else if (e.code === 'Space') setMode('run');
+    return;
+  }
+  if (e.code === 'KeyR') { e.preventDefault(); setMode('run'); }
   if (e.code === 'KeyJ') { e.preventDefault(); setMode('jet'); }
   if (e.code === 'KeyS') { e.preventDefault(); setMode('skate'); }
 });
