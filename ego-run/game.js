@@ -361,21 +361,28 @@ const EGO_CUTS = {
   colorMode: 'texture',   // 'texture' keeps the baked skin; 'tint' multiplies colors below onto it
   colors: { body: '#ffffff', armL: '#ffffff', armR: '#ffffff', legL: '#ffffff', legR: '#ffffff' },
 };
-// average color of a material's texture — used to tint the interior fill so it
-// matches whatever the part's skin looks like (slightly darkened for depth)
-function avgColorOf(mat) {
+// fill color for a part's interior: sample the texture at the part's underside
+// (where the sockets are — on the body that's the suit), so the inside is the
+// same color as the skin around the hole
+function fillColorOf(geo, mat) {
   try {
     const img = mat.map && mat.map.image;
     if (!img) return new THREE.Color(0x555066);
+    geo.computeBoundingBox();
+    const bb = geo.boundingBox;
+    const probe = new THREE.Mesh(geo, new THREE.MeshBasicMaterial());
+    const rc = new THREE.Raycaster(
+      new THREE.Vector3((bb.min.x + bb.max.x) / 2, bb.min.y - 1, (bb.min.z + bb.max.z) / 2),
+      new THREE.Vector3(0, 1, 0)
+    );
+    const hit = rc.intersectObject(probe)[0];
+    if (!hit || !hit.uv) return new THREE.Color(0x555066);
     const c = document.createElement('canvas');
-    c.width = c.height = 16;
+    c.width = c.height = 1;
     const x = c.getContext('2d');
-    x.drawImage(img, 0, 0, 16, 16);
-    const d = x.getImageData(0, 0, 16, 16).data;
-    let r = 0, g = 0, b = 0;
-    for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i+1]; b += d[i+2]; }
-    const n = d.length / 4;
-    return new THREE.Color().setRGB(r/n/255 * 0.8, g/n/255 * 0.8, b/n/255 * 0.8, THREE.SRGBColorSpace);
+    x.drawImage(img, Math.floor(hit.uv.x * img.width), Math.floor(hit.uv.y * img.height), 1, 1, 0, 0, 1, 1);
+    const p = x.getImageData(0, 0, 1, 1).data;
+    return new THREE.Color().setRGB(p[0] / 255, p[1] / 255, p[2] / 255, THREE.SRGBColorSpace);
   } catch { return new THREE.Color(0x555066); }
 }
 
@@ -445,7 +452,7 @@ function avgColorOf(mat) {
         grp.add(mesh);
         // back-face copy renders the shell interior as solid color, so the
         // open sockets read as filled instead of holes
-        const fill = new THREE.Mesh(p.geo, new THREE.MeshBasicMaterial({ color: avgColorOf(p.mat), side: THREE.BackSide }));
+        const fill = new THREE.Mesh(p.geo, new THREE.MeshBasicMaterial({ color: fillColorOf(p.geo, p.mat), side: THREE.BackSide }));
         grp.add(fill);
       }
       inner.add(grp);
