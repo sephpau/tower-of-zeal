@@ -349,23 +349,78 @@ const ego = new THREE.Group();
 ego.rotation.y = Math.PI;     // face down the road, away from the camera
 player.add(ego);
 
-// load the GLB model and drop it in as Ego
+// load the GLB and split it into limbs (arms, legs, body) so the rigid sculpt
+// can run. Tripo ships one merged shell, so we re-segment it by spatial region.
 const egoModel = new THREE.Group();
 ego.add(egoModel);
+const egoLimbs = { body: null, armL: null, armR: null, legL: null, legR: null };
+// joint heights as fractions of the model height above the feet; ARM_INNER = how
+// far out (fraction of width) a triangle must sit to count as an arm rather than torso.
+const HIP_FRAC = 0.40, SHOULDER_FRAC = 0.74, ARM_INNER = 0.17;
 {
   const loader = new GLTFLoader();
   loader.load('assets/models/ego.glb', (gltf) => {
     const root = gltf.scene;
+    root.updateWorldMatrix(true, true);
+    // gather every triangle in root-local space
+    const tris = [];
+    root.traverse((o) => {
+      if (!o.isMesh) return;
+      const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      g.applyMatrix4(o.matrixWorld);
+      const p = g.getAttribute('position');
+      for (let i = 0; i < p.count; i += 3)
+        tris.push([p.getX(i), p.getY(i), p.getZ(i), p.getX(i+1), p.getY(i+1), p.getZ(i+1), p.getX(i+2), p.getY(i+2), p.getZ(i+2)]);
+    });
+    // bbox over all triangle verts
+    let minX=Infinity, minY=Infinity, minZ=Infinity, maxX=-Infinity, maxY=-Infinity, maxZ=-Infinity;
+    for (const t of tris) for (let k = 0; k < 9; k += 3) {
+      minX=Math.min(minX,t[k]); maxX=Math.max(maxX,t[k]);
+      minY=Math.min(minY,t[k+1]); maxY=Math.max(maxY,t[k+1]);
+      minZ=Math.min(minZ,t[k+2]); maxZ=Math.max(maxZ,t[k+2]);
+    }
+    const cx=(minX+maxX)/2, cz=(minZ+maxZ)/2, feetY=minY, H=maxY-minY;
+    const hipY = feetY + HIP_FRAC*H, shoulderY = feetY + SHOULDER_FRAC*H, armInner = ARM_INNER*(maxX-minX);
+    // classify each triangle by its centroid into the 5 regions
+    const buckets = { body:[], armL:[], armR:[], legL:[], legR:[] };
+    for (const t of tris) {
+      const my=(t[1]+t[4]+t[7])/3, xr=(t[0]+t[3]+t[6])/3 - cx;
+      let key = 'body';
+      if (my < hipY) key = xr < 0 ? 'legL' : 'legR';
+      else if (my < shoulderY && Math.abs(xr) > armInner) key = xr < 0 ? 'armL' : 'armR';
+      buckets[key].push(t);
+    }
+    const centroidX = (arr) => arr.length ? arr.reduce((s,t)=>s+(t[0]+t[3]+t[6])/3,0)/arr.length : cx;
+    const pivots = {
+      body: [cx, feetY, cz],
+      legL: [centroidX(buckets.legL), hipY, cz], legR: [centroidX(buckets.legR), hipY, cz],
+      armL: [centroidX(buckets.armL), shoulderY, cz], armR: [centroidX(buckets.armR), shoulderY, cz],
+    };
     const EGO_MAT = new THREE.MeshStandardMaterial({ color: 0xd94f5c, roughness: 0.55, metalness: 0.08 });
-    root.traverse((o) => { if (o.isMesh) { o.material = EGO_MAT; o.castShadow = true; o.receiveShadow = true; } });
-    const box = new THREE.Box3().setFromObject(root);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    root.position.set(-center.x, -box.min.y, -center.z);  // feet at y=0, centered on x/z
-    const wrap = new THREE.Group();
-    wrap.add(root);
-    wrap.scale.setScalar(2.4 / size.y);                   // ~2.4 world units tall
-    egoModel.add(wrap);
+    // inner offsets the model to feet=0/centred; container scales it to ~2.4 tall
+    const inner = new THREE.Group();
+    for (const key of Object.keys(buckets)) {
+      const arr = buckets[key];
+      const [px, py, pz] = pivots[key];
+      const pos = new Float32Array(arr.length * 9);
+      for (let i = 0; i < arr.length; i++) for (let k = 0; k < 9; k++) pos[i*9+k] = arr[i][k];
+      for (let i = 0; i < pos.length; i += 3) { pos[i]-=px; pos[i+1]-=py; pos[i+2]-=pz; }  // joint at group origin
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      geo.computeVertexNormals();
+      const mesh = new THREE.Mesh(geo, EGO_MAT);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      const grp = new THREE.Group();
+      grp.position.set(px, py, pz);
+      grp.add(mesh);
+      inner.add(grp);
+      egoLimbs[key] = grp;
+    }
+    inner.position.set(-cx, -feetY, -cz);
+    const container = new THREE.Group();
+    container.add(inner);
+    container.scale.setScalar(2.4 / H);
+    egoModel.add(container);
   });
 }
 

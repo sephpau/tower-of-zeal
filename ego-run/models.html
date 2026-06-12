@@ -50,6 +50,7 @@ const MODELS = [
   'bicycle', 'bus', 'car_01', 'car_02', 'car_03', 'car_04', 'jeep_01', 'jeep_02',
   'pickup', 'truck_01', 'truck_02', 'truck_03', 'truck_04', 'truck_05',
   'sword_1', 'sword_2', 'sword_3', 'sword_4', 'sword_5', 'sword_6', 'sword_7', 'sword_8', 'sword_9',
+  'rock_01', 'rock_02',
 ];
 const SWORD_TINTS = [0xcfd6e0, 0xffd24a, 0x9ad6ff, 0xff8c6a, 0xc8a2ff];
 const LEAF_COLORS = [0x2ea35e, 0x3ddc97, 0x47b86b, 0x1f8a4c, 0x6fcf6f];
@@ -138,8 +139,10 @@ for (const name of MODELS) {
     const painted = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 });
     const body = new THREE.MeshStandardMaterial({ color: BODY_COLORS[Math.floor(Math.random() * BODY_COLORS.length)], roughness: 0.6 });
     const steel = new THREE.MeshStandardMaterial({ color: SWORD_TINTS[Math.floor(Math.random() * SWORD_TINTS.length)], roughness: 0.3, metalness: 0.85 });
+    const isRock = name.startsWith('rock');
     root.traverse((o) => {
       if (!o.isMesh) return;
+      if (isRock) { if (!o.geometry.getAttribute('normal')) o.geometry.computeVertexNormals(); return; }  // keep baked texture
       if (isTree) o.material = o.name.includes('leaves') ? leafMat : trunkMat;
       else if (isWeapon(name)) o.material = o.geometry.getAttribute('color')
         ? new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.6 }) : steel;

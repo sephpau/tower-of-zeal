@@ -12,3 +12,6 @@ src/**/*.js
 .claude
 .env
 .env.local
+
+# raw rock asset archives — only the converted .glb in assets/models is tracked
+ego-run/assets/rock/
