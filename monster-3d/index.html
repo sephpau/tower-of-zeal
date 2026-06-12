@@ -37,7 +37,8 @@
   #skateBtn { background: linear-gradient(180deg, #4ad0a0, #1a8a70); box-shadow: 0 6px 20px rgba(74, 208, 160, 0.45); }
   #ollieBtn { background: linear-gradient(180deg, #ffb02e, #e8762e); box-shadow: 0 6px 20px rgba(255, 176, 46, 0.45); }
   #tuckBtn { background: linear-gradient(180deg, #6a8aff, #3a4acd); box-shadow: 0 6px 20px rgba(106, 138, 255, 0.45); }
-  #ollieBtn.hidden, #tuckBtn.hidden { display: none; }
+  #styleBtn { background: linear-gradient(180deg, #b86aff, #7a3acd); box-shadow: 0 6px 20px rgba(184, 106, 255, 0.45); }
+  #ollieBtn.hidden, #tuckBtn.hidden, #styleBtn.hidden { display: none; }
   #btns button:hover { transform: scale(1.06); }
   #btns button.on { background: linear-gradient(180deg, #ffe97a, #ffb02e); color: #4a1230; box-shadow: 0 6px 24px rgba(255, 233, 122, 0.5); }
 </style>
@@ -53,6 +54,7 @@
   <button id="skateBtn">&#128756; SKATE</button>
   <button id="ollieBtn" class="hidden">&#11014; OLLIE</button>
   <button id="tuckBtn" class="hidden">&#11015; TUCK</button>
+  <button id="styleBtn" class="hidden">&#129528; TOON</button>
 </div>
 
 <script type="importmap">
@@ -64,6 +66,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a0a2e);
@@ -423,6 +426,59 @@ board.position.set(0, -0.03, 0.32);
 board.visible = false;
 chompo.add(board);
 
+// ---------- GLB Ego (user-supplied model, swaps in for the toon body) ----------
+// static mesh (no rig/clips), so modes drive it with whole-body motion
+const glbWrap = new THREE.Group();
+glbWrap.visible = false;
+chompo.add(glbWrap);
+let glbLoaded = false;
+
+new GLTFLoader().load('ego.glb', (gltf) => {
+  const model = gltf.scene;
+  // raw geometry only (no materials/UVs) — give it Ego's red
+  model.traverse((o) => {
+    if (o.isMesh) {
+      o.material = RED;
+      o.castShadow = true;
+    }
+  });
+  // center on x/z, feet to y 0, scale to match the toon's height
+  let bb = new THREE.Box3().setFromObject(model);
+  const size = bb.getSize(new THREE.Vector3());
+  const s = 2.45 / size.y;
+  model.scale.setScalar(s);
+  bb = new THREE.Box3().setFromObject(model);
+  const c = bb.getCenter(new THREE.Vector3());
+  model.position.set(-c.x, -bb.min.y, -c.z);
+  glbWrap.add(model);
+  // park the jetpack mount point against the model's back
+  glbJetpackPos.set(0, (bb.max.y - bb.min.y) * 0.62, bb.min.z - c.z + 0.12);
+  glbLoaded = true;
+  setStyle('glb');
+}, undefined, (err) => console.warn('ego.glb failed to load, keeping toon Ego', err));
+
+// toon <-> glb swap
+const glbJetpackPos = new THREE.Vector3(0, 1.55, -0.95);
+let style = 'toon';
+function setStyle(next) {
+  style = next;
+  const glb = style === 'glb';
+  glbWrap.visible = glb;
+  body.visible = !glb;
+  legs[0].visible = legs[1].visible = !glb;
+  buddy.visible = !glb;
+  // jetpack rides whichever body is active
+  if (glb) {
+    glbWrap.add(jetpack);
+    jetpack.position.copy(glbJetpackPos);
+  } else {
+    body.add(jetpack);
+    jetpack.position.set(0, 0.22, -1.02);
+  }
+  styleBtn.textContent = glb ? '✨ GLB' : '🧸 TOON';
+  styleBtn.classList.remove('hidden');
+}
+
 // ---------- ground ----------
 const ground = new THREE.Mesh(
   new THREE.CircleGeometry(20, 48),
@@ -547,6 +603,15 @@ function animate() {
   buddy.scale.y = 1 - 0.35 * tk;
   buddy.scale.x = buddy.scale.z = 1 + 0.15 * tk;
 
+  // GLB body mirrors the toon body's motion (lean, twist, squash, crouch),
+  // pivoting at the feet
+  if (style === 'glb') {
+    glbWrap.position.y = body.position.y - 1.35;
+    glbWrap.rotation.x = body.rotation.x;
+    glbWrap.rotation.y = body.rotation.y;
+    glbWrap.scale.copy(body.scale);
+  }
+
   // skateboard: pop in under his feet; nose-up tilt through the ollie
   board.visible = skate > 0.01;
   if (board.visible) {
@@ -621,6 +686,8 @@ function setMode(mode) {
 runBtn.addEventListener('click', () => setMode('run'));
 jetBtn.addEventListener('click', () => setMode('jet'));
 skateBtn.addEventListener('click', () => setMode('skate'));
+const styleBtn = document.getElementById('styleBtn');
+styleBtn.addEventListener('click', () => { if (glbLoaded) setStyle(style === 'glb' ? 'toon' : 'glb'); });
 ollieBtn.addEventListener('click', doOllie);
 // hold to tuck: pointer on the button, or held key below
 tuckBtn.addEventListener('pointerdown', () => { tucking = true; });
