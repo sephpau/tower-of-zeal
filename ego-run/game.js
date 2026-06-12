@@ -349,19 +349,14 @@ const ego = new THREE.Group();
 ego.rotation.y = Math.PI;     // face down the road, away from the camera
 player.add(ego);
 
-// load the GLB and split it into limbs (arms, legs, body) so the rigid sculpt
-// can run. Tripo ships merged shells, so we re-segment by spatial region while
-// keeping each triangle's UVs and source texture.
+// The GLB ships as 5 native parts (body + 2 arms + 2 feet) — use them directly
+// as the limbs instead of slicing geometry. Orientation + swing + colors are the
+// only tunables now (same JSON shape as the limb editor's "copy settings").
 const egoModel = new THREE.Group();
 ego.add(egoModel);
 const egoLimbs = { body: null, armL: null, armR: null, legL: null, legR: null };
-// Cut settings — same shape as the limb editor's "copy settings JSON"
-// (monster-3d). Paste tuned values straight in here.
-// values tuned by hand in the limb editor (monster-3d) on 2026-06-13
 const EGO_CUTS = {
   yawDeg: -95, pitchDeg: 20, rollDeg: 4,
-  hip: 0.23, legInner: 0.105,
-  armLo: 0.46, armHi: 0.93, armInner: 0.375,
   legSwing: 0.6, armSwing: 0.6,
   colorMode: 'texture',   // 'texture' keeps the baked skin; 'tint' multiplies colors below onto it
   colors: { body: '#ffffff', armL: '#ffffff', armR: '#ffffff', legL: '#ffffff', legR: '#ffffff' },
@@ -371,105 +366,63 @@ const EGO_CUTS = {
   loader.load('assets/models/ego.glb', (gltf) => {
     const root = gltf.scene;
     root.updateWorldMatrix(true, true);
-    // collect all triangles: positions (rotated upright), UVs, source material
-    const posChunks = [], uvChunks = [], matCounts = [];
-    const srcMaterials = [];
+    // upright rotation: yaw -> pitch -> roll, baked into each part's geometry
+    const d2r = Math.PI / 180;
+    const rot = new THREE.Matrix4().makeRotationZ(EGO_CUTS.rollDeg * d2r)
+      .multiply(new THREE.Matrix4().makeRotationX(EGO_CUTS.pitchDeg * d2r))
+      .multiply(new THREE.Matrix4().makeRotationY(EGO_CUTS.yawDeg * d2r));
+    const parts = [];
     root.traverse((o) => {
       if (!o.isMesh) return;
-      const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      const g = o.geometry.clone();
       g.applyMatrix4(o.matrixWorld);
-      const p = g.getAttribute('position').array;
-      const uv = g.getAttribute('uv') ? g.getAttribute('uv').array : new Float32Array((p.length / 3) * 2);
-      posChunks.push(p);
-      uvChunks.push(uv);
-      matCounts.push(p.length / 9);
-      srcMaterials.push(o.material);
+      g.applyMatrix4(rot);
+      g.computeBoundingBox();
+      parts.push({ geo: g, mat: o.material, box: g.boundingBox.clone(), name: o.name });
     });
-    const total = posChunks.reduce((s, c) => s + c.length, 0);
-    const pos = new Float32Array(total);
-    const uvs = new Float32Array(total / 3 * 2);
-    const triMat = new Uint8Array(total / 9);
-    let o3 = 0, o2 = 0, ot = 0;
-    for (let i = 0; i < posChunks.length; i++) {
-      pos.set(posChunks[i], o3); o3 += posChunks[i].length;
-      uvs.set(uvChunks[i], o2); o2 += uvChunks[i].length;
-      triMat.fill(i, ot, ot + matCounts[i]); ot += matCounts[i];
-    }
-    // rotate upright: yaw -> pitch -> roll (in place)
-    const yaw = EGO_CUTS.yawDeg * Math.PI / 180, pit = EGO_CUTS.pitchDeg * Math.PI / 180, rol = EGO_CUTS.rollDeg * Math.PI / 180;
-    const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pit), sp = Math.sin(pit), cr = Math.cos(rol), sr = Math.sin(rol);
-    let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
-    for (let i = 0; i < pos.length; i += 3) {
-      const x = pos[i], y0 = pos[i+1], z = pos[i+2];
-      let rx = x * cy + z * sy, rz = -x * sy + z * cy, ry = y0;
-      const py_ = ry * cp - rz * sp, pz_ = ry * sp + rz * cp; ry = py_; rz = pz_;
-      const qx_ = rx * cr - ry * sr, qy_ = rx * sr + ry * cr; rx = qx_; ry = qy_;
-      pos[i] = rx; pos[i+1] = ry; pos[i+2] = rz;
-      if (rx<minX)minX=rx; if (rx>maxX)maxX=rx;
-      if (ry<minY)minY=ry; if (ry>maxY)maxY=ry;
-      if (rz<minZ)minZ=rz; if (rz>maxZ)maxZ=rz;
-    }
-    const cx=(minX+maxX)/2, cz=(minZ+maxZ)/2, feetY=minY, H=maxY-minY, W=maxX-minX;
-    const hipY = feetY + EGO_CUTS.hip * H;
-    const armLoY = feetY + EGO_CUTS.armLo * H, armHiY = feetY + EGO_CUTS.armHi * H;
-    const armX = EGO_CUTS.armInner * W, legX = EGO_CUTS.legInner * W;
-    // classify triangles into the 5 regions
-    const idx = { body: [], armL: [], armR: [], legL: [], legR: [] };
-    const triCount = pos.length / 9;
-    for (let tIdx = 0; tIdx < triCount; tIdx++) {
-      const b = tIdx * 9;
-      const my = (pos[b+1] + pos[b+4] + pos[b+7]) / 3;
-      const xr = (pos[b] + pos[b+3] + pos[b+6]) / 3 - cx;
-      let key = 'body';
-      if (my < hipY && Math.abs(xr) > legX) key = xr < 0 ? 'legL' : 'legR';
-      else if (my >= armLoY && my < armHiY && Math.abs(xr) > armX) key = xr < 0 ? 'armL' : 'armR';
-      idx[key].push(tIdx);
-    }
-    const centroidX = (list) => {
-      if (!list.length) return cx;
-      let s = 0;
-      for (const tIdx of list) { const b = tIdx*9; s += (pos[b] + pos[b+3] + pos[b+6]) / 3; }
-      return s / list.length;
-    };
-    const pivots = {
-      body: [cx, feetY, cz],
-      legL: [centroidX(idx.legL), hipY, cz], legR: [centroidX(idx.legR), hipY, cz],
-      armL: [centroidX(idx.armL), armHiY, cz], armR: [centroidX(idx.armR), armHiY, cz],
-    };
-    // build one mesh per (limb, source material) so textures survive the cut
+    if (!parts.length) return;
+    // overall bounds for normalization
+    const all = parts.reduce((b, p) => b.union(p.box), new THREE.Box3());
+    const size = all.getSize(new THREE.Vector3());
+    const cx = (all.min.x + all.max.x) / 2, cz = (all.min.z + all.max.z) / 2;
+    const feetY = all.min.y, H = size.y;
+    // largest part = body; the rest sorted by height: lowest two = legs, then arms.
+    // L/R within each pair by x. Extra parts (if any) ride with the body.
+    const vol = (p) => { const s = p.box.getSize(new THREE.Vector3()); return s.x * s.y * s.z; };
+    parts.sort((a, b) => vol(b) - vol(a));
+    const assign = { body: [parts[0]], armL: [], armR: [], legL: [], legR: [] };
+    const rest = parts.slice(1);
+    const cenY = (p) => (p.box.min.y + p.box.max.y) / 2;
+    const cenX = (p) => (p.box.min.x + p.box.max.x) / 2;
+    rest.sort((a, b) => cenY(a) - cenY(b));
+    const legs = rest.slice(0, 2).sort((a, b) => cenX(a) - cenX(b));
+    const arms = rest.slice(2, 4).sort((a, b) => cenX(a) - cenX(b));
+    if (legs[0]) assign.legL.push(legs[0]);
+    if (legs[1]) assign.legR.push(legs[1]);
+    if (arms[0]) assign.armL.push(arms[0]);
+    if (arms[1]) assign.armR.push(arms[1]);
+    for (const p of rest.slice(4)) assign.body.push(p);
+    // build limb groups pivoted at their joints
     const inner = new THREE.Group();
-    for (const key of Object.keys(idx)) {
-      const [px, py, pz] = pivots[key];
+    for (const key of Object.keys(assign)) {
+      const plist = assign[key];
+      if (!plist.length) { egoLimbs[key] = null; continue; }
+      const joint = plist[0].box;
+      const pivot = key === 'body'
+        ? new THREE.Vector3(cx, feetY, cz)
+        // limbs pivot near the top of the part (shoulder / hip)
+        : new THREE.Vector3(cenX(plist[0]), joint.max.y - (joint.max.y - joint.min.y) * 0.12,
+                            (joint.min.z + joint.max.z) / 2);
       const grp = new THREE.Group();
-      grp.position.set(px, py, pz);
-      const byMat = new Map();
-      for (const tIdx of idx[key]) {
-        const mi = triMat[tIdx];
-        if (!byMat.has(mi)) byMat.set(mi, []);
-        byMat.get(mi).push(tIdx);
-      }
-      for (const [mi, tlist] of byMat) {
-        const arr = new Float32Array(tlist.length * 9);
-        const uvArr = new Float32Array(tlist.length * 6);
-        for (let i = 0; i < tlist.length; i++) {
-          const b = tlist[i] * 9, ub = tlist[i] * 6;
-          for (let k = 0; k < 9; k += 3) {
-            arr[i*9+k]   = pos[b+k]   - px;
-            arr[i*9+k+1] = pos[b+k+1] - py;
-            arr[i*9+k+2] = pos[b+k+2] - pz;
-          }
-          for (let k = 0; k < 6; k++) uvArr[i*6+k] = uvs[ub+k];
-        }
-        const geo = new THREE.BufferGeometry();
-        geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
-        geo.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
-        geo.computeVertexNormals();
-        let material = srcMaterials[mi];
+      grp.position.copy(pivot);
+      for (const p of plist) {
+        p.geo.translate(-pivot.x, -pivot.y, -pivot.z);
+        let material = p.mat;
         if (EGO_CUTS.colorMode === 'tint' && EGO_CUTS.colors?.[key]) {
           material = material.clone();
           material.color.set(EGO_CUTS.colors[key]);
         }
-        const mesh = new THREE.Mesh(geo, material);
+        const mesh = new THREE.Mesh(p.geo, material);
         mesh.castShadow = true; mesh.receiveShadow = true;
         grp.add(mesh);
       }

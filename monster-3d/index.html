@@ -49,26 +49,21 @@
 <body>
 <div id="title">
   <div class="t">EGO — LIMB EDITOR</div>
-  <div class="s">drag to orbit &middot; scroll to zoom</div>
+  <div class="s">native parts &middot; drag to orbit &middot; scroll to zoom</div>
 </div>
 
 <div id="panel">
-  <h3>Cuts</h3>
-  <div class="row"><label>facing yaw&deg;</label><input type="range" id="yaw" min="-180" max="180" step="5" value="-90"><span class="val" id="yawV"></span></div>
-  <div class="row"><label>pitch&deg; (lean)</label><input type="range" id="pitch" min="-45" max="45" step="1" value="0"><span class="val" id="pitchV"></span></div>
-  <div class="row"><label>roll&deg;</label><input type="range" id="roll" min="-45" max="45" step="1" value="0"><span class="val" id="rollV"></span></div>
-  <div class="row"><label>leg top (hip)</label><input type="range" id="hip" min="0.05" max="0.7" step="0.01" value="0.50"><span class="val" id="hipV"></span></div>
-  <div class="row"><label>leg gap width</label><input type="range" id="legInner" min="0" max="0.3" step="0.005" value="0"><span class="val" id="legInnerV"></span></div>
-  <div class="row"><label>arm bottom</label><input type="range" id="armLo" min="0.2" max="0.9" step="0.01" value="0.50"><span class="val" id="armLoV"></span></div>
-  <div class="row"><label>arm top</label><input type="range" id="armHi" min="0.3" max="1.0" step="0.01" value="0.80"><span class="val" id="armHiV"></span></div>
-  <div class="row"><label>arm inner</label><input type="range" id="armInner" min="0.05" max="0.5" step="0.005" value="0.28"><span class="val" id="armInnerV"></span></div>
+  <h3>Orientation</h3>
+  <div class="row"><label>facing yaw&deg;</label><input type="range" id="yaw" min="-180" max="180" step="1" value="-95"><span class="val" id="yawV"></span></div>
+  <div class="row"><label>pitch&deg; (lean)</label><input type="range" id="pitch" min="-45" max="45" step="1" value="20"><span class="val" id="pitchV"></span></div>
+  <div class="row"><label>roll&deg;</label><input type="range" id="roll" min="-45" max="45" step="1" value="4"><span class="val" id="rollV"></span></div>
 
   <h3>Colors</h3>
   <div class="row"><label>display</label>
     <select id="colorMode" style="flex:1;background:#2a1045;color:#fff;border:1px solid #4b2a7a;border-radius:6px;padding:4px;font-family:inherit">
-      <option value="segments">debug segments</option>
       <option value="texture">original texture</option>
       <option value="tint">my colors (tint)</option>
+      <option value="segments">debug segments</option>
     </select>
   </div>
   <div class="row"><label>body</label><input type="color" id="cbody" value="#ffffff"><span style="flex:1"></span></div>
@@ -79,7 +74,7 @@
 
   <h3>Preview</h3>
   <div class="row"><label>run</label><input type="checkbox" id="animate" checked><span style="flex:1"></span></div>
-  <div class="row"><label>leg swing</label><input type="range" id="legSwing" min="0" max="1.2" step="0.05" value="0.7"><span class="val" id="legSwingV"></span></div>
+  <div class="row"><label>leg swing</label><input type="range" id="legSwing" min="0" max="1.2" step="0.05" value="0.6"><span class="val" id="legSwingV"></span></div>
   <div class="row"><label>arm swing</label><input type="range" id="armSwing" min="0" max="1.2" step="0.05" value="0.6"><span class="val" id="armSwingV"></span></div>
   <div class="row"><label>speed</label><input type="range" id="tempo" min="2" max="20" step="0.5" value="13"><span class="val" id="tempoV"></span></div>
 
@@ -146,15 +141,15 @@ scene.add(grid);
 // ---------- params (persisted) ----------
 const PARAMS_KEY = 'egoLimbEditorParams';
 const defaults = {
-  yaw: -90, pitch: 0, roll: 0, hip: 0.50, legInner: 0, armLo: 0.50, armHi: 0.80, armInner: 0.28,
-  legSwing: 0.7, armSwing: 0.6, tempo: 13,
-  colorMode: 'segments',
+  yaw: -95, pitch: 20, roll: 4,
+  legSwing: 0.6, armSwing: 0.6, tempo: 13,
+  colorMode: 'texture',
   colors: { body: '#ffffff', armL: '#ffffff', armR: '#ffffff', legL: '#ffffff', legR: '#ffffff' },
 };
 const stored = JSON.parse(localStorage.getItem(PARAMS_KEY) || '{}');
 const params = { ...defaults, ...stored, colors: { ...defaults.colors, ...(stored.colors || {}) } };
 
-const ids = ['yaw', 'pitch', 'roll', 'hip', 'legInner', 'armLo', 'armHi', 'armInner', 'legSwing', 'armSwing', 'tempo'];
+const ids = ['yaw', 'pitch', 'roll', 'legSwing', 'armSwing', 'tempo'];
 for (const id of ids) {
   const el = document.getElementById(id);
   el.value = params[id];
@@ -163,7 +158,7 @@ for (const id of ids) {
     params[id] = parseFloat(el.value);
     document.getElementById(id + 'V').textContent = el.value;
     localStorage.setItem(PARAMS_KEY, JSON.stringify(params));
-    if (['yaw', 'pitch', 'roll', 'hip', 'legInner', 'armLo', 'armHi', 'armInner'].includes(id)) requestSegment();
+    if (['yaw', 'pitch', 'roll'].includes(id)) requestBuild();
   });
 }
 const animateBox = document.getElementById('animate');
@@ -188,12 +183,9 @@ for (const key of ['body', 'armL', 'armR', 'legL', 'legR']) {
   });
 }
 
-// ---------- model: collect raw triangles once ----------
-let rawTris = null;      // Float32Array, 9 floats per tri (baked node transforms, NO yaw)
-let rawUVs = null;       // Float32Array, 6 floats per tri
-let rawMat = null;       // Uint8Array, source-material index per tri
-const srcMaterials = []; // original textured materials from the GLB
-const holder = new THREE.Group();   // scaled/positioned container
+// ---------- model: native parts ----------
+let rawParts = null;     // [{ geo (baked world, unrotated), mat, name }]
+const holder = new THREE.Group();
 scene.add(holder);
 const limbs = { body: null, armL: null, armR: null, legL: null, legR: null };
 const COLORS = { body: 0xd94f5c, armL: 0x4dd0e1, armR: 0x7a6aff, legL: 0xffe97a, legR: 0x4ad0a0 };
@@ -204,137 +196,82 @@ const stats = document.getElementById('stats');
 new GLTFLoader().load('ego.glb', (gltf) => {
   const root = gltf.scene;
   root.updateWorldMatrix(true, true);
-  const posChunks = [], uvChunks = [], matCounts = [];
+  rawParts = [];
   root.traverse((o) => {
     if (!o.isMesh) return;
-    const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+    const g = o.geometry.clone();
     g.applyMatrix4(o.matrixWorld);
-    const p = g.getAttribute('position').array;
-    const uv = g.getAttribute('uv') ? g.getAttribute('uv').array : new Float32Array((p.length / 3) * 2);
-    posChunks.push(p);
-    uvChunks.push(uv);
-    matCounts.push(p.length / 9);
-    srcMaterials.push(o.material);
+    rawParts.push({ geo: g, mat: o.material, name: o.name });
   });
-  const total = posChunks.reduce((s, c) => s + c.length, 0);
-  rawTris = new Float32Array(total);
-  rawUVs = new Float32Array(total / 3 * 2);
-  rawMat = new Uint8Array(total / 9);
-  let o3 = 0, o2 = 0, ot = 0;
-  for (let i = 0; i < posChunks.length; i++) {
-    rawTris.set(posChunks[i], o3); o3 += posChunks[i].length;
-    rawUVs.set(uvChunks[i], o2); o2 += uvChunks[i].length;
-    rawMat.fill(i, ot, ot + matCounts[i]); ot += matCounts[i];
-  }
-  segment();
+  build();
 }, undefined, (err) => { stats.textContent = 'failed to load ego.glb: ' + err; });
 
-// ---------- segmentation ----------
-let segPending = false;
-function requestSegment() {           // debounce slider storms to one per frame
-  if (segPending) return;
-  segPending = true;
-  requestAnimationFrame(() => { segPending = false; segment(); });
+// ---------- build limb rig from native parts ----------
+let buildPending = false;
+function requestBuild() {
+  if (buildPending) return;
+  buildPending = true;
+  requestAnimationFrame(() => { buildPending = false; build(); });
 }
 
-function segment() {
-  if (!rawTris) return;
-  const yaw = params.yaw * Math.PI / 180;
-  const pitch = params.pitch * Math.PI / 180;
-  const roll = params.roll * Math.PI / 180;
-  const cy = Math.cos(yaw), sy = Math.sin(yaw);
-  const cp = Math.cos(pitch), sp = Math.sin(pitch);
-  const cr = Math.cos(roll), sr = Math.sin(roll);
+function build() {
+  if (!rawParts) return;
+  const d2r = Math.PI / 180;
+  const rot = new THREE.Matrix4().makeRotationZ(params.roll * d2r)
+    .multiply(new THREE.Matrix4().makeRotationX(params.pitch * d2r))
+    .multiply(new THREE.Matrix4().makeRotationY(params.yaw * d2r));
 
-  // pass 1: rotate (yaw -> pitch -> roll), find bbox
-  const n = rawTris.length / 3;
-  const pos = new Float32Array(rawTris.length);
-  let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
-  for (let i = 0; i < n; i++) {
-    const x = rawTris[i*3], y0 = rawTris[i*3+1], z = rawTris[i*3+2];
-    // yaw around Y
-    let rx = x * cy + z * sy, rz = -x * sy + z * cy, ry = y0;
-    // pitch around X (straightens forward/back lean)
-    const py_ = ry * cp - rz * sp, pz_ = ry * sp + rz * cp;
-    ry = py_; rz = pz_;
-    // roll around Z (straightens sideways lean)
-    const qx_ = rx * cr - ry * sr, qy_ = rx * sr + ry * cr;
-    rx = qx_; ry = qy_;
-    pos[i*3] = rx; pos[i*3+1] = ry; pos[i*3+2] = rz;
-    if (rx<minX)minX=rx; if (rx>maxX)maxX=rx;
-    if (ry<minY)minY=ry; if (ry>maxY)maxY=ry;
-    if (rz<minZ)minZ=rz; if (rz>maxZ)maxZ=rz;
-  }
-  const cx=(minX+maxX)/2, cz=(minZ+maxZ)/2, feetY=minY, H=maxY-minY, W=maxX-minX;
-  const hipY = feetY + params.hip * H;
-  const armLoY = feetY + params.armLo * H, armHiY = feetY + params.armHi * H;
-  const armX = params.armInner * W, legX = params.legInner * W;
+  const parts = rawParts.map((p) => {
+    const geo = p.geo.clone();
+    geo.applyMatrix4(rot);
+    geo.computeBoundingBox();
+    return { geo, mat: p.mat, name: p.name, box: geo.boundingBox.clone() };
+  });
+  const all = parts.reduce((b, p) => b.union(p.box), new THREE.Box3());
+  const size = all.getSize(new THREE.Vector3());
+  const cx = (all.min.x + all.max.x) / 2, cz = (all.min.z + all.max.z) / 2;
+  const feetY = all.min.y, H = size.y;
 
-  // pass 2: bucket triangle indices
-  const idx = { body: [], armL: [], armR: [], legL: [], legR: [] };
-  const triCount = n / 3;
-  for (let tIdx = 0; tIdx < triCount; tIdx++) {
-    const b = tIdx * 9;
-    const my = (pos[b+1] + pos[b+4] + pos[b+7]) / 3;
-    const xr = (pos[b] + pos[b+3] + pos[b+6]) / 3 - cx;
-    let key = 'body';
-    if (my < hipY && Math.abs(xr) > legX) key = xr < 0 ? 'legL' : 'legR';
-    else if (my >= armLoY && my < armHiY && Math.abs(xr) > armX) key = xr < 0 ? 'armL' : 'armR';
-    idx[key].push(tIdx);
-  }
+  // largest part = body; rest by height: lowest two = legs, next two = arms; L/R by x
+  const vol = (p) => { const s = p.box.getSize(new THREE.Vector3()); return s.x * s.y * s.z; };
+  parts.sort((a, b) => vol(b) - vol(a));
+  const cenY = (p) => (p.box.min.y + p.box.max.y) / 2;
+  const cenX = (p) => (p.box.min.x + p.box.max.x) / 2;
+  const assign = { body: [parts[0]], armL: [], armR: [], legL: [], legR: [] };
+  const rest = parts.slice(1);
+  rest.sort((a, b) => cenY(a) - cenY(b));
+  const legs = rest.slice(0, 2).sort((a, b) => cenX(a) - cenX(b));
+  const arms = rest.slice(2, 4).sort((a, b) => cenX(a) - cenX(b));
+  if (legs[0]) assign.legL.push(legs[0]);
+  if (legs[1]) assign.legR.push(legs[1]);
+  if (arms[0]) assign.armL.push(arms[0]);
+  if (arms[1]) assign.armR.push(arms[1]);
+  for (const p of rest.slice(4)) assign.body.push(p);
 
-  // pivots: limb centroid x, joint height
-  const centroidX = (list) => {
-    if (!list.length) return cx;
-    let s = 0;
-    for (const tIdx of list) { const b = tIdx*9; s += (pos[b] + pos[b+3] + pos[b+6]) / 3; }
-    return s / list.length;
-  };
-  const pivots = {
-    body: [cx, feetY, cz],
-    legL: [centroidX(idx.legL), hipY, cz], legR: [centroidX(idx.legR), hipY, cz],
-    armL: [centroidX(idx.armL), armHiY, cz], armR: [centroidX(idx.armR), armHiY, cz],
-  };
-
-  // rebuild meshes — one per (limb, source material) so textures survive the cut
   while (holder.children.length) holder.remove(holder.children[0]);
   const inner = new THREE.Group();
   const lines = [];
-  for (const key of Object.keys(idx)) {
-    const list = idx[key];
-    const [px, py, pz] = pivots[key];
+  for (const key of Object.keys(assign)) {
+    const plist = assign[key];
+    if (!plist.length) { limbs[key] = null; continue; }
+    const joint = plist[0].box;
+    const pivot = key === 'body'
+      ? new THREE.Vector3(cx, feetY, cz)
+      : new THREE.Vector3(cenX(plist[0]), joint.max.y - (joint.max.y - joint.min.y) * 0.12,
+                          (joint.min.z + joint.max.z) / 2);
     const grp = new THREE.Group();
-    grp.position.set(px, py, pz);
-    const byMat = new Map();
-    for (const tIdx of list) {
-      const mi = rawMat[tIdx];
-      if (!byMat.has(mi)) byMat.set(mi, []);
-      byMat.get(mi).push(tIdx);
-    }
-    for (const [mi, tlist] of byMat) {
-      const arr = new Float32Array(tlist.length * 9);
-      const uvArr = new Float32Array(tlist.length * 6);
-      for (let i = 0; i < tlist.length; i++) {
-        const b = tlist[i] * 9, ub = tlist[i] * 6;
-        for (let k = 0; k < 9; k += 3) {
-          arr[i*9+k]   = pos[b+k]   - px;
-          arr[i*9+k+1] = pos[b+k+1] - py;
-          arr[i*9+k+2] = pos[b+k+2] - pz;
-        }
-        for (let k = 0; k < 6; k++) uvArr[i*6+k] = rawUVs[ub+k];
-      }
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
-      geo.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
-      geo.computeVertexNormals();
-      const mesh = new THREE.Mesh(geo, srcMaterials[mi]);
-      mesh.userData.matIdx = mi;
+    grp.position.copy(pivot);
+    for (const p of plist) {
+      const geo = p.geo;   // already a per-build clone
+      geo.translate(-pivot.x, -pivot.y, -pivot.z);
+      const mesh = new THREE.Mesh(geo, p.mat);
+      mesh.userData.srcMat = p.mat;
       mesh.castShadow = true; mesh.receiveShadow = true;
       grp.add(mesh);
     }
     inner.add(grp);
     limbs[key] = grp;
-    lines.push(`${key.padEnd(5)} ${String(list.length).padStart(7)} tris`);
+    lines.push(`${key.padEnd(5)} ← ${plist.map(p => p.name).join('+')}`);
   }
   inner.position.set(-cx, -feetY, -cz);
   holder.add(inner);
@@ -343,7 +280,7 @@ function segment() {
   stats.textContent = lines.join('\n');
 }
 
-const tintCache = new Map();   // `${limb}/${matIdx}/${color}` -> tinted clone of the source material
+const tintCache = new Map();
 function applyColors() {
   const mode = params.colorMode;
   for (const key of Object.keys(limbs)) {
@@ -354,15 +291,15 @@ function applyColors() {
         mesh.material = colorMats[key];
       } else if (mode === 'tint') {
         const col = params.colors[key];
-        const ck = `${key}/${mesh.userData.matIdx}/${col}`;
+        const ck = `${key}/${mesh.userData.srcMat.uuid}/${col}`;
         if (!tintCache.has(ck)) {
-          const m = srcMaterials[mesh.userData.matIdx].clone();
+          const m = mesh.userData.srcMat.clone();
           m.color.set(col);
           tintCache.set(ck, m);
         }
         mesh.material = tintCache.get(ck);
       } else {
-        mesh.material = srcMaterials[mesh.userData.matIdx];
+        mesh.material = mesh.userData.srcMat;
       }
     }
   }
@@ -372,8 +309,6 @@ function applyColors() {
 document.getElementById('copy').addEventListener('click', async () => {
   const out = {
     yawDeg: params.yaw, pitchDeg: params.pitch, rollDeg: params.roll,
-    hip: params.hip, legInner: params.legInner,
-    armLo: params.armLo, armHi: params.armHi, armInner: params.armInner,
     legSwing: params.legSwing, armSwing: params.armSwing, tempo: params.tempo,
     colorMode: params.colorMode === 'segments' ? 'texture' : params.colorMode,
     colors: { ...params.colors },
@@ -396,8 +331,8 @@ function animate() {
       holder.position.y = Math.abs(a) * 0.1;
       limbs.legL.rotation.x = a * params.legSwing;
       limbs.legR.rotation.x = -a * params.legSwing;
-      limbs.armL.rotation.x = -a * params.armSwing;
-      limbs.armR.rotation.x = a * params.armSwing;
+      if (limbs.armL) limbs.armL.rotation.x = -a * params.armSwing;
+      if (limbs.armR) limbs.armR.rotation.x = a * params.armSwing;
       limbs.body.rotation.x = -0.06 - Math.sin(stride * 2) * 0.03;
     } else {
       holder.position.y = 0;
