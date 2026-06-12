@@ -721,8 +721,8 @@ function makeSwordPickup(lane, z) {
 function equipSword(tpl) {
   while (egoParts.swordMount.children.length) egoParts.swordMount.remove(egoParts.swordMount.children[0]);
   const sword = makeSword(tpl);
-  sword.scale.setScalar(1.6);
-  sword.position.y = 0.5;   // grip in the paw, blade up
+  sword.scale.setScalar(0.9);
+  sword.position.y = 0.28;   // grip in the paw, blade up
   egoParts.swordMount.add(sword);
   equippedSword = sword;
 }
@@ -745,7 +745,7 @@ function slashObstacle(o) {
     equippedSword.getWorldPosition(wp);
     egoParts.swordMount.remove(equippedSword);
     equippedSword.position.copy(wp);
-    equippedSword.scale.setScalar(1.6 * 0.78); // keep apparent size after reparent from scaled ego
+    equippedSword.scale.setScalar(0.9 * 0.78); // keep apparent size after reparent from scaled ego
     scene.add(equippedSword);
     debris.push({ mesh: equippedSword, vx: 3, vy: 7, vz: 5, spin: 14, life: 0, max: 0.8 });
     equippedSword = null;
@@ -1196,4 +1196,5 @@ window.__egoDebug = () => ({
   __slash: (lane) => { if (swordTemplates.length) equipSword(swordTemplates[0]); const o = obstacles.find(o => o.type === 'crate'); if (o && equippedSword) { slashObstacle(o); return 'slashed ' + o.type; } return 'no crate obstacle'; },
   decor: decorTrees.length, treeTpls: treeTemplates.length,
   vehicleTpls: vehicleTemplates.length, swordTpls: swordTemplates.length,
+  rockTpls: rockTemplates.length,
 });
