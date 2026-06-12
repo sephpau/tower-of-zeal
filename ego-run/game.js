@@ -362,6 +362,8 @@ const EGO_CUTS = {
   hip: 0.50, legInner: 0,
   armLo: 0.50, armHi: 0.80, armInner: 0.28,
   legSwing: 0.7, armSwing: 0.6,
+  colorMode: 'texture',   // 'texture' keeps the baked skin; 'tint' multiplies colors below onto it
+  colors: { body: '#ffffff', armL: '#ffffff', armR: '#ffffff', legL: '#ffffff', legR: '#ffffff' },
 };
 {
   const loader = new GLTFLoader();
@@ -461,7 +463,12 @@ const EGO_CUTS = {
         geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
         geo.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
         geo.computeVertexNormals();
-        const mesh = new THREE.Mesh(geo, srcMaterials[mi]);
+        let material = srcMaterials[mi];
+        if (EGO_CUTS.colorMode === 'tint' && EGO_CUTS.colors?.[key]) {
+          material = material.clone();
+          material.color.set(EGO_CUTS.colors[key]);
+        }
+        const mesh = new THREE.Mesh(geo, material);
         mesh.castShadow = true; mesh.receiveShadow = true;
         grp.add(mesh);
       }

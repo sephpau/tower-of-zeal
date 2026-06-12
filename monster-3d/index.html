@@ -63,9 +63,22 @@
   <div class="row"><label>arm top</label><input type="range" id="armHi" min="0.3" max="1.0" step="0.01" value="0.80"><span class="val" id="armHiV"></span></div>
   <div class="row"><label>arm inner</label><input type="range" id="armInner" min="0.05" max="0.5" step="0.005" value="0.28"><span class="val" id="armInnerV"></span></div>
 
+  <h3>Colors</h3>
+  <div class="row"><label>display</label>
+    <select id="colorMode" style="flex:1;background:#2a1045;color:#fff;border:1px solid #4b2a7a;border-radius:6px;padding:4px;font-family:inherit">
+      <option value="segments">debug segments</option>
+      <option value="texture">original texture</option>
+      <option value="tint">my colors (tint)</option>
+    </select>
+  </div>
+  <div class="row"><label>body</label><input type="color" id="cbody" value="#ffffff"><span style="flex:1"></span></div>
+  <div class="row"><label>arm L</label><input type="color" id="carmL" value="#ffffff"><span style="flex:1"></span></div>
+  <div class="row"><label>arm R</label><input type="color" id="carmR" value="#ffffff"><span style="flex:1"></span></div>
+  <div class="row"><label>leg L</label><input type="color" id="clegL" value="#ffffff"><span style="flex:1"></span></div>
+  <div class="row"><label>leg R</label><input type="color" id="clegR" value="#ffffff"><span style="flex:1"></span></div>
+
   <h3>Preview</h3>
   <div class="row"><label>run</label><input type="checkbox" id="animate" checked><span style="flex:1"></span></div>
-  <div class="row"><label>colorize</label><input type="checkbox" id="colorize" checked><span style="flex:1"></span></div>
   <div class="row"><label>leg swing</label><input type="range" id="legSwing" min="0" max="1.2" step="0.05" value="0.7"><span class="val" id="legSwingV"></span></div>
   <div class="row"><label>arm swing</label><input type="range" id="armSwing" min="0" max="1.2" step="0.05" value="0.6"><span class="val" id="armSwingV"></span></div>
   <div class="row"><label>speed</label><input type="range" id="tempo" min="2" max="20" step="0.5" value="13"><span class="val" id="tempoV"></span></div>
@@ -132,8 +145,14 @@ scene.add(grid);
 
 // ---------- params (persisted) ----------
 const PARAMS_KEY = 'egoLimbEditorParams';
-const defaults = { yaw: -90, pitch: 0, roll: 0, hip: 0.50, legInner: 0, armLo: 0.50, armHi: 0.80, armInner: 0.28, legSwing: 0.7, armSwing: 0.6, tempo: 13 };
-const params = { ...defaults, ...JSON.parse(localStorage.getItem(PARAMS_KEY) || '{}') };
+const defaults = {
+  yaw: -90, pitch: 0, roll: 0, hip: 0.50, legInner: 0, armLo: 0.50, armHi: 0.80, armInner: 0.28,
+  legSwing: 0.7, armSwing: 0.6, tempo: 13,
+  colorMode: 'segments',
+  colors: { body: '#ffffff', armL: '#ffffff', armR: '#ffffff', legL: '#ffffff', legR: '#ffffff' },
+};
+const stored = JSON.parse(localStorage.getItem(PARAMS_KEY) || '{}');
+const params = { ...defaults, ...stored, colors: { ...defaults.colors, ...(stored.colors || {}) } };
 
 const ids = ['yaw', 'pitch', 'roll', 'hip', 'legInner', 'armLo', 'armHi', 'armInner', 'legSwing', 'armSwing', 'tempo'];
 for (const id of ids) {
@@ -148,8 +167,26 @@ for (const id of ids) {
   });
 }
 const animateBox = document.getElementById('animate');
-const colorizeBox = document.getElementById('colorize');
-colorizeBox.addEventListener('change', applyColors);
+
+// color mode + per-limb pickers
+const colorModeSel = document.getElementById('colorMode');
+colorModeSel.value = params.colorMode;
+colorModeSel.addEventListener('change', () => {
+  params.colorMode = colorModeSel.value;
+  localStorage.setItem(PARAMS_KEY, JSON.stringify(params));
+  applyColors();
+});
+for (const key of ['body', 'armL', 'armR', 'legL', 'legR']) {
+  const el = document.getElementById('c' + key);
+  el.value = params.colors[key];
+  el.addEventListener('input', () => {
+    params.colors[key] = el.value;
+    params.colorMode = 'tint';            // picking a color switches to tint view
+    colorModeSel.value = 'tint';
+    localStorage.setItem(PARAMS_KEY, JSON.stringify(params));
+    applyColors();
+  });
+}
 
 // ---------- model: collect raw triangles once ----------
 let rawTris = null;      // Float32Array, 9 floats per tri (baked node transforms, NO yaw)
@@ -306,13 +343,28 @@ function segment() {
   stats.textContent = lines.join('\n');
 }
 
+const tintCache = new Map();   // `${limb}/${matIdx}/${color}` -> tinted clone of the source material
 function applyColors() {
-  const colored = colorizeBox.checked;
+  const mode = params.colorMode;
   for (const key of Object.keys(limbs)) {
     const grp = limbs[key];
     if (!grp) continue;
-    for (const mesh of grp.children)
-      mesh.material = colored ? colorMats[key] : srcMaterials[mesh.userData.matIdx];
+    for (const mesh of grp.children) {
+      if (mode === 'segments') {
+        mesh.material = colorMats[key];
+      } else if (mode === 'tint') {
+        const col = params.colors[key];
+        const ck = `${key}/${mesh.userData.matIdx}/${col}`;
+        if (!tintCache.has(ck)) {
+          const m = srcMaterials[mesh.userData.matIdx].clone();
+          m.color.set(col);
+          tintCache.set(ck, m);
+        }
+        mesh.material = tintCache.get(ck);
+      } else {
+        mesh.material = srcMaterials[mesh.userData.matIdx];
+      }
+    }
   }
 }
 
@@ -323,6 +375,8 @@ document.getElementById('copy').addEventListener('click', async () => {
     hip: params.hip, legInner: params.legInner,
     armLo: params.armLo, armHi: params.armHi, armInner: params.armInner,
     legSwing: params.legSwing, armSwing: params.armSwing, tempo: params.tempo,
+    colorMode: params.colorMode === 'segments' ? 'texture' : params.colorMode,
+    colors: { ...params.colors },
   };
   await navigator.clipboard.writeText(JSON.stringify(out, null, 2));
   const c = document.getElementById('copied');
