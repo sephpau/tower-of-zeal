@@ -187,12 +187,16 @@ function makeTree(tpl, height, leafColor) {
 function plantDecor() {
   const dTrees = treeTemplates.filter(t => roleOf(t.name) === 'design');
   const dVehicles = vehicleTemplates.filter(v => roleOf(v.name) === 'design');
-  if (!dTrees.length && !dVehicles.length) return;
+  const dRocks = rockTemplates.filter(r => roleOf(r.name) === 'design');
+  if (!dTrees.length && !dVehicles.length && !dRocks.length) return;
   for (let i = 0; i < 22; i++) {
+    const roll = Math.random();
     let item;
-    if (dTrees.length && (!dVehicles.length || Math.random() < 0.75)) {
+    if (dTrees.length && (roll < 0.6 || (!dVehicles.length && !dRocks.length))) {
       const tpl = dTrees[Math.floor(Math.random() * dTrees.length)];
       item = makeTree(tpl, 3.5 + Math.random() * 4, LEAF_COLORS[i % LEAF_COLORS.length]);
+    } else if (dRocks.length && (roll < 0.8 || !dVehicles.length)) {
+      item = makeRockFrom(dRocks[Math.floor(Math.random() * dRocks.length)], 1.8 + Math.random() * 2.5).mesh;
     } else {
       const v = makeVehicleFrom(dVehicles[Math.floor(Math.random() * dVehicles.length)]);
       item = v.mesh;
@@ -300,14 +304,76 @@ function makeSword(tpl) {
   return sword;
 }
 
-// ---------- player: Ego himself (ported from monster-3d) ----------
+// ---------- rock models (real textured meshes — keep their own materials) ----------
+const ROCK_FILES = ['rock_01', 'rock_02'];
+const rockTemplates = [];   // { holder, name, nx, nz } — normalized to height 1
+
+{
+  const loader = new GLTFLoader();
+  for (const name of ROCK_FILES) {
+    if (DISABLED_MODELS.has(name)) continue;
+    pendingLoads++;
+    loader.load(`assets/models/${name}.glb`, (gltf) => {
+      const root = gltf.scene;
+      root.traverse((o) => {
+        if (!o.isMesh) return;
+        o.castShadow = true;
+        o.receiveShadow = true;
+        // some packs ship without vertex normals — flat shade looks wrong without them
+        if (!o.geometry.getAttribute('normal')) o.geometry.computeVertexNormals();
+      });
+      const box = new THREE.Box3().setFromObject(root);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      root.position.set(-center.x, -box.min.y, -center.z);  // feet at y=0, centered on x/z
+      const wrap = new THREE.Group();
+      wrap.add(root);
+      wrap.scale.setScalar(1 / size.y);   // normalize: height exactly 1
+      rockTemplates.push({ holder: wrap, name, nx: size.x / size.y, nz: size.z / size.y });
+      loadDone();
+    }, undefined, loadDone);
+  }
+}
+
+// keeps the GLB's baked texture — only scales + spins for variety
+function makeRockFrom(tpl, height) {
+  const rock = tpl.holder.clone(true);
+  rock.scale.multiplyScalar(height);
+  rock.rotation.y = Math.random() * Math.PI * 2;
+  return { mesh: rock, height, zHalf: Math.max(0.5, (tpl.nz * height) / 2) };
+}
+
+// ---------- player: Ego himself (user-supplied GLB) ----------
 const player = new THREE.Group();
 const ego = new THREE.Group();
 ego.rotation.y = Math.PI;     // face down the road, away from the camera
-ego.scale.setScalar(0.78);    // fit the original gameplay hitbox (~2.2 tall)
 player.add(ego);
 
+// load the GLB model and drop it in as Ego
+const egoModel = new THREE.Group();
+ego.add(egoModel);
+{
+  const loader = new GLTFLoader();
+  loader.load('assets/models/ego.glb', (gltf) => {
+    const root = gltf.scene;
+    const EGO_MAT = new THREE.MeshStandardMaterial({ color: 0xd94f5c, roughness: 0.55, metalness: 0.08 });
+    root.traverse((o) => { if (o.isMesh) { o.material = EGO_MAT; o.castShadow = true; o.receiveShadow = true; } });
+    const box = new THREE.Box3().setFromObject(root);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    root.position.set(-center.x, -box.min.y, -center.z);  // feet at y=0, centered on x/z
+    const wrap = new THREE.Group();
+    wrap.add(root);
+    wrap.scale.setScalar(2.4 / size.y);                   // ~2.4 world units tall
+    egoModel.add(wrap);
+  });
+}
+
+// jetpack + sword-mount attach to the real ego; the procedural body below builds
+// into a detached group only to keep that rig code, and is never rendered.
+const egoRig = ego;
 const egoParts = (() => {
+  const ego = new THREE.Group();   // shadow: procedural meshes build here, off-scene
   const mat = (color, rough = 0.65) => new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0.05 });
   const RED      = mat(0xd94f5c);
   const RED_DARK = mat(0xa8323f);
@@ -546,17 +612,17 @@ const egoParts = (() => {
   const jetGlow = new THREE.PointLight(0xff9c4e, 0, 6, 2);
   jetGlow.position.set(0, -0.8, 0);
   jetpack.add(jetGlow);
-  jetpack.position.set(0, 0.22, -1.02);
+  jetpack.position.set(0, 1.25, -0.95);   // mid-back, behind the GLB
   jetpack.visible = false;
-  body.add(jetpack);
+  egoRig.add(jetpack);
 
-  // weapon mount on the right paw — picked-up swords attach here
+  // weapon mount near Ego's right hand — picked-up swords attach here
   const swordMount = new THREE.Group();
-  swordMount.position.set(0, -0.62, 0.2);
+  swordMount.position.set(0.85, 1.15, 0.35);
   swordMount.rotation.x = -0.6;   // blade angled up-forward
-  arms[1].add(swordMount);
+  egoRig.add(swordMount);
 
-  return { body, arms, legs, buddy, jetpack, flames, jetGlow, swordMount };
+  return { model: egoModel, jetpack, flames, jetGlow, swordMount };
 })();
 scene.add(player);
 
@@ -580,12 +646,23 @@ function makeObstacle(type, lane, z) {
   if (type === 'crate') {
     const oVehicles = vehicleTemplates.filter(v => roleOf(v.name) === 'obstacle');
     const oTrees = treeTemplates.filter(t => roleOf(t.name) === 'obstacle');
-    if (oVehicles.length && (Math.random() < 0.7 || !oTrees.length)) {
+    const oRocks = rockTemplates.filter(r => roleOf(r.name) === 'obstacle');
+    const kinds = [];
+    if (oVehicles.length) kinds.push('vehicle', 'vehicle');   // vehicles weighted heavier
+    if (oRocks.length) kinds.push('rock');
+    if (oTrees.length) kinds.push('tree');
+    const kind = kinds.length ? kinds[Math.floor(Math.random() * kinds.length)] : 'box';
+    if (kind === 'vehicle') {
       const v = makeVehicleFrom(oVehicles[Math.floor(Math.random() * oVehicles.length)]);
       g.add(v.mesh);
       height = v.height;
       zHalf = v.zHalf;
-    } else if (oTrees.length) {
+    } else if (kind === 'rock') {
+      const r = makeRockFrom(oRocks[Math.floor(Math.random() * oRocks.length)], 2.0 + Math.random() * 1.2);
+      g.add(r.mesh);
+      height = r.height;
+      zHalf = r.zHalf;
+    } else if (kind === 'tree') {
       height = 2.6 + Math.random() * 0.7;
       const tpl = oTrees[Math.floor(Math.random() * oTrees.length)];
       g.add(makeTree(tpl, height, LEAF_COLORS[Math.floor(Math.random() * LEAF_COLORS.length)]));
@@ -1059,26 +1136,19 @@ function animate() {
       player.rotation.x = 0;
     }
 
-    // Ego's run cycle (jetpack while airborne)
+    // Ego's run motion (rigid GLB): hop bob, forward lean, shoulder roll; jetpack on jumps
     const stride = t * 13;
     const airborne = py > 0.05;
-    ego.position.y = airborne ? 0 : Math.abs(Math.sin(stride)) * 0.12;
-    egoParts.body.rotation.x = airborne ? 0.32 : 0.18;
-    egoParts.legs[0].rotation.x = airborne ? 0.45 : Math.sin(stride) * 0.95;
-    egoParts.legs[1].rotation.x = airborne ? 0.25 : Math.sin(stride + Math.PI) * 0.95;
-    egoParts.arms[0].rotation.z = airborne ? 1.45 : 0.6;
-    egoParts.arms[1].rotation.z = airborne ? -1.45 : -0.6;
-    egoParts.arms[0].rotation.x = Math.sin(stride + Math.PI) * 0.85 * (airborne ? 0.2 : 1);
-    egoParts.arms[1].rotation.x = Math.sin(stride) * 0.85 * (airborne ? 0.2 : 1);
-    // overlay a fast downward chop on the sword arm right after a slash
+    ego.position.y = airborne ? 0.05 : Math.abs(Math.sin(stride)) * 0.12;
+    ego.rotation.x = airborne ? -0.28 : -0.12 - Math.sin(stride * 2) * 0.05;  // lean into the run
+    ego.rotation.z = Math.sin(stride) * 0.06;                                  // subtle shoulder roll
+    egoParts.swordMount.rotation.x = -0.6;
+    // fast downward chop right after a slash
     if (slashTimer > 0) {
       slashTimer -= dt;
       const k = Math.max(0, slashTimer) / 0.32;       // 1 -> 0
-      egoParts.arms[1].rotation.x = -2.4 * Math.sin(k * Math.PI);
-      egoParts.arms[1].rotation.z = -0.6 - 0.8 * (1 - k);
+      egoParts.swordMount.rotation.x = -0.6 - 2.0 * Math.sin(k * Math.PI);
     }
-    egoParts.buddy.rotation.x = Math.sin(stride - 0.9) * 0.18 - (airborne ? 0.2 : 0);
-    egoParts.buddy.rotation.z = -0.15 + (airborne ? Math.sin(t * 7) * 0.08 : 0);
     egoParts.jetpack.visible = airborne;
     if (airborne) {
       for (let i = 0; i < egoParts.flames.length; i++) {
@@ -1101,18 +1171,14 @@ function animate() {
     hudCoins.innerHTML = '&#9679; ' + coinCount;
     hudSword.classList.toggle('hidden', !equippedSword);
   } else {
-    // idle bounce + arm sway on menus
+    // idle bob + slow turntable on menus
     player.rotation.y = Math.sin(t * 0.8) * 0.25;
-    const bounce = Math.sin(t * 3.2);
-    ego.position.y = Math.max(0, bounce) * 0.06;
+    ego.position.y = Math.max(0, Math.sin(t * 3.2)) * 0.06;
+    ego.rotation.x = 0;
+    ego.rotation.z = 0;
     egoParts.jetpack.visible = false;
     egoParts.jetGlow.intensity = 0;
-    egoParts.body.rotation.x = 0;
-    egoParts.arms[0].rotation.x = egoParts.arms[1].rotation.x = 0;
-    egoParts.arms[0].rotation.z = 1.05 + Math.sin(t * 3.2) * 0.12;
-    egoParts.arms[1].rotation.z = -1.05 - Math.sin(t * 3.2 + 0.4) * 0.12;
-    egoParts.legs[0].rotation.x = egoParts.legs[1].rotation.x = 0;
-    egoParts.buddy.rotation.z = -0.15 + Math.sin(t * 3.2 - 0.6) * 0.1;
+    egoParts.swordMount.rotation.x = -0.6;
   }
 
   renderer.render(scene, camera);
