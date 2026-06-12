@@ -22,6 +22,10 @@
   .card input[type=checkbox] { accent-color: #ff5e7a; width: 15px; height: 15px; cursor: pointer; }
   .card.excluded canvas { opacity: 0.25; filter: grayscale(1); }
   .card.excluded .name { color: #888; }
+  .roles { display: flex; margin: 0 12px 8px; border: 1px solid #4b2a7a; border-radius: 8px; overflow: hidden; }
+  .roles button { flex: 1; background: transparent; color: #999; border: none; padding: 6px 0;
+                  font-size: 11px; cursor: pointer; font-family: inherit; letter-spacing: 0.05em; }
+  .roles button.active { background: #ff5e7a; color: #fff; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -51,6 +55,10 @@ const BODY_COLORS = [0xff5e7a, 0x4dd0e1, 0xffd24a, 0xb04ddb, 0xf2f2f2, 0xff8c42]
 
 const STORAGE_KEY = 'egoRunDisabledModels';
 const disabled = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
+const ROLES_KEY = 'egoRunModelRoles';
+const roles = JSON.parse(localStorage.getItem(ROLES_KEY) || '{}');
+const roleOf = (n) => roles[n] || (n.startsWith('tree') ? 'design' : 'obstacle');
+const metaText = (r) => r === 'obstacle' ? 'obstacle — spawns on the 3 lanes' : 'design — scenery outside the lanes';
 
 const grid = document.getElementById('grid');
 const loader = new GLTFLoader();
@@ -82,8 +90,22 @@ for (const name of MODELS) {
   label.append(nameSpan, toggle);
   const meta = document.createElement('div');
   meta.className = 'meta';
-  meta.textContent = name.startsWith('tree') ? 'roadside decor + dodge obstacle' : 'road obstacle (dodge or hop)';
-  card.append(canvas, label, meta);
+  meta.textContent = metaText(roleOf(name));
+  const rolesBar = document.createElement('div');
+  rolesBar.className = 'roles';
+  for (const r of ['obstacle', 'design']) {
+    const b = document.createElement('button');
+    b.textContent = r;
+    b.classList.toggle('active', roleOf(name) === r);
+    b.addEventListener('click', () => {
+      roles[name] = r;
+      localStorage.setItem(ROLES_KEY, JSON.stringify(roles));
+      rolesBar.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+      meta.textContent = metaText(r);
+    });
+    rolesBar.append(b);
+  }
+  card.append(canvas, label, rolesBar, meta);
   grid.append(card);
 
   loader.load(`assets/models/${name}.glb`, (gltf) => {

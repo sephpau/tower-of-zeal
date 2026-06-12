@@ -128,6 +128,9 @@ const buildings = [];
 
 // models unchecked in the gallery (models.html) don't spawn
 const DISABLED_MODELS = new Set(JSON.parse(localStorage.getItem('egoRunDisabledModels') || '[]'));
+// per-model role set in the gallery: 'obstacle' spawns on the 3 lanes, 'design' is roadside scenery
+const MODEL_ROLES = JSON.parse(localStorage.getItem('egoRunModelRoles') || '{}');
+const roleOf = (name) => MODEL_ROLES[name] || (name.startsWith('tree') ? 'design' : 'obstacle');
 
 // ---------- tree models (Blender exports) ----------
 const TREE_FILES = [
@@ -139,10 +142,15 @@ const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3b2e, roughness: 0.
 const treeTemplates = [];   // normalized: base at y=0, height 1
 const decorTrees = [];
 
+// decor is planted once every enabled model has finished (or failed) loading
+let pendingLoads = 0;
+function loadDone() { if (--pendingLoads === 0) plantDecor(); }
+
 {
   const loader = new GLTFLoader();
   for (const name of TREE_FILES) {
     if (DISABLED_MODELS.has(name)) continue;
+    pendingLoads++;
     loader.load(`assets/models/${name}.glb`, (gltf) => {
       const root = gltf.scene;
       // strip helper geometry (tree-vase ships a ground plane)
@@ -157,15 +165,14 @@ const decorTrees = [];
       wrap.scale.setScalar(1 / size.y);
       const holder = new THREE.Group();
       holder.add(wrap);
-      treeTemplates.push(holder);
-      if (treeTemplates.length === 1) plantDecorTrees();
-    });
+      treeTemplates.push({ holder, name });
+      loadDone();
+    }, undefined, loadDone);
   }
 }
 
-function makeTree(height, leafColor) {
-  const tpl = treeTemplates[Math.floor(Math.random() * treeTemplates.length)];
-  const tree = tpl.clone(true);
+function makeTree(tpl, height, leafColor) {
+  const tree = tpl.holder.clone(true);
   const leafMat = new THREE.MeshStandardMaterial({ color: leafColor, roughness: 0.8 });
   tree.traverse((o) => {
     if (!o.isMesh) return;
@@ -177,13 +184,25 @@ function makeTree(height, leafColor) {
   return tree;
 }
 
-function plantDecorTrees() {
+function plantDecor() {
+  const dTrees = treeTemplates.filter(t => roleOf(t.name) === 'design');
+  const dVehicles = vehicleTemplates.filter(v => roleOf(v.name) === 'design');
+  if (!dTrees.length && !dVehicles.length) return;
   for (let i = 0; i < 22; i++) {
-    const t = makeTree(3.5 + Math.random() * 4, LEAF_COLORS[i % LEAF_COLORS.length]);
+    let item;
+    if (dTrees.length && (!dVehicles.length || Math.random() < 0.75)) {
+      const tpl = dTrees[Math.floor(Math.random() * dTrees.length)];
+      item = makeTree(tpl, 3.5 + Math.random() * 4, LEAF_COLORS[i % LEAF_COLORS.length]);
+    } else {
+      const v = makeVehicleFrom(dVehicles[Math.floor(Math.random() * dVehicles.length)]);
+      item = v.mesh;
+      item.scale.multiplyScalar(1.25);
+      item.rotation.y += (Math.random() - 0.5) * 0.5;
+    }
     const side = i % 2 === 0 ? -1 : 1;
-    t.position.set(side * (6.8 + Math.random() * 3.5), 0, -i * 15 - Math.random() * 8);
-    scene.add(t);
-    decorTrees.push(t);
+    item.position.set(side * (6.8 + Math.random() * 3.5), 0, -i * 15 - Math.random() * 8);
+    scene.add(item);
+    decorTrees.push(item);
   }
 }
 
@@ -199,6 +218,7 @@ const vehicleTemplates = [];   // { tpl, height } — oriented along road, lane-
   const loader = new GLTFLoader();
   for (const name of VEHICLE_FILES) {
     if (DISABLED_MODELS.has(name)) continue;
+    pendingLoads++;
     loader.load(`assets/models/${name}.glb`, (gltf) => {
       const root = gltf.scene;
       const box = new THREE.Box3().setFromObject(root);
@@ -214,13 +234,13 @@ const vehicleTemplates = [];   // { tpl, height } — oriented along road, lane-
       const wrap = new THREE.Group();
       wrap.add(inner);
       wrap.scale.setScalar(s);
-      vehicleTemplates.push({ tpl: wrap, height: size.y * s, zHalf: (length * s) / 2 });
-    });
+      vehicleTemplates.push({ tpl: wrap, height: size.y * s, zHalf: (length * s) / 2, name });
+      loadDone();
+    }, undefined, loadDone);
   }
 }
 
-function makeVehicle() {
-  const v = vehicleTemplates[Math.floor(Math.random() * vehicleTemplates.length)];
+function makeVehicleFrom(v) {
   const mesh = v.tpl.clone(true);
   const painted = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 });
   const body = new THREE.MeshStandardMaterial({
@@ -235,63 +255,258 @@ function makeVehicle() {
   return { mesh, height: v.height, zHalf: v.zHalf };
 }
 
-// ---------- player: the Ego ----------
+// ---------- player: Ego himself (ported from monster-3d) ----------
 const player = new THREE.Group();
-const playerParts = {};
-{
-  const skin = new THREE.MeshStandardMaterial({ color: 0xffc78f, roughness: 0.7 });
-  const suit = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.4, metalness: 0.1 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3 });
-  const gold = new THREE.MeshStandardMaterial({ color: 0xffd24a, roughness: 0.25, metalness: 0.9 });
+const ego = new THREE.Group();
+ego.rotation.y = Math.PI;     // face down the road, away from the camera
+ego.scale.setScalar(0.78);    // fit the original gameplay hitbox (~2.2 tall)
+player.add(ego);
 
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 0.7, 6, 14), suit);
-  body.position.y = 0.95;
-  body.castShadow = true;
-  player.add(body);
-  playerParts.body = body;
+const egoParts = (() => {
+  const mat = (color, rough = 0.65) => new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0.05 });
+  const RED      = mat(0xd94f5c);
+  const RED_DARK = mat(0xa8323f);
+  const WHITE    = mat(0xf2ede4, 0.8);
+  const GOLD     = mat(0xe8a93c, 0.45);
+  const HORN     = mat(0x8a4a2a, 0.6);
+  const PURPLE   = mat(0x4a2a6a, 0.4);
+  const MAGENTA  = mat(0xc04a8a, 0.55);
+  const DARKMOUTH= mat(0x3a1228, 0.9);
+  const BLACK    = mat(0x2a1020, 0.9);
+  const sphere = (r, m, sx = 1, sy = 1, sz = 1) => {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 18), m);
+    s.scale.set(sx, sy, sz);
+    s.castShadow = true;
+    return s;
+  };
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 18, 14), skin);
-  head.position.y = 1.85;
-  head.castShadow = true;
-  player.add(head);
-  playerParts.head = head;
+  // the whole body is one egg: white base + red "hood" dome on top
+  const body = new THREE.Group();
+  body.position.y = 1.35;
+  ego.add(body);
+  body.add(sphere(1.0, WHITE, 1.0, 1.12, 0.92));
+  const hood = new THREE.Mesh(
+    new THREE.SphereGeometry(1.03, 32, 24, 0, Math.PI * 2, 0, Math.PI * 0.58), RED);
+  hood.scale.set(1.0, 1.12, 0.92);
+  hood.castShadow = true;
+  body.add(hood);
+  // zigzag trim where red meets white (front)
+  const trim = new THREE.Group();
+  for (let i = 0; i < 10; i++) {
+    const a = -0.9 + i * 0.2;
+    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.18, 4), RED);
+    tooth.position.set(Math.sin(a) * 0.99, -0.18, Math.cos(a) * 0.91);
+    tooth.rotation.x = Math.PI;
+    tooth.lookAt(0, -2.5, 0);
+    trim.add(tooth);
+  }
+  trim.position.y = -0.16;
+  body.add(trim);
 
-  // pompadour hair
-  const hair = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.28, 0.55), dark);
-  hair.position.set(0, 2.12, 0.02);
-  player.add(hair);
-  playerParts.hair = hair;
+  // face
+  const face = new THREE.Group();
+  face.position.set(0, 0.42, 0.66);
+  body.add(face);
+  function makeEye(side) {
+    const g = new THREE.Group();
+    g.add(sphere(0.26, PURPLE, 1, 1.05, 0.5));
+    const star = new THREE.Group();
+    const spikeV = new THREE.Mesh(new THREE.OctahedronGeometry(0.11), GOLD);
+    spikeV.scale.set(0.35, 1.0, 0.35);
+    const spikeH = spikeV.clone();
+    spikeH.rotation.z = Math.PI / 2;
+    star.add(spikeV, spikeH);
+    star.position.z = 0.12;
+    g.add(star);
+    const glint = sphere(0.045, mat(0xffffff, 0.2));
+    glint.position.set(0.08, 0.1, 0.13);
+    g.add(glint);
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.07, 0.06), GOLD);
+    brow.position.set(0, 0.3, -0.02);
+    brow.rotation.z = side * -0.45;
+    g.add(brow);
+    g.position.set(side * 0.42, 0.05, 0.12);
+    g.rotation.y = side * 0.35;
+    return g;
+  }
+  face.add(makeEye(-1), makeEye(1));
+  const browStar = new THREE.Group();
+  {
+    const v = new THREE.Mesh(new THREE.OctahedronGeometry(0.09), GOLD);
+    v.scale.set(0.35, 1, 0.35);
+    const h = v.clone(); h.rotation.z = Math.PI / 2;
+    browStar.add(v, h);
+  }
+  browStar.position.set(0, 0.42, -0.06);
+  face.add(browStar);
+  const mouth = sphere(0.3, DARKMOUTH, 1.15, 0.55, 0.4);
+  mouth.position.set(0, -0.42, 0.22);
+  face.add(mouth);
+  for (const s of [-1, 1]) {
+    const fang = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 8), WHITE);
+    fang.position.set(s * 0.18, -0.36, 0.36);
+    face.add(fang);
+  }
+  const tongue = sphere(0.1, mat(0xe06a8a, 0.5), 1.2, 0.6, 0.8);
+  tongue.position.set(0, -0.5, 0.32);
+  face.add(tongue);
 
-  // sunglasses (facing camera-away, -z)
-  const shades = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.13, 0.1), dark);
-  shades.position.set(0, 1.9, -0.3);
-  player.add(shades);
-  playerParts.shades = shades;
-
-  // gold chain
-  const chain = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.045, 8, 20), gold);
-  chain.position.set(0, 1.45, 0);
-  chain.rotation.x = Math.PI / 2.4;
-  player.add(chain);
-  playerParts.chain = chain;
+  // horns
+  for (const s of [-1, 1]) {
+    const horn = new THREE.Group();
+    const base = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.42, 16), RED_DARK);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.2, 16), HORN);
+    tip.position.y = 0.18;
+    horn.add(base, tip);
+    horn.position.set(s * 0.68, 1.12, 0.12);
+    horn.rotation.z = s * -0.5;
+    horn.children.forEach(c => c.castShadow = true);
+    body.add(horn);
+  }
 
   // arms
-  for (const side of [-1, 1]) {
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.5, 4, 8), suit);
-    arm.position.set(side * 0.55, 1.05, 0);
-    arm.castShadow = true;
-    player.add(arm);
-    playerParts[side === -1 ? 'armL' : 'armR'] = arm;
+  const arms = [];
+  for (const s of [-1, 1]) {
+    const arm = new THREE.Group();
+    const upper = sphere(0.21, WHITE, 1, 1.7, 1);
+    upper.position.y = -0.25;
+    arm.add(upper);
+    const paw = sphere(0.23, WHITE);
+    paw.position.y = -0.62;
+    arm.add(paw);
+    const pad = sphere(0.1, GOLD, 1, 1, 0.5);
+    pad.position.set(0, -0.62, 0.17);
+    arm.add(pad);
+    arm.position.set(s * 1.02, 0.05, 0.15);
+    arm.rotation.z = s * 1.05;
+    body.add(arm);
+    arms.push(arm);
   }
+
   // legs
-  for (const side of [-1, 1]) {
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.13, 0.45, 4, 8), dark);
-    leg.position.set(side * 0.2, 0.35, 0);
-    leg.castShadow = true;
-    player.add(leg);
-    playerParts[side === -1 ? 'legL' : 'legR'] = leg;
+  const legs = [];
+  for (const s of [-1, 1]) {
+    const leg = new THREE.Group();
+    leg.add(sphere(0.3, WHITE, 1, 1.25, 1));
+    const foot = sphere(0.3, WHITE, 1.15, 0.7, 1.35);
+    foot.position.set(0, -0.42, 0.12);
+    leg.add(foot);
+    const pad = sphere(0.11, GOLD, 1, 0.5, 1);
+    pad.position.set(0, -0.6, 0.3);
+    leg.add(pad);
+    leg.position.set(s * 0.52, 0.62, 0.32);
+    ego.add(leg);
+    legs.push(leg);
   }
-}
+
+  // gold belly spots
+  for (const s of [-1, 1]) {
+    const spot = sphere(0.13, GOLD, 1, 1, 0.45);
+    spot.position.set(s * 0.38, -0.62, 0.66);
+    spot.lookAt(s * 1.2, -1.4, 2.6);
+    body.add(spot);
+  }
+  // claw scratch + stitches on the back
+  for (let i = -1; i <= 1; i++) {
+    const slash = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.5, 0.04), RED_DARK);
+    slash.position.set(i * 0.17, 0.55 + Math.abs(i) * -0.06, -0.82);
+    slash.rotation.x = -0.35;
+    slash.rotation.z = i * 0.12;
+    body.add(slash);
+  }
+  for (let i = 0; i < 3; i++) {
+    const st = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.035, 0.03), BLACK);
+    st.position.set(0, 0.95 - i * 0.12, -0.46 - i * 0.07);
+    st.rotation.x = -0.5;
+    body.add(st);
+  }
+  // purple diamond flowers on the rear
+  function diamondFlower(x, y, scale) {
+    const g = new THREE.Group();
+    const outer = new THREE.Mesh(new THREE.OctahedronGeometry(0.16), MAGENTA);
+    outer.scale.set(1, 1.25, 0.35);
+    const inner = new THREE.Mesh(new THREE.OctahedronGeometry(0.09), PURPLE);
+    inner.scale.set(1, 1.25, 0.4);
+    inner.position.z = -0.03;
+    const dot = sphere(0.035, GOLD);
+    dot.position.z = -0.07;
+    g.add(outer, inner, dot);
+    g.position.set(x, y, -0.78);
+    g.rotation.x = 0.35;
+    g.scale.setScalar(scale);
+    return g;
+  }
+  body.add(diamondFlower(0.22, -0.55, 1.0));
+  body.add(diamondFlower(-0.12, -0.72, 0.8));
+
+  // head buddy: little magenta blob
+  const buddy = new THREE.Group();
+  buddy.add(sphere(0.3, MAGENTA, 1, 1.15, 0.95));
+  const blobTop = sphere(0.12, MAGENTA, 1, 1.4, 1);
+  blobTop.position.set(0.05, 0.32, 0);
+  blobTop.rotation.z = -0.4;
+  buddy.add(blobTop);
+  for (const s of [-1, 1]) {
+    const eye = sphere(0.05, PURPLE, 1, 1.4, 0.5);
+    eye.position.set(s * 0.12, 0.02, 0.27);
+    buddy.add(eye);
+  }
+  const buddyMouth = sphere(0.05, DARKMOUTH, 1.4, 0.5, 0.5);
+  buddyMouth.position.set(0, -0.12, 0.28);
+  buddy.add(buddyMouth);
+  for (const [x, y] of [[0.18, 0.18], [-0.15, 0.22]]) {
+    const sp = sphere(0.05, mat(0x8a2a5a, 0.6), 1, 1, 0.4);
+    sp.position.set(x, y, 0.26);
+    buddy.add(sp);
+  }
+  buddy.position.set(0.12, 2.62, 0.1);
+  buddy.rotation.z = -0.15;
+  ego.add(buddy);
+
+  // jetpack — pops on while airborne
+  const jetpack = new THREE.Group();
+  const METAL = new THREE.MeshStandardMaterial({ color: 0x9aa4b8, roughness: 0.35, metalness: 0.8 });
+  const METAL_DARK = new THREE.MeshStandardMaterial({ color: 0x4a5468, roughness: 0.5, metalness: 0.7 });
+  const flames = [];
+  for (const s of [-1, 1]) {
+    const tank = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.55, 8, 16), METAL);
+    tank.position.set(s * 0.3, 0, 0);
+    tank.castShadow = true;
+    jetpack.add(tank);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.225, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), RED);
+    cap.position.set(s * 0.3, 0.28, 0);
+    jetpack.add(cap);
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.2, 0.22, 16), METAL_DARK);
+    nozzle.position.set(s * 0.3, -0.48, 0);
+    jetpack.add(nozzle);
+    const flame = new THREE.Group();
+    const outer = new THREE.Mesh(
+      new THREE.ConeGeometry(0.16, 0.7, 16),
+      new THREE.MeshBasicMaterial({ color: 0xff8c2e, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false }));
+    outer.rotation.x = Math.PI;
+    outer.position.y = -0.35;
+    const core = new THREE.Mesh(
+      new THREE.ConeGeometry(0.08, 0.45, 12),
+      new THREE.MeshBasicMaterial({ color: 0xffe97a, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
+    core.rotation.x = Math.PI;
+    core.position.y = -0.22;
+    flame.add(outer, core);
+    flame.position.set(s * 0.3, -0.58, 0);
+    jetpack.add(flame);
+    flames.push(flame);
+  }
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.18, 0.12), METAL_DARK);
+  bar.position.set(0, 0.05, 0.12);
+  jetpack.add(bar);
+  const jetGlow = new THREE.PointLight(0xff9c4e, 0, 6, 2);
+  jetGlow.position.set(0, -0.8, 0);
+  jetpack.add(jetGlow);
+  jetpack.position.set(0, 0.22, -1.02);
+  jetpack.visible = false;
+  body.add(jetpack);
+
+  return { body, arms, legs, buddy, jetpack, flames, jetGlow };
+})();
 scene.add(player);
 
 // ---------- obstacles & coins ----------
@@ -312,14 +527,17 @@ function makeObstacle(type, lane, z) {
   let height = 99;   // blocking height for 'crate'-type obstacles (jump clears ~2.5)
   let zHalf = 0.6;   // half-length along the road, for collision + standing on top
   if (type === 'crate') {
-    if (vehicleTemplates.length && (Math.random() < 0.7 || !treeTemplates.length)) {
-      const v = makeVehicle();
+    const oVehicles = vehicleTemplates.filter(v => roleOf(v.name) === 'obstacle');
+    const oTrees = treeTemplates.filter(t => roleOf(t.name) === 'obstacle');
+    if (oVehicles.length && (Math.random() < 0.7 || !oTrees.length)) {
+      const v = makeVehicleFrom(oVehicles[Math.floor(Math.random() * oVehicles.length)]);
       g.add(v.mesh);
       height = v.height;
       zHalf = v.zHalf;
-    } else if (treeTemplates.length) {
+    } else if (oTrees.length) {
       height = 2.6 + Math.random() * 0.7;
-      g.add(makeTree(height, LEAF_COLORS[Math.floor(Math.random() * LEAF_COLORS.length)]));
+      const tpl = oTrees[Math.floor(Math.random() * oTrees.length)];
+      g.add(makeTree(tpl, height, LEAF_COLORS[Math.floor(Math.random() * LEAF_COLORS.length)]));
     } else {
       const m = new THREE.Mesh(new THREE.BoxGeometry(1.9, 2.4, 1.2), crateMat);
       m.position.y = 1.2;
@@ -649,17 +867,29 @@ function animate() {
       player.rotation.x = 0;
     }
 
-    // run animation
-    const bob = Math.sin(t * 14) * 0.05;
-    playerParts.body.position.y = 0.95 + bob;
-    playerParts.head.position.y = 1.85 + bob;
-    playerParts.hair.position.y = 2.12 + bob;
-    playerParts.shades.position.y = 1.9 + bob;
-    playerParts.chain.position.y = 1.45 + bob;
-    playerParts.armL.rotation.x = Math.sin(t * 14) * 0.9;
-    playerParts.armR.rotation.x = -Math.sin(t * 14) * 0.9;
-    playerParts.legL.rotation.x = -Math.sin(t * 14) * 1.1;
-    playerParts.legR.rotation.x = Math.sin(t * 14) * 1.1;
+    // Ego's run cycle (jetpack while airborne)
+    const stride = t * 13;
+    const airborne = py > 0.05;
+    ego.position.y = airborne ? 0 : Math.abs(Math.sin(stride)) * 0.12;
+    egoParts.body.rotation.x = airborne ? 0.32 : 0.18;
+    egoParts.legs[0].rotation.x = airborne ? 0.45 : Math.sin(stride) * 0.95;
+    egoParts.legs[1].rotation.x = airborne ? 0.25 : Math.sin(stride + Math.PI) * 0.95;
+    egoParts.arms[0].rotation.z = airborne ? 1.45 : 0.6;
+    egoParts.arms[1].rotation.z = airborne ? -1.45 : -0.6;
+    egoParts.arms[0].rotation.x = Math.sin(stride + Math.PI) * 0.85 * (airborne ? 0.2 : 1);
+    egoParts.arms[1].rotation.x = Math.sin(stride) * 0.85 * (airborne ? 0.2 : 1);
+    egoParts.buddy.rotation.x = Math.sin(stride - 0.9) * 0.18 - (airborne ? 0.2 : 0);
+    egoParts.buddy.rotation.z = -0.15 + (airborne ? Math.sin(t * 7) * 0.08 : 0);
+    egoParts.jetpack.visible = airborne;
+    if (airborne) {
+      for (let i = 0; i < egoParts.flames.length; i++) {
+        const fl = 0.75 + Math.sin(t * 31 + i * 2.1) * 0.15 + Math.sin(t * 47 + i) * 0.1;
+        egoParts.flames[i].scale.set(1, fl, 1);
+      }
+      egoParts.jetGlow.intensity = 2.2 + Math.sin(t * 37) * 0.6;
+    } else {
+      egoParts.jetGlow.intensity = 0;
+    }
 
     // camera sway with lane + slight speed shake
     camera.position.x += (player.position.x * 0.55 - camera.position.x) * 4 * dt;
@@ -671,11 +901,18 @@ function animate() {
     hudScore.textContent = score().toLocaleString();
     hudCoins.innerHTML = '&#9679; ' + coinCount;
   } else {
-    // idle swagger on menus
+    // idle bounce + arm sway on menus
     player.rotation.y = Math.sin(t * 0.8) * 0.25;
-    const bob = Math.sin(t * 2) * 0.03;
-    playerParts.body.position.y = 0.95 + bob;
-    playerParts.head.position.y = 1.85 + bob;
+    const bounce = Math.sin(t * 3.2);
+    ego.position.y = Math.max(0, bounce) * 0.06;
+    egoParts.jetpack.visible = false;
+    egoParts.jetGlow.intensity = 0;
+    egoParts.body.rotation.x = 0;
+    egoParts.arms[0].rotation.x = egoParts.arms[1].rotation.x = 0;
+    egoParts.arms[0].rotation.z = 1.05 + Math.sin(t * 3.2) * 0.12;
+    egoParts.arms[1].rotation.z = -1.05 - Math.sin(t * 3.2 + 0.4) * 0.12;
+    egoParts.legs[0].rotation.x = egoParts.legs[1].rotation.x = 0;
+    egoParts.buddy.rotation.z = -0.15 + Math.sin(t * 3.2 - 0.6) * 0.1;
   }
 
   renderer.render(scene, camera);
@@ -683,3 +920,10 @@ function animate() {
 
 resetGame();
 animate();
+
+// debug introspection (used by automated checks)
+window.__egoDebug = () => ({
+  state, speed, distance, coinCount, py, vy, lane,
+  obstacles: obstacles.length, coins: coins.length,
+  decor: decorTrees.length, treeTpls: treeTemplates.length, vehicleTpls: vehicleTemplates.length,
+});
