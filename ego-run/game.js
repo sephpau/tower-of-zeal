@@ -208,7 +208,7 @@ const vehicleTemplates = [];   // { tpl, height } — oriented along road, lane-
       const wrap = new THREE.Group();
       wrap.add(inner);
       wrap.scale.setScalar(s);
-      vehicleTemplates.push({ tpl: wrap, height: size.y * s });
+      vehicleTemplates.push({ tpl: wrap, height: size.y * s, zHalf: (length * s) / 2 });
     });
   }
 }
@@ -226,7 +226,7 @@ function makeVehicle() {
     o.material = o.geometry.getAttribute('color') ? painted : body;
   });
   if (Math.random() < 0.5) mesh.rotation.y += Math.PI;
-  return { mesh, height: v.height };
+  return { mesh, height: v.height, zHalf: v.zHalf };
 }
 
 // ---------- player: the Ego ----------
@@ -304,11 +304,13 @@ const coinGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.08, 20);
 function makeObstacle(type, lane, z) {
   const g = new THREE.Group();
   let height = 99;   // blocking height for 'crate'-type obstacles (jump clears ~2.5)
+  let zHalf = 0.6;   // half-length along the road, for collision + standing on top
   if (type === 'crate') {
     if (vehicleTemplates.length && (Math.random() < 0.7 || !treeTemplates.length)) {
       const v = makeVehicle();
       g.add(v.mesh);
       height = v.height;
+      zHalf = v.zHalf;
     } else if (treeTemplates.length) {
       height = 2.6 + Math.random() * 0.7;
       g.add(makeTree(height, LEAF_COLORS[Math.floor(Math.random() * LEAF_COLORS.length)]));
@@ -342,7 +344,7 @@ function makeObstacle(type, lane, z) {
   }
   g.position.set(LANES[lane], 0, z);
   obstaclePool.add(g);
-  obstacles.push({ mesh: g, type, lane, z, height });
+  obstacles.push({ mesh: g, type, lane, z, height, zHalf });
 }
 
 function makeCoin(lane, z) {
@@ -481,11 +483,12 @@ let overAcceptAt = 0;
 // ---------- input ----------
 function moveLeft()  { if (state === 'run' && lane > 0) lane--; }
 function moveRight() { if (state === 'run' && lane < 2) lane++; }
+// grounded = standing still vertically, whether on the road or a rooftop
 function jump() {
-  if (state === 'run' && py <= 0.01 && sliding <= 0) { vy = JUMP_VELOCITY; sfx.jump(); }
+  if (state === 'run' && vy === 0 && sliding <= 0) { vy = JUMP_VELOCITY; sfx.jump(); }
 }
 function slide() {
-  if (state === 'run' && py <= 0.01 && sliding <= 0) { sliding = SLIDE_TIME; sfx.slide(); }
+  if (state === 'run' && vy === 0 && py <= 0.01 && sliding <= 0) { sliding = SLIDE_TIME; sfx.slide(); }
 }
 
 window.addEventListener('keydown', (e) => {
@@ -516,12 +519,25 @@ window.addEventListener('touchend', (e) => {
   else (dy < 0 ? jump() : slide());
 }, { passive: true });
 
+// height of whatever the player could stand on at x (vehicle rooftops), 0 = road
+function supportHeightAt(px) {
+  let h = 0;
+  for (const o of obstacles) {
+    if (o.type !== 'crate' || o.height > 90) continue;
+    if (Math.abs(o.mesh.position.z - PLAYER_Z) > o.zHalf) continue;
+    if (Math.abs(LANES[o.lane] - px) > 1.0) continue;
+    if (o.height > h) h = o.height;
+  }
+  return h;
+}
+
 // ---------- collision ----------
 function checkCollisions() {
   const px = player.position.x;
   for (const o of obstacles) {
     const oz = o.mesh.position.z;
-    if (oz < PLAYER_Z - 0.9 || oz > PLAYER_Z + 0.9) continue;
+    const halfZ = o.type === 'crate' ? o.zHalf + 0.3 : 0.9;
+    if (Math.abs(oz - PLAYER_Z) > halfZ) continue;
     if (Math.abs(LANES[o.lane] - px) > 1.15) continue;
     if (o.type === 'hurdle') {
       if (py < 0.85) return true;          // didn't jump high enough
@@ -602,11 +618,15 @@ function animate() {
     player.position.x += Math.abs(dx) < step ? dx : Math.sign(dx) * step;
     player.rotation.z = -dx * 0.12;
 
-    // jump
-    if (py > 0 || vy > 0) {
+    // jump physics + landing on rooftops
+    const support = supportHeightAt(player.position.x);
+    const prevPy = py;
+    if (py > support || vy > 0) {
       vy += GRAVITY * dt;
       py += vy * dt;
-      if (py <= 0) { py = 0; vy = 0; }
+      // land on a roof only when falling onto it from above
+      if (vy < 0 && py <= support && prevPy >= support - 0.01) { py = support; vy = 0; }
+      if (py < 0) { py = 0; vy = 0; }
     }
     player.position.y = py;
 
