@@ -542,7 +542,9 @@ function checkCollisions() {
     if (o.type === 'hurdle') {
       if (py < 0.85) return true;          // didn't jump high enough
     } else if (o.type === 'beam') {
-      if (sliding <= 0 || py > 0.05) return true;  // not sliding under it
+      const slidUnder = sliding > 0 && py <= 0.05;
+      const jumpedOver = py > 1.5;               // feet above the bar (top ~1.62)
+      if (!slidUnder && !jumpedOver) return true;
     } else {
       if (py < o.height - 0.35) return true;  // low vehicles can be hopped, tall ones can't
     }
