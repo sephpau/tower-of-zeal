@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // ---------- constants ----------
 const LANES = [-2.6, 0, 2.6];
@@ -124,6 +125,63 @@ const buildings = [];
   }
 }
 
+// ---------- tree models (Blender exports) ----------
+const TREE_FILES = [
+  'tree-branched', 'tree-columnar', 'tree-conical', 'tree-open', 'tree-oval',
+  'tree-pyramidal', 'tree-round', 'tree-spreading', 'tree-vase',
+];
+const LEAF_COLORS = [0x2ea35e, 0x3ddc97, 0x47b86b, 0xff6fae, 0xc05ce0];
+const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3b2e, roughness: 0.9 });
+const treeTemplates = [];   // normalized: base at y=0, height 1
+const decorTrees = [];
+
+{
+  const loader = new GLTFLoader();
+  for (const name of TREE_FILES) {
+    loader.load(`assets/models/${name}.glb`, (gltf) => {
+      const root = gltf.scene;
+      // strip helper geometry (tree-vase ships a ground plane)
+      root.traverse((o) => { if (o.name === 'ground') o.visible = false; });
+      // normalize: feet on y=0, centered on x/z, height exactly 1
+      const box = new THREE.Box3().setFromObject(root);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const wrap = new THREE.Group();
+      root.position.set(-center.x, -box.min.y, -center.z);
+      wrap.add(root);
+      wrap.scale.setScalar(1 / size.y);
+      const holder = new THREE.Group();
+      holder.add(wrap);
+      treeTemplates.push(holder);
+      if (treeTemplates.length === 1) plantDecorTrees();
+    });
+  }
+}
+
+function makeTree(height, leafColor) {
+  const tpl = treeTemplates[Math.floor(Math.random() * treeTemplates.length)];
+  const tree = tpl.clone(true);
+  const leafMat = new THREE.MeshStandardMaterial({ color: leafColor, roughness: 0.8 });
+  tree.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = true;
+    o.material = o.name.includes('leaves') ? leafMat : trunkMat;
+  });
+  tree.scale.multiplyScalar(height);
+  tree.rotation.y = Math.random() * Math.PI * 2;
+  return tree;
+}
+
+function plantDecorTrees() {
+  for (let i = 0; i < 22; i++) {
+    const t = makeTree(3.5 + Math.random() * 4, LEAF_COLORS[i % LEAF_COLORS.length]);
+    const side = i % 2 === 0 ? -1 : 1;
+    t.position.set(side * (6.8 + Math.random() * 3.5), 0, -i * 15 - Math.random() * 8);
+    scene.add(t);
+    decorTrees.push(t);
+  }
+}
+
 // ---------- player: the Ego ----------
 const player = new THREE.Group();
 const playerParts = {};
@@ -199,10 +257,14 @@ const coinGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.08, 20);
 function makeObstacle(type, lane, z) {
   const g = new THREE.Group();
   if (type === 'crate') {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(1.9, 2.4, 1.2), crateMat);
-    m.position.y = 1.2;
-    m.castShadow = true;
-    g.add(m);
+    if (treeTemplates.length) {
+      g.add(makeTree(2.6 + Math.random() * 0.7, LEAF_COLORS[Math.floor(Math.random() * LEAF_COLORS.length)]));
+    } else {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(1.9, 2.4, 1.2), crateMat);
+      m.position.y = 1.2;
+      m.castShadow = true;
+      g.add(m);
+    }
   } else if (type === 'hurdle') {
     const bar = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.22, 0.22), hurdleMat);
     bar.position.y = 0.75;
@@ -454,6 +516,10 @@ function animate() {
     for (const b of buildings) {
       b.position.z += speed * dt;
       if (b.position.z > 20) b.position.z -= 26 * 13;
+    }
+    for (const t of decorTrees) {
+      t.position.z += speed * dt;
+      if (t.position.z > 20) t.position.z -= 22 * 15;
     }
 
     // cull & spawn
