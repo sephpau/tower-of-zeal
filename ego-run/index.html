@@ -47,6 +47,13 @@
   }
   #hud-score { font-size: clamp(26px, 5.5vw, 40px); font-weight: 900; font-style: italic; }
   #hud-coins { font-size: clamp(18px, 4vw, 26px); font-weight: 700; color: #ffe97a; }
+
+  .models-link {
+    position: absolute; bottom: 22px; right: 24px;
+    color: #fff; opacity: 0.6; font-size: 14px; text-decoration: none;
+    border: 1px solid rgba(255,255,255,0.35); border-radius: 8px; padding: 8px 14px;
+  }
+  .models-link:hover { opacity: 1; border-color: #ffe97a; color: #ffe97a; }
 </style>
 </head>
 <body>
@@ -66,6 +73,7 @@
     swipe on mobile
   </div>
   <div class="pulse">press any key to run</div>
+  <a class="models-link" href="models.html">view 3D models &#8594;</a>
 </div>
 
 <div id="over-overlay" class="overlay hidden">

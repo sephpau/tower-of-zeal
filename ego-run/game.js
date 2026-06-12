@@ -516,6 +516,7 @@ window.addEventListener('touchstart', (e) => {
   touchY = e.touches[0].clientY;
 }, { passive: true });
 window.addEventListener('touchend', (e) => {
+  if (e.target.closest && e.target.closest('a')) return;  // let links work without starting a run
   if (state === 'start') { startRun(); return; }
   if (state === 'over') { if (performance.now() >= overAcceptAt) startRun(); return; }
   const dx = e.changedTouches[0].clientX - touchX;
