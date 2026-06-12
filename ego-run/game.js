@@ -350,73 +350,121 @@ ego.rotation.y = Math.PI;     // face down the road, away from the camera
 player.add(ego);
 
 // load the GLB and split it into limbs (arms, legs, body) so the rigid sculpt
-// can run. Tripo ships one merged shell, so we re-segment it by spatial region.
+// can run. Tripo ships merged shells, so we re-segment by spatial region while
+// keeping each triangle's UVs and source texture.
 const egoModel = new THREE.Group();
 ego.add(egoModel);
 const egoLimbs = { body: null, armL: null, armR: null, legL: null, legR: null };
-// The sculpt faces +X, so yaw it -90° to face local +Z before cutting (the ego
-// group's rotation.y = PI then points him down the road). Joint heights are
-// fractions of model height (from the band analysis: leg gap ends ~0.50, arms
-// span ~0.50-0.80 and stick out past 28% of the body width).
-const EGO_YAW = -Math.PI / 2;
-const HIP_FRAC = 0.50, SHOULDER_FRAC = 0.80, ARM_INNER = 0.28;
+// Cut settings — same shape as the limb editor's "copy settings JSON"
+// (monster-3d). Paste tuned values straight in here.
+const EGO_CUTS = {
+  yawDeg: -90, pitchDeg: 0, rollDeg: 0,
+  hip: 0.50, legInner: 0,
+  armLo: 0.50, armHi: 0.80, armInner: 0.28,
+  legSwing: 0.7, armSwing: 0.6,
+};
 {
   const loader = new GLTFLoader();
   loader.load('assets/models/ego.glb', (gltf) => {
     const root = gltf.scene;
-    root.rotation.y = EGO_YAW;
     root.updateWorldMatrix(true, true);
-    // gather every triangle in root-local space
-    const tris = [];
+    // collect all triangles: positions (rotated upright), UVs, source material
+    const posChunks = [], uvChunks = [], matCounts = [];
+    const srcMaterials = [];
     root.traverse((o) => {
       if (!o.isMesh) return;
       const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
       g.applyMatrix4(o.matrixWorld);
-      const p = g.getAttribute('position');
-      for (let i = 0; i < p.count; i += 3)
-        tris.push([p.getX(i), p.getY(i), p.getZ(i), p.getX(i+1), p.getY(i+1), p.getZ(i+1), p.getX(i+2), p.getY(i+2), p.getZ(i+2)]);
+      const p = g.getAttribute('position').array;
+      const uv = g.getAttribute('uv') ? g.getAttribute('uv').array : new Float32Array((p.length / 3) * 2);
+      posChunks.push(p);
+      uvChunks.push(uv);
+      matCounts.push(p.length / 9);
+      srcMaterials.push(o.material);
     });
-    // bbox over all triangle verts
-    let minX=Infinity, minY=Infinity, minZ=Infinity, maxX=-Infinity, maxY=-Infinity, maxZ=-Infinity;
-    for (const t of tris) for (let k = 0; k < 9; k += 3) {
-      minX=Math.min(minX,t[k]); maxX=Math.max(maxX,t[k]);
-      minY=Math.min(minY,t[k+1]); maxY=Math.max(maxY,t[k+1]);
-      minZ=Math.min(minZ,t[k+2]); maxZ=Math.max(maxZ,t[k+2]);
+    const total = posChunks.reduce((s, c) => s + c.length, 0);
+    const pos = new Float32Array(total);
+    const uvs = new Float32Array(total / 3 * 2);
+    const triMat = new Uint8Array(total / 9);
+    let o3 = 0, o2 = 0, ot = 0;
+    for (let i = 0; i < posChunks.length; i++) {
+      pos.set(posChunks[i], o3); o3 += posChunks[i].length;
+      uvs.set(uvChunks[i], o2); o2 += uvChunks[i].length;
+      triMat.fill(i, ot, ot + matCounts[i]); ot += matCounts[i];
     }
-    const cx=(minX+maxX)/2, cz=(minZ+maxZ)/2, feetY=minY, H=maxY-minY;
-    const hipY = feetY + HIP_FRAC*H, shoulderY = feetY + SHOULDER_FRAC*H, armInner = ARM_INNER*(maxX-minX);
-    // classify each triangle by its centroid into the 5 regions
-    const buckets = { body:[], armL:[], armR:[], legL:[], legR:[] };
-    for (const t of tris) {
-      const my=(t[1]+t[4]+t[7])/3, xr=(t[0]+t[3]+t[6])/3 - cx;
+    // rotate upright: yaw -> pitch -> roll (in place)
+    const yaw = EGO_CUTS.yawDeg * Math.PI / 180, pit = EGO_CUTS.pitchDeg * Math.PI / 180, rol = EGO_CUTS.rollDeg * Math.PI / 180;
+    const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pit), sp = Math.sin(pit), cr = Math.cos(rol), sr = Math.sin(rol);
+    let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
+    for (let i = 0; i < pos.length; i += 3) {
+      const x = pos[i], y0 = pos[i+1], z = pos[i+2];
+      let rx = x * cy + z * sy, rz = -x * sy + z * cy, ry = y0;
+      const py_ = ry * cp - rz * sp, pz_ = ry * sp + rz * cp; ry = py_; rz = pz_;
+      const qx_ = rx * cr - ry * sr, qy_ = rx * sr + ry * cr; rx = qx_; ry = qy_;
+      pos[i] = rx; pos[i+1] = ry; pos[i+2] = rz;
+      if (rx<minX)minX=rx; if (rx>maxX)maxX=rx;
+      if (ry<minY)minY=ry; if (ry>maxY)maxY=ry;
+      if (rz<minZ)minZ=rz; if (rz>maxZ)maxZ=rz;
+    }
+    const cx=(minX+maxX)/2, cz=(minZ+maxZ)/2, feetY=minY, H=maxY-minY, W=maxX-minX;
+    const hipY = feetY + EGO_CUTS.hip * H;
+    const armLoY = feetY + EGO_CUTS.armLo * H, armHiY = feetY + EGO_CUTS.armHi * H;
+    const armX = EGO_CUTS.armInner * W, legX = EGO_CUTS.legInner * W;
+    // classify triangles into the 5 regions
+    const idx = { body: [], armL: [], armR: [], legL: [], legR: [] };
+    const triCount = pos.length / 9;
+    for (let tIdx = 0; tIdx < triCount; tIdx++) {
+      const b = tIdx * 9;
+      const my = (pos[b+1] + pos[b+4] + pos[b+7]) / 3;
+      const xr = (pos[b] + pos[b+3] + pos[b+6]) / 3 - cx;
       let key = 'body';
-      if (my < hipY) key = xr < 0 ? 'legL' : 'legR';
-      else if (my < shoulderY && Math.abs(xr) > armInner) key = xr < 0 ? 'armL' : 'armR';
-      buckets[key].push(t);
+      if (my < hipY && Math.abs(xr) > legX) key = xr < 0 ? 'legL' : 'legR';
+      else if (my >= armLoY && my < armHiY && Math.abs(xr) > armX) key = xr < 0 ? 'armL' : 'armR';
+      idx[key].push(tIdx);
     }
-    const centroidX = (arr) => arr.length ? arr.reduce((s,t)=>s+(t[0]+t[3]+t[6])/3,0)/arr.length : cx;
+    const centroidX = (list) => {
+      if (!list.length) return cx;
+      let s = 0;
+      for (const tIdx of list) { const b = tIdx*9; s += (pos[b] + pos[b+3] + pos[b+6]) / 3; }
+      return s / list.length;
+    };
     const pivots = {
       body: [cx, feetY, cz],
-      legL: [centroidX(buckets.legL), hipY, cz], legR: [centroidX(buckets.legR), hipY, cz],
-      armL: [centroidX(buckets.armL), shoulderY, cz], armR: [centroidX(buckets.armR), shoulderY, cz],
+      legL: [centroidX(idx.legL), hipY, cz], legR: [centroidX(idx.legR), hipY, cz],
+      armL: [centroidX(idx.armL), armHiY, cz], armR: [centroidX(idx.armR), armHiY, cz],
     };
-    const EGO_MAT = new THREE.MeshStandardMaterial({ color: 0xd94f5c, roughness: 0.55, metalness: 0.08 });
-    // inner offsets the model to feet=0/centred; container scales it to ~2.4 tall
+    // build one mesh per (limb, source material) so textures survive the cut
     const inner = new THREE.Group();
-    for (const key of Object.keys(buckets)) {
-      const arr = buckets[key];
+    for (const key of Object.keys(idx)) {
       const [px, py, pz] = pivots[key];
-      const pos = new Float32Array(arr.length * 9);
-      for (let i = 0; i < arr.length; i++) for (let k = 0; k < 9; k++) pos[i*9+k] = arr[i][k];
-      for (let i = 0; i < pos.length; i += 3) { pos[i]-=px; pos[i+1]-=py; pos[i+2]-=pz; }  // joint at group origin
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      geo.computeVertexNormals();
-      const mesh = new THREE.Mesh(geo, EGO_MAT);
-      mesh.castShadow = true; mesh.receiveShadow = true;
       const grp = new THREE.Group();
       grp.position.set(px, py, pz);
-      grp.add(mesh);
+      const byMat = new Map();
+      for (const tIdx of idx[key]) {
+        const mi = triMat[tIdx];
+        if (!byMat.has(mi)) byMat.set(mi, []);
+        byMat.get(mi).push(tIdx);
+      }
+      for (const [mi, tlist] of byMat) {
+        const arr = new Float32Array(tlist.length * 9);
+        const uvArr = new Float32Array(tlist.length * 6);
+        for (let i = 0; i < tlist.length; i++) {
+          const b = tlist[i] * 9, ub = tlist[i] * 6;
+          for (let k = 0; k < 9; k += 3) {
+            arr[i*9+k]   = pos[b+k]   - px;
+            arr[i*9+k+1] = pos[b+k+1] - py;
+            arr[i*9+k+2] = pos[b+k+2] - pz;
+          }
+          for (let k = 0; k < 6; k++) uvArr[i*6+k] = uvs[ub+k];
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+        geo.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
+        geo.computeVertexNormals();
+        const mesh = new THREE.Mesh(geo, srcMaterials[mi]);
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        grp.add(mesh);
+      }
       inner.add(grp);
       egoLimbs[key] = grp;
     }
@@ -1202,12 +1250,13 @@ function animate() {
     ego.rotation.x = airborne ? -0.28 : -0.12 - Math.sin(stride * 2) * 0.04;  // lean into the run
     ego.rotation.z = Math.sin(stride) * 0.05;                                 // subtle shoulder roll
     if (egoLimbs.legL) {
-      const sw = airborne ? 0.3 : 0.7;          // swing amplitude
+      const sw = airborne ? EGO_CUTS.legSwing * 0.4 : EGO_CUTS.legSwing;
       const a = Math.sin(stride) * sw;
       egoLimbs.legL.rotation.x = a;
       egoLimbs.legR.rotation.x = -a;
-      egoLimbs.armL.rotation.x = -a * 0.85;     // arms counter the legs
-      egoLimbs.armR.rotation.x = a * 0.85;
+      const armA = Math.sin(stride) * (airborne ? EGO_CUTS.armSwing * 0.4 : EGO_CUTS.armSwing);
+      egoLimbs.armL.rotation.x = -armA;          // arms counter the legs
+      egoLimbs.armR.rotation.x = armA;
     }
     egoParts.swordMount.rotation.x = -0.6;
     // fast downward chop right after a slash (swings the sword arm too)
@@ -1268,7 +1317,7 @@ window.__egoDebug = () => ({
   swordEquipped: !!equippedSword,
   debris: debris.length,
   limbsBuilt: Object.values(egoLimbs).filter(Boolean).length,
-  limbTris: Object.fromEntries(Object.entries(egoLimbs).map(([k, g]) => [k, g ? g.children[0].geometry.getAttribute('position').count / 3 : 0])),
+  limbTris: Object.fromEntries(Object.entries(egoLimbs).map(([k, g]) => [k, g ? g.children.reduce((s, m) => s + m.geometry.getAttribute('position').count / 3, 0) : 0])),
   __slash: (lane) => { if (swordTemplates.length) equipSword(swordTemplates[0]); const o = obstacles.find(o => o.type === 'crate'); if (o && equippedSword) { slashObstacle(o); return 'slashed ' + o.type; } return 'no crate obstacle'; },
   decor: decorTrees.length, treeTpls: treeTemplates.length,
   vehicleTpls: vehicleTemplates.length, swordTpls: swordTemplates.length,

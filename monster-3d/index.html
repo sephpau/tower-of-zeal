@@ -153,28 +153,42 @@ colorizeBox.addEventListener('change', applyColors);
 
 // ---------- model: collect raw triangles once ----------
 let rawTris = null;      // Float32Array, 9 floats per tri (baked node transforms, NO yaw)
+let rawUVs = null;       // Float32Array, 6 floats per tri
+let rawMat = null;       // Uint8Array, source-material index per tri
+const srcMaterials = []; // original textured materials from the GLB
 const holder = new THREE.Group();   // scaled/positioned container
 scene.add(holder);
 const limbs = { body: null, armL: null, armR: null, legL: null, legR: null };
 const COLORS = { body: 0xd94f5c, armL: 0x4dd0e1, armR: 0x7a6aff, legL: 0xffe97a, legR: 0x4ad0a0 };
+const colorMats = Object.fromEntries(Object.entries(COLORS).map(([k, c]) =>
+  [k, new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, metalness: 0.08 })]));
 const stats = document.getElementById('stats');
 
 new GLTFLoader().load('ego.glb', (gltf) => {
   const root = gltf.scene;
   root.updateWorldMatrix(true, true);
-  const chunks = [];
-  let total = 0;
+  const posChunks = [], uvChunks = [], matCounts = [];
   root.traverse((o) => {
     if (!o.isMesh) return;
     const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
     g.applyMatrix4(o.matrixWorld);
     const p = g.getAttribute('position').array;
-    chunks.push(p);
-    total += p.length;
+    const uv = g.getAttribute('uv') ? g.getAttribute('uv').array : new Float32Array((p.length / 3) * 2);
+    posChunks.push(p);
+    uvChunks.push(uv);
+    matCounts.push(p.length / 9);
+    srcMaterials.push(o.material);
   });
+  const total = posChunks.reduce((s, c) => s + c.length, 0);
   rawTris = new Float32Array(total);
-  let off = 0;
-  for (const c of chunks) { rawTris.set(c, off); off += c.length; }
+  rawUVs = new Float32Array(total / 3 * 2);
+  rawMat = new Uint8Array(total / 9);
+  let o3 = 0, o2 = 0, ot = 0;
+  for (let i = 0; i < posChunks.length; i++) {
+    rawTris.set(posChunks[i], o3); o3 += posChunks[i].length;
+    rawUVs.set(uvChunks[i], o2); o2 += uvChunks[i].length;
+    rawMat.fill(i, ot, ot + matCounts[i]); ot += matCounts[i];
+  }
   segment();
 }, undefined, (err) => { stats.textContent = 'failed to load ego.glb: ' + err; });
 
@@ -245,30 +259,42 @@ function segment() {
     armL: [centroidX(idx.armL), armHiY, cz], armR: [centroidX(idx.armR), armHiY, cz],
   };
 
-  // rebuild meshes
+  // rebuild meshes — one per (limb, source material) so textures survive the cut
   while (holder.children.length) holder.remove(holder.children[0]);
   const inner = new THREE.Group();
   const lines = [];
   for (const key of Object.keys(idx)) {
     const list = idx[key];
-    const arr = new Float32Array(list.length * 9);
     const [px, py, pz] = pivots[key];
-    for (let i = 0; i < list.length; i++) {
-      const b = list[i] * 9;
-      for (let k = 0; k < 9; k += 3) {
-        arr[i*9+k]   = pos[b+k]   - px;
-        arr[i*9+k+1] = pos[b+k+1] - py;
-        arr[i*9+k+2] = pos[b+k+2] - pz;
-      }
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
-    geo.computeVertexNormals();
-    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.08 }));
-    mesh.castShadow = true; mesh.receiveShadow = true;
     const grp = new THREE.Group();
     grp.position.set(px, py, pz);
-    grp.add(mesh);
+    const byMat = new Map();
+    for (const tIdx of list) {
+      const mi = rawMat[tIdx];
+      if (!byMat.has(mi)) byMat.set(mi, []);
+      byMat.get(mi).push(tIdx);
+    }
+    for (const [mi, tlist] of byMat) {
+      const arr = new Float32Array(tlist.length * 9);
+      const uvArr = new Float32Array(tlist.length * 6);
+      for (let i = 0; i < tlist.length; i++) {
+        const b = tlist[i] * 9, ub = tlist[i] * 6;
+        for (let k = 0; k < 9; k += 3) {
+          arr[i*9+k]   = pos[b+k]   - px;
+          arr[i*9+k+1] = pos[b+k+1] - py;
+          arr[i*9+k+2] = pos[b+k+2] - pz;
+        }
+        for (let k = 0; k < 6; k++) uvArr[i*6+k] = rawUVs[ub+k];
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+      geo.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
+      geo.computeVertexNormals();
+      const mesh = new THREE.Mesh(geo, srcMaterials[mi]);
+      mesh.userData.matIdx = mi;
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      grp.add(mesh);
+    }
     inner.add(grp);
     limbs[key] = grp;
     lines.push(`${key.padEnd(5)} ${String(list.length).padStart(7)} tris`);
@@ -281,10 +307,12 @@ function segment() {
 }
 
 function applyColors() {
+  const colored = colorizeBox.checked;
   for (const key of Object.keys(limbs)) {
     const grp = limbs[key];
     if (!grp) continue;
-    grp.children[0].material.color.set(colorizeBox.checked ? COLORS[key] : 0xd94f5c);
+    for (const mesh of grp.children)
+      mesh.material = colored ? colorMats[key] : srcMaterials[mesh.userData.matIdx];
   }
 }
 
