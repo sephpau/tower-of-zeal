@@ -354,13 +354,17 @@ player.add(ego);
 const egoModel = new THREE.Group();
 ego.add(egoModel);
 const egoLimbs = { body: null, armL: null, armR: null, legL: null, legR: null };
-// joint heights as fractions of the model height above the feet; ARM_INNER = how
-// far out (fraction of width) a triangle must sit to count as an arm rather than torso.
-const HIP_FRAC = 0.40, SHOULDER_FRAC = 0.74, ARM_INNER = 0.17;
+// The sculpt faces +X, so yaw it -90° to face local +Z before cutting (the ego
+// group's rotation.y = PI then points him down the road). Joint heights are
+// fractions of model height (from the band analysis: leg gap ends ~0.50, arms
+// span ~0.50-0.80 and stick out past 28% of the body width).
+const EGO_YAW = -Math.PI / 2;
+const HIP_FRAC = 0.50, SHOULDER_FRAC = 0.80, ARM_INNER = 0.28;
 {
   const loader = new GLTFLoader();
   loader.load('assets/models/ego.glb', (gltf) => {
     const root = gltf.scene;
+    root.rotation.y = EGO_YAW;
     root.updateWorldMatrix(true, true);
     // gather every triangle in root-local space
     const tris = [];
@@ -776,8 +780,8 @@ function makeSwordPickup(lane, z) {
 function equipSword(tpl) {
   while (egoParts.swordMount.children.length) egoParts.swordMount.remove(egoParts.swordMount.children[0]);
   const sword = makeSword(tpl);
-  sword.scale.setScalar(0.9);
-  sword.position.y = 0.28;   // grip in the paw, blade up
+  sword.scale.setScalar(0.5);
+  sword.position.y = 0.16;   // grip in the paw, blade up
   egoParts.swordMount.add(sword);
   equippedSword = sword;
 }
@@ -800,7 +804,7 @@ function slashObstacle(o) {
     equippedSword.getWorldPosition(wp);
     egoParts.swordMount.remove(equippedSword);
     equippedSword.position.copy(wp);
-    equippedSword.scale.setScalar(0.9 * 0.78); // keep apparent size after reparent from scaled ego
+    equippedSword.scale.setScalar(0.5 * 0.78); // keep apparent size after reparent from scaled ego
     scene.add(equippedSword);
     debris.push({ mesh: equippedSword, vx: 3, vy: 7, vz: 5, spin: 14, life: 0, max: 0.8 });
     equippedSword = null;
@@ -1191,18 +1195,27 @@ function animate() {
       player.rotation.x = 0;
     }
 
-    // Ego's run motion (rigid GLB): hop bob, forward lean, shoulder roll; jetpack on jumps
+    // Ego's run motion: limbs swing from the joints, plus a hop bob + forward lean
     const stride = t * 13;
     const airborne = py > 0.05;
-    ego.position.y = airborne ? 0.05 : Math.abs(Math.sin(stride)) * 0.12;
-    ego.rotation.x = airborne ? -0.28 : -0.12 - Math.sin(stride * 2) * 0.05;  // lean into the run
-    ego.rotation.z = Math.sin(stride) * 0.06;                                  // subtle shoulder roll
+    ego.position.y = airborne ? 0.05 : Math.abs(Math.sin(stride)) * 0.1;
+    ego.rotation.x = airborne ? -0.28 : -0.12 - Math.sin(stride * 2) * 0.04;  // lean into the run
+    ego.rotation.z = Math.sin(stride) * 0.05;                                 // subtle shoulder roll
+    if (egoLimbs.legL) {
+      const sw = airborne ? 0.3 : 0.7;          // swing amplitude
+      const a = Math.sin(stride) * sw;
+      egoLimbs.legL.rotation.x = a;
+      egoLimbs.legR.rotation.x = -a;
+      egoLimbs.armL.rotation.x = -a * 0.85;     // arms counter the legs
+      egoLimbs.armR.rotation.x = a * 0.85;
+    }
     egoParts.swordMount.rotation.x = -0.6;
-    // fast downward chop right after a slash
+    // fast downward chop right after a slash (swings the sword arm too)
     if (slashTimer > 0) {
       slashTimer -= dt;
       const k = Math.max(0, slashTimer) / 0.32;       // 1 -> 0
       egoParts.swordMount.rotation.x = -0.6 - 2.0 * Math.sin(k * Math.PI);
+      if (egoLimbs.armR) egoLimbs.armR.rotation.x = -2.2 * Math.sin(k * Math.PI);
     }
     egoParts.jetpack.visible = airborne;
     if (airborne) {
@@ -1226,11 +1239,17 @@ function animate() {
     hudCoins.innerHTML = '&#9679; ' + coinCount;
     hudSword.classList.toggle('hidden', !equippedSword);
   } else {
-    // idle bob + slow turntable on menus
+    // idle bob + slow turntable on menus; limbs settle with a gentle sway
     player.rotation.y = Math.sin(t * 0.8) * 0.25;
     ego.position.y = Math.max(0, Math.sin(t * 3.2)) * 0.06;
     ego.rotation.x = 0;
     ego.rotation.z = 0;
+    if (egoLimbs.legL) {
+      const sway = Math.sin(t * 2) * 0.06;
+      egoLimbs.legL.rotation.x = egoLimbs.legR.rotation.x = 0;
+      egoLimbs.armL.rotation.x = sway;
+      egoLimbs.armR.rotation.x = -sway;
+    }
     egoParts.jetpack.visible = false;
     egoParts.jetGlow.intensity = 0;
     egoParts.swordMount.rotation.x = -0.6;
@@ -1248,6 +1267,8 @@ window.__egoDebug = () => ({
   obstacles: obstacles.length, coins: coins.length, swordsOnRoad: swordPickups.length,
   swordEquipped: !!equippedSword,
   debris: debris.length,
+  limbsBuilt: Object.values(egoLimbs).filter(Boolean).length,
+  limbTris: Object.fromEntries(Object.entries(egoLimbs).map(([k, g]) => [k, g ? g.children[0].geometry.getAttribute('position').count / 3 : 0])),
   __slash: (lane) => { if (swordTemplates.length) equipSword(swordTemplates[0]); const o = obstacles.find(o => o.type === 'crate'); if (o && equippedSword) { slashObstacle(o); return 'slashed ' + o.type; } return 'no crate obstacle'; },
   decor: decorTrees.length, treeTpls: treeTemplates.length,
   vehicleTpls: vehicleTemplates.length, swordTpls: swordTemplates.length,
