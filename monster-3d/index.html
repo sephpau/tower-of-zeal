@@ -21,13 +21,25 @@
     filter: drop-shadow(0 3px 0 rgba(120,20,80,0.9));
   }
   #label .s { font-size: 13px; opacity: 0.6; letter-spacing: 0.2em; text-transform: uppercase; margin-top: 4px; }
+  #runBtn {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 18px; font-weight: 900; font-style: italic; letter-spacing: 0.12em;
+    color: #fff; background: linear-gradient(180deg, #ff5e7a, #c0306a);
+    border: none; border-radius: 999px; padding: 14px 38px; cursor: pointer;
+    box-shadow: 0 6px 20px rgba(255, 94, 122, 0.45);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  #runBtn:hover { transform: translateX(-50%) scale(1.06); }
+  #runBtn.on { background: linear-gradient(180deg, #ffe97a, #ffb02e); color: #4a1230; box-shadow: 0 6px 24px rgba(255, 233, 122, 0.5); }
 </style>
 </head>
 <body>
 <div id="label">
   <div class="t">CHOMPO</div>
-  <div class="s">drag to spin &middot; scroll to zoom</div>
+  <div class="s">drag to spin &middot; scroll to zoom &middot; R to run</div>
 </div>
+<button id="runBtn">&#9654; RUN</button>
 
 <script type="importmap">
 { "imports": {
@@ -223,6 +235,7 @@ for (const s of [-1, 1]) {
 }
 
 // ---------- legs ----------
+const legs = [];
 for (const s of [-1, 1]) {
   const leg = new THREE.Group();
   const thigh = sphere(0.3, WHITE, 1, 1.25, 1);
@@ -235,6 +248,7 @@ for (const s of [-1, 1]) {
   leg.add(pad);
   leg.position.set(s * 0.52, 0.62, 0.32);
   chompo.add(leg);
+  legs.push(leg);
 }
 
 // gold spots low on the white belly
@@ -334,29 +348,67 @@ scene.add(ring);
 
 // ---------- animation ----------
 const clock = new THREE.Clock();
+let running = false;     // target state, toggled by the RUN button / keyboard
+let run = 0;             // idle->run blend, 0..1
+let lastT = 0;
+let gx = 0, gz = 0;      // scrolling grid offset
+
+const lerp = (a, b, k) => a + (b - a) * k;
+
 function animate() {
   requestAnimationFrame(animate);
   const t = clock.getElapsedTime();
+  const dt = Math.min(t - lastT, 0.05);
+  lastT = t;
 
-  // idle bounce + squash
+  // blend toward the target state, eased
+  run = Math.min(1, Math.max(0, run + (running ? 1 : -1) * dt * 3.5));
+  const e = run * run * (3 - 2 * run);
+
+  // idle bounce vs running hops
   const bounce = Math.sin(t * 3.2);
-  chompo.position.y = Math.max(0, bounce) * 0.06;
-  body.scale.y = 1 + bounce * 0.025;
+  const stride = t * 11;
+  const idleY = Math.max(0, bounce) * 0.06;
+  const hopY = Math.abs(Math.sin(stride)) * 0.14;
+  chompo.position.y = lerp(idleY, hopY, e);
+  body.scale.y = 1 + bounce * 0.025 * (1 - e) - Math.cos(stride * 2) * 0.02 * e;
   body.scale.x = body.scale.z = 1 - bounce * 0.015;
 
-  // arm sway
-  arms[0].rotation.z =  1.05 + Math.sin(t * 3.2) * 0.12;
-  arms[1].rotation.z = -1.05 - Math.sin(t * 3.2 + 0.4) * 0.12;
+  // eager forward lean while running
+  body.rotation.x = 0.18 * e;
 
-  // buddy wobbles along, slightly delayed
-  buddy.rotation.z = -0.15 + Math.sin(t * 3.2 - 0.6) * 0.1;
-  buddy.position.y = 2.62 + Math.max(0, Math.sin(t * 3.2 - 0.3)) * 0.05 + body.scale.y - 1;
+  // legs pump front-to-back
+  legs[0].rotation.x = Math.sin(stride) * 0.95 * e;
+  legs[1].rotation.x = Math.sin(stride + Math.PI) * 0.95 * e;
 
-  // slow auto-spin until the user grabs it
+  // arms: gentle sway at rest, pumping opposite the legs at full sprint
+  arms[0].rotation.z = lerp( 1.05 + Math.sin(t * 3.2) * 0.12,  0.6, e);
+  arms[1].rotation.z = lerp(-1.05 - Math.sin(t * 3.2 + 0.4) * 0.12, -0.6, e);
+  arms[0].rotation.x = Math.sin(stride + Math.PI) * 0.85 * e;
+  arms[1].rotation.x = Math.sin(stride) * 0.85 * e;
+
+  // buddy wobbles along, hanging on harder at a sprint
+  buddy.rotation.z = -0.15 + Math.sin(t * 3.2 - 0.6) * 0.1 * (1 - e);
+  buddy.rotation.x = Math.sin(stride - 0.9) * 0.18 * e;
+  buddy.position.y = 2.62 + Math.max(0, Math.sin(t * 3.2 - 0.3)) * 0.05 * (1 - e)
+                   + Math.abs(Math.sin(stride - 0.5)) * 0.1 * e
+                   + body.scale.y - 1;
+
+  // scroll the grid past him so the run reads as motion
+  if (e > 0.001) {
+    const ry = chompo.rotation.y;
+    const speed = 7 * e;
+    gx -= Math.sin(ry) * speed * dt;
+    gz -= Math.cos(ry) * speed * dt;
+    grid.position.x = gx % 1;
+    grid.position.z = gz % 1;
+  }
+
+  // slow auto-spin until the user grabs it or hits RUN
   if (!userInteracted) chompo.rotation.y = t * 0.45;
 
   // pulse the floor ring
-  ring.material.opacity = 0.25 + Math.sin(t * 2) * 0.12;
+  ring.material.opacity = 0.25 + Math.sin(t * 2) * 0.12 + e * 0.15;
 
   controls.update();
   renderer.render(scene, camera);
@@ -364,6 +416,19 @@ function animate() {
 
 let userInteracted = false;
 controls.addEventListener('start', () => { userInteracted = true; });
+
+// run toggle: button + R / Space
+const runBtn = document.getElementById('runBtn');
+function toggleRun() {
+  running = !running;
+  userInteracted = true;
+  runBtn.textContent = running ? '■ STOP' : '▶ RUN';
+  runBtn.classList.toggle('on', running);
+}
+runBtn.addEventListener('click', toggleRun);
+addEventListener('keydown', (e) => {
+  if (e.code === 'KeyR' || e.code === 'Space') { e.preventDefault(); toggleRun(); }
+});
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
