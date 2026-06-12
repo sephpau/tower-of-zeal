@@ -21,25 +21,32 @@
     filter: drop-shadow(0 3px 0 rgba(120,20,80,0.9));
   }
   #label .s { font-size: 13px; opacity: 0.6; letter-spacing: 0.2em; text-transform: uppercase; margin-top: 4px; }
-  #runBtn {
+  #btns {
     position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 14px;
+  }
+  #btns button {
     font-family: 'Segoe UI', system-ui, sans-serif;
     font-size: 18px; font-weight: 900; font-style: italic; letter-spacing: 0.12em;
     color: #fff; background: linear-gradient(180deg, #ff5e7a, #c0306a);
-    border: none; border-radius: 999px; padding: 14px 38px; cursor: pointer;
+    border: none; border-radius: 999px; padding: 14px 32px; cursor: pointer;
     box-shadow: 0 6px 20px rgba(255, 94, 122, 0.45);
     transition: transform 0.12s ease, box-shadow 0.12s ease;
   }
-  #runBtn:hover { transform: translateX(-50%) scale(1.06); }
-  #runBtn.on { background: linear-gradient(180deg, #ffe97a, #ffb02e); color: #4a1230; box-shadow: 0 6px 24px rgba(255, 233, 122, 0.5); }
+  #jetBtn { background: linear-gradient(180deg, #7a6aff, #4a3acd); box-shadow: 0 6px 20px rgba(122, 106, 255, 0.45); }
+  #btns button:hover { transform: scale(1.06); }
+  #btns button.on { background: linear-gradient(180deg, #ffe97a, #ffb02e); color: #4a1230; box-shadow: 0 6px 24px rgba(255, 233, 122, 0.5); }
 </style>
 </head>
 <body>
 <div id="label">
   <div class="t">CHOMPO</div>
-  <div class="s">drag to spin &middot; scroll to zoom &middot; R to run</div>
+  <div class="s">drag to spin &middot; scroll to zoom &middot; R to run &middot; J for jetpack</div>
 </div>
-<button id="runBtn">&#9654; RUN</button>
+<div id="btns">
+  <button id="runBtn">&#9654; RUN</button>
+  <button id="jetBtn">&#128640; JETPACK</button>
+</div>
 
 <script type="importmap">
 { "imports": {
@@ -56,7 +63,7 @@ scene.background = new THREE.Color(0x1a0a2e);
 scene.fog = new THREE.Fog(0x1a0a2e, 12, 26);
 
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
-camera.position.set(0, 2.0, 6.2);
+camera.position.set(0, 2.2, 7.0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
@@ -66,7 +73,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 1.25, 0);
+controls.target.set(0, 1.45, 0);
 controls.enableDamping = true;
 controls.minDistance = 3;
 controls.maxDistance = 14;
@@ -322,6 +329,57 @@ buddy.position.set(0.12, 2.62, 0.1);
 buddy.rotation.z = -0.15;
 chompo.add(buddy);
 
+// ---------- jetpack (hidden until jet mode) ----------
+const jetpack = new THREE.Group();
+const METAL = new THREE.MeshStandardMaterial({ color: 0x9aa4b8, roughness: 0.35, metalness: 0.8 });
+const METAL_DARK = new THREE.MeshStandardMaterial({ color: 0x4a5468, roughness: 0.5, metalness: 0.7 });
+const flames = [];
+for (const s of [-1, 1]) {
+  // thruster tank
+  const tank = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.55, 8, 16), METAL);
+  tank.position.set(s * 0.3, 0, 0);
+  tank.castShadow = true;
+  jetpack.add(tank);
+  // red nose cap, synthwave accent
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.225, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), RED);
+  cap.position.set(s * 0.3, 0.28, 0);
+  jetpack.add(cap);
+  // nozzle
+  const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.2, 0.22, 16), METAL_DARK);
+  nozzle.position.set(s * 0.3, -0.48, 0);
+  jetpack.add(nozzle);
+  // flame: bright core + softer outer cone, flickered in the loop
+  const flame = new THREE.Group();
+  const outer = new THREE.Mesh(
+    new THREE.ConeGeometry(0.16, 0.7, 16),
+    new THREE.MeshBasicMaterial({ color: 0xff8c2e, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  outer.rotation.x = Math.PI;
+  outer.position.y = -0.35;
+  const core = new THREE.Mesh(
+    new THREE.ConeGeometry(0.08, 0.45, 12),
+    new THREE.MeshBasicMaterial({ color: 0xffe97a, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  core.rotation.x = Math.PI;
+  core.position.y = -0.22;
+  flame.add(outer, core);
+  flame.position.set(s * 0.3, -0.58, 0);
+  jetpack.add(flame);
+  flames.push(flame);
+}
+// crossbar + strap stubs so it reads as worn, not floating
+const bar = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.18, 0.12), METAL_DARK);
+bar.position.set(0, 0.05, 0.12);
+jetpack.add(bar);
+// warm glow under the thrusters
+const jetGlow = new THREE.PointLight(0xff9c4e, 0, 6, 2);
+jetGlow.position.set(0, -0.8, 0);
+jetpack.add(jetGlow);
+
+jetpack.position.set(0, 0.22, -1.02);
+jetpack.visible = false;
+body.add(jetpack);
+
 // ---------- ground ----------
 const ground = new THREE.Mesh(
   new THREE.CircleGeometry(20, 48),
@@ -348,8 +406,9 @@ scene.add(ring);
 
 // ---------- animation ----------
 const clock = new THREE.Clock();
-let running = false;     // target state, toggled by the RUN button / keyboard
-let run = 0;             // idle->run blend, 0..1
+let running = false;     // target states, toggled by the buttons / keyboard
+let jetting = false;
+let run = 0, jet = 0;    // idle->run / idle->jet blends, 0..1
 let lastT = 0;
 let gx = 0, gz = 0;      // scrolling grid offset
 
@@ -361,54 +420,70 @@ function animate() {
   const dt = Math.min(t - lastT, 0.05);
   lastT = t;
 
-  // blend toward the target state, eased
+  // blend toward the target states, eased
   run = Math.min(1, Math.max(0, run + (running ? 1 : -1) * dt * 3.5));
+  jet = Math.min(1, Math.max(0, jet + (jetting ? 1 : -1) * dt * 2.2));
   const e = run * run * (3 - 2 * run);
+  const j = jet * jet * (3 - 2 * jet);
 
-  // idle bounce vs running hops
+  // idle bounce vs running hops vs airborne hover
   const bounce = Math.sin(t * 3.2);
   const stride = t * 11;
   const idleY = Math.max(0, bounce) * 0.06;
   const hopY = Math.abs(Math.sin(stride)) * 0.14;
-  chompo.position.y = lerp(idleY, hopY, e);
-  body.scale.y = 1 + bounce * 0.025 * (1 - e) - Math.cos(stride * 2) * 0.02 * e;
+  const hoverY = 0.95 + Math.sin(t * 1.6) * 0.16 + Math.sin(t * 4.3) * 0.04;
+  chompo.position.y = lerp(lerp(idleY, hopY, e), hoverY, j);
+  body.scale.y = 1 + bounce * 0.025 * (1 - e) * (1 - j) - Math.cos(stride * 2) * 0.02 * e;
   body.scale.x = body.scale.z = 1 - bounce * 0.015;
 
-  // eager forward lean while running
-  body.rotation.x = 0.18 * e;
+  // eager forward lean while running; cruising tilt while flying
+  body.rotation.x = 0.18 * e + 0.3 * j;
 
-  // legs pump front-to-back
-  legs[0].rotation.x = Math.sin(stride) * 0.95 * e;
-  legs[1].rotation.x = Math.sin(stride + Math.PI) * 0.95 * e;
+  // legs: pump at a sprint, dangle loose in the air
+  const dangle0 = 0.4 + Math.sin(t * 2.6) * 0.12;
+  const dangle1 = 0.4 + Math.sin(t * 2.6 + 1.1) * 0.12;
+  legs[0].rotation.x = Math.sin(stride) * 0.95 * e + dangle0 * j;
+  legs[1].rotation.x = Math.sin(stride + Math.PI) * 0.95 * e + dangle1 * j;
 
-  // arms: gentle sway at rest, pumping opposite the legs at full sprint
-  arms[0].rotation.z = lerp( 1.05 + Math.sin(t * 3.2) * 0.12,  0.6, e);
-  arms[1].rotation.z = lerp(-1.05 - Math.sin(t * 3.2 + 0.4) * 0.12, -0.6, e);
+  // arms: sway at rest, pump at a sprint, spread wide superhero-style in the air
+  arms[0].rotation.z = lerp(lerp( 1.05 + Math.sin(t * 3.2) * 0.12,  0.6, e),  1.45 + Math.sin(t * 2.2) * 0.08, j);
+  arms[1].rotation.z = lerp(lerp(-1.05 - Math.sin(t * 3.2 + 0.4) * 0.12, -0.6, e), -1.45 - Math.sin(t * 2.2 + 0.5) * 0.08, j);
   arms[0].rotation.x = Math.sin(stride + Math.PI) * 0.85 * e;
   arms[1].rotation.x = Math.sin(stride) * 0.85 * e;
 
-  // buddy wobbles along, hanging on harder at a sprint
-  buddy.rotation.z = -0.15 + Math.sin(t * 3.2 - 0.6) * 0.1 * (1 - e);
-  buddy.rotation.x = Math.sin(stride - 0.9) * 0.18 * e;
+  // buddy hangs on — flapping in the wind while airborne
+  buddy.rotation.z = -0.15 + Math.sin(t * 3.2 - 0.6) * 0.1 * (1 - e) * (1 - j) + Math.sin(t * 7) * 0.08 * j;
+  buddy.rotation.x = Math.sin(stride - 0.9) * 0.18 * e - 0.2 * j;
   buddy.position.y = 2.62 + Math.max(0, Math.sin(t * 3.2 - 0.3)) * 0.05 * (1 - e)
                    + Math.abs(Math.sin(stride - 0.5)) * 0.1 * e
                    + body.scale.y - 1;
 
-  // scroll the grid past him so the run reads as motion
-  if (e > 0.001) {
+  // jetpack: pop in, flicker the flames, glow
+  jetpack.visible = jet > 0.01;
+  if (jetpack.visible) {
+    jetpack.scale.setScalar(0.5 + 0.5 * j);
+    for (let i = 0; i < flames.length; i++) {
+      const fl = 0.75 + Math.sin(t * 31 + i * 2.1) * 0.15 + Math.sin(t * 47 + i) * 0.1;
+      flames[i].scale.set(1, fl * j, 1);
+    }
+    jetGlow.intensity = j * (2.2 + Math.sin(t * 37) * 0.6);
+  }
+
+  // scroll the grid past him so the motion reads
+  const groundSpeed = 7 * e + 10 * j;
+  if (groundSpeed > 0.01) {
     const ry = chompo.rotation.y;
-    const speed = 7 * e;
-    gx -= Math.sin(ry) * speed * dt;
-    gz -= Math.cos(ry) * speed * dt;
+    gx -= Math.sin(ry) * groundSpeed * dt;
+    gz -= Math.cos(ry) * groundSpeed * dt;
     grid.position.x = gx % 1;
     grid.position.z = gz % 1;
   }
 
-  // slow auto-spin until the user grabs it or hits RUN
+  // slow auto-spin until the user grabs it or picks a mode
   if (!userInteracted) chompo.rotation.y = t * 0.45;
 
-  // pulse the floor ring
-  ring.material.opacity = 0.25 + Math.sin(t * 2) * 0.12 + e * 0.15;
+  // pulse the floor ring; it fades once he's airborne
+  ring.material.opacity = (0.25 + Math.sin(t * 2) * 0.12 + e * 0.15) * (1 - j * 0.7);
 
   controls.update();
   renderer.render(scene, camera);
@@ -417,17 +492,32 @@ function animate() {
 let userInteracted = false;
 controls.addEventListener('start', () => { userInteracted = true; });
 
-// run toggle: button + R / Space
+// mode toggles: buttons + R / J / Space
 const runBtn = document.getElementById('runBtn');
-function toggleRun() {
-  running = !running;
-  userInteracted = true;
+const jetBtn = document.getElementById('jetBtn');
+function refreshBtns() {
   runBtn.textContent = running ? '■ STOP' : '▶ RUN';
   runBtn.classList.toggle('on', running);
+  jetBtn.textContent = jetting ? '■ LAND' : '🚀 JETPACK';
+  jetBtn.classList.toggle('on', jetting);
+}
+function toggleRun() {
+  running = !running;
+  if (running) jetting = false;
+  userInteracted = true;
+  refreshBtns();
+}
+function toggleJet() {
+  jetting = !jetting;
+  if (jetting) running = false;
+  userInteracted = true;
+  refreshBtns();
 }
 runBtn.addEventListener('click', toggleRun);
+jetBtn.addEventListener('click', toggleJet);
 addEventListener('keydown', (e) => {
   if (e.code === 'KeyR' || e.code === 'Space') { e.preventDefault(); toggleRun(); }
+  if (e.code === 'KeyJ') { e.preventDefault(); toggleJet(); }
 });
 
 addEventListener('resize', () => {
