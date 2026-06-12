@@ -294,6 +294,7 @@ document.getElementById('undoBtn').addEventListener('click', () => {
   if (!u) return;
   u.target.ctx.putImageData(u.data, 0, 0);
   u.target.tex.needsUpdate = true;
+  updateFillColors();
 });
 
 function stamp(hit) {
@@ -363,7 +364,10 @@ renderer.domElement.addEventListener('pointermove', (e) => {
   const hit = raycastAt(e);
   if (hit) stamp(hit);
 });
-addEventListener('pointerup', () => { strokeActive = false; });
+addEventListener('pointerup', () => {
+  if (strokeActive || toolSel.value === 'fill') updateFillColors();
+  strokeActive = false;
+});
 
 // export the ORIGINAL scene graph (untouched transforms) with painted textures
 document.getElementById('exportBtn').addEventListener('click', () => {
@@ -442,8 +446,9 @@ function build() {
       grp.add(mesh);
       // back-face copy renders the shell interior as solid color, so the
       // open sockets read as filled instead of holes
-      const fill = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xe8e0d4, side: THREE.BackSide }));
+      const fill = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: avgColorOf(p.mat), side: THREE.BackSide }));
       fill.userData.isFill = true;
+      fill.userData.matRef = p.mat;
       grp.add(fill);
     }
     inner.add(grp);
@@ -455,6 +460,33 @@ function build() {
   holder.scale.setScalar(2.4 / H);
   applyColors();
   stats.textContent = lines.join('\n');
+}
+
+// average color of a material's texture — the interior fill matches the skin
+function avgColorOf(mat) {
+  try {
+    const img = mat.map && mat.map.image;
+    if (!img) return new THREE.Color(0x555066);
+    const c = document.createElement('canvas');
+    c.width = c.height = 16;
+    const x = c.getContext('2d');
+    x.drawImage(img, 0, 0, 16, 16);
+    const d = x.getImageData(0, 0, 16, 16).data;
+    let r = 0, g = 0, b = 0;
+    for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i+1]; b += d[i+2]; }
+    const n = d.length / 4;
+    return new THREE.Color().setRGB(r/n/255 * 0.8, g/n/255 * 0.8, b/n/255 * 0.8, THREE.SRGBColorSpace);
+  } catch { return new THREE.Color(0x555066); }
+}
+
+// re-sample fills after painting so the interior keeps matching the new skin
+function updateFillColors() {
+  for (const key of Object.keys(limbs)) {
+    const grp = limbs[key];
+    if (!grp) continue;
+    for (const mesh of grp.children)
+      if (mesh.userData.isFill) mesh.material.color.copy(avgColorOf(mesh.userData.matRef));
+  }
 }
 
 const tintCache = new Map();

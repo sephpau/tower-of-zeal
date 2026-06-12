@@ -361,6 +361,24 @@ const EGO_CUTS = {
   colorMode: 'texture',   // 'texture' keeps the baked skin; 'tint' multiplies colors below onto it
   colors: { body: '#ffffff', armL: '#ffffff', armR: '#ffffff', legL: '#ffffff', legR: '#ffffff' },
 };
+// average color of a material's texture — used to tint the interior fill so it
+// matches whatever the part's skin looks like (slightly darkened for depth)
+function avgColorOf(mat) {
+  try {
+    const img = mat.map && mat.map.image;
+    if (!img) return new THREE.Color(0x555066);
+    const c = document.createElement('canvas');
+    c.width = c.height = 16;
+    const x = c.getContext('2d');
+    x.drawImage(img, 0, 0, 16, 16);
+    const d = x.getImageData(0, 0, 16, 16).data;
+    let r = 0, g = 0, b = 0;
+    for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i+1]; b += d[i+2]; }
+    const n = d.length / 4;
+    return new THREE.Color().setRGB(r/n/255 * 0.8, g/n/255 * 0.8, b/n/255 * 0.8, THREE.SRGBColorSpace);
+  } catch { return new THREE.Color(0x555066); }
+}
+
 {
   const loader = new GLTFLoader();
   loader.load('assets/models/ego.glb', (gltf) => {
@@ -427,7 +445,7 @@ const EGO_CUTS = {
         grp.add(mesh);
         // back-face copy renders the shell interior as solid color, so the
         // open sockets read as filled instead of holes
-        const fill = new THREE.Mesh(p.geo, new THREE.MeshBasicMaterial({ color: 0xe8e0d4, side: THREE.BackSide }));
+        const fill = new THREE.Mesh(p.geo, new THREE.MeshBasicMaterial({ color: avgColorOf(p.mat), side: THREE.BackSide }));
         grp.add(fill);
       }
       inner.add(grp);
