@@ -624,6 +624,9 @@ function makeObstacle(type, lane, z) {
 
 const swordPickups = [];   // { mesh, lane, taken, tpl }
 let swordsPicked = 0;
+let equippedSword = null;  // the sword mesh in Ego's hand, or null
+let slashTimer = 0;        // arm-swing timer for the slash animation
+const debris = [];         // flying shards + the flung sword: { mesh, vx,vy,vz, spin, life, max }
 
 function makeSwordPickup(lane, z) {
   if (!swordTemplates.length) return;
@@ -644,6 +647,57 @@ function equipSword(tpl) {
   sword.scale.setScalar(1.6);
   sword.position.y = 0.5;   // grip in the paw, blade up
   egoParts.swordMount.add(sword);
+  equippedSword = sword;
+}
+
+// slash through one obstacle: destroy it, shatter the held sword, swing the arm
+const shardMat = new THREE.MeshStandardMaterial({ color: 0xeaf2ff, roughness: 0.3, metalness: 0.8 });
+const shardGeo = new THREE.TetrahedronGeometry(0.22);
+const flashGeo = new THREE.PlaneGeometry(3.4, 3.4);
+function slashObstacle(o) {
+  // remove the obstacle
+  scene.remove(o.mesh);
+  const idx = obstacles.indexOf(o);
+  if (idx >= 0) obstacles.splice(idx, 1);
+
+  const hit = o.mesh.position.clone();
+
+  // fling the held sword out of the hand, spinning
+  if (equippedSword) {
+    const wp = new THREE.Vector3();
+    equippedSword.getWorldPosition(wp);
+    egoParts.swordMount.remove(equippedSword);
+    equippedSword.position.copy(wp);
+    equippedSword.scale.setScalar(1.6 * 0.78); // keep apparent size after reparent from scaled ego
+    scene.add(equippedSword);
+    debris.push({ mesh: equippedSword, vx: 3, vy: 7, vz: 5, spin: 14, life: 0, max: 0.8 });
+    equippedSword = null;
+  }
+
+  // burst of metal shards at the impact point
+  for (let i = 0; i < 9; i++) {
+    const shard = new THREE.Mesh(shardGeo, shardMat);
+    shard.position.copy(hit).add(new THREE.Vector3((Math.random() - 0.5) * 1.2, 1 + Math.random(), (Math.random() - 0.5) * 1.2));
+    shard.castShadow = true;
+    scene.add(shard);
+    debris.push({
+      mesh: shard,
+      vx: (Math.random() - 0.5) * 9, vy: 3 + Math.random() * 7, vz: (Math.random() - 0.5) * 9,
+      spin: 8 + Math.random() * 14, life: 0, max: 0.55 + Math.random() * 0.25,
+    });
+  }
+
+  // white slash flash facing the camera
+  const flash = new THREE.Mesh(flashGeo, new THREE.MeshBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+  }));
+  flash.position.copy(hit).setY(1.3);
+  flash.rotation.z = Math.random() * Math.PI;
+  scene.add(flash);
+  debris.push({ mesh: flash, vx: 0, vy: 0, vz: 0, spin: 0, life: 0, max: 0.25, flash: true });
+
+  slashTimer = 0.32;
+  sfx.slash2();
 }
 
 function makeCoin(lane, z) {
@@ -701,6 +755,10 @@ function beep(freq, dur, type = 'square', vol = 0.18, sweepTo = null) {
 }
 const sfx = {
   sword: () => { beep(900, 0.08, 'sawtooth', 0.1, 2200); setTimeout(() => beep(1400, 0.18, 'sine', 0.12, 2800), 60); },
+  slash2: () => {  // metallic swipe + shatter
+    beep(2600, 0.12, 'sawtooth', 0.16, 400);
+    setTimeout(() => { beep(1800, 0.08, 'triangle', 0.12, 3200); beep(3400, 0.1, 'square', 0.06, 5000); }, 30);
+  },
   jump:  () => beep(300, 0.25, 'square', 0.12, 620),
   slide: () => beep(220, 0.2, 'sawtooth', 0.1, 120),
   coin:  () => { beep(880, 0.09, 'sine', 0.16); setTimeout(() => beep(1320, 0.14, 'sine', 0.16), 70); },
@@ -726,6 +784,7 @@ const sfx = {
 const hud = document.getElementById('hud');
 const hudScore = document.getElementById('hud-score');
 const hudCoins = document.getElementById('hud-coins');
+const hudSword = document.getElementById('hud-sword');
 const startOverlay = document.getElementById('start-overlay');
 const overOverlay = document.getElementById('over-overlay');
 const finalScore = document.getElementById('final-score');
@@ -749,8 +808,12 @@ function resetGame() {
   for (const p of swordPickups) scene.remove(p.mesh);
   obstacles.length = 0;
   coins.length = 0;
+  for (const d of debris) scene.remove(d.mesh);
   swordPickups.length = 0;
+  debris.length = 0;
   swordsPicked = 0;
+  equippedSword = null;
+  slashTimer = 0;
   while (egoParts.swordMount.children.length) egoParts.swordMount.remove(egoParts.swordMount.children[0]);
   speed = START_SPEED;
   distance = 0;
@@ -849,14 +912,19 @@ function checkCollisions() {
     const halfZ = o.type === 'crate' ? o.zHalf + 0.3 : 0.9;
     if (Math.abs(oz - PLAYER_Z) > halfZ) continue;
     if (Math.abs(LANES[o.lane] - px) > 1.15) continue;
+    let lethal;
     if (o.type === 'hurdle') {
-      if (py < 0.85) return true;          // didn't jump high enough
+      lethal = py < 0.85;                    // didn't jump high enough
     } else if (o.type === 'beam') {
       const slidUnder = sliding > 0 && py <= 0.05;
       const jumpedOver = py > 1.5;               // feet above the bar (top ~1.62)
-      if (!slidUnder && !jumpedOver) return true;
+      lethal = !slidUnder && !jumpedOver;
     } else {
-      if (py < o.height - 0.35) return true;  // low vehicles can be hopped, tall ones can't
+      lethal = py < o.height - 0.35;        // low vehicles can be hopped, tall ones can't
+    }
+    if (lethal) {
+      if (equippedSword) { slashObstacle(o); return false; }  // armed: cut through it instead of dying
+      return true;
     }
   }
   for (const c of coins) {
@@ -905,6 +973,24 @@ function animate() {
     for (const p of swordPickups) {
       p.mesh.position.z += speed * dt;
       p.mesh.rotation.y += dt * 3.2;
+    }
+    // slash debris: gravity + spin + scroll with the road, fade out, then cull
+    for (let i = debris.length - 1; i >= 0; i--) {
+      const d = debris[i];
+      d.life += dt;
+      if (d.life >= d.max) { scene.remove(d.mesh); debris.splice(i, 1); continue; }
+      if (d.flash) {
+        d.mesh.material.opacity = 0.9 * (1 - d.life / d.max);
+        d.mesh.scale.setScalar(1 + d.life * 6);
+        d.mesh.position.z += speed * dt;
+        continue;
+      }
+      d.vy += GRAVITY * dt;
+      d.mesh.position.x += d.vx * dt;
+      d.mesh.position.y += d.vy * dt;
+      d.mesh.position.z += (d.vz + speed) * dt;
+      d.mesh.rotation.x += d.spin * dt;
+      d.mesh.rotation.y += d.spin * 0.7 * dt;
     }
     for (const d of dashes) {
       d.position.z += speed * dt;
@@ -984,6 +1070,13 @@ function animate() {
     egoParts.arms[1].rotation.z = airborne ? -1.45 : -0.6;
     egoParts.arms[0].rotation.x = Math.sin(stride + Math.PI) * 0.85 * (airborne ? 0.2 : 1);
     egoParts.arms[1].rotation.x = Math.sin(stride) * 0.85 * (airborne ? 0.2 : 1);
+    // overlay a fast downward chop on the sword arm right after a slash
+    if (slashTimer > 0) {
+      slashTimer -= dt;
+      const k = Math.max(0, slashTimer) / 0.32;       // 1 -> 0
+      egoParts.arms[1].rotation.x = -2.4 * Math.sin(k * Math.PI);
+      egoParts.arms[1].rotation.z = -0.6 - 0.8 * (1 - k);
+    }
     egoParts.buddy.rotation.x = Math.sin(stride - 0.9) * 0.18 - (airborne ? 0.2 : 0);
     egoParts.buddy.rotation.z = -0.15 + (airborne ? Math.sin(t * 7) * 0.08 : 0);
     egoParts.jetpack.visible = airborne;
@@ -1006,6 +1099,7 @@ function animate() {
 
     hudScore.textContent = score().toLocaleString();
     hudCoins.innerHTML = '&#9679; ' + coinCount;
+    hudSword.classList.toggle('hidden', !equippedSword);
   } else {
     // idle bounce + arm sway on menus
     player.rotation.y = Math.sin(t * 0.8) * 0.25;
@@ -1031,7 +1125,9 @@ animate();
 window.__egoDebug = () => ({
   state, speed, distance, coinCount, swordsPicked, py, vy, lane,
   obstacles: obstacles.length, coins: coins.length, swordsOnRoad: swordPickups.length,
-  swordEquipped: egoParts.swordMount.children.length > 0,
+  swordEquipped: !!equippedSword,
+  debris: debris.length,
+  __slash: (lane) => { if (swordTemplates.length) equipSword(swordTemplates[0]); const o = obstacles.find(o => o.type === 'crate'); if (o && equippedSword) { slashObstacle(o); return 'slashed ' + o.type; } return 'no crate obstacle'; },
   decor: decorTrees.length, treeTpls: treeTemplates.length,
   vehicleTpls: vehicleTemplates.length, swordTpls: swordTemplates.length,
 });
