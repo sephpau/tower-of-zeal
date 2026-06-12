@@ -182,6 +182,53 @@ function plantDecorTrees() {
   }
 }
 
+// ---------- vehicle models (Blender exports) ----------
+const VEHICLE_FILES = [
+  'bicycle', 'bus', 'car_01', 'car_02', 'car_03', 'car_04', 'jeep_01', 'jeep_02',
+  'pickup', 'truck_01', 'truck_02', 'truck_03', 'truck_04', 'truck_05',
+];
+const BODY_COLORS = [0xff5e7a, 0x4dd0e1, 0xffd24a, 0xb04ddb, 0xf2f2f2, 0xff8c42];
+const vehicleTemplates = [];   // { tpl, height } — oriented along road, lane-width
+
+{
+  const loader = new GLTFLoader();
+  for (const name of VEHICLE_FILES) {
+    loader.load(`assets/models/${name}.glb`, (gltf) => {
+      const root = gltf.scene;
+      const box = new THREE.Box3().setFromObject(root);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const inner = new THREE.Group();
+      root.position.set(-center.x, -box.min.y, -center.z);
+      inner.add(root);
+      if (size.x > size.z) inner.rotation.y = Math.PI / 2;  // longest axis along the road
+      const width = Math.min(size.x, size.z);
+      const length = Math.max(size.x, size.z);
+      const s = Math.min(1.8 / width, 4.5 / length);
+      const wrap = new THREE.Group();
+      wrap.add(inner);
+      wrap.scale.setScalar(s);
+      vehicleTemplates.push({ tpl: wrap, height: size.y * s });
+    });
+  }
+}
+
+function makeVehicle() {
+  const v = vehicleTemplates[Math.floor(Math.random() * vehicleTemplates.length)];
+  const mesh = v.tpl.clone(true);
+  const painted = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 });
+  const body = new THREE.MeshStandardMaterial({
+    color: BODY_COLORS[Math.floor(Math.random() * BODY_COLORS.length)], roughness: 0.6,
+  });
+  mesh.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = true;
+    o.material = o.geometry.getAttribute('color') ? painted : body;
+  });
+  if (Math.random() < 0.5) mesh.rotation.y += Math.PI;
+  return { mesh, height: v.height };
+}
+
 // ---------- player: the Ego ----------
 const player = new THREE.Group();
 const playerParts = {};
@@ -256,14 +303,21 @@ const coinGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.08, 20);
 // type: 'crate' (dodge), 'hurdle' (jump), 'beam' (slide)
 function makeObstacle(type, lane, z) {
   const g = new THREE.Group();
+  let height = 99;   // blocking height for 'crate'-type obstacles (jump clears ~2.5)
   if (type === 'crate') {
-    if (treeTemplates.length) {
-      g.add(makeTree(2.6 + Math.random() * 0.7, LEAF_COLORS[Math.floor(Math.random() * LEAF_COLORS.length)]));
+    if (vehicleTemplates.length && (Math.random() < 0.7 || !treeTemplates.length)) {
+      const v = makeVehicle();
+      g.add(v.mesh);
+      height = v.height;
+    } else if (treeTemplates.length) {
+      height = 2.6 + Math.random() * 0.7;
+      g.add(makeTree(height, LEAF_COLORS[Math.floor(Math.random() * LEAF_COLORS.length)]));
     } else {
       const m = new THREE.Mesh(new THREE.BoxGeometry(1.9, 2.4, 1.2), crateMat);
       m.position.y = 1.2;
       m.castShadow = true;
       g.add(m);
+      height = 2.4;
     }
   } else if (type === 'hurdle') {
     const bar = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.22, 0.22), hurdleMat);
@@ -288,7 +342,7 @@ function makeObstacle(type, lane, z) {
   }
   g.position.set(LANES[lane], 0, z);
   obstaclePool.add(g);
-  obstacles.push({ mesh: g, type, lane, z });
+  obstacles.push({ mesh: g, type, lane, z, height });
 }
 
 function makeCoin(lane, z) {
@@ -474,7 +528,7 @@ function checkCollisions() {
     } else if (o.type === 'beam') {
       if (sliding <= 0 || py > 0.05) return true;  // not sliding under it
     } else {
-      return true;                          // crate: any contact
+      if (py < o.height - 0.35) return true;  // low vehicles can be hopped, tall ones can't
     }
   }
   for (const c of coins) {
