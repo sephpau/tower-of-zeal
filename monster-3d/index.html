@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chompo 3D</title>
+<title>Ego 3D</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #1a0a2e; }
@@ -34,18 +34,20 @@
     transition: transform 0.12s ease, box-shadow 0.12s ease;
   }
   #jetBtn { background: linear-gradient(180deg, #7a6aff, #4a3acd); box-shadow: 0 6px 20px rgba(122, 106, 255, 0.45); }
+  #skateBtn { background: linear-gradient(180deg, #4ad0a0, #1a8a70); box-shadow: 0 6px 20px rgba(74, 208, 160, 0.45); }
   #btns button:hover { transform: scale(1.06); }
   #btns button.on { background: linear-gradient(180deg, #ffe97a, #ffb02e); color: #4a1230; box-shadow: 0 6px 24px rgba(255, 233, 122, 0.5); }
 </style>
 </head>
 <body>
 <div id="label">
-  <div class="t">CHOMPO</div>
-  <div class="s">drag to spin &middot; scroll to zoom &middot; R to run &middot; J for jetpack</div>
+  <div class="t">EGO</div>
+  <div class="s">drag to spin &middot; scroll to zoom &middot; R run &middot; J jetpack &middot; S skate</div>
 </div>
 <div id="btns">
   <button id="runBtn">&#9654; RUN</button>
   <button id="jetBtn">&#128640; JETPACK</button>
+  <button id="skateBtn">&#128756; SKATE</button>
 </div>
 
 <script type="importmap">
@@ -380,6 +382,42 @@ jetpack.position.set(0, 0.22, -1.02);
 jetpack.visible = false;
 body.add(jetpack);
 
+// ---------- skateboard (hidden until skate mode) ----------
+// long axis along x, matching his foot spread — he rides side-stance
+const board = new THREE.Group();
+const DECK = new THREE.MeshStandardMaterial({ color: 0x2a1a3e, roughness: 0.8 });
+const DECK_UNDER = new THREE.MeshStandardMaterial({ color: 0xff5e7a, roughness: 0.5 });
+const deck = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.07, 0.55), DECK);
+deck.castShadow = true;
+board.add(deck);
+const under = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.02, 0.53), DECK_UNDER);
+under.position.y = -0.04;
+board.add(under);
+// kicked-up nose and tail
+for (const s of [-1, 1]) {
+  const kick = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.07, 0.55), DECK);
+  kick.position.set(s * 0.97, 0.055, 0);
+  kick.rotation.z = s * 0.38;
+  board.add(kick);
+}
+// trucks + wheels
+const WHEEL = new THREE.MeshStandardMaterial({ color: 0xffe97a, roughness: 0.35 });
+for (const sx of [-1, 1]) {
+  const truck = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.09, 0.4), METAL_DARK);
+  truck.position.set(sx * 0.55, -0.08, 0);
+  board.add(truck);
+  for (const sz of [-1, 1]) {
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.09, 16), WHEEL);
+    wheel.rotation.x = Math.PI / 2;
+    wheel.position.set(sx * 0.55, -0.12, sz * 0.24);
+    wheel.castShadow = true;
+    board.add(wheel);
+  }
+}
+board.position.set(0, -0.03, 0.32);
+board.visible = false;
+chompo.add(board);
+
 // ---------- ground ----------
 const ground = new THREE.Mesh(
   new THREE.CircleGeometry(20, 48),
@@ -408,7 +446,8 @@ scene.add(ring);
 const clock = new THREE.Clock();
 let running = false;     // target states, toggled by the buttons / keyboard
 let jetting = false;
-let run = 0, jet = 0;    // idle->run / idle->jet blends, 0..1
+let skating = false;
+let run = 0, jet = 0, skate = 0;  // idle->mode blends, 0..1
 let lastT = 0;
 let gx = 0, gz = 0;      // scrolling grid offset
 
@@ -423,8 +462,11 @@ function animate() {
   // blend toward the target states, eased
   run = Math.min(1, Math.max(0, run + (running ? 1 : -1) * dt * 3.5));
   jet = Math.min(1, Math.max(0, jet + (jetting ? 1 : -1) * dt * 2.2));
+  skate = Math.min(1, Math.max(0, skate + (skating ? 1 : -1) * dt * 3));
   const e = run * run * (3 - 2 * run);
   const j = jet * jet * (3 - 2 * jet);
+  const k = skate * skate * (3 - 2 * skate);
+  const push = Math.max(0, Math.sin(t * 2.6));   // kick-push cycle
 
   // idle bounce vs running hops vs airborne hover
   const bounce = Math.sin(t * 3.2);
@@ -432,22 +474,32 @@ function animate() {
   const idleY = Math.max(0, bounce) * 0.06;
   const hopY = Math.abs(Math.sin(stride)) * 0.14;
   const hoverY = 0.95 + Math.sin(t * 1.6) * 0.16 + Math.sin(t * 4.3) * 0.04;
-  chompo.position.y = lerp(lerp(idleY, hopY, e), hoverY, j);
-  body.scale.y = 1 + bounce * 0.025 * (1 - e) * (1 - j) - Math.cos(stride * 2) * 0.02 * e;
+  const skateY = 0.27 + push * 0.04;
+  chompo.position.y = lerp(lerp(lerp(idleY, hopY, e), skateY, k), hoverY, j);
+  body.scale.y = 1 + bounce * 0.025 * (1 - e) * (1 - j) * (1 - k) - Math.cos(stride * 2) * 0.02 * e;
   body.scale.x = body.scale.z = 1 - bounce * 0.015;
 
-  // eager forward lean while running; cruising tilt while flying
+  // eager forward lean while running; cruising tilt while flying; crouch on the board
   body.rotation.x = 0.18 * e + 0.3 * j;
+  body.rotation.y = 0.45 * k;                       // shoulders twist toward travel
+  body.position.y = 1.35 - 0.1 * k - push * 0.04 * k;  // crouch into each push
+  chompo.rotation.z = (Math.sin(t * 1.3) * 0.07 - 0.04) * k;  // carving lean, board follows
 
   // legs: pump at a sprint, dangle loose in the air
   const dangle0 = 0.4 + Math.sin(t * 2.6) * 0.12;
   const dangle1 = 0.4 + Math.sin(t * 2.6 + 1.1) * 0.12;
   legs[0].rotation.x = Math.sin(stride) * 0.95 * e + dangle0 * j;
   legs[1].rotation.x = Math.sin(stride + Math.PI) * 0.95 * e + dangle1 * j;
+  // rear foot kicks off sideways along the board while skating
+  legs[0].rotation.z = push * 0.85 * k;
+  legs[1].rotation.z = 0;
 
-  // arms: sway at rest, pump at a sprint, spread wide superhero-style in the air
-  arms[0].rotation.z = lerp(lerp( 1.05 + Math.sin(t * 3.2) * 0.12,  0.6, e),  1.45 + Math.sin(t * 2.2) * 0.08, j);
-  arms[1].rotation.z = lerp(lerp(-1.05 - Math.sin(t * 3.2 + 0.4) * 0.12, -0.6, e), -1.45 - Math.sin(t * 2.2 + 0.5) * 0.08, j);
+  // arms: sway at rest, pump at a sprint, spread wide superhero-style in the air,
+  // out for balance on the board
+  const armIdle0 =  1.05 + Math.sin(t * 3.2) * 0.12;
+  const armIdle1 = -1.05 - Math.sin(t * 3.2 + 0.4) * 0.12;
+  arms[0].rotation.z = lerp(lerp(lerp(armIdle0,  0.6, e),  1.5 + Math.sin(t * 2.0) * 0.12, k),  1.45 + Math.sin(t * 2.2) * 0.08, j);
+  arms[1].rotation.z = lerp(lerp(lerp(armIdle1, -0.6, e), -1.5 - Math.sin(t * 2.0 + 0.7) * 0.12, k), -1.45 - Math.sin(t * 2.2 + 0.5) * 0.08, j);
   arms[0].rotation.x = Math.sin(stride + Math.PI) * 0.85 * e;
   arms[1].rotation.x = Math.sin(stride) * 0.85 * e;
 
@@ -457,6 +509,10 @@ function animate() {
   buddy.position.y = 2.62 + Math.max(0, Math.sin(t * 3.2 - 0.3)) * 0.05 * (1 - e)
                    + Math.abs(Math.sin(stride - 0.5)) * 0.1 * e
                    + body.scale.y - 1;
+
+  // skateboard: pop in under his feet
+  board.visible = skate > 0.01;
+  if (board.visible) board.scale.setScalar(0.5 + 0.5 * k);
 
   // jetpack: pop in, flicker the flames, glow
   jetpack.visible = jet > 0.01;
@@ -469,12 +525,14 @@ function animate() {
     jetGlow.intensity = j * (2.2 + Math.sin(t * 37) * 0.6);
   }
 
-  // scroll the grid past him so the motion reads
+  // scroll the grid past him so the motion reads;
+  // the board rolls along its long axis (his local +x), surfer-stance
   const groundSpeed = 7 * e + 10 * j;
-  if (groundSpeed > 0.01) {
+  const skateSpeed = (4.5 + push * 3.5) * k;
+  if (groundSpeed + skateSpeed > 0.01) {
     const ry = chompo.rotation.y;
-    gx -= Math.sin(ry) * groundSpeed * dt;
-    gz -= Math.cos(ry) * groundSpeed * dt;
+    gx -= Math.sin(ry) * groundSpeed * dt + Math.cos(ry) * skateSpeed * dt;
+    gz -= Math.cos(ry) * groundSpeed * dt - Math.sin(ry) * skateSpeed * dt;
     grid.position.x = gx % 1;
     grid.position.z = gz % 1;
   }
@@ -495,29 +553,29 @@ controls.addEventListener('start', () => { userInteracted = true; });
 // mode toggles: buttons + R / J / Space
 const runBtn = document.getElementById('runBtn');
 const jetBtn = document.getElementById('jetBtn');
+const skateBtn = document.getElementById('skateBtn');
 function refreshBtns() {
   runBtn.textContent = running ? '■ STOP' : '▶ RUN';
   runBtn.classList.toggle('on', running);
   jetBtn.textContent = jetting ? '■ LAND' : '🚀 JETPACK';
   jetBtn.classList.toggle('on', jetting);
+  skateBtn.textContent = skating ? '■ BAIL' : '🛹 SKATE';
+  skateBtn.classList.toggle('on', skating);
 }
-function toggleRun() {
-  running = !running;
-  if (running) jetting = false;
+function setMode(mode) {
+  running = mode === 'run' ? !running : false;
+  jetting = mode === 'jet' ? !jetting : false;
+  skating = mode === 'skate' ? !skating : false;
   userInteracted = true;
   refreshBtns();
 }
-function toggleJet() {
-  jetting = !jetting;
-  if (jetting) running = false;
-  userInteracted = true;
-  refreshBtns();
-}
-runBtn.addEventListener('click', toggleRun);
-jetBtn.addEventListener('click', toggleJet);
+runBtn.addEventListener('click', () => setMode('run'));
+jetBtn.addEventListener('click', () => setMode('jet'));
+skateBtn.addEventListener('click', () => setMode('skate'));
 addEventListener('keydown', (e) => {
-  if (e.code === 'KeyR' || e.code === 'Space') { e.preventDefault(); toggleRun(); }
-  if (e.code === 'KeyJ') { e.preventDefault(); toggleJet(); }
+  if (e.code === 'KeyR' || e.code === 'Space') { e.preventDefault(); setMode('run'); }
+  if (e.code === 'KeyJ') { e.preventDefault(); setMode('jet'); }
+  if (e.code === 'KeyS') { e.preventDefault(); setMode('skate'); }
 });
 
 addEventListener('resize', () => {
