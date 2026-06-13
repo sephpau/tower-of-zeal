@@ -1250,35 +1250,37 @@ function checkCollisions() {
       return true;
     }
   }
-  for (const c of coins) {
-    if (c.taken) continue;
-    const cz = c.mesh.position.z;
-    if (Math.abs(cz - PLAYER_Z) < 1.0 && Math.abs(LANES[c.lane] - px) < 0.9 && py < 1.6) {
-      c.taken = true;
-      c.mesh.visible = false;
-      coinCount++;
-      sfx.coin();
+  // no collecting anything while gliding overhead on the jetpack
+  if (!flying) {
+    for (const c of coins) {
+      if (c.taken) continue;
+      const cz = c.mesh.position.z;
+      if (Math.abs(cz - PLAYER_Z) < 1.0 && Math.abs(LANES[c.lane] - px) < 0.9 && py < 1.6) {
+        c.taken = true;
+        c.mesh.visible = false;
+        coinCount++;
+        sfx.coin();
+      }
     }
-  }
-  for (const p of swordPickups) {
-    if (p.taken) continue;
-    const pz = p.mesh.position.z;
-    if (Math.abs(pz - PLAYER_Z) < 1.0 && Math.abs(LANES[p.lane] - px) < 0.9 && py < 1.8) {
-      p.taken = true;
-      p.mesh.visible = false;
-      swordsPicked++;
-      equipSword(p.tpl);
-      sfx.sword();
+    for (const p of swordPickups) {
+      if (p.taken) continue;
+      const pz = p.mesh.position.z;
+      if (Math.abs(pz - PLAYER_Z) < 1.0 && Math.abs(LANES[p.lane] - px) < 0.9 && py < 1.8) {
+        p.taken = true;
+        p.mesh.visible = false;
+        swordsPicked++;
+        equipSword(p.tpl);
+        sfx.sword();
+      }
     }
-  }
-  for (const p of powerups) {
-    if (p.taken) continue;
-    const pz = p.mesh.position.z;
-    // generous vertical reach so flying/jumping Ego can still grab them
-    if (Math.abs(pz - PLAYER_Z) < 1.1 && Math.abs(LANES[p.lane] - px) < 0.95 && Math.abs(py - 1.2) < 3.5) {
-      p.taken = true;
-      p.mesh.visible = false;
-      activatePowerup(p.kind);
+    for (const p of powerups) {
+      if (p.taken) continue;
+      const pz = p.mesh.position.z;
+      if (Math.abs(pz - PLAYER_Z) < 1.1 && Math.abs(LANES[p.lane] - px) < 0.95 && py < 1.8) {
+        p.taken = true;
+        p.mesh.visible = false;
+        activatePowerup(p.kind);
+      }
     }
   }
   return false;
@@ -1434,7 +1436,7 @@ function animate() {
     // jetpack flight: a forward-leaning glide instead of the running gait
     if (flying) {
       ego.position.y = 0.05;
-      ego.rotation.x = -0.6;                       // pitch forward into the glide
+      ego.rotation.x = -0.95;                      // pitch well forward into the glide
       ego.rotation.z = Math.sin(t * 1.6) * 0.05;   // gentle banking sway
       if (egoLimbs.legL) {
         egoLimbs.legL.rotation.x = 0.5;            // legs streamlined, trailing back
