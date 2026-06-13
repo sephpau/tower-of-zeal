@@ -1431,6 +1431,18 @@ function animate() {
       egoLimbs.armL.rotation.x = -armA;          // arms counter the legs
       egoLimbs.armR.rotation.x = armA;
     }
+    // jetpack flight: a forward-leaning glide instead of the running gait
+    if (flying) {
+      ego.position.y = 0.05;
+      ego.rotation.x = -0.6;                       // pitch forward into the glide
+      ego.rotation.z = Math.sin(t * 1.6) * 0.05;   // gentle banking sway
+      if (egoLimbs.legL) {
+        egoLimbs.legL.rotation.x = 0.5;            // legs streamlined, trailing back
+        egoLimbs.legR.rotation.x = 0.5;
+        egoLimbs.armL.rotation.x = -0.7;           // arms reaching forward
+        egoLimbs.armR.rotation.x = -0.7;
+      }
+    }
     // while skating, drop the running gait and settle into a sideways board-riding stance
     const onBoard = skateDist > 0 && !flying;
     egoModel.rotation.y = 0;                      // default: body faces down the road
