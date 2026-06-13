@@ -66,11 +66,11 @@
       <option value="segments">debug segments</option>
     </select>
   </div>
-  <div class="row"><label>body</label><input type="color" id="cbody" value="#ffffff"><span style="flex:1"></span></div>
-  <div class="row"><label>arm L</label><input type="color" id="carmL" value="#ffffff"><span style="flex:1"></span></div>
-  <div class="row"><label>arm R</label><input type="color" id="carmR" value="#ffffff"><span style="flex:1"></span></div>
-  <div class="row"><label>leg L</label><input type="color" id="clegL" value="#ffffff"><span style="flex:1"></span></div>
-  <div class="row"><label>leg R</label><input type="color" id="clegR" value="#ffffff"><span style="flex:1"></span></div>
+  <div class="row"><label>body</label><input type="color" id="cbody" value="#ffffff"><span style="flex:1"></span><label style="flex:0;opacity:0.7">hide</label><input type="checkbox" id="hbody"></div>
+  <div class="row"><label>arm L</label><input type="color" id="carmL" value="#ffffff"><span style="flex:1"></span><label style="flex:0;opacity:0.7">hide</label><input type="checkbox" id="harmL"></div>
+  <div class="row"><label>arm R</label><input type="color" id="carmR" value="#ffffff"><span style="flex:1"></span><label style="flex:0;opacity:0.7">hide</label><input type="checkbox" id="harmR"></div>
+  <div class="row"><label>leg L</label><input type="color" id="clegL" value="#ffffff"><span style="flex:1"></span><label style="flex:0;opacity:0.7">hide</label><input type="checkbox" id="hlegL"></div>
+  <div class="row"><label>leg R</label><input type="color" id="clegR" value="#ffffff"><span style="flex:1"></span><label style="flex:0;opacity:0.7">hide</label><input type="checkbox" id="hlegR"></div>
 
   <h3>Texture Paint</h3>
   <div class="row"><label>tool</label>
@@ -163,9 +163,12 @@ const defaults = {
   legSwing: 0.6, armSwing: 0.6, tempo: 13,
   colorMode: 'texture',
   colors: { body: '#ffffff', armL: '#ffffff', armR: '#ffffff', legL: '#ffffff', legR: '#ffffff' },
+  hidden: { body: false, armL: false, armR: false, legL: false, legR: false },
 };
 const stored = JSON.parse(localStorage.getItem(PARAMS_KEY) || '{}');
-const params = { ...defaults, ...stored, colors: { ...defaults.colors, ...(stored.colors || {}) } };
+const params = { ...defaults, ...stored,
+  colors: { ...defaults.colors, ...(stored.colors || {}) },
+  hidden: { ...defaults.hidden, ...(stored.hidden || {}) } };
 
 const ids = ['yaw', 'pitch', 'roll', 'legSwing', 'armSwing', 'tempo'];
 for (const id of ids) {
@@ -199,6 +202,17 @@ for (const key of ['body', 'armL', 'armR', 'legL', 'legR']) {
     localStorage.setItem(PARAMS_KEY, JSON.stringify(params));
     applyColors();
   });
+  // hide toggle — removes the part from view (and the exported/game model)
+  const hb = document.getElementById('h' + key);
+  hb.checked = !!params.hidden[key];
+  hb.addEventListener('change', () => {
+    params.hidden[key] = hb.checked;
+    localStorage.setItem(PARAMS_KEY, JSON.stringify(params));
+    applyHidden();
+  });
+}
+function applyHidden() {
+  for (const key of Object.keys(limbs)) if (limbs[key]) limbs[key].visible = !params.hidden[key];
 }
 
 // ---------- model: native parts ----------
@@ -454,6 +468,7 @@ function build() {
   holder.add(inner);
   holder.scale.setScalar(2.4 / H);
   applyColors();
+  applyHidden();
   stats.textContent = lines.join('\n');
 }
 
@@ -518,6 +533,7 @@ document.getElementById('copy').addEventListener('click', async () => {
     legSwing: params.legSwing, armSwing: params.armSwing, tempo: params.tempo,
     colorMode: params.colorMode === 'segments' ? 'texture' : params.colorMode,
     colors: { ...params.colors },
+    hidden: { ...params.hidden },
   };
   await navigator.clipboard.writeText(JSON.stringify(out, null, 2));
   const c = document.getElementById('copied');

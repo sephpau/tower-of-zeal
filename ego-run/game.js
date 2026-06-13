@@ -360,6 +360,7 @@ const EGO_CUTS = {
   legSwing: 0.6, armSwing: 0.6,
   colorMode: 'texture',   // 'texture' keeps the baked skin; 'tint' multiplies colors below onto it
   colors: { body: '#ffffff', armL: '#ffffff', armR: '#ffffff', legL: '#ffffff', legR: '#ffffff' },
+  hidden: { body: false, armL: false, armR: false, legL: false, legR: false },
 };
 // fill color for a part's interior: sample the texture at the part's underside
 // (where the sockets are — on the body that's the suit), so the inside is the
@@ -452,6 +453,7 @@ function fillColorOf(geo, mat) {
         mesh.castShadow = true; mesh.receiveShadow = true;
         grp.add(mesh);
       }
+      if (EGO_CUTS.hidden?.[key]) grp.visible = false;
       inner.add(grp);
       egoLimbs[key] = grp;
     }
