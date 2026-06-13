@@ -12,6 +12,7 @@ const ACCEL = 0.18;                 // speed gain per second, forever
 const SPAWN_Z = -150;
 const KILL_Z = 14;
 const PLAYER_Z = 0;
+const SWORD_REST_X = 0.32;   // back-carry resting tilt; slash swings forward from here
 
 // ---------- renderer / scene ----------
 const canvas = document.getElementById('game-canvas');
@@ -712,10 +713,11 @@ const egoParts = (() => {
   jetpack.visible = false;
   egoRig.add(jetpack);
 
-  // weapon mount near Ego's right hand — picked-up swords attach here
+  // weapon mount on Ego's back — picked-up swords ride here, strapped diagonally
   const swordMount = new THREE.Group();
-  swordMount.position.set(0.85, 1.15, 0.35);
-  swordMount.rotation.x = -0.6;   // blade angled up-forward
+  swordMount.position.set(-0.15, 1.5, -0.72);   // upper back, behind him (toward camera)
+  swordMount.rotation.z = 0.55;                 // hilt up-right, tip down-left across the back
+  swordMount.rotation.x = SWORD_REST_X;         // laid against the back
   egoRig.add(swordMount);
 
   return { model: egoModel, jetpack, flames, jetGlow, swordMount };
@@ -806,9 +808,9 @@ function makeSwordPickup(lane, z) {
   const tpl = swordTemplates[Math.floor(Math.random() * swordTemplates.length)];
   const g = new THREE.Group();
   const sword = makeSword(tpl);
-  sword.scale.setScalar(1.5);
+  sword.scale.setScalar(0.6);
   g.add(sword);
-  g.position.set(LANES[lane], 1.2, z);
+  g.position.set(LANES[lane], 1.0, z);
   g.rotation.z = 0.35;
   scene.add(g);
   swordPickups.push({ mesh: g, lane, taken: false, tpl });
@@ -1247,12 +1249,12 @@ function animate() {
       egoLimbs.armL.rotation.x = -armA;          // arms counter the legs
       egoLimbs.armR.rotation.x = armA;
     }
-    egoParts.swordMount.rotation.x = -0.6;
-    // fast downward chop right after a slash (swings the sword arm too)
+    egoParts.swordMount.rotation.x = SWORD_REST_X;
+    // fast forward chop right after a slash — draws the sword off his back and swings
     if (slashTimer > 0) {
       slashTimer -= dt;
       const k = Math.max(0, slashTimer) / 0.32;       // 1 -> 0
-      egoParts.swordMount.rotation.x = -0.6 - 2.0 * Math.sin(k * Math.PI);
+      egoParts.swordMount.rotation.x = SWORD_REST_X - 2.8 * Math.sin(k * Math.PI);
       if (egoLimbs.armR) egoLimbs.armR.rotation.x = -2.2 * Math.sin(k * Math.PI);
     }
     egoParts.jetpack.visible = airborne;
@@ -1290,7 +1292,7 @@ function animate() {
     }
     egoParts.jetpack.visible = false;
     egoParts.jetGlow.intensity = 0;
-    egoParts.swordMount.rotation.x = -0.6;
+    egoParts.swordMount.rotation.x = SWORD_REST_X;
   }
 
   renderer.render(scene, camera);
