@@ -19,6 +19,7 @@ const FLY_DIST = 240;        // world units of flight a jetpack pickup grants
 const FLY_ALT = 4.3;         // cruise altitude while the jetpack is active
 const FLY_BOOST = 1.7;       // speed multiplier while the jetpack is active
 const SKATE_DIST = 300;      // world units the skateboard pickup lasts
+const SKATE_YAW = Math.PI / 2;  // turn Ego's body sideways on the board, skater-style
 
 // ---------- renderer / scene ----------
 const canvas = document.getElementById('game-canvas');
@@ -920,6 +921,21 @@ function activatePowerup(kind) {
   sfx.power();
 }
 
+// the board absorbs one trip on a small obstacle, then gets knocked out from under him
+function loseSkateboard() {
+  if (skateDist <= 0) return;
+  skateDist = 0;
+  egoParts.board.visible = false;
+  egoParts.shieldRing.visible = false;
+  egoModel.rotation.y = 0;
+  // fling a copy of the board off the road for juice
+  const b = buildSkateboard();
+  b.position.set(player.position.x, 0.5, PLAYER_Z - 0.2);
+  scene.add(b);
+  debris.push({ mesh: b, vx: (Math.random() < 0.5 ? -1 : 1) * 3.5, vy: 7, vz: -4, spin: 10, life: 0, max: 1.3 });
+  sfx.boardOut();
+}
+
 // slash through one obstacle: destroy it, shatter the held sword, swing the arm
 const shardMat = new THREE.MeshStandardMaterial({ color: 0xeaf2ff, roughness: 0.3, metalness: 0.8 });
 const shardGeo = new THREE.TetrahedronGeometry(0.22);
@@ -1038,6 +1054,7 @@ const sfx = {
   slide: () => beep(220, 0.2, 'sawtooth', 0.1, 120),
   coin:  () => { beep(880, 0.09, 'sine', 0.16); setTimeout(() => beep(1320, 0.14, 'sine', 0.16), 70); },
   power: () => { beep(520, 0.1, 'square', 0.14, 880); setTimeout(() => beep(1040, 0.12, 'sine', 0.16, 1600), 80); setTimeout(() => beep(1560, 0.18, 'sine', 0.14, 2200), 170); },
+  boardOut: () => { beep(420, 0.1, 'square', 0.13, 150); setTimeout(() => beep(240, 0.16, 'sawtooth', 0.11, 80), 70); },
   crash: () => {
     if (!audioCtx) return;
     const t = audioCtx.currentTime;
@@ -1103,6 +1120,7 @@ function resetGame() {
   egoParts.jetGlow.intensity = 0;
   egoParts.board.visible = false;
   egoParts.shieldRing.visible = false;
+  egoModel.rotation.y = 0;
   while (egoParts.swordMount.children.length) egoParts.swordMount.remove(egoParts.swordMount.children[0]);
   speed = START_SPEED;
   distance = 0;
@@ -1134,6 +1152,7 @@ function beginRunning() {
 
 function gameOver() {
   state = 'over';
+  egoModel.rotation.y = 0;   // never freeze sideways on the menu
   sfx.crash();
   const s = score();
   const isBest = s > best;
@@ -1213,8 +1232,12 @@ function checkCollisions() {
     if (flying) continue;                    // jetpack soars over everything
     let lethal;
     if (o.type === 'hurdle') {
-      // skateboard shields against small trippable hurdles (the red bars)
-      lethal = !skating && py < 0.85;        // didn't jump high enough
+      const tripping = py < 0.85;            // didn't jump high enough
+      if (tripping && skating) {             // the board saves him once, then is knocked away
+        loseSkateboard();
+        return false;
+      }
+      lethal = tripping;
     } else if (o.type === 'beam') {
       const slidUnder = sliding > 0 && py <= 0.05;
       const jumpedOver = py > 1.5;               // feet above the bar (top ~1.62)
@@ -1408,17 +1431,20 @@ function animate() {
       egoLimbs.armL.rotation.x = -armA;          // arms counter the legs
       egoLimbs.armR.rotation.x = armA;
     }
-    // while skating, drop the running gait and settle into a board-riding stance
+    // while skating, drop the running gait and settle into a sideways board-riding stance
     const onBoard = skateDist > 0 && !flying;
+    egoModel.rotation.y = 0;                      // default: body faces down the road
     if (onBoard) {
-      ego.position.y = 0;                        // no hop — board sits flat on the road
-      ego.rotation.x = -0.05;                    // slight forward lean
-      ego.rotation.z = Math.sin(t * 1.6) * 0.06; // gentle carving sway
+      ego.position.y = 0;                         // no hop — board sits flat on the road
+      ego.rotation.x = 0;                         // keep the board level
+      ego.rotation.z = 0;
+      // turn his body sideways across the deck (board still rolls down the road)
+      egoModel.rotation.y = SKATE_YAW + Math.sin(t * 1.6) * 0.08;  // sideways + gentle carve
       if (egoLimbs.legL) {
-        egoLimbs.legL.rotation.x = 0.3;          // front foot planted forward
-        egoLimbs.legR.rotation.x = -0.2;         // back foot pushed back (skater stance)
-        egoLimbs.armL.rotation.x = 0.34;         // arms out for balance
-        egoLimbs.armR.rotation.x = 0.34;
+        egoLimbs.legL.rotation.x = 0.22;          // feet staggered along the deck, knees bent
+        egoLimbs.legR.rotation.x = -0.18;
+        egoLimbs.armL.rotation.x = 0.32;          // arms out for balance
+        egoLimbs.armR.rotation.x = 0.32;
       }
     }
     egoParts.swordMount.rotation.x = SWORD_REST_X;
