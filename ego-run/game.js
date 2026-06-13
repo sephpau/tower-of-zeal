@@ -399,6 +399,7 @@ function fillColorOf(geo, mat) {
     const parts = [];
     root.traverse((o) => {
       if (!o.isMesh) return;
+      o.material.side = THREE.DoubleSide;   // shell interiors render the real lit texture
       const g = o.geometry.clone();
       g.applyMatrix4(o.matrixWorld);
       g.applyMatrix4(rot);
@@ -450,10 +451,19 @@ function fillColorOf(geo, mat) {
         const mesh = new THREE.Mesh(p.geo, material);
         mesh.castShadow = true; mesh.receiveShadow = true;
         grp.add(mesh);
-        // back-face copy renders the shell interior as solid color, so the
-        // open sockets read as filled instead of holes
-        const fill = new THREE.Mesh(p.geo, new THREE.MeshBasicMaterial({ color: fillColorOf(p.geo, p.mat), side: THREE.BackSide }));
-        grp.add(fill);
+      }
+      // a lit, suit-colored cap centred AT the pivot stays put while the limb
+      // swings (rotation about its own centre), so it plugs the socket gap and
+      // shades like the rest of him instead of reading as a flat hole
+      if (key !== 'body') {
+        const s = plist[0].box.getSize(new THREE.Vector3());
+        const r = Math.max(s.x, s.z) * 0.55;
+        const cap = new THREE.Mesh(
+          new THREE.SphereGeometry(r, 16, 12),
+          new THREE.MeshStandardMaterial({ color: fillColorOf(plist[0].geo, plist[0].mat), roughness: 0.75 })
+        );
+        cap.castShadow = true;
+        grp.add(cap);
       }
       inner.add(grp);
       egoLimbs[key] = grp;
