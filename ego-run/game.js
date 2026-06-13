@@ -1233,7 +1233,10 @@ function checkCollisions() {
     let lethal;
     if (o.type === 'hurdle') {
       const tripping = py < 0.85;            // didn't jump high enough
-      if (tripping && skating) {             // the board saves him once, then is knocked away
+      if (tripping && skating) {             // board plows through the hurdle, then is knocked away
+        scene.remove(o.mesh);                // remove it so it can't re-hit on the next frame
+        const idx = obstacles.indexOf(o);
+        if (idx >= 0) obstacles.splice(idx, 1);
         loseSkateboard();
         return false;
       }
