@@ -446,21 +446,6 @@ function build() {
       mesh.castShadow = true; mesh.receiveShadow = true;
       grp.add(mesh);
     }
-    // a lit, suit-colored cap centred AT the pivot plugs the socket gap and
-    // shades like the rest of him instead of reading as a flat hole
-    if (key !== 'body') {
-      const s = plist[0].box.getSize(new THREE.Vector3());
-      const r = Math.max(s.x, s.z) * 0.55;
-      const cap = new THREE.Mesh(
-        new THREE.SphereGeometry(r, 16, 12),
-        new THREE.MeshStandardMaterial({ color: fillColorOf(plist[0].geo, plist[0].mat), roughness: 0.75 })
-      );
-      cap.userData.isFill = true;
-      cap.userData.partGeo = plist[0].geo;
-      cap.userData.matRef = plist[0].mat;
-      cap.castShadow = true;
-      grp.add(cap);
-    }
     inner.add(grp);
     limbs[key] = grp;
     lines.push(`${key.padEnd(5)} ← ${plist.map(p => p.name).join('+')}`);
@@ -497,15 +482,8 @@ function fillColorOf(geo, mat) {
   } catch { return new THREE.Color(0x555066); }
 }
 
-// re-sample fills after painting so the interior keeps matching the new skin
-function updateFillColors() {
-  for (const key of Object.keys(limbs)) {
-    const grp = limbs[key];
-    if (!grp) continue;
-    for (const mesh of grp.children)
-      if (mesh.userData.isFill) mesh.material.color.copy(fillColorOf(mesh.userData.partGeo, mesh.userData.matRef));
-  }
-}
+// no separate fill geometry anymore — double-sided shells render interiors
+function updateFillColors() {}
 
 const tintCache = new Map();
 function applyColors() {

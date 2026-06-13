@@ -452,19 +452,6 @@ function fillColorOf(geo, mat) {
         mesh.castShadow = true; mesh.receiveShadow = true;
         grp.add(mesh);
       }
-      // a lit, suit-colored cap centred AT the pivot stays put while the limb
-      // swings (rotation about its own centre), so it plugs the socket gap and
-      // shades like the rest of him instead of reading as a flat hole
-      if (key !== 'body') {
-        const s = plist[0].box.getSize(new THREE.Vector3());
-        const r = Math.max(s.x, s.z) * 0.55;
-        const cap = new THREE.Mesh(
-          new THREE.SphereGeometry(r, 16, 12),
-          new THREE.MeshStandardMaterial({ color: fillColorOf(plist[0].geo, plist[0].mat), roughness: 0.75 })
-        );
-        cap.castShadow = true;
-        grp.add(cap);
-      }
       inner.add(grp);
       egoLimbs[key] = grp;
     }
