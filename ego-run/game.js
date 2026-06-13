@@ -17,6 +17,7 @@ const INTRO_TIME = 3.4;      // camera orbits Ego for this long before each run 
 const KM_PER_UNIT = 1 / 100; // world units -> kilometres shown on the HUD
 const FLY_DIST = 240;        // world units of flight a jetpack pickup grants
 const FLY_ALT = 4.3;         // cruise altitude while the jetpack is active
+const FLY_BOOST = 1.7;       // speed multiplier while the jetpack is active
 const SKATE_DIST = 300;      // world units the skateboard pickup lasts
 
 // ---------- renderer / scene ----------
@@ -776,7 +777,7 @@ const egoParts = (() => {
 
   // skateboard under Ego's feet — pops in only while the skate powerup is active
   const board = buildSkateboard();
-  board.position.set(0, 0.12, 0.15);
+  board.position.set(0, 0.1, 0);     // centered flat under his feet
   board.visible = false;
   egoRig.add(board);
 
@@ -1271,20 +1272,22 @@ function animate() {
   if (state === 'run') {
     runTime += dt;
     speed += ACCEL * dt;
-    distance += speed * dt;
+    // jetpack flight boosts how fast the world rushes past (and km/score tick up)
+    const moveSpeed = speed * (flyDist > 0 ? FLY_BOOST : 1);
+    distance += moveSpeed * dt;
 
     // move world
-    for (const o of obstacles) o.mesh.position.z += speed * dt;
+    for (const o of obstacles) o.mesh.position.z += moveSpeed * dt;
     for (const c of coins) {
-      c.mesh.position.z += speed * dt;
+      c.mesh.position.z += moveSpeed * dt;
       c.mesh.rotation.y += dt * 5;
     }
     for (const p of swordPickups) {
-      p.mesh.position.z += speed * dt;
+      p.mesh.position.z += moveSpeed * dt;
       p.mesh.rotation.y += dt * 3.2;
     }
     for (const p of powerups) {
-      p.mesh.position.z += speed * dt;
+      p.mesh.position.z += moveSpeed * dt;
       p.mesh.rotation.y += dt * 2.4;
       p.mesh.children[0].position.y = Math.sin(t * 3 + p.mesh.position.z) * 0.12;  // bob the icon
     }
@@ -1296,7 +1299,7 @@ function animate() {
       if (d.flash) {
         d.mesh.material.opacity = 0.9 * (1 - d.life / d.max);
         d.mesh.scale.setScalar(1 + d.life * 6);
-        d.mesh.position.z += speed * dt;
+        d.mesh.position.z += moveSpeed * dt;
         continue;
       }
       d.vy += GRAVITY * dt;
@@ -1307,15 +1310,15 @@ function animate() {
       d.mesh.rotation.y += d.spin * 0.7 * dt;
     }
     for (const d of dashes) {
-      d.position.z += speed * dt;
+      d.position.z += moveSpeed * dt;
       if (d.position.z > 12) d.position.z -= 180;
     }
     for (const b of buildings) {
-      b.position.z += speed * dt;
+      b.position.z += moveSpeed * dt;
       if (b.position.z > 20) b.position.z -= 26 * 13;
     }
     for (const t of decorTrees) {
-      t.position.z += speed * dt;
+      t.position.z += moveSpeed * dt;
       if (t.position.z > 20) t.position.z -= 22 * 15;
     }
 
@@ -1344,7 +1347,7 @@ function animate() {
         powerups.splice(i, 1);
       }
     }
-    nextSpawnZ += speed * dt;
+    nextSpawnZ += moveSpeed * dt;
     if (nextSpawnZ > SPAWN_Z + (18 + Math.min(speed, 40) * 0.35)) {
       spawnWave(SPAWN_Z);
       nextSpawnZ = SPAWN_Z;
@@ -1358,8 +1361,8 @@ function animate() {
     player.rotation.z = -dx * 0.12;
 
     // powerup timers burn down by distance travelled
-    if (flyDist > 0) flyDist = Math.max(0, flyDist - speed * dt);
-    if (skateDist > 0) skateDist = Math.max(0, skateDist - speed * dt);
+    if (flyDist > 0) flyDist = Math.max(0, flyDist - moveSpeed * dt);
+    if (skateDist > 0) skateDist = Math.max(0, skateDist - moveSpeed * dt);
     const flying = flyDist > 0;
 
     if (flying) {
@@ -1404,6 +1407,19 @@ function animate() {
       const armA = Math.sin(stride) * (airborne ? EGO_CUTS.armSwing * 0.4 : EGO_CUTS.armSwing);
       egoLimbs.armL.rotation.x = -armA;          // arms counter the legs
       egoLimbs.armR.rotation.x = armA;
+    }
+    // while skating, drop the running gait and settle into a board-riding stance
+    const onBoard = skateDist > 0 && !flying;
+    if (onBoard) {
+      ego.position.y = 0;                        // no hop — board sits flat on the road
+      ego.rotation.x = -0.05;                    // slight forward lean
+      ego.rotation.z = Math.sin(t * 1.6) * 0.06; // gentle carving sway
+      if (egoLimbs.legL) {
+        egoLimbs.legL.rotation.x = 0.3;          // front foot planted forward
+        egoLimbs.legR.rotation.x = -0.2;         // back foot pushed back (skater stance)
+        egoLimbs.armL.rotation.x = 0.34;         // arms out for balance
+        egoLimbs.armR.rotation.x = 0.34;
+      }
     }
     egoParts.swordMount.rotation.x = SWORD_REST_X;
     // fast forward chop right after a slash — draws the sword off his back and swings
