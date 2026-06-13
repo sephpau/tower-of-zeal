@@ -13,6 +13,7 @@ const SPAWN_Z = -150;
 const KILL_Z = 14;
 const PLAYER_Z = 0;
 const SWORD_REST_X = 0.32;   // back-carry resting tilt; slash swings forward from here
+const INTRO_TIME = 3.4;      // camera orbits Ego for this long before each run begins
 
 // ---------- renderer / scene ----------
 const canvas = document.getElementById('game-canvas');
@@ -808,7 +809,7 @@ function makeSwordPickup(lane, z) {
   const tpl = swordTemplates[Math.floor(Math.random() * swordTemplates.length)];
   const g = new THREE.Group();
   const sword = makeSword(tpl);
-  sword.scale.setScalar(0.6);
+  sword.scale.setScalar(0.3);
   g.add(sword);
   g.position.set(LANES[lane], 1.0, z);
   g.rotation.z = 0.35;
@@ -819,8 +820,8 @@ function makeSwordPickup(lane, z) {
 function equipSword(tpl) {
   while (egoParts.swordMount.children.length) egoParts.swordMount.remove(egoParts.swordMount.children[0]);
   const sword = makeSword(tpl);
-  sword.scale.setScalar(0.5);
-  sword.position.y = 0.16;   // grip in the paw, blade up
+  sword.scale.setScalar(0.25);
+  sword.position.y = 0.08;   // grip at mount, blade up the back
   egoParts.swordMount.add(sword);
   equippedSword = sword;
 }
@@ -965,7 +966,7 @@ const overOverlay = document.getElementById('over-overlay');
 const finalScore = document.getElementById('final-score');
 const bestLine = document.getElementById('best-line');
 
-let state = 'start';            // 'start' | 'run' | 'over'
+let state = 'start';            // 'start' | 'intro' | 'run' | 'over'
 let speed = START_SPEED;
 let distance = 0;
 let coinCount = 0;
@@ -973,6 +974,7 @@ let lane = 1;                   // target lane index
 let py = 0, vy = 0;             // jump physics
 let sliding = 0;                // time left in slide
 let runTime = 0;
+let introT = 0;                 // elapsed time in the pre-run camera orbit
 let best = Number(localStorage.getItem('egoRunBest') || 0);
 
 function score() { return Math.floor(distance * 2 + coinCount * 50 + swordsPicked * 150); }
@@ -1002,12 +1004,19 @@ function resetGame() {
   for (let z = -40; z > -140; z -= 22) { spawnWave(z); nextSpawnZ = z; }
 }
 
+// pressing start kicks off a camera-orbit reveal of Ego, then the run begins
 function startRun() {
   ensureAudio();
   resetGame();
-  state = 'run';
+  state = 'intro';
+  introT = 0;
   startOverlay.classList.add('hidden');
   overOverlay.classList.add('hidden');
+  hud.classList.add('hidden');
+}
+
+function beginRunning() {
+  state = 'run';
   hud.classList.remove('hidden');
 }
 
@@ -1278,6 +1287,31 @@ function animate() {
     hudScore.textContent = score().toLocaleString();
     hudCoins.innerHTML = '&#9679; ' + coinCount;
     hudSword.classList.toggle('hidden', !equippedSword);
+  } else if (state === 'intro') {
+    introT += dt;
+    const p = Math.min(1, introT / INTRO_TIME);
+    // Ego stands facing down the road, gently bobbing, while the camera circles him
+    player.rotation.y = 0;
+    ego.position.y = Math.max(0, Math.sin(t * 3.2)) * 0.06;
+    ego.rotation.x = 0;
+    ego.rotation.z = 0;
+    if (egoLimbs.legL) {
+      const sway = Math.sin(t * 2) * 0.06;
+      egoLimbs.legL.rotation.x = egoLimbs.legR.rotation.x = 0;
+      egoLimbs.armL.rotation.x = sway;
+      egoLimbs.armR.rotation.x = -sway;
+    }
+    egoParts.jetpack.visible = false;
+    egoParts.jetGlow.intensity = 0;
+    egoParts.swordMount.rotation.x = SWORD_REST_X;
+    // full 360° around Ego, easing out into the running camera over the last stretch
+    const angle = p * Math.PI * 2;
+    const ease = Math.max(0, (p - 0.8) / 0.2);   // 0 until 80%, then →1
+    const radius = 6.5 + ease * 2.5;             // 6.5 → 9 (run distance)
+    const camY = 2.8 + ease * 2.4;               // 2.8 → 5.2 (run height)
+    camera.position.set(Math.sin(angle) * radius, camY, Math.cos(angle) * radius);
+    camera.lookAt(0, 1.2, -12 * ease);
+    if (p >= 1) beginRunning();
   } else {
     // idle bob + slow turntable on menus; limbs settle with a gentle sway
     player.rotation.y = Math.sin(t * 0.8) * 0.25;
