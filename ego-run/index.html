@@ -46,8 +46,10 @@
     color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,0.7);
   }
   #hud-score { font-size: clamp(26px, 5.5vw, 40px); font-weight: 900; font-style: italic; }
+  #hud-dist { font-size: clamp(15px, 3.2vw, 22px); font-weight: 700; color: #7affc0; letter-spacing: 0.04em; margin-top: 2px; }
   #hud-coins { font-size: clamp(18px, 4vw, 26px); font-weight: 700; color: #ffe97a; }
   #hud-sword { font-size: clamp(13px, 3vw, 18px); font-weight: 700; color: #9ad6ff; letter-spacing: 0.05em; }
+  #hud-power { font-size: clamp(13px, 3vw, 18px); font-weight: 700; letter-spacing: 0.05em; }
 
   .models-link {
     position: absolute; bottom: 22px; right: 24px;
@@ -61,10 +63,14 @@
 <canvas id="game-canvas"></canvas>
 
 <div id="hud" class="hidden">
-  <div id="hud-score">0</div>
+  <div style="display:flex;flex-direction:column;gap:2px">
+    <div id="hud-score">0</div>
+    <div id="hud-dist">0.00 km</div>
+  </div>
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
     <div id="hud-coins">&#9679; 0</div>
     <div id="hud-sword" class="hidden">&#9876;&#65039; armed</div>
+    <div id="hud-power" class="hidden"></div>
   </div>
 </div>
 

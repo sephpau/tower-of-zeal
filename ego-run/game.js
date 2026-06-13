@@ -14,6 +14,10 @@ const KILL_Z = 14;
 const PLAYER_Z = 0;
 const SWORD_REST_X = 0.32;   // back-carry resting tilt; slash swings forward from here
 const INTRO_TIME = 3.4;      // camera orbits Ego for this long before each run begins
+const KM_PER_UNIT = 1 / 100; // world units -> kilometres shown on the HUD
+const FLY_DIST = 240;        // world units of flight a jetpack pickup grants
+const FLY_ALT = 4.3;         // cruise altitude while the jetpack is active
+const SKATE_DIST = 300;      // world units the skateboard pickup lasts
 
 // ---------- renderer / scene ----------
 const canvas = document.getElementById('game-canvas');
@@ -467,6 +471,55 @@ function fillColorOf(geo, mat) {
   });
 }
 
+// ---------- procedural skateboard (worn while skating, and the floating pickup) ----------
+function buildSkateboard() {
+  const board = new THREE.Group();
+  const DECK = new THREE.MeshStandardMaterial({ color: 0x2a1a3e, roughness: 0.8 });
+  const DECK_UNDER = new THREE.MeshStandardMaterial({ color: 0xff5e7a, roughness: 0.5 });
+  const WHEEL = new THREE.MeshStandardMaterial({ color: 0xffe97a, roughness: 0.35 });
+  const TRUCK = new THREE.MeshStandardMaterial({ color: 0x4a5468, roughness: 0.5, metalness: 0.7 });
+  // long axis along z (down the road); kicked nose + tail
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.07, 1.7), DECK);
+  deck.castShadow = true;
+  board.add(deck);
+  const under = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.02, 1.68), DECK_UNDER);
+  under.position.y = -0.04;
+  board.add(under);
+  for (const sz of [-1, 1]) {
+    const kick = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.07, 0.3), DECK);
+    kick.position.set(0, 0.055, sz * 0.97);
+    kick.rotation.x = sz * -0.38;
+    board.add(kick);
+    const truck = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.09, 0.1), TRUCK);
+    truck.position.set(0, -0.08, sz * 0.55);
+    board.add(truck);
+    for (const sx of [-1, 1]) {
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.09, 14), WHEEL);
+      wheel.rotation.z = Math.PI / 2;
+      wheel.position.set(sx * 0.24, -0.12, sz * 0.55);
+      board.add(wheel);
+    }
+  }
+  return board;
+}
+
+// floating jetpack icon for the road pickup
+function buildJetpackIcon() {
+  const g = new THREE.Group();
+  const METAL = new THREE.MeshStandardMaterial({ color: 0x9aa4b8, roughness: 0.35, metalness: 0.8 });
+  const REDC = new THREE.MeshStandardMaterial({ color: 0xd94f5c, roughness: 0.5 });
+  for (const s of [-1, 1]) {
+    const tank = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.55, 8, 16), METAL);
+    tank.position.set(s * 0.28, 0, 0);
+    tank.castShadow = true;
+    g.add(tank);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.225, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), REDC);
+    cap.position.set(s * 0.28, 0.28, 0);
+    g.add(cap);
+  }
+  return g;
+}
+
 // jetpack + sword-mount attach to the real ego; the procedural body below builds
 // into a detached group only to keep that rig code, and is never rendered.
 const egoRig = ego;
@@ -721,7 +774,22 @@ const egoParts = (() => {
   swordMount.rotation.x = SWORD_REST_X;         // laid against the back
   egoRig.add(swordMount);
 
-  return { model: egoModel, jetpack, flames, jetGlow, swordMount };
+  // skateboard under Ego's feet — pops in only while the skate powerup is active
+  const board = buildSkateboard();
+  board.position.set(0, 0.12, 0.15);
+  board.visible = false;
+  egoRig.add(board);
+
+  // shield ring at his feet that signals the skateboard's anti-trip protection
+  const shieldRing = new THREE.Mesh(
+    new THREE.TorusGeometry(1.15, 0.07, 8, 32),
+    new THREE.MeshBasicMaterial({ color: 0x4dd0e1, transparent: true, opacity: 0.6 }));
+  shieldRing.rotation.x = Math.PI / 2;
+  shieldRing.position.y = 0.25;
+  shieldRing.visible = false;
+  egoRig.add(shieldRing);
+
+  return { model: egoModel, jetpack, flames, jetGlow, swordMount, board, shieldRing };
 })();
 scene.add(player);
 
@@ -826,6 +894,31 @@ function equipSword(tpl) {
   equippedSword = sword;
 }
 
+// ---------- powerup pickups: jetpack (flight) + skateboard (anti-trip shield) ----------
+const powerups = [];   // { mesh, lane, kind: 'jet'|'skate', taken }
+
+function makePowerup(kind, lane, z) {
+  const g = new THREE.Group();
+  const icon = kind === 'jet' ? buildJetpackIcon() : buildSkateboard();
+  icon.scale.setScalar(kind === 'jet' ? 0.85 : 0.7);
+  g.add(icon);
+  // glowing halo so powerups read as special
+  const halo = new THREE.Mesh(
+    new THREE.RingGeometry(0.55, 0.72, 24),
+    new THREE.MeshBasicMaterial({ color: kind === 'jet' ? 0xff9c4e : 0x4dd0e1, transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
+  halo.position.z = -0.2;
+  g.add(halo);
+  g.position.set(LANES[lane], 1.2, z);
+  scene.add(g);
+  powerups.push({ mesh: g, lane, kind, taken: false });
+}
+
+function activatePowerup(kind) {
+  if (kind === 'jet') { flyDist = FLY_DIST; skateDist = 0; }
+  else { skateDist = SKATE_DIST; flyDist = 0; }
+  sfx.power();
+}
+
 // slash through one obstacle: destroy it, shatter the held sword, swing the arm
 const shardMat = new THREE.MeshStandardMaterial({ color: 0xeaf2ff, roughness: 0.3, metalness: 0.8 });
 const shardGeo = new THREE.TetrahedronGeometry(0.22);
@@ -908,6 +1001,11 @@ function spawnWave(z) {
     const lane = lanes[Math.floor(Math.random() * lanes.length)];
     makeSwordPickup(lane, z - 9);
   }
+  // rare powerup (jetpack or skateboard) in a free lane
+  if (Math.random() < 0.1 && lanes.length) {
+    const lane = lanes[Math.floor(Math.random() * lanes.length)];
+    makePowerup(Math.random() < 0.5 ? 'jet' : 'skate', lane, z - 5);
+  }
 }
 
 // ---------- audio (synthesized, no assets) ----------
@@ -938,6 +1036,7 @@ const sfx = {
   jump:  () => beep(300, 0.25, 'square', 0.12, 620),
   slide: () => beep(220, 0.2, 'sawtooth', 0.1, 120),
   coin:  () => { beep(880, 0.09, 'sine', 0.16); setTimeout(() => beep(1320, 0.14, 'sine', 0.16), 70); },
+  power: () => { beep(520, 0.1, 'square', 0.14, 880); setTimeout(() => beep(1040, 0.12, 'sine', 0.16, 1600), 80); setTimeout(() => beep(1560, 0.18, 'sine', 0.14, 2200), 170); },
   crash: () => {
     if (!audioCtx) return;
     const t = audioCtx.currentTime;
@@ -959,8 +1058,10 @@ const sfx = {
 // ---------- game state ----------
 const hud = document.getElementById('hud');
 const hudScore = document.getElementById('hud-score');
+const hudDist = document.getElementById('hud-dist');
 const hudCoins = document.getElementById('hud-coins');
 const hudSword = document.getElementById('hud-sword');
+const hudPower = document.getElementById('hud-power');
 const startOverlay = document.getElementById('start-overlay');
 const overOverlay = document.getElementById('over-overlay');
 const finalScore = document.getElementById('final-score');
@@ -975,6 +1076,8 @@ let py = 0, vy = 0;             // jump physics
 let sliding = 0;                // time left in slide
 let runTime = 0;
 let introT = 0;                 // elapsed time in the pre-run camera orbit
+let flyDist = 0;                // world units of jetpack flight remaining (0 = grounded)
+let skateDist = 0;              // world units of skateboard shield remaining (0 = off)
 let best = Number(localStorage.getItem('egoRunBest') || 0);
 
 function score() { return Math.floor(distance * 2 + coinCount * 50 + swordsPicked * 150); }
@@ -983,14 +1086,22 @@ function resetGame() {
   for (const o of obstacles) scene.remove(o.mesh);
   for (const c of coins) scene.remove(c.mesh);
   for (const p of swordPickups) scene.remove(p.mesh);
+  for (const p of powerups) scene.remove(p.mesh);
   obstacles.length = 0;
   coins.length = 0;
   for (const d of debris) scene.remove(d.mesh);
   swordPickups.length = 0;
+  powerups.length = 0;
   debris.length = 0;
   swordsPicked = 0;
   equippedSword = null;
   slashTimer = 0;
+  flyDist = 0;
+  skateDist = 0;
+  egoParts.jetpack.visible = false;
+  egoParts.jetGlow.intensity = 0;
+  egoParts.board.visible = false;
+  egoParts.shieldRing.visible = false;
   while (egoParts.swordMount.children.length) egoParts.swordMount.remove(egoParts.swordMount.children[0]);
   speed = START_SPEED;
   distance = 0;
@@ -1091,18 +1202,22 @@ function supportHeightAt(px) {
 // ---------- collision ----------
 function checkCollisions() {
   const px = player.position.x;
+  const flying = flyDist > 0;
+  const skating = skateDist > 0;
   for (const o of obstacles) {
     const oz = o.mesh.position.z;
     const halfZ = o.type === 'crate' ? o.zHalf + 0.3 : 0.9;
     if (Math.abs(oz - PLAYER_Z) > halfZ) continue;
     if (Math.abs(LANES[o.lane] - px) > 1.15) continue;
+    if (flying) continue;                    // jetpack soars over everything
     let lethal;
     if (o.type === 'hurdle') {
-      lethal = py < 0.85;                    // didn't jump high enough
+      // skateboard shields against small trippable hurdles (the red bars)
+      lethal = !skating && py < 0.85;        // didn't jump high enough
     } else if (o.type === 'beam') {
       const slidUnder = sliding > 0 && py <= 0.05;
       const jumpedOver = py > 1.5;               // feet above the bar (top ~1.62)
-      lethal = !slidUnder && !jumpedOver;
+      lethal = !slidUnder && !jumpedOver;        // board does NOT help under the blue beam
     } else {
       lethal = py < o.height - 0.35;        // low vehicles can be hopped, tall ones can't
     }
@@ -1132,6 +1247,16 @@ function checkCollisions() {
       sfx.sword();
     }
   }
+  for (const p of powerups) {
+    if (p.taken) continue;
+    const pz = p.mesh.position.z;
+    // generous vertical reach so flying/jumping Ego can still grab them
+    if (Math.abs(pz - PLAYER_Z) < 1.1 && Math.abs(LANES[p.lane] - px) < 0.95 && Math.abs(py - 1.2) < 3.5) {
+      p.taken = true;
+      p.mesh.visible = false;
+      activatePowerup(p.kind);
+    }
+  }
   return false;
 }
 
@@ -1157,6 +1282,11 @@ function animate() {
     for (const p of swordPickups) {
       p.mesh.position.z += speed * dt;
       p.mesh.rotation.y += dt * 3.2;
+    }
+    for (const p of powerups) {
+      p.mesh.position.z += speed * dt;
+      p.mesh.rotation.y += dt * 2.4;
+      p.mesh.children[0].position.y = Math.sin(t * 3 + p.mesh.position.z) * 0.12;  // bob the icon
     }
     // slash debris: gravity + spin + scroll with the road, fade out, then cull
     for (let i = debris.length - 1; i >= 0; i--) {
@@ -1208,6 +1338,12 @@ function animate() {
         swordPickups.splice(i, 1);
       }
     }
+    for (let i = powerups.length - 1; i >= 0; i--) {
+      if (powerups[i].mesh.position.z > KILL_Z) {
+        scene.remove(powerups[i].mesh);
+        powerups.splice(i, 1);
+      }
+    }
     nextSpawnZ += speed * dt;
     if (nextSpawnZ > SPAWN_Z + (18 + Math.min(speed, 40) * 0.35)) {
       spawnWave(SPAWN_Z);
@@ -1221,15 +1357,26 @@ function animate() {
     player.position.x += Math.abs(dx) < step ? dx : Math.sign(dx) * step;
     player.rotation.z = -dx * 0.12;
 
-    // jump physics + landing on rooftops
-    const support = supportHeightAt(player.position.x);
-    const prevPy = py;
-    if (py > support || vy > 0) {
-      vy += GRAVITY * dt;
-      py += vy * dt;
-      // land on a roof only when falling onto it from above
-      if (vy < 0 && py <= support && prevPy >= support - 0.01) { py = support; vy = 0; }
-      if (py < 0) { py = 0; vy = 0; }
+    // powerup timers burn down by distance travelled
+    if (flyDist > 0) flyDist = Math.max(0, flyDist - speed * dt);
+    if (skateDist > 0) skateDist = Math.max(0, skateDist - speed * dt);
+    const flying = flyDist > 0;
+
+    if (flying) {
+      // jetpack: rise to cruise altitude and hold, ignoring the jump physics
+      vy = 0;
+      py += (FLY_ALT - py) * Math.min(1, dt * 3);
+    } else {
+      // jump physics + landing on rooftops
+      const support = supportHeightAt(player.position.x);
+      const prevPy = py;
+      if (py > support || vy > 0) {
+        vy += GRAVITY * dt;
+        py += vy * dt;
+        // land on a roof only when falling onto it from above
+        if (vy < 0 && py <= support && prevPy >= support - 0.01) { py = support; vy = 0; }
+        if (py < 0) { py = 0; vy = 0; }
+      }
     }
     player.position.y = py;
 
@@ -1266,8 +1413,9 @@ function animate() {
       egoParts.swordMount.rotation.x = SWORD_REST_X - 2.8 * Math.sin(k * Math.PI);
       if (egoLimbs.armR) egoLimbs.armR.rotation.x = -2.2 * Math.sin(k * Math.PI);
     }
-    egoParts.jetpack.visible = airborne;
-    if (airborne) {
+    // jetpack only shows during the flight powerup — no longer on every jump
+    egoParts.jetpack.visible = flying;
+    if (flying) {
       for (let i = 0; i < egoParts.flames.length; i++) {
         const fl = 0.75 + Math.sin(t * 31 + i * 2.1) * 0.15 + Math.sin(t * 47 + i) * 0.1;
         egoParts.flames[i].scale.set(1, fl, 1);
@@ -1275,6 +1423,16 @@ function animate() {
       egoParts.jetGlow.intensity = 2.2 + Math.sin(t * 37) * 0.6;
     } else {
       egoParts.jetGlow.intensity = 0;
+    }
+
+    // skateboard powerup: board under his feet + a shield ring vs trippable hurdles
+    const skating = skateDist > 0;
+    egoParts.board.visible = skating;
+    egoParts.shieldRing.visible = skating;
+    if (skating) {
+      egoParts.board.rotation.y = 0;
+      egoParts.shieldRing.material.opacity = 0.35 + Math.sin(t * 6) * 0.2;
+      egoParts.shieldRing.scale.setScalar(1 + Math.sin(t * 6) * 0.04);
     }
 
     // camera sway with lane + slight speed shake
@@ -1285,8 +1443,21 @@ function animate() {
     if (checkCollisions()) gameOver();
 
     hudScore.textContent = score().toLocaleString();
+    hudDist.textContent = (distance * KM_PER_UNIT).toFixed(2) + ' km';
     hudCoins.innerHTML = '&#9679; ' + coinCount;
     hudSword.classList.toggle('hidden', !equippedSword);
+    // active-powerup readout with remaining distance
+    if (flying) {
+      hudPower.classList.remove('hidden');
+      hudPower.style.color = '#ff9c4e';
+      hudPower.innerHTML = '&#128640; ' + Math.ceil(flyDist * KM_PER_UNIT * 100) / 100 + ' km flight';
+    } else if (skating) {
+      hudPower.classList.remove('hidden');
+      hudPower.style.color = '#4dd0e1';
+      hudPower.innerHTML = '&#128756; shielded';
+    } else {
+      hudPower.classList.add('hidden');
+    }
   } else if (state === 'intro') {
     introT += dt;
     const p = Math.min(1, introT / INTRO_TIME);
@@ -1340,6 +1511,7 @@ window.__egoDebug = () => ({
   state, speed, distance, coinCount, swordsPicked, py, vy, lane,
   obstacles: obstacles.length, coins: coins.length, swordsOnRoad: swordPickups.length,
   swordEquipped: !!equippedSword,
+  flyDist, skateDist, powerupsOnRoad: powerups.length,
   debris: debris.length,
   limbsBuilt: Object.values(egoLimbs).filter(Boolean).length,
   limbTris: Object.fromEntries(Object.entries(egoLimbs).map(([k, g]) => [k, g ? g.children.reduce((s, m) => s + m.geometry.getAttribute('position').count / 3, 0) : 0])),
