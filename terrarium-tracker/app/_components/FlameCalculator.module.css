@@ -52,6 +52,102 @@
   font-size: 13px;
 }
 
+.groupLabel {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 14px 0 8px;
+}
+
+/* ---- Land selector ---- */
+.landRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.land {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 200ms, border-color 200ms, color 200ms;
+}
+.land:hover {
+  background: var(--surface-hover);
+}
+.landActive {
+  background: var(--surface-strong);
+  color: var(--text-primary);
+}
+.landName {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Selected plot stats ---- */
+.plotPanel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+}
+.plotStat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.plotLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.plotInput {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--void-black);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-sm);
+  color: var(--winner-gold);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  outline: none;
+}
+.plotInput:focus {
+  border-color: rgba(251, 191, 36, 0.5);
+}
+.plotInput::placeholder {
+  color: var(--text-dim);
+  font-weight: 400;
+}
+.plotValue {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.unit {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
 .list {
   display: flex;
   flex-direction: column;
@@ -191,6 +287,48 @@
   font-size: 13px;
 }
 
+/* ---- Estimated earnings ---- */
+.estimate {
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: linear-gradient(
+    135deg,
+    rgba(251, 191, 36, 0.1),
+    rgba(112, 0, 255, 0.08)
+  );
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: var(--r-lg);
+}
+.estLine {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.estLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.estValue {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--winner-gold);
+  text-align: right;
+}
+.estDay {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.estDim {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-dim);
+}
+
 .actions {
   display: flex;
   align-items: center;
@@ -198,7 +336,8 @@
   margin-top: 16px;
 }
 .hint {
-  flex: 1;
+  display: block;
+  margin-top: 8px;
   font-size: 12px;
   line-height: 16px;
   color: var(--text-dim);

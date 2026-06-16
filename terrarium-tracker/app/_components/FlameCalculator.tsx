@@ -1,22 +1,32 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import { COLLECTIONS, MAX_WORKING_AXIES } from "@/app/lib/collections";
+import { TIERS } from "@/app/lib/tiers";
 import styles from "./FlameCalculator.module.css";
 
 const nf = new Intl.NumberFormat("en-US");
+const nf2 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 
 type Props = { onClose: () => void };
 
 export default function FlameCalculator({ onClose }: Props) {
-  // quantity per collection key
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [tierKey, setTierKey] = useState<string>(TIERS[0].key);
+  // Tier total flame is live at launch; allow a manual value to estimate now.
+  const [tierTotalInput, setTierTotalInput] = useState<string>("");
+
+  const tier = useMemo(
+    () => TIERS.find((t) => t.key === tierKey) ?? TIERS[0],
+    [tierKey]
+  );
 
   const used = useMemo(
     () => Object.values(counts).reduce((a, b) => a + b, 0),
     [counts]
   );
-  const totalFlame = useMemo(
+  const yourFlame = useMemo(
     () =>
       COLLECTIONS.reduce((sum, c) => sum + (counts[c.key] || 0) * c.flame, 0),
     [counts]
@@ -24,12 +34,19 @@ export default function FlameCalculator({ onClose }: Props) {
   const over = used > MAX_WORKING_AXIES;
   const remaining = MAX_WORKING_AXIES - used;
 
+  // 1 tick = 1 hour (pool/month ÷ perTick = 720 ticks ≈ 24/day).
+  const hourlyTick = tier.bAxsPerTick;
+  const tierTotal =
+    tierTotalInput.trim() === "" ? null : Math.max(0, Number(tierTotalInput));
+  const estPerHr =
+    tierTotal && tierTotal > 0 ? (yourFlame / tierTotal) * hourlyTick : null;
+
   function setCount(key: string, value: number) {
     const v = Math.max(0, Math.floor(value) || 0);
     setCounts((prev) => ({ ...prev, [key]: v }));
   }
   function bump(key: string, delta: number) {
-    if (delta > 0 && remaining <= 0) return; // respect the 30-slot cap
+    if (delta > 0 && remaining <= 0) return;
     setCount(key, (counts[key] || 0) + delta);
   }
 
@@ -45,10 +62,53 @@ export default function FlameCalculator({ onClose }: Props) {
             Atia&apos;s Flame <span className="text-gradient">Calculator</span>
           </h3>
           <p className={styles.sub}>
-            {`Assign up to ${MAX_WORKING_AXIES} working Axies to plan a plot's total flame.`}
+            {`Assign up to ${MAX_WORKING_AXIES} working Axies, then pick a plot to estimate your bAXS.`}
           </p>
         </div>
 
+        {/* ---------- Land selector ---------- */}
+        <span className={styles.groupLabel}>Plot</span>
+        <div className={styles.landRow}>
+          {TIERS.map((t) => (
+            <button
+              key={t.key}
+              className={`${styles.land} ${t.key === tierKey ? styles.landActive : ""}`}
+              onClick={() => setTierKey(t.key)}
+              style={
+                t.key === tierKey ? { borderColor: t.accent } : undefined
+              }
+            >
+              <Image src={t.img} alt={t.name} width={30} height={30} />
+              <span className={styles.landName}>{t.name}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* ---------- Selected plot stats ---------- */}
+        <div className={styles.plotPanel}>
+          <div className={styles.plotStat}>
+            <span className={styles.plotLabel}>Total Atia&apos;s Flame</span>
+            <input
+              className={styles.plotInput}
+              value={tierTotalInput}
+              onChange={(e) =>
+                setTierTotalInput(e.target.value.replace(/[^0-9]/g, ""))
+              }
+              placeholder="— live at launch"
+              inputMode="numeric"
+            />
+          </div>
+          <div className={styles.plotStat}>
+            <span className={styles.plotLabel}>Hourly tick</span>
+            <span className={styles.plotValue}>
+              {nf2.format(hourlyTick)}{" "}
+              <span className={styles.unit}>bAXS/hr</span>
+            </span>
+          </div>
+        </div>
+
+        {/* ---------- Axie assignment ---------- */}
+        <span className={styles.groupLabel}>Your working Axies</span>
         <div className={styles.list}>
           {COLLECTIONS.map((c) => {
             const n = counts[c.key] || 0;
@@ -105,8 +165,8 @@ export default function FlameCalculator({ onClose }: Props) {
             </span>
           </div>
           <div className={styles.totalBlock}>
-            <span className={styles.totalLabel}>Total Atia&apos;s Flame</span>
-            <span className={styles.totalValue}>{nf.format(totalFlame)}</span>
+            <span className={styles.totalLabel}>Your Atia&apos;s Flame</span>
+            <span className={styles.totalValue}>{nf.format(yourFlame)}</span>
           </div>
         </div>
 
@@ -116,18 +176,45 @@ export default function FlameCalculator({ onClose }: Props) {
           </div>
         ) : null}
 
+        {/* ---------- Estimated earnings ---------- */}
+        <div className={styles.estimate}>
+          <div className={styles.estLine}>
+            <span className={styles.estLabel}>
+              Est. bAXS on {tier.name}
+            </span>
+            <span className={styles.estValue}>
+              {estPerHr !== null ? (
+                <>
+                  {nf2.format(estPerHr)}{" "}
+                  <span className={styles.unit}>/ hr</span>
+                  <span className={styles.estDay}>
+                    ≈ {nf2.format(estPerHr * 24)} / day
+                  </span>
+                </>
+              ) : (
+                <span className={styles.estDim}>
+                  enter the tier total above
+                </span>
+              )}
+            </span>
+          </div>
+          <span className={styles.hint}>
+            Your flame ÷ tier total × hourly tick. The tier total is live at
+            launch — type a value to estimate now.
+          </span>
+        </div>
+
         <div className={styles.actions}>
           <button
             className="btn-ghost"
-            onClick={() => setCounts({})}
-            disabled={used === 0}
+            onClick={() => {
+              setCounts({});
+              setTierTotalInput("");
+            }}
+            disabled={used === 0 && tierTotalInput === ""}
           >
             Reset
           </button>
-          <span className={styles.hint}>
-            Your bAXS share = this flame ÷ the tier&apos;s total flame (live at
-            launch).
-          </span>
         </div>
       </div>
     </div>
