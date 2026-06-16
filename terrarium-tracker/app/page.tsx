@@ -35,12 +35,14 @@ export default function Home() {
       <header className={styles.header}>
         <div className={styles.brand}>
           <Image
-            src="/motz/logos/motz-icon.png"
+            className={styles.wordmark}
+            src="/motz/logos/motz-wordmark-horizontal.png"
             alt="MoTZ"
-            width={36}
+            width={132}
             height={36}
             priority
           />
+          <span className={styles.brandDivider} />
           <span className={styles.brandName}>Terrarium Tracker</span>
         </div>
 
@@ -91,9 +93,16 @@ export default function Home() {
               />
               <div className={styles.cardHead}>
                 <span
-                  className={styles.tierDot}
-                  style={{ background: t.accent }}
-                />
+                  className={styles.tierTile}
+                  style={{ boxShadow: `0 6px 18px ${t.accent}55` }}
+                >
+                  <Image
+                    src={t.img}
+                    alt={`${t.name} land tile`}
+                    width={44}
+                    height={44}
+                  />
+                </span>
                 <h3 className={styles.tierName}>{t.name}</h3>
               </div>
 
