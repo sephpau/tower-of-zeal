@@ -5,6 +5,7 @@ import Image from "next/image";
 import { TIERS } from "@/app/lib/tiers";
 import { Account, readAccounts, writeAccounts, removeAccount } from "@/app/lib/auth";
 import LoginModal from "@/app/_components/LoginModal";
+import FlameCalculator from "@/app/_components/FlameCalculator";
 import styles from "./page.module.css";
 
 const nf = new Intl.NumberFormat("en-US");
@@ -12,6 +13,7 @@ const nf = new Intl.NumberFormat("en-US");
 export default function Home() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [showLogin, setShowLogin] = useState(false);
+  const [showCalc, setShowCalc] = useState(false);
 
   // Hydrate accounts from localStorage on mount.
   useEffect(() => {
@@ -58,6 +60,9 @@ export default function Home() {
               {accounts.length} account{accounts.length > 1 ? "s" : ""}
             </span>
           ) : null}
+          <button className="btn-ghost" onClick={() => setShowCalc(true)}>
+            Calculator
+          </button>
           <button className="btn-primary" onClick={() => setShowLogin(true)}>
             {loggedIn ? "Add account" : "Login"}
           </button>
@@ -133,7 +138,13 @@ export default function Home() {
         {/* ---------- Accounts summary ---------- */}
         <section id="accounts" className={styles.accounts}>
           <div className={styles.accountsHead}>
-            <h2 className={styles.sectionTitle}>Accounts Summary</h2>
+            <div>
+              <h2 className={styles.sectionTitle}>Accounts Summary</h2>
+              <p className={styles.sectionSub}>
+                Your accounts&apos; current Axies in plots — live flame per
+                account at launch.
+              </p>
+            </div>
             <button className="btn-ghost" onClick={() => setShowLogin(true)}>
               + Add account
             </button>
@@ -206,6 +217,8 @@ export default function Home() {
           onAccounts={(next) => syncAccounts(next)}
         />
       ) : null}
+
+      {showCalc ? <FlameCalculator onClose={() => setShowCalc(false)} /> : null}
     </div>
   );
 }

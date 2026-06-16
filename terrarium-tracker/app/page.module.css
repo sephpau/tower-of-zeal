@@ -203,6 +203,11 @@
   font-size: 24px;
   font-weight: 600;
 }
+.sectionSub {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
 .accountList {
   display: flex;
   flex-direction: column;
