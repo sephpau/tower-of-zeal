@@ -17,6 +17,15 @@ import styles from "./page.module.css";
 
 const nf = new Intl.NumberFormat("en-US");
 
+function relTime(ts: number): string {
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (s < 30) return "just now";
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  return `${Math.floor(m / 60)}h ago`;
+}
+
 export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
   const [showCalc, setShowCalc] = useState(false);
@@ -24,6 +33,14 @@ export default function Home() {
   const [liveTotals, setLiveTotals] = useState<Record<string, number | null>>({});
   const [reportedMap, setReportedMap] = useState<Record<string, boolean>>({});
   const [flameLoaded, setFlameLoaded] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [, setNowTick] = useState(0); // re-render to keep "x ago" live
+
+  // Live "updated X ago" ticker.
+  useEffect(() => {
+    const id = setInterval(() => setNowTick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   // From the tier modal: track a wallet and jump to the Accounts Summary.
   function trackWallet(address: string) {
@@ -42,21 +59,30 @@ export default function Home() {
           try {
             const res = await fetch(`/api/tier-flame?key=${t.key}`);
             const j = await res.json();
-            return [t.key, typeof j.total === "number" ? j.total : null, !!j.reported] as const;
+            return [
+              t.key,
+              typeof j.total === "number" ? j.total : null,
+              !!j.reported,
+              j.updatedAt ? Date.parse(j.updatedAt) : null,
+            ] as const;
           } catch {
-            return [t.key, null, false] as const;
+            return [t.key, null, false, null] as const;
           }
         })
       );
       if (cancelled) return;
       const totals: Record<string, number | null> = {};
       const reported: Record<string, boolean> = {};
-      for (const [k, v, rep] of results) {
+      const times: number[] = [];
+      for (const [k, v, rep, ts] of results) {
         totals[k] = v;
         reported[k] = rep;
+        if (ts) times.push(ts);
       }
       setLiveTotals(totals);
       setReportedMap(reported);
+      // Oldest compute time across tiers = how fresh the dashboard is.
+      setUpdatedAt(times.length ? Math.min(...times) : Date.now());
       setFlameLoaded(true);
     }
     load();
@@ -116,6 +142,14 @@ export default function Home() {
               {flameLoaded ? "Live · total flame per tier" : "Loading live data…"}
             </span>
           </div>
+          {updatedAt ? (
+            <span
+              className={styles.updated}
+              title={`Data computed ${new Date(updatedAt).toLocaleString()}`}
+            >
+              Updated {relTime(updatedAt)}
+            </span>
+          ) : null}
         </section>
 
         {/* ---------- Tier cards ---------- */}

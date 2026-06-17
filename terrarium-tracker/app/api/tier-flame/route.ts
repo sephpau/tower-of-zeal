@@ -97,7 +97,14 @@ export async function GET(req: Request) {
     } else if (raw.length === 0) {
       const reported = await reportedTotal(tier.landType);
       return Response.json(
-        { key: tier.key, total: reported, wallets: 0, computed: 0, reported: true },
+        {
+          key: tier.key,
+          total: reported,
+          wallets: 0,
+          computed: 0,
+          reported: true,
+          updatedAt: new Date().toISOString(),
+        },
         {
           headers: {
             "cache-control": "public, s-maxage=600, stale-while-revalidate=1800",
@@ -120,6 +127,7 @@ export async function GET(req: Request) {
         computed: raw.length,
         approx: false,
         reported: false,
+        updatedAt: new Date().toISOString(),
       },
       {
         headers: {
