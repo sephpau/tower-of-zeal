@@ -19,6 +19,7 @@ type Entry = {
 type Data = {
   name: string;
   total: number;
+  deployedTotal: number;
   participants: number;
   shown: number;
   entries: Entry[];
@@ -70,9 +71,9 @@ export default function TierModal({ tier, onClose, onTrackWallet }: Props) {
             <h3 className={styles.title}>{tier.name}</h3>
             <div className={styles.sub}>
               <span style={{ color: tier.accent }}>
-                {data ? nf.format(data.total) : "…"}
+                {data ? nf.format(data.deployedTotal) : "…"}
               </span>{" "}
-              total flame · {data ? nf.format(data.participants) : "…"} wallets
+              deployed flame · {data ? nf.format(data.participants) : "…"} wallets
               {data && data.participants > data.shown
                 ? ` · top ${data.shown} by plots`
                 : ""}

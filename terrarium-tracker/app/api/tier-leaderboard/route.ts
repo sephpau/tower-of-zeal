@@ -78,8 +78,18 @@ export async function GET(req: Request) {
       .sort((a, b) => b.flame - a.flame)
       .map((e, i) => ({ rank: i + 1, ...e }));
 
+    // Sum of deployed flame across the computed wallets — matches the rows.
+    const deployedTotal = entries.reduce((s, e) => s + e.flame, 0);
+
     return Response.json(
-      { name: tier.name, total, participants, shown: entries.length, entries },
+      {
+        name: tier.name,
+        total, // game's leaderboard total_atia_flame (a different, accruing metric)
+        deployedTotal,
+        participants,
+        shown: entries.length,
+        entries,
+      },
       { headers: { "cache-control": "no-store" } }
     );
   } catch (err) {
