@@ -244,15 +244,6 @@ export default function Home() {
                     return nf.format(deployed);
                   })()}
                 </div>
-                {(() => {
-                  const api = reportedTotals[t.key];
-                  if (api == null) return null;
-                  return (
-                    <span className={styles.flameNote}>
-                      in-game leaderboard: {nf.format(api)}
-                    </span>
-                  );
-                })()}
               </div>
 
               <div className={styles.cardStats}>
