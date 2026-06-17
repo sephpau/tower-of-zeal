@@ -92,7 +92,11 @@ export default function TierModal({ tier, onClose, onTrackWallet }: Props) {
           {loading ? (
             <div className={styles.empty}>Loading wallets…</div>
           ) : ranked.length === 0 ? (
-            <div className={styles.empty}>No deployed Axies in this tier yet.</div>
+            <div className={styles.empty}>
+              {data && data.participants === 0
+                ? "This tier doesn't expose a wallet list."
+                : "No deployed Axies in this tier yet."}
+            </div>
           ) : (
             ranked.map((e) => (
               <button

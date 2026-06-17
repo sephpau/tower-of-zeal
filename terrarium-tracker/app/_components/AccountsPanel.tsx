@@ -189,7 +189,7 @@ export default function AccountsPanel() {
                                     <span className={styles.plotDot} />
                                   )}
                                   <span className={styles.plotName}>
-                                    {p.landType}
+                                    {tier?.name ?? p.landType}
                                   </span>
                                   <span className={styles.plotMeta}>
                                     {p.axieCount} axie{p.axieCount === 1 ? "" : "s"}

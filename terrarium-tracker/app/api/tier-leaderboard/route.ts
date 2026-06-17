@@ -94,7 +94,7 @@ export async function GET(req: Request) {
     const participants = raw.length;
 
     // Compute every wallet (matches /api/tier-flame exactly).
-    const computed = await poolCompute(raw, tier.landType);
+    const computed = await poolCompute(raw, tier.terrariumType);
 
     // Only list wallets that actually have axies (0-flame ones add nothing to
     // the total, so the header still equals the sum of shown rows).

@@ -18,7 +18,12 @@ type RawAxie = {
 };
 
 function tierKeyForLandType(landType: string): string | null {
-  const t = TIERS.find((x) => x.name === landType || x.landType === landType);
+  const t = TIERS.find(
+    (x) =>
+      x.terrariumType === landType ||
+      x.name === landType ||
+      x.landType === landType
+  );
   return t ? t.key : null;
 }
 

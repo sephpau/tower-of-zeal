@@ -22,7 +22,7 @@ export default function Home() {
   const [showCalc, setShowCalc] = useState(false);
   const [selectedTier, setSelectedTier] = useState<Tier | null>(null);
   const [liveTotals, setLiveTotals] = useState<Record<string, number | null>>({});
-  const [approxMap, setApproxMap] = useState<Record<string, boolean>>({});
+  const [reportedMap, setReportedMap] = useState<Record<string, boolean>>({});
   const [flameLoaded, setFlameLoaded] = useState(false);
 
   // From the tier modal: track a wallet and jump to the Accounts Summary.
@@ -42,7 +42,7 @@ export default function Home() {
           try {
             const res = await fetch(`/api/tier-flame?key=${t.key}`);
             const j = await res.json();
-            return [t.key, typeof j.total === "number" ? j.total : null, !!j.approx] as const;
+            return [t.key, typeof j.total === "number" ? j.total : null, !!j.reported] as const;
           } catch {
             return [t.key, null, false] as const;
           }
@@ -50,13 +50,13 @@ export default function Home() {
       );
       if (cancelled) return;
       const totals: Record<string, number | null> = {};
-      const approx: Record<string, boolean> = {};
-      for (const [k, v, a] of results) {
+      const reported: Record<string, boolean> = {};
+      for (const [k, v, rep] of results) {
         totals[k] = v;
-        approx[k] = a;
+        reported[k] = rep;
       }
       setLiveTotals(totals);
-      setApproxMap(approx);
+      setReportedMap(reported);
       setFlameLoaded(true);
     }
     load();
@@ -161,11 +161,13 @@ export default function Home() {
                   {(() => {
                     const v = totalFor(t.key, t.totalAtiasFlame);
                     if (v === null) return flameLoaded ? "0" : "—";
-                    return `${approxMap[t.key] ? "≈" : ""}${nf.format(v)}`;
+                    return nf.format(v);
                   })()}
                 </div>
-                {approxMap[t.key] ? (
-                  <span className={styles.flameNote}>top wallets (approx)</span>
+                {reportedMap[t.key] ? (
+                  <span className={styles.flameNote}>
+                    game-reported · no wallet list
+                  </span>
                 ) : null}
               </div>
 

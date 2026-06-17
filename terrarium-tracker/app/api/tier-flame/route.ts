@@ -68,6 +68,20 @@ async function allEntries(landType: string): Promise<RawEntry[]> {
   return out;
 }
 
+// Some tiers (Luna's Landing) don't expose a participant list — fall back to
+// the leaderboard's reported total_atia_flame.
+async function reportedTotal(landType: string): Promise<number> {
+  const r = await fetch(
+    `${API_BASE}/api/v1/leaderboards/baxs?land_type=${encodeURIComponent(
+      landType
+    )}&period=monthly&limit=1`,
+    { cache: "no-store" }
+  );
+  if (!r.ok) return 0;
+  const j = await r.json();
+  return typeof j?.total_atia_flame === "number" ? j.total_atia_flame : 0;
+}
+
 export async function GET(req: Request) {
   const key = new URL(req.url).searchParams.get("key");
   const tier = TIERS.find((t) => t.key === key);
@@ -77,9 +91,22 @@ export async function GET(req: Request) {
     const raw = await allEntries(tier.landType);
     const wallets = raw.length;
 
-    // Compute every wallet in the tier.
+    // No wallet list → use the game's reported total instead of 0.
+    if (wallets === 0) {
+      const reported = await reportedTotal(tier.landType);
+      return Response.json(
+        { key: tier.key, total: reported, wallets: 0, computed: 0, reported: true },
+        {
+          headers: {
+            "cache-control": "public, s-maxage=600, stale-while-revalidate=1800",
+          },
+        }
+      );
+    }
+
+    // Compute every wallet in the tier (match on the terrariums land_type).
     const total = await pool(raw, (e) =>
-      walletTierFlame(e.user_address, tier.landType)
+      walletTierFlame(e.user_address, tier.terrariumType)
     );
 
     return Response.json(
@@ -89,6 +116,7 @@ export async function GET(req: Request) {
         wallets,
         computed: raw.length,
         approx: false,
+        reported: false,
       },
       {
         headers: {
