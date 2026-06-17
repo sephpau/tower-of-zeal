@@ -18,9 +18,13 @@ export type Tier = {
   // Some tiers (Luna's Landing) aren't enumerable via the leaderboard, so we
   // seed the known owner wallets to still compute deployed flame.
   knownWallets?: string[];
+  // Land NFT token ids for tiers we resolve owners on-chain (ownerOf) so the
+  // owner list self-updates when a land changes hands.
+  landTokenIds?: string[];
 };
 
-// Luna's Landing land owners (the leaderboard exposes no participant list).
+// Luna's Landing seed owners — checked even if they hold an unactivated land
+// (the on-chain ownerOf lookup below keeps the active lands' owners current).
 const LUNAS_LANDING_OWNERS = [
   "0xd7eeac340b9c807fe246e68dcb3ff6da5bf653a2",
   "0xe9da95b4745456334e14d2e9cafc7fe3950fcea2",
@@ -33,11 +37,22 @@ const LUNAS_LANDING_OWNERS = [
   "0xfd2fd5409c742a22d746cfaec7b4012a8ae49299",
 ];
 
+// Luna's Landing land token ids (Axie Land NFT). Owners resolved live via
+// ownerOf so a sale/transfer is reflected automatically.
+const LUNAS_LANDING_TOKEN_IDS = [
+  "115792089237316195423570985008687907853269984665640564039088649126438938607615",
+  "115792089237316195417293883273301227090114759976274774549913042896838440517631",
+  "115792089237316195423570985008687907853269984665640564039070202382365229055999",
+  "115792089237316195417293883273301227090114759976274774549894596152764730966015",
+  "115792089237316195417293883273301227090114759976274774549931489640912150069247",
+  "115792089237316195417293883273301227089774477609353836086449668289406672306175",
+];
+
 // Order matches the wireframe: paid tiers only (FREE has a 0 pool, excluded).
 // NOTE: Luna's Landing uses 3 different strings across the API — leaderboard
 // query "LunasLanding", terrariums endpoint "LunaLanding", display "Luna's Landing".
 export const TIERS: Tier[] = [
-  { key: "lunas-landing", name: "Luna's Landing", landType: "LunasLanding", terrariumType: "LunaLanding", accent: "#ff5a4d", img: "/motz/lands/plot_8.png", bAxsPoolMonth: 9400, bAxsPerTick: 13.06, totalAtiasFlame: null, knownWallets: LUNAS_LANDING_OWNERS },
+  { key: "lunas-landing", name: "Luna's Landing", landType: "LunasLanding", terrariumType: "LunaLanding", accent: "#ff5a4d", img: "/motz/lands/plot_8.png", bAxsPoolMonth: 9400, bAxsPerTick: 13.06, totalAtiasFlame: null, knownWallets: LUNAS_LANDING_OWNERS, landTokenIds: LUNAS_LANDING_TOKEN_IDS },
   { key: "genesis", name: "Genesis", landType: "Genesis", terrariumType: "Genesis", accent: "#3b82f6", img: "/motz/lands/plot_4.png", bAxsPoolMonth: 28200, bAxsPerTick: 39.17, totalAtiasFlame: null },
   { key: "mystic", name: "Mystic", landType: "Mystic", terrariumType: "Mystic", accent: "#a855f7", img: "/motz/lands/plot_3.png", bAxsPoolMonth: 44800, bAxsPerTick: 62.22, totalAtiasFlame: null },
   { key: "arctic", name: "Arctic", landType: "Arctic", terrariumType: "Arctic", accent: "#7dd3fc", img: "/motz/lands/plot_2.png", bAxsPoolMonth: 36300, bAxsPerTick: 50.42, totalAtiasFlame: null },

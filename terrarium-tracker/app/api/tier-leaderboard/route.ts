@@ -1,4 +1,5 @@
 import { TIERS } from "@/app/lib/tiers";
+import { landOwners } from "@/app/lib/landOwners";
 
 // Per-tier wallet breakdown: who holds plots in a land category, with each
 // wallet's actually-DEPLOYED Atia's Flame (computed from their axies — the
@@ -91,9 +92,15 @@ export async function GET(req: Request) {
 
   try {
     let raw = await allEntries(tier.landType);
-    // Seeded owner list when the leaderboard exposes no participants.
-    if (raw.length === 0 && tier.knownWallets?.length) {
-      raw = tier.knownWallets.map((user_address) => ({ user_address }));
+    // No leaderboard participants → resolve current land owners on-chain
+    // (auto-updates on transfer) merged with seed owners.
+    if (raw.length === 0 && (tier.landTokenIds?.length || tier.knownWallets?.length)) {
+      const live = tier.landTokenIds?.length
+        ? await landOwners(tier.landTokenIds)
+        : [];
+      raw = [...new Set([...live, ...(tier.knownWallets ?? [])])].map(
+        (user_address) => ({ user_address })
+      );
     }
     const participants = raw.length;
 
