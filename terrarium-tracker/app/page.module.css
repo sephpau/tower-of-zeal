@@ -90,6 +90,35 @@
   margin-top: 6px;
 }
 
+.periodToggle {
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 14px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-pill);
+}
+.periodBtn {
+  padding: 6px 16px;
+  background: none;
+  border: none;
+  border-radius: var(--r-pill);
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 200ms, color 200ms;
+}
+.periodBtn:hover {
+  color: var(--text-primary);
+}
+.periodActive {
+  background: var(--grad-button);
+  color: #fff;
+}
+
 /* ---------- Tier grid ---------- */
 .grid {
   display: grid;

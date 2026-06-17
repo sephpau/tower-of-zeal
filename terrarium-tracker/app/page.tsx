@@ -3,12 +3,20 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { TIERS } from "@/app/lib/tiers";
-import { Account, readAccounts, writeAccounts, removeAccount } from "@/app/lib/auth";
+import { Account, readAccounts, writeAccounts } from "@/app/lib/auth";
 import LoginModal from "@/app/_components/LoginModal";
 import FlameCalculator from "@/app/_components/FlameCalculator";
+import AccountsPanel from "@/app/_components/AccountsPanel";
 import styles from "./page.module.css";
 
 const nf = new Intl.NumberFormat("en-US");
+
+type Period = "hourly" | "daily" | "monthly";
+const PERIODS: { key: Period; label: string; note: string }[] = [
+  { key: "hourly", label: "Hourly", note: "current tick" },
+  { key: "daily", label: "Daily", note: "today" },
+  { key: "monthly", label: "Monthly", note: "this month" },
+];
 
 export default function Home() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -16,6 +24,7 @@ export default function Home() {
   const [showCalc, setShowCalc] = useState(false);
   const [liveTotals, setLiveTotals] = useState<Record<string, number | null>>({});
   const [flameLoaded, setFlameLoaded] = useState(false);
+  const [period, setPeriod] = useState<Period>("hourly");
 
   // Hydrate accounts from localStorage on mount.
   useEffect(() => {
@@ -25,9 +34,10 @@ export default function Home() {
   // Pull live per-tier Total Atia's Flame from the Terrarium leaderboard API.
   useEffect(() => {
     let cancelled = false;
+    setFlameLoaded(false);
     async function load() {
       try {
-        const res = await fetch("/api/tier-flame?period=hourly");
+        const res = await fetch(`/api/tier-flame?period=${period}`);
         const json = await res.json();
         if (!cancelled) {
           setLiveTotals(json.totals ?? {});
@@ -38,12 +48,14 @@ export default function Home() {
       }
     }
     load();
-    const id = setInterval(load, 60_000); // refresh each tick (hourly window)
+    const id = setInterval(load, 60_000); // refresh each tick
     return () => {
       cancelled = true;
       clearInterval(id);
     };
-  }, []);
+  }, [period]);
+
+  const periodNote = PERIODS.find((p) => p.key === period)?.note ?? "";
 
   const totalFor = (key: string, fallback: number | null) =>
     liveTotals[key] ?? fallback;
@@ -51,10 +63,6 @@ export default function Home() {
   function syncAccounts(next: Account[]) {
     writeAccounts(next);
     setAccounts(next);
-  }
-
-  function logout(userID: string) {
-    syncAccounts(removeAccount(readAccounts(), userID));
   }
 
   const loggedIn = accounts.length > 0;
@@ -113,8 +121,20 @@ export default function Home() {
               <span className="pulse-dot" /> Terrariums · Live
             </span>
             <span className="chip chip-gold">
-              {flameLoaded ? "Live flame · current tick" : "Loading live data…"}
+              {flameLoaded ? `Live flame · ${periodNote}` : "Loading live data…"}
             </span>
+          </div>
+
+          <div className={styles.periodToggle}>
+            {PERIODS.map((p) => (
+              <button
+                key={p.key}
+                className={`${styles.periodBtn} ${period === p.key ? styles.periodActive : ""}`}
+                onClick={() => setPeriod(p.key)}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
         </section>
 
@@ -168,71 +188,8 @@ export default function Home() {
           ))}
         </section>
 
-        {/* ---------- Accounts summary ---------- */}
-        <section id="accounts" className={styles.accounts}>
-          <div className={styles.accountsHead}>
-            <div>
-              <h2 className={styles.sectionTitle}>Accounts Summary</h2>
-              <p className={styles.sectionSub}>
-                Your accounts&apos; current Axies in plots — live flame per
-                account at launch.
-              </p>
-            </div>
-            <button className="btn-ghost" onClick={() => setShowLogin(true)}>
-              + Add account
-            </button>
-          </div>
-
-          {loggedIn ? (
-            <div className={styles.accountList}>
-              {accounts.map((a) => (
-                <div key={a.userID} className={`glass-card ${styles.accountRow}`}>
-                  <div className={styles.accountInfo}>
-                    <span className={styles.accountName}>
-                      {a.name || a.email || a.userID.slice(0, 8)}
-                    </span>
-                    <span className={styles.accountEmail}>{a.email}</span>
-                  </div>
-                  <div className={styles.accountMeta}>
-                    {a.tokenExpired ? (
-                      <span className="chip" style={{ color: "var(--warn)" }}>
-                        Token expired
-                      </span>
-                    ) : (
-                      <span className="chip chip-live">
-                        <span className="pulse-dot" /> Active
-                      </span>
-                    )}
-                    <button
-                      className={styles.logoutBtn}
-                      onClick={() => logout(a.userID)}
-                    >
-                      Log out
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className={`glass-card ${styles.empty}`}>
-              <Image
-                src="/motz/ego.png"
-                alt="Ego"
-                width={84}
-                height={84}
-                className={styles.egoImg}
-              />
-              <p className={styles.emptyTitle}>No accounts yet, fam.</p>
-              <p className={styles.emptySub}>
-                Log in with your Sky Mavis account to track your flame across
-                every tier.
-              </p>
-              <button className="btn-primary" onClick={() => setShowLogin(true)}>
-                Login
-              </button>
-            </div>
-          )}
-        </section>
+        {/* ---------- Accounts summary (live, by Ronin address) ---------- */}
+        <AccountsPanel />
       </main>
 
       <footer className={styles.footer}>
@@ -240,7 +197,7 @@ export default function Home() {
           Owned &amp; maintained by <strong>MoTZ</strong>
         </span>
         <span className={styles.footerDim}>
-          Prepping for Terrariums · data wires up at launch
+          Live Terrariums data · not affiliated with Sky Mavis
         </span>
       </footer>
 

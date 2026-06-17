@@ -1,0 +1,196 @@
+.wrap {
+  margin-top: 48px;
+}
+.head {
+  margin-bottom: 16px;
+}
+.title {
+  font-size: 24px;
+  font-weight: 600;
+}
+.sub {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.addRow {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.input {
+  flex: 1;
+  padding: 11px 14px;
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-md);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: var(--font-mono);
+  outline: none;
+  transition: border-color 200ms, background 200ms;
+}
+.input:focus {
+  border-color: rgba(255, 42, 85, 0.5);
+  background: var(--surface-hover);
+}
+.error {
+  margin-bottom: 14px;
+  color: #ffb0b8;
+  font-size: 13px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.card {
+  padding: 18px 20px;
+}
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.name {
+  font-weight: 600;
+  font-size: 16px;
+}
+.addr {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.remove {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 200ms;
+}
+.remove:hover {
+  color: var(--err);
+}
+
+.loading {
+  margin-top: 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 16px 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--glass-border);
+  border-bottom: 1px solid var(--glass-border);
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.statLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.statValue {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+}
+.statValueGold {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--winner-gold);
+  text-shadow: 0 0 18px rgba(251, 191, 36, 0.3);
+}
+
+.plots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.plot {
+  display: grid;
+  grid-template-columns: 28px 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-sm);
+}
+.plotDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+.plotName {
+  font-size: 14px;
+  font-weight: 600;
+}
+.plotMeta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.plotFlame {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--winner-gold);
+  min-width: 56px;
+  text-align: right;
+}
+.noPlots {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 36px 24px;
+}
+.egoImg {
+  margin-bottom: 4px;
+  filter: drop-shadow(0 0 22px rgba(255, 42, 85, 0.4));
+}
+.emptyTitle {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 17px;
+  margin: 0;
+}
+.emptySub {
+  max-width: 400px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+@media (max-width: 560px) {
+  .addRow {
+    flex-direction: column;
+  }
+}
