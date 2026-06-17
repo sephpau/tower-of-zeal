@@ -14,8 +14,6 @@ type Props = { onClose: () => void };
 export default function FlameCalculator({ onClose }: Props) {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [tierKey, setTierKey] = useState<string>(TIERS[0].key);
-  // Tier total flame is live at launch; allow a manual value to estimate now.
-  const [tierTotalInput, setTierTotalInput] = useState<string>("");
 
   const tier = useMemo(
     () => TIERS.find((t) => t.key === tierKey) ?? TIERS[0],
@@ -36,8 +34,8 @@ export default function FlameCalculator({ onClose }: Props) {
 
   // 1 tick = 1 hour (pool/month ÷ perTick = 720 ticks ≈ 24/day).
   const hourlyTick = tier.bAxsPerTick;
-  const tierTotal =
-    tierTotalInput.trim() === "" ? null : Math.max(0, Number(tierTotalInput));
+  // Live denominator — null until the Terrariums API is wired at launch.
+  const tierTotal = tier.totalAtiasFlame;
   const estPerHr =
     tierTotal && tierTotal > 0 ? (yourFlame / tierTotal) * hourlyTick : null;
 
@@ -88,15 +86,13 @@ export default function FlameCalculator({ onClose }: Props) {
         <div className={styles.plotPanel}>
           <div className={styles.plotStat}>
             <span className={styles.plotLabel}>Total Atia&apos;s Flame</span>
-            <input
-              className={styles.plotInput}
-              value={tierTotalInput}
-              onChange={(e) =>
-                setTierTotalInput(e.target.value.replace(/[^0-9]/g, ""))
-              }
-              placeholder="— live at launch"
-              inputMode="numeric"
-            />
+            {tierTotal !== null ? (
+              <span className={styles.plotValueFlame}>
+                {nf.format(tierTotal)}
+              </span>
+            ) : (
+              <span className={styles.plotPending}>— live at launch</span>
+            )}
           </div>
           <div className={styles.plotStat}>
             <span className={styles.plotLabel}>Hourly tick</span>
@@ -192,26 +188,21 @@ export default function FlameCalculator({ onClose }: Props) {
                   </span>
                 </>
               ) : (
-                <span className={styles.estDim}>
-                  enter the tier total above
-                </span>
+                <span className={styles.estDim}>live at launch</span>
               )}
             </span>
           </div>
           <span className={styles.hint}>
-            Your flame ÷ tier total × hourly tick. The tier total is live at
-            launch — type a value to estimate now.
+            Your flame ÷ tier total × hourly tick. Fills in automatically once
+            the tier total goes live at launch.
           </span>
         </div>
 
         <div className={styles.actions}>
           <button
             className="btn-ghost"
-            onClick={() => {
-              setCounts({});
-              setTierTotalInput("");
-            }}
-            disabled={used === 0 && tierTotalInput === ""}
+            onClick={() => setCounts({})}
+            disabled={used === 0}
           >
             Reset
           </button>

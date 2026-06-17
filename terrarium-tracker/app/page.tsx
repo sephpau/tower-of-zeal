@@ -113,9 +113,13 @@ export default function Home() {
 
               <div className={styles.flameBlock}>
                 <span className="eyebrow">Total Atia&apos;s Flame</span>
-                <div className={styles.flameValue}>—</div>
+                <div className={styles.flameValue}>
+                  {t.totalAtiasFlame !== null ? nf.format(t.totalAtiasFlame) : "—"}
+                </div>
                 <span className={styles.flameNote}>
-                  Available when Terrariums goes live
+                  {t.totalAtiasFlame !== null
+                    ? `${t.bAxsPerTick} bAXS / hr`
+                    : "Available when Terrariums goes live"}
                 </span>
               </div>
 
