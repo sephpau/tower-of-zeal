@@ -3,39 +3,40 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { TIERS } from "@/app/lib/tiers";
+import { recordSnapshot, getSeries } from "@/app/lib/history";
 import LoginModal from "@/app/_components/LoginModal";
 import FlameCalculator from "@/app/_components/FlameCalculator";
 import AccountsPanel from "@/app/_components/AccountsPanel";
+import Sparkline from "@/app/_components/Sparkline";
 import styles from "./page.module.css";
 
 const nf = new Intl.NumberFormat("en-US");
-
-type Period = "hourly" | "daily" | "monthly";
-const PERIODS: { key: Period; label: string; note: string }[] = [
-  { key: "hourly", label: "Hourly", note: "current tick" },
-  { key: "daily", label: "Daily", note: "today" },
-  { key: "monthly", label: "Monthly", note: "this month" },
-];
 
 export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
   const [showCalc, setShowCalc] = useState(false);
   const [liveTotals, setLiveTotals] = useState<Record<string, number | null>>({});
   const [flameLoaded, setFlameLoaded] = useState(false);
-  const [period, setPeriod] = useState<Period>("hourly");
+  // Bumped whenever a new snapshot is recorded, to refresh the sparklines.
+  const [historyVer, setHistoryVer] = useState(0);
+  // Sparklines read localStorage, which is empty during SSR — gate on mount to
+  // avoid a hydration mismatch.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  // Pull live per-tier Total Atia's Flame from the Terrarium leaderboard API.
+  // Pull the current-tick per-tier Total Atia's Flame and record an hourly
+  // snapshot for the 24h history.
   useEffect(() => {
     let cancelled = false;
-    setFlameLoaded(false);
     async function load() {
       try {
-        const res = await fetch(`/api/tier-flame?period=${period}`);
+        const res = await fetch(`/api/tier-flame`);
         const json = await res.json();
-        if (!cancelled) {
-          setLiveTotals(json.totals ?? {});
-          setFlameLoaded(true);
-        }
+        if (cancelled) return;
+        setLiveTotals(json.totals ?? {});
+        setFlameLoaded(true);
+        recordSnapshot(json.tick ?? null, json.totals ?? {});
+        setHistoryVer((v) => v + 1);
       } catch {
         if (!cancelled) setFlameLoaded(true);
       }
@@ -46,9 +47,7 @@ export default function Home() {
       cancelled = true;
       clearInterval(id);
     };
-  }, [period]);
-
-  const periodNote = PERIODS.find((p) => p.key === period)?.note ?? "";
+  }, []);
 
   const totalFor = (key: string, fallback: number | null) =>
     liveTotals[key] ?? fallback;
@@ -96,20 +95,8 @@ export default function Home() {
               <span className="pulse-dot" /> Terrariums · Live
             </span>
             <span className="chip chip-gold">
-              {flameLoaded ? `Live flame · ${periodNote}` : "Loading live data…"}
+              {flameLoaded ? "Live flame · current tick" : "Loading live data…"}
             </span>
-          </div>
-
-          <div className={styles.periodToggle}>
-            {PERIODS.map((p) => (
-              <button
-                key={p.key}
-                className={`${styles.periodBtn} ${period === p.key ? styles.periodActive : ""}`}
-                onClick={() => setPeriod(p.key)}
-              >
-                {p.label}
-              </button>
-            ))}
           </div>
         </section>
 
@@ -150,6 +137,14 @@ export default function Home() {
                     return v !== null ? nf.format(v) : flameLoaded ? "0" : "—";
                   })()}
                 </div>
+              </div>
+
+              <div className={styles.sparkBlock} data-ver={historyVer}>
+                <span className={styles.sparkLabel}>24h flame</span>
+                <Sparkline
+                  data={mounted ? getSeries(t.key, 24) : []}
+                  color={t.accent}
+                />
               </div>
 
               <div className={styles.cardStats}>

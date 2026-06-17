@@ -192,6 +192,19 @@
   color: var(--text-dim);
 }
 
+.sparkBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sparkLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
 .cardStats {
   display: grid;
   grid-template-columns: 1fr 1fr;
