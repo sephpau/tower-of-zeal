@@ -1,11 +1,14 @@
 import { TIERS } from "@/app/lib/tiers";
+import { landOwners } from "@/app/lib/landOwners";
 
 // Deployed Total Atia's Flame for ONE tier = sum of every axie's base flame
 // across all plots in the category (matches the per-wallet breakdown and the
 // reward formula). Computes EVERY wallet, so it's edge-cached (~10 min).
 //
 // GET /api/tier-flame?key=<tierKey>
-// Returns { key, total, wallets, computed, approx }
+// Returns { key, total, reportedTotal, wallets, computed, approx }
+// `total` = our summed-wallets value (matches the per-wallet breakdown).
+// `reportedTotal` = the leaderboard's own total_atia_flame, for comparison.
 
 export const maxDuration = 60;
 
@@ -90,16 +93,22 @@ export async function GET(req: Request) {
   try {
     let raw = await allEntries(tier.landType);
 
-    // Tier not enumerable via the leaderboard (Luna's Landing) — use the seeded
-    // owner list if we have one, else fall back to the reported total.
-    if (raw.length === 0 && tier.knownWallets?.length) {
-      raw = tier.knownWallets.map((user_address) => ({ user_address }));
+    // Tier not enumerable via the leaderboard (Luna's Landing) — resolve current
+    // land owners on-chain (so sales/transfers are picked up automatically) and
+    // merge with the seed owners; else fall back to the reported total.
+    if (raw.length === 0 && (tier.landTokenIds?.length || tier.knownWallets?.length)) {
+      const live = tier.landTokenIds?.length
+        ? await landOwners(tier.landTokenIds)
+        : [];
+      const merged = [...new Set([...live, ...(tier.knownWallets ?? [])])];
+      raw = merged.map((user_address) => ({ user_address }));
     } else if (raw.length === 0) {
       const reported = await reportedTotal(tier.landType);
       return Response.json(
         {
           key: tier.key,
           total: reported,
+          reportedTotal: reported,
           wallets: 0,
           computed: 0,
           reported: true,
@@ -114,15 +123,18 @@ export async function GET(req: Request) {
     }
     const wallets = raw.length;
 
-    // Compute every wallet in the tier (match on the terrariums land_type).
-    const total = await pool(raw, (e) =>
-      walletTierFlame(e.user_address, tier.terrariumType)
-    );
+    // Compute every wallet in the tier (match on the terrariums land_type), and
+    // grab the leaderboard's own reported total in parallel for comparison.
+    const [total, apiReported] = await Promise.all([
+      pool(raw, (e) => walletTierFlame(e.user_address, tier.terrariumType)),
+      reportedTotal(tier.landType),
+    ]);
 
     return Response.json(
       {
         key: tier.key,
         total,
+        reportedTotal: apiReported,
         wallets,
         computed: raw.length,
         approx: false,
