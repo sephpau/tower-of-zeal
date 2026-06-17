@@ -14,11 +14,39 @@ export default function Home() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [showLogin, setShowLogin] = useState(false);
   const [showCalc, setShowCalc] = useState(false);
+  const [liveTotals, setLiveTotals] = useState<Record<string, number | null>>({});
+  const [flameLoaded, setFlameLoaded] = useState(false);
 
   // Hydrate accounts from localStorage on mount.
   useEffect(() => {
     setAccounts(readAccounts());
   }, []);
+
+  // Pull live per-tier Total Atia's Flame from the Terrarium leaderboard API.
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch("/api/tier-flame?period=hourly");
+        const json = await res.json();
+        if (!cancelled) {
+          setLiveTotals(json.totals ?? {});
+          setFlameLoaded(true);
+        }
+      } catch {
+        if (!cancelled) setFlameLoaded(true);
+      }
+    }
+    load();
+    const id = setInterval(load, 60_000); // refresh each tick (hourly window)
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  const totalFor = (key: string, fallback: number | null) =>
+    liveTotals[key] ?? fallback;
 
   function syncAccounts(next: Account[]) {
     writeAccounts(next);
@@ -82,9 +110,11 @@ export default function Home() {
           </p>
           <div className={styles.heroBadges}>
             <span className="chip chip-live">
-              <span className="pulse-dot" /> Terrariums · June 17
+              <span className="pulse-dot" /> Terrariums · Live
             </span>
-            <span className="chip chip-gold">Awaiting live data</span>
+            <span className="chip chip-gold">
+              {flameLoaded ? "Live flame · current tick" : "Loading live data…"}
+            </span>
           </div>
         </section>
 
@@ -114,13 +144,12 @@ export default function Home() {
               <div className={styles.flameBlock}>
                 <span className="eyebrow">Total Atia&apos;s Flame</span>
                 <div className={styles.flameValue}>
-                  {t.totalAtiasFlame !== null ? nf.format(t.totalAtiasFlame) : "—"}
+                  {(() => {
+                    const v = totalFor(t.key, t.totalAtiasFlame);
+                    return v !== null ? nf.format(v) : flameLoaded ? "0" : "—";
+                  })()}
                 </div>
-                <span className={styles.flameNote}>
-                  {t.totalAtiasFlame !== null
-                    ? `${t.bAxsPerTick} bAXS / hr`
-                    : "Available when Terrariums goes live"}
-                </span>
+                <span className={styles.flameNote}>{t.bAxsPerTick} bAXS / hr</span>
               </div>
 
               <div className={styles.cardStats}>
@@ -222,7 +251,12 @@ export default function Home() {
         />
       ) : null}
 
-      {showCalc ? <FlameCalculator onClose={() => setShowCalc(false)} /> : null}
+      {showCalc ? (
+        <FlameCalculator
+          onClose={() => setShowCalc(false)}
+          liveTotals={liveTotals}
+        />
+      ) : null}
     </div>
   );
 }

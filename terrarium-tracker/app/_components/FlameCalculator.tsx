@@ -9,9 +9,12 @@ import styles from "./FlameCalculator.module.css";
 const nf = new Intl.NumberFormat("en-US");
 const nf2 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 
-type Props = { onClose: () => void };
+type Props = {
+  onClose: () => void;
+  liveTotals?: Record<string, number | null>;
+};
 
-export default function FlameCalculator({ onClose }: Props) {
+export default function FlameCalculator({ onClose, liveTotals = {} }: Props) {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [tierKey, setTierKey] = useState<string>(TIERS[0].key);
 
@@ -34,8 +37,8 @@ export default function FlameCalculator({ onClose }: Props) {
 
   // 1 tick = 1 hour (pool/month ÷ perTick = 720 ticks ≈ 24/day).
   const hourlyTick = tier.bAxsPerTick;
-  // Live denominator — null until the Terrariums API is wired at launch.
-  const tierTotal = tier.totalAtiasFlame;
+  // Live denominator from the Terrarium leaderboard API (current tick).
+  const tierTotal = liveTotals[tier.key] ?? tier.totalAtiasFlame;
   const estPerHr =
     tierTotal && tierTotal > 0 ? (yourFlame / tierTotal) * hourlyTick : null;
 
