@@ -237,27 +237,18 @@ export default function Home() {
                   }}
                 >
                   {(() => {
-                    // Headline = the in-game value (the API's total_atia_flame).
-                    const api = reportedTotals[t.key];
+                    // Headline = our live deployed flame (sum across all plots).
                     const deployed = totalFor(t.key, t.totalAtiasFlame);
-                    const headline = api ?? deployed;
-                    if (headline == null) return flameLoaded ? "0" : "—";
-                    return nf.format(headline);
+                    if (deployed == null) return flameLoaded ? "0" : "—";
+                    return nf.format(deployed);
                   })()}
                 </div>
                 {(() => {
                   const api = reportedTotals[t.key];
-                  const deployed = totalFor(t.key, t.totalAtiasFlame);
-                  if (api == null || deployed == null) return null;
-                  const delta = deployed - api;
+                  if (api == null) return null;
                   return (
                     <span className={styles.flameNote}>
-                      on plots now: {nf.format(deployed)}
-                      {delta === 0
-                        ? " · matches in-game"
-                        : ` · ${nf.format(Math.abs(delta))} ${
-                            delta > 0 ? "above" : "below"
-                          } in-game`}
+                      in-game leaderboard: {nf.format(api)}
                     </span>
                   );
                 })()}
