@@ -138,7 +138,13 @@ export default function Home() {
 
               <div className={styles.flameBlock}>
                 <span className="eyebrow">Total Atia&apos;s Flame</span>
-                <div className={styles.flameValue}>
+                <div
+                  className={styles.flameValue}
+                  style={{
+                    color: t.accent,
+                    textShadow: `0 0 22px ${t.accent}66`,
+                  }}
+                >
                   {(() => {
                     const v = totalFor(t.key, t.totalAtiasFlame);
                     return v !== null ? nf.format(v) : flameLoaded ? "0" : "—";
