@@ -5,6 +5,8 @@ export const TRACKED_KEY = "TRACKED_ADDRESSES";
 
 export type TrackedAddress = { address: string; name?: string };
 
+export type FlameCount = { flame: number; count: number };
+
 export type PlotSummary = {
   id: string;
   landType: string;
@@ -12,6 +14,7 @@ export type PlotSummary = {
   isFree: boolean;
   axieCount: number;
   flame: number;
+  breakdown: FlameCount[];
 };
 
 export type AccountSummary = {

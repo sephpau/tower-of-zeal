@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { TIERS } from "@/app/lib/tiers";
+import { flameInfo } from "@/app/lib/collections";
 import {
   AccountSummary,
   TrackedAddress,
@@ -167,25 +168,49 @@ export default function AccountsPanel() {
                               : undefined;
                             return (
                               <div key={p.id} className={styles.plot}>
-                                {tier ? (
-                                  <Image
-                                    src={tier.img}
-                                    alt={p.landType}
-                                    width={28}
-                                    height={28}
-                                  />
-                                ) : (
-                                  <span className={styles.plotDot} />
-                                )}
-                                <span className={styles.plotName}>
-                                  {p.landType}
-                                </span>
-                                <span className={styles.plotMeta}>
-                                  {p.axieCount} axie{p.axieCount === 1 ? "" : "s"}
-                                </span>
-                                <span className={styles.plotFlame}>
-                                  {nf.format(p.flame)}
-                                </span>
+                                <div className={styles.plotMain}>
+                                  {tier ? (
+                                    <Image
+                                      src={tier.img}
+                                      alt={p.landType}
+                                      width={28}
+                                      height={28}
+                                    />
+                                  ) : (
+                                    <span className={styles.plotDot} />
+                                  )}
+                                  <span className={styles.plotName}>
+                                    {p.landType}
+                                  </span>
+                                  <span className={styles.plotMeta}>
+                                    {p.axieCount} axie{p.axieCount === 1 ? "" : "s"}
+                                  </span>
+                                  <span className={styles.plotFlame}>
+                                    {nf.format(p.flame)}
+                                  </span>
+                                </div>
+                                {p.breakdown.length > 0 ? (
+                                  <div className={styles.breakdown}>
+                                    {p.breakdown.map((b) => {
+                                      const info = flameInfo(b.flame);
+                                      return (
+                                        <span
+                                          key={b.flame}
+                                          className={styles.kind}
+                                        >
+                                          <span
+                                            className={styles.kindDot}
+                                            style={{ background: info.color }}
+                                          />
+                                          {info.label}
+                                          <span className={styles.kindCount}>
+                                            ×{b.count}
+                                          </span>
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                ) : null}
                               </div>
                             );
                           })}

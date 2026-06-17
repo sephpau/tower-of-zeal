@@ -3,11 +3,9 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { TIERS } from "@/app/lib/tiers";
-import { recordSnapshot, getSeries } from "@/app/lib/history";
 import LoginModal from "@/app/_components/LoginModal";
 import FlameCalculator from "@/app/_components/FlameCalculator";
 import AccountsPanel from "@/app/_components/AccountsPanel";
-import Sparkline from "@/app/_components/Sparkline";
 import styles from "./page.module.css";
 
 const nf = new Intl.NumberFormat("en-US");
@@ -17,15 +15,8 @@ export default function Home() {
   const [showCalc, setShowCalc] = useState(false);
   const [liveTotals, setLiveTotals] = useState<Record<string, number | null>>({});
   const [flameLoaded, setFlameLoaded] = useState(false);
-  // Bumped whenever a new snapshot is recorded, to refresh the sparklines.
-  const [historyVer, setHistoryVer] = useState(0);
-  // Sparklines read localStorage, which is empty during SSR — gate on mount to
-  // avoid a hydration mismatch.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
 
-  // Pull the current-tick per-tier Total Atia's Flame and record an hourly
-  // snapshot for the 24h history.
+  // Pull the live per-tier Total Atia's Flame (cumulative category total).
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -35,14 +26,12 @@ export default function Home() {
         if (cancelled) return;
         setLiveTotals(json.totals ?? {});
         setFlameLoaded(true);
-        recordSnapshot(json.tick ?? null, json.totals ?? {});
-        setHistoryVer((v) => v + 1);
       } catch {
         if (!cancelled) setFlameLoaded(true);
       }
     }
     load();
-    const id = setInterval(load, 60_000); // refresh each tick
+    const id = setInterval(load, 60_000);
     return () => {
       cancelled = true;
       clearInterval(id);
@@ -137,14 +126,6 @@ export default function Home() {
                     return v !== null ? nf.format(v) : flameLoaded ? "0" : "—";
                   })()}
                 </div>
-              </div>
-
-              <div className={styles.sparkBlock} data-ver={historyVer}>
-                <span className={styles.sparkLabel}>24h flame</span>
-                <Sparkline
-                  data={mounted ? getSeries(t.key, 24) : []}
-                  color={t.accent}
-                />
               </div>
 
               <div className={styles.cardStats}>

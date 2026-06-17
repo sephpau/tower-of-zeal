@@ -57,6 +57,15 @@ export async function GET(req: Request) {
     const plots = terrariums.map((t) => {
       const list = byTerr.get(t.id) ?? [];
       const flame = list.reduce((s, a) => s + (a.base_atia_flame ?? 0), 0);
+      // Breakdown by base Atia's Flame (≈ collection), sorted by flame desc.
+      const counts = new Map<number, number>();
+      for (const a of list) {
+        const f = a.base_atia_flame ?? 0;
+        counts.set(f, (counts.get(f) ?? 0) + 1);
+      }
+      const breakdown = [...counts.entries()]
+        .map(([flame, count]) => ({ flame, count }))
+        .sort((a, b) => b.flame - a.flame);
       return {
         id: t.id,
         landType: t.land_type,
@@ -64,6 +73,7 @@ export async function GET(req: Request) {
         isFree: /free/i.test(t.land_type),
         axieCount: list.length,
         flame,
+        breakdown,
       };
     });
 
