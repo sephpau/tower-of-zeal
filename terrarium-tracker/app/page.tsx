@@ -229,10 +229,12 @@ export default function Home() {
                   const delta = deployed - api;
                   return (
                     <span className={styles.flameNote}>
-                      deployed: {nf.format(deployed)}
-                      {delta !== 0
-                        ? ` · Δ ${delta > 0 ? "+" : ""}${nf.format(delta)}`
-                        : " · matches"}
+                      on plots now: {nf.format(deployed)}
+                      {delta === 0
+                        ? " · matches in-game"
+                        : ` · ${nf.format(Math.abs(delta))} ${
+                            delta > 0 ? "above" : "below"
+                          } in-game`}
                     </span>
                   );
                 })()}
@@ -261,7 +263,7 @@ export default function Home() {
             <span className={styles.rollupValue}>
               {flameLoaded ? nf.format(allPlotsSeason) : "—"}
             </span>
-            <span className={styles.rollupSub}>season to date · all six tiers</span>
+            <span className={styles.rollupSub}>current atia flame</span>
           </div>
           <span className={styles.rollupDivider} />
           <div className={styles.rollupItem}>
@@ -269,7 +271,7 @@ export default function Home() {
             <span className={`${styles.rollupValue} ${styles.rollupHour}`}>
               {flameLoaded ? nf.format(allPlotsHour) : "—"}
             </span>
-            <span className={styles.rollupSub}>most recent tick · all six tiers</span>
+            <span className={styles.rollupSub}>atia flame hour ago</span>
           </div>
         </section>
 
