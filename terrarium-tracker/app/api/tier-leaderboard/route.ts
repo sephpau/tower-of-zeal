@@ -90,7 +90,11 @@ export async function GET(req: Request) {
   if (!tier) return Response.json({ error: "Unknown tier." }, { status: 400 });
 
   try {
-    const raw = await allEntries(tier.landType);
+    let raw = await allEntries(tier.landType);
+    // Seeded owner list when the leaderboard exposes no participants.
+    if (raw.length === 0 && tier.knownWallets?.length) {
+      raw = tier.knownWallets.map((user_address) => ({ user_address }));
+    }
     const participants = raw.length;
 
     // Compute every wallet (matches /api/tier-flame exactly).

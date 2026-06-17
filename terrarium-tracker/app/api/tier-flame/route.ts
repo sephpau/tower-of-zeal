@@ -88,11 +88,13 @@ export async function GET(req: Request) {
   if (!tier) return Response.json({ error: "Unknown tier." }, { status: 400 });
 
   try {
-    const raw = await allEntries(tier.landType);
-    const wallets = raw.length;
+    let raw = await allEntries(tier.landType);
 
-    // No wallet list → use the game's reported total instead of 0.
-    if (wallets === 0) {
+    // Tier not enumerable via the leaderboard (Luna's Landing) — use the seeded
+    // owner list if we have one, else fall back to the reported total.
+    if (raw.length === 0 && tier.knownWallets?.length) {
+      raw = tier.knownWallets.map((user_address) => ({ user_address }));
+    } else if (raw.length === 0) {
       const reported = await reportedTotal(tier.landType);
       return Response.json(
         { key: tier.key, total: reported, wallets: 0, computed: 0, reported: true },
@@ -103,6 +105,7 @@ export async function GET(req: Request) {
         }
       );
     }
+    const wallets = raw.length;
 
     // Compute every wallet in the tier (match on the terrariums land_type).
     const total = await pool(raw, (e) =>
