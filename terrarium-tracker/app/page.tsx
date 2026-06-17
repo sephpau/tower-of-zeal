@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { TIERS } from "@/app/lib/tiers";
-import { Account, readAccounts, writeAccounts } from "@/app/lib/auth";
 import LoginModal from "@/app/_components/LoginModal";
 import FlameCalculator from "@/app/_components/FlameCalculator";
 import AccountsPanel from "@/app/_components/AccountsPanel";
@@ -19,17 +18,11 @@ const PERIODS: { key: Period; label: string; note: string }[] = [
 ];
 
 export default function Home() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
   const [showLogin, setShowLogin] = useState(false);
   const [showCalc, setShowCalc] = useState(false);
   const [liveTotals, setLiveTotals] = useState<Record<string, number | null>>({});
   const [flameLoaded, setFlameLoaded] = useState(false);
   const [period, setPeriod] = useState<Period>("hourly");
-
-  // Hydrate accounts from localStorage on mount.
-  useEffect(() => {
-    setAccounts(readAccounts());
-  }, []);
 
   // Pull live per-tier Total Atia's Flame from the Terrarium leaderboard API.
   useEffect(() => {
@@ -60,13 +53,6 @@ export default function Home() {
   const totalFor = (key: string, fallback: number | null) =>
     liveTotals[key] ?? fallback;
 
-  function syncAccounts(next: Account[]) {
-    writeAccounts(next);
-    setAccounts(next);
-  }
-
-  const loggedIn = accounts.length > 0;
-
   return (
     <div className={styles.page}>
       {/* ---------- Header ---------- */}
@@ -85,22 +71,11 @@ export default function Home() {
         </div>
 
         <nav className={styles.nav}>
-          <a className={styles.navLink} href="#tiers">
-            Tiers
-          </a>
-          <a className={styles.navLink} href="#accounts">
-            Accounts
-          </a>
-          {loggedIn ? (
-            <span className="chip chip-gold">
-              {accounts.length} account{accounts.length > 1 ? "s" : ""}
-            </span>
-          ) : null}
           <button className="btn-ghost" onClick={() => setShowCalc(true)}>
             Calculator
           </button>
           <button className="btn-primary" onClick={() => setShowLogin(true)}>
-            {loggedIn ? "Add account" : "Login"}
+            Login
           </button>
         </nav>
       </header>
@@ -201,12 +176,7 @@ export default function Home() {
         </span>
       </footer>
 
-      {showLogin ? (
-        <LoginModal
-          onClose={() => setShowLogin(false)}
-          onAccounts={(next) => syncAccounts(next)}
-        />
-      ) : null}
+      {showLogin ? <LoginModal onClose={() => setShowLogin(false)} /> : null}
 
       {showCalc ? (
         <FlameCalculator

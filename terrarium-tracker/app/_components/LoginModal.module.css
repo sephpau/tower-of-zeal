@@ -37,118 +37,117 @@
   color: var(--text-primary);
 }
 
-.head {
-  text-align: center;
-  margin-bottom: 20px;
-}
 .title {
-  font-size: 22px;
+  text-align: center;
+  font-size: 26px;
   font-weight: 700;
-}
-.sub {
-  margin: 6px 0 0;
-  color: var(--text-muted);
-  font-size: 13px;
+  margin-bottom: 22px;
 }
 
-.tabs {
-  display: flex;
-  gap: 6px;
-  padding: 4px;
-  background: var(--surface);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--r-md);
-  margin-bottom: 18px;
-}
-.tab {
-  flex: 1;
-  padding: 8px;
-  background: none;
-  border: none;
+/* Wallet badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
   border-radius: var(--r-sm);
-  color: var(--text-muted);
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 200ms, color 200ms;
-}
-.tabActive {
-  background: var(--surface-strong);
-  color: var(--text-primary);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
-.form {
+/* Primary Ronin button — MoTZ red gradient */
+.primaryWallet {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 18px;
+  background: var(--grad-button);
+  border: none;
+  border-radius: var(--r-md);
+  color: #fff;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: var(--sh-cta);
+  transition: transform 200ms cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 200ms;
+}
+.primaryWallet:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--sh-cta-hi);
+}
+.primaryWallet:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--glass-border);
+}
+
+.others {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-.label {
+.walletBtn {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-muted);
-  margin-top: 4px;
-}
-.hint {
-  font-weight: 400;
-  font-size: 11px;
-  line-height: 16px;
-  color: var(--text-dim);
-}
-.hint code {
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-}
-
-.input,
-.textarea {
+  align-items: center;
+  gap: 12px;
   width: 100%;
-  padding: 11px 13px;
-  background: var(--surface);
+  padding: 13px 18px;
+  background: var(--surface-strong);
   border: 1px solid var(--glass-border);
   border-radius: var(--r-md);
   color: var(--text-primary);
-  font-size: 14px;
-  outline: none;
-  transition: border-color 200ms, background 200ms;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 200ms, border-color 200ms, transform 200ms;
 }
-.input:focus,
-.textarea:focus {
-  border-color: rgba(255, 42, 85, 0.5);
+.walletBtn:hover:not(:disabled) {
   background: var(--surface-hover);
+  border-color: var(--glass-border-hi);
+  transform: translateY(-1px);
 }
-.textarea {
-  resize: vertical;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 18px;
+.walletBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .error {
+  margin-top: 16px;
   background: rgba(255, 90, 107, 0.12);
   border: 1px solid rgba(255, 90, 107, 0.4);
   border-radius: var(--r-sm);
   padding: 9px 12px;
   color: #ffb0b8;
   font-size: 13px;
+  text-align: center;
 }
 
-.form .btn-primary,
-.form button[class*="btn-primary"] {
-  margin-top: 6px;
-}
-
-.linkBtn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 13px;
-  cursor: pointer;
-  align-self: flex-start;
-}
-.linkBtn:hover {
-  color: var(--text-primary);
+.terms {
+  text-align: center;
+  margin: 20px 0 0;
+  color: var(--text-dim);
+  font-size: 12px;
 }

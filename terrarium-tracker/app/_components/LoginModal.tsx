@@ -2,103 +2,58 @@
 
 import { useState } from "react";
 import {
-  Account,
-  readAccounts,
-  mergeAccount,
-  sha256Hex,
-  login,
-  submitMfa,
-} from "@/app/lib/auth";
+  WalletKind,
+  connectWallet,
+  readTracked,
+  writeTracked,
+  addTracked,
+  notifyTrackedUpdated,
+} from "@/app/lib/tracked";
 import styles from "./LoginModal.module.css";
 
-type Props = {
-  onClose: () => void;
-  onAccounts: (next: Account[]) => void;
+type Props = { onClose: () => void };
+
+type Wallet = { key: WalletKind; name: string; color: string; mark: string };
+
+const PRIMARY: Wallet = {
+  key: "ronin",
+  name: "Ronin Wallet",
+  color: "#1273ea",
+  mark: "R",
 };
+const OTHERS: Wallet[] = [
+  { key: "rabby", name: "Rabby Wallet", color: "#8697ff", mark: "R" },
+  { key: "coinbase", name: "Coinbase Wallet", color: "#0052ff", mark: "C" },
+  { key: "metamask", name: "MetaMask", color: "#e2761b", mark: "M" },
+  { key: "walletconnect", name: "WalletConnect", color: "#3b99fc", mark: "W" },
+];
 
-type Tab = "signin" | "import";
-
-export default function LoginModal({ onClose, onAccounts }: Props) {
-  const [tab, setTab] = useState<Tab>("signin");
-
-  // sign-in state
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [captcha, setCaptcha] = useState("");
-  const [mfaToken, setMfaToken] = useState<string | null>(null);
-  const [passcode, setPasscode] = useState("");
-
-  // import state
-  const [importText, setImportText] = useState("");
-
-  const [busy, setBusy] = useState(false);
+export default function LoginModal({ onClose }: Props) {
+  const [busy, setBusy] = useState<WalletKind | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function persist(incoming: Account) {
-    const next = mergeAccount(readAccounts(), incoming);
-    onAccounts(next);
-    onClose();
-  }
-
-  async function handleLogin() {
+  async function connect(kind: WalletKind) {
     setError(null);
-    setBusy(true);
+    setBusy(kind);
     try {
-      const hashed = await sha256Hex(password);
-      const res = await login(email.trim(), hashed, captcha.trim());
-      if (res.success && res.data) {
-        persist(res.data);
+      const { address, error } = await connectWallet(kind);
+      if (error || !address) {
+        setError(error ?? "Connection failed.");
         return;
       }
-      const mfa = res.error?.error_details?.mfaToken;
-      if (mfa) {
-        setMfaToken(mfa);
-        return;
-      }
-      setError(res.error?.error_message || "Login failed. Check your details.");
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleMfa() {
-    if (!mfaToken) return;
-    setError(null);
-    setBusy(true);
-    try {
-      const res = await submitMfa(mfaToken, passcode.trim());
-      if (res.success && res.data) {
-        persist(res.data as Account);
-        return;
-      }
-      setError("Verification failed. Try the code again.");
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function handleImport() {
-    setError(null);
-    try {
-      const parsed = JSON.parse(importText);
-      const list: Account[] = Array.isArray(parsed) ? parsed : [parsed];
-      const valid = list.filter((a) => a && a.accessToken && a.userID);
-      if (valid.length === 0) {
-        setError("No valid accounts found. Expected ACCOUNTS_DATA JSON.");
-        return;
-      }
-      let next = readAccounts();
-      for (const a of valid) next = mergeAccount(next, a);
-      onAccounts(next);
+      writeTracked(addTracked(readTracked(), address));
+      notifyTrackedUpdated();
       onClose();
-    } catch {
-      setError("Invalid JSON.");
+    } finally {
+      setBusy(null);
     }
   }
+
+  const Badge = ({ w }: { w: Wallet }) => (
+    <span className={styles.badge} style={{ background: w.color }}>
+      {w.mark}
+    </span>
+  );
 
   return (
     <div className={styles.backdrop} onClick={onClose}>
@@ -107,133 +62,46 @@ export default function LoginModal({ onClose, onAccounts }: Props) {
           ×
         </button>
 
-        <div className={styles.head}>
-          <h3 className={styles.title}>
-            Welcome to <span className="text-gradient">Terrarium Tracker</span>
-          </h3>
-          <p className={styles.sub}>Same Sky Mavis login as Homeland Stats.</p>
+        <h3 className={styles.title}>Login</h3>
+
+        <button
+          className={styles.primaryWallet}
+          onClick={() => connect(PRIMARY.key)}
+          disabled={busy !== null}
+        >
+          <Badge w={PRIMARY} />
+          <span>
+            {busy === PRIMARY.key
+              ? "Connecting…"
+              : `Continue with ${PRIMARY.name}`}
+          </span>
+        </button>
+
+        <div className={styles.divider}>
+          <span>Other options</span>
         </div>
 
-        {mfaToken ? (
-          /* ---------- MFA step ---------- */
-          <div className={styles.form}>
-            <label className={styles.label}>Two-factor code</label>
-            <input
-              className={styles.input}
-              value={passcode}
-              onChange={(e) => setPasscode(e.target.value)}
-              placeholder="6-digit code"
-              inputMode="numeric"
-              autoFocus
-            />
-            {error ? <div className={styles.error}>{error}</div> : null}
+        <div className={styles.others}>
+          {OTHERS.map((w) => (
             <button
-              className="btn-primary"
-              onClick={handleMfa}
-              disabled={busy || passcode.length < 4}
+              key={w.key}
+              className={styles.walletBtn}
+              onClick={() => connect(w.key)}
+              disabled={busy !== null}
             >
-              {busy ? "Verifying…" : "Verify"}
+              <Badge w={w} />
+              <span>
+                {busy === w.key ? "Connecting…" : `Continue with ${w.name}`}
+              </span>
             </button>
-            <button
-              className={styles.linkBtn}
-              onClick={() => {
-                setMfaToken(null);
-                setPasscode("");
-                setError(null);
-              }}
-            >
-              ← Back
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className={styles.tabs}>
-              <button
-                className={`${styles.tab} ${tab === "signin" ? styles.tabActive : ""}`}
-                onClick={() => setTab("signin")}
-              >
-                Sign In
-              </button>
-              <button
-                className={`${styles.tab} ${tab === "import" ? styles.tabActive : ""}`}
-                onClick={() => setTab("import")}
-              >
-                Import Accounts
-              </button>
-            </div>
+          ))}
+        </div>
 
-            {tab === "signin" ? (
-              /* ---------- Email / password ---------- */
-              <div className={styles.form}>
-                <label className={styles.label}>Email</label>
-                <input
-                  className={styles.input}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  type="email"
-                  autoFocus
-                />
-                <label className={styles.label}>Password</label>
-                <input
-                  className={styles.input}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  type="password"
-                />
-                <label className={styles.label}>
-                  Captcha token
-                  <span className={styles.hint}>
-                    Sky Mavis rotate-captcha widget lands at launch — paste a
-                    token for now, or use Import.
-                  </span>
-                </label>
-                <input
-                  className={styles.input}
-                  value={captcha}
-                  onChange={(e) => setCaptcha(e.target.value)}
-                  placeholder="captcha token"
-                />
-                {error ? <div className={styles.error}>{error}</div> : null}
-                <button
-                  className="btn-primary"
-                  onClick={handleLogin}
-                  disabled={busy || !email || !password}
-                >
-                  {busy ? "Signing in…" : "Sign In"}
-                </button>
-              </div>
-            ) : (
-              /* ---------- JSON import ---------- */
-              <div className={styles.form}>
-                <label className={styles.label}>
-                  Accounts JSON
-                  <span className={styles.hint}>
-                    Paste your <code>ACCOUNTS_DATA</code> array exported from
-                    Homeland Stats (Manage Accounts → export). Tokens are stored
-                    locally in your browser only.
-                  </span>
-                </label>
-                <textarea
-                  className={styles.textarea}
-                  value={importText}
-                  onChange={(e) => setImportText(e.target.value)}
-                  placeholder='[{"accessToken":"…","userID":"…","gameToken":"…","name":"…"}]'
-                  rows={7}
-                />
-                {error ? <div className={styles.error}>{error}</div> : null}
-                <button
-                  className="btn-primary"
-                  onClick={handleImport}
-                  disabled={!importText.trim()}
-                >
-                  Import
-                </button>
-              </div>
-            )}
-          </>
-        )}
+        {error ? <div className={styles.error}>{error}</div> : null}
+
+        <p className={styles.terms}>
+          By connecting, you agree to the Terms of Service.
+        </p>
       </div>
     </div>
   );

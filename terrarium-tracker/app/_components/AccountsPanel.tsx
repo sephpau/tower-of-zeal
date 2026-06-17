@@ -34,9 +34,15 @@ export default function AccountsPanel() {
   }, []);
 
   useEffect(() => {
-    const list = readTracked();
-    setTracked(list);
-    list.forEach((t) => load(t.address));
+    function refresh() {
+      const list = readTracked();
+      setTracked(list);
+      list.forEach((t) => load(t.address));
+    }
+    refresh();
+    // Re-read when Login (wallet connect) adds an address.
+    window.addEventListener("tracked-updated", refresh);
+    return () => window.removeEventListener("tracked-updated", refresh);
   }, [load]);
 
   function sync(list: TrackedAddress[]) {
