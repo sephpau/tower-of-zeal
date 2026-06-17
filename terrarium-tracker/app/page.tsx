@@ -22,6 +22,7 @@ export default function Home() {
   const [showCalc, setShowCalc] = useState(false);
   const [selectedTier, setSelectedTier] = useState<Tier | null>(null);
   const [liveTotals, setLiveTotals] = useState<Record<string, number | null>>({});
+  const [approxMap, setApproxMap] = useState<Record<string, boolean>>({});
   const [flameLoaded, setFlameLoaded] = useState(false);
 
   // From the tier modal: track a wallet and jump to the Accounts Summary.
@@ -32,22 +33,34 @@ export default function Home() {
     document.getElementById("accounts")?.scrollIntoView({ behavior: "smooth" });
   }
 
-  // Pull the live per-tier Total Atia's Flame (cumulative category total).
+  // Pull each tier's deployed Total Atia's Flame (sum of all axies' flame).
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      try {
-        const res = await fetch(`/api/tier-flame`);
-        const json = await res.json();
-        if (cancelled) return;
-        setLiveTotals(json.totals ?? {});
-        setFlameLoaded(true);
-      } catch {
-        if (!cancelled) setFlameLoaded(true);
+      const results = await Promise.all(
+        TIERS.map(async (t) => {
+          try {
+            const res = await fetch(`/api/tier-flame?key=${t.key}`);
+            const j = await res.json();
+            return [t.key, typeof j.total === "number" ? j.total : null, !!j.approx] as const;
+          } catch {
+            return [t.key, null, false] as const;
+          }
+        })
+      );
+      if (cancelled) return;
+      const totals: Record<string, number | null> = {};
+      const approx: Record<string, boolean> = {};
+      for (const [k, v, a] of results) {
+        totals[k] = v;
+        approx[k] = a;
       }
+      setLiveTotals(totals);
+      setApproxMap(approx);
+      setFlameLoaded(true);
     }
     load();
-    const id = setInterval(load, 60_000);
+    const id = setInterval(load, 120_000);
     return () => {
       cancelled = true;
       clearInterval(id);
@@ -147,9 +160,13 @@ export default function Home() {
                 >
                   {(() => {
                     const v = totalFor(t.key, t.totalAtiasFlame);
-                    return v !== null ? nf.format(v) : flameLoaded ? "0" : "—";
+                    if (v === null) return flameLoaded ? "0" : "—";
+                    return `${approxMap[t.key] ? "≈" : ""}${nf.format(v)}`;
                   })()}
                 </div>
+                {approxMap[t.key] ? (
+                  <span className={styles.flameNote}>top wallets (approx)</span>
+                ) : null}
               </div>
 
               <div className={styles.cardStats}>
