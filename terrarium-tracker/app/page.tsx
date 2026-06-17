@@ -12,6 +12,7 @@ import {
 import LoginModal from "@/app/_components/LoginModal";
 import FlameCalculator from "@/app/_components/FlameCalculator";
 import AccountsPanel from "@/app/_components/AccountsPanel";
+import TierLeaderboard from "@/app/_components/TierLeaderboard";
 import TierModal from "@/app/_components/TierModal";
 import styles from "./page.module.css";
 
@@ -269,6 +270,9 @@ export default function Home() {
             </article>
           ))}
         </section>
+
+        {/* ---------- Tier leaderboard (ranked wallets, in-game style) ---------- */}
+        <TierLeaderboard />
 
         {/* ---------- All-plots roll-up: season total vs last hour ---------- */}
         <section className={`glass-card ${styles.rollup}`}>
