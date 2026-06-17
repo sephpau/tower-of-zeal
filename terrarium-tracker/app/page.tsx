@@ -144,7 +144,6 @@ export default function Home() {
                     return v !== null ? nf.format(v) : flameLoaded ? "0" : "—";
                   })()}
                 </div>
-                <span className={styles.flameNote}>{t.bAxsPerTick} bAXS / hr</span>
               </div>
 
               <div className={styles.cardStats}>
