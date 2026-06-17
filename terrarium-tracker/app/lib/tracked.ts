@@ -115,10 +115,7 @@ export async function connectWallet(
         pickInjected((p) => !!p.isCoinbaseWallet);
       break;
     case "walletconnect":
-      return {
-        error:
-          "WalletConnect isn't wired up yet — connect an installed browser wallet for now.",
-      };
+      return connectWalletConnect();
   }
 
   if (!provider) {
@@ -133,6 +130,45 @@ export async function connectWallet(
     const err = e as { code?: number; message?: string };
     if (err?.code === 4001) return { error: "Connection rejected." };
     return { error: err?.message ? String(err.message) : "Connection failed." };
+  }
+}
+
+// WalletConnect v2 via Reown's EthereumProvider (QR modal). Requires a free
+// project id from cloud.reown.com, exposed as NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID.
+const RONIN_CHAIN_ID = 2020;
+
+async function connectWalletConnect(): Promise<{ address?: string; error?: string }> {
+  const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
+  if (!projectId) {
+    return {
+      error:
+        "WalletConnect needs a project id — set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID.",
+    };
+  }
+  try {
+    const { EthereumProvider } = await import(
+      "@walletconnect/ethereum-provider"
+    );
+    const wc = await EthereumProvider.init({
+      projectId,
+      chains: [RONIN_CHAIN_ID],
+      optionalChains: [RONIN_CHAIN_ID, 1],
+      showQrModal: true,
+      rpcMap: { [RONIN_CHAIN_ID]: "https://api.roninchain.com/rpc" },
+      metadata: {
+        name: "MoTZ Terrarium Tracker",
+        description: "Track your Terrariums Atia's Flame across every tier.",
+        url: "https://motz-terrarium-tracker.vercel.app",
+        icons: ["https://motz-terrarium-tracker.vercel.app/motz/favicon.png"],
+      },
+    });
+    const accs = (await wc.enable()) as string[]; // opens the QR modal
+    const addr = accs?.[0];
+    if (!addr) return { error: "No account returned." };
+    return { address: String(addr).toLowerCase() };
+  } catch (e) {
+    const err = e as { message?: string };
+    return { error: err?.message ? String(err.message) : "Connection cancelled." };
   }
 }
 
