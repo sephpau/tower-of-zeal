@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { TIERS, Tier } from "@/app/lib/tiers";
 import {
@@ -35,6 +35,7 @@ export default function Home() {
   const [hourlyTotals, setHourlyTotals] = useState<Record<string, number | null>>({});
   const [reportedMap, setReportedMap] = useState<Record<string, boolean>>({});
   const [flameLoaded, setFlameLoaded] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [, setNowTick] = useState(0); // re-render to keep "x ago" live
 
@@ -52,56 +53,67 @@ export default function Home() {
     document.getElementById("accounts")?.scrollIntoView({ behavior: "smooth" });
   }
 
-  // Pull each tier's deployed Total Atia's Flame (sum of all axies' flame).
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      const results = await Promise.all(
-        TIERS.map(async (t) => {
-          try {
-            const res = await fetch(`/api/tier-flame?key=${t.key}`);
-            const j = await res.json();
-            return [
-              t.key,
-              typeof j.total === "number" ? j.total : null,
-              !!j.reported,
-              j.updatedAt ? Date.parse(j.updatedAt) : null,
-              typeof j.reportedTotal === "number" ? j.reportedTotal : null,
-              typeof j.reportedHourly === "number" ? j.reportedHourly : null,
-            ] as const;
-          } catch {
-            return [t.key, null, false, null, null, null] as const;
-          }
-        })
-      );
-      if (cancelled) return;
-      const totals: Record<string, number | null> = {};
-      const reported: Record<string, boolean> = {};
-      const reportedVals: Record<string, number | null> = {};
-      const hourlyVals: Record<string, number | null> = {};
-      const times: number[] = [];
-      for (const [k, v, rep, ts, repVal, hrVal] of results) {
-        totals[k] = v;
-        reported[k] = rep;
-        reportedVals[k] = repVal;
-        hourlyVals[k] = hrVal;
-        if (ts) times.push(ts);
-      }
-      setLiveTotals(totals);
-      setReportedMap(reported);
-      setReportedTotals(reportedVals);
-      setHourlyTotals(hourlyVals);
-      // Oldest compute time across tiers = how fresh the dashboard is.
-      setUpdatedAt(times.length ? Math.min(...times) : Date.now());
-      setFlameLoaded(true);
+  // Pull each tier's flame. `fresh` bypasses the ~10-min edge cache (cache-bust
+  // query + no-store) to force a live recompute — used by the Refresh button.
+  const loadFlame = useCallback(async (fresh = false) => {
+    const results = await Promise.all(
+      TIERS.map(async (t) => {
+        try {
+          const url =
+            `/api/tier-flame?key=${t.key}` + (fresh ? `&t=${Date.now()}` : "");
+          const res = await fetch(url, fresh ? { cache: "no-store" } : {});
+          const j = await res.json();
+          return [
+            t.key,
+            typeof j.total === "number" ? j.total : null,
+            !!j.reported,
+            j.updatedAt ? Date.parse(j.updatedAt) : null,
+            typeof j.reportedTotal === "number" ? j.reportedTotal : null,
+            typeof j.reportedHourly === "number" ? j.reportedHourly : null,
+          ] as const;
+        } catch {
+          return [t.key, null, false, null, null, null] as const;
+        }
+      })
+    );
+    const totals: Record<string, number | null> = {};
+    const reported: Record<string, boolean> = {};
+    const reportedVals: Record<string, number | null> = {};
+    const hourlyVals: Record<string, number | null> = {};
+    const times: number[] = [];
+    for (const [k, v, rep, ts, repVal, hrVal] of results) {
+      totals[k] = v;
+      reported[k] = rep;
+      reportedVals[k] = repVal;
+      hourlyVals[k] = hrVal;
+      if (ts) times.push(ts);
     }
-    load();
-    const id = setInterval(load, 120_000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
+    setLiveTotals(totals);
+    setReportedMap(reported);
+    setReportedTotals(reportedVals);
+    setHourlyTotals(hourlyVals);
+    // Oldest compute time across tiers = how fresh the dashboard is.
+    setUpdatedAt(times.length ? Math.min(...times) : Date.now());
+    setFlameLoaded(true);
   }, []);
+
+  // Initial load + 2-min polling (cached values, cheap).
+  useEffect(() => {
+    loadFlame();
+    const id = setInterval(() => loadFlame(), 120_000);
+    return () => clearInterval(id);
+  }, [loadFlame]);
+
+  // Manual refresh: force a fresh recompute past the cache (expensive).
+  async function handleRefresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await loadFlame(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   const totalFor = (key: string, fallback: number | null) =>
     liveTotals[key] ?? fallback;
@@ -163,14 +175,25 @@ export default function Home() {
               {flameLoaded ? "Live · total flame per tier" : "Loading live data…"}
             </span>
           </div>
-          {updatedAt ? (
-            <span
-              className={styles.updated}
-              title={`Data computed ${new Date(updatedAt).toLocaleString()}`}
+          <div className={styles.updatedRow}>
+            {updatedAt ? (
+              <span
+                className={styles.updated}
+                title={`Data computed ${new Date(updatedAt).toLocaleString()}`}
+              >
+                Updated {relTime(updatedAt)}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              className={styles.refreshBtn}
+              onClick={handleRefresh}
+              disabled={refreshing}
+              title="Force a fresh recompute (bypasses the ~10-min cache)"
             >
-              Updated {relTime(updatedAt)}
-            </span>
-          ) : null}
+              {refreshing ? "Refreshing…" : "↻ Refresh"}
+            </button>
+          </div>
         </section>
 
         {/* ---------- Tier cards ---------- */}

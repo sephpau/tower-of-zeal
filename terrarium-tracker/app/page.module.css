@@ -89,13 +89,39 @@
   gap: 10px;
   margin-top: 6px;
 }
-.updated {
+.updatedRow {
   margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.updated {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.04em;
   color: var(--text-dim);
   cursor: default;
+}
+.refreshBtn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.refreshBtn:hover:not(:disabled) {
+  color: var(--winner-gold);
+  border-color: var(--glass-border-hi);
+  background: rgba(251, 191, 36, 0.08);
+}
+.refreshBtn:disabled {
+  opacity: 0.6;
+  cursor: progress;
 }
 
 .periodToggle {
