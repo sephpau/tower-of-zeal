@@ -7,21 +7,20 @@ import { shortAddress } from "@/app/lib/tracked";
 import styles from "./TierModal.module.css";
 
 const nf = new Intl.NumberFormat("en-US");
-const nf2 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 
 type Entry = {
   rank: number;
   address: string;
   plots: number;
+  axies: number;
   flame: number;
-  baxs: number;
-  share: number;
 };
 
 type Data = {
   name: string;
   total: number;
   participants: number;
+  shown: number;
   entries: Entry[];
 };
 
@@ -74,6 +73,9 @@ export default function TierModal({ tier, onClose, onTrackWallet }: Props) {
                 {data ? nf.format(data.total) : "…"}
               </span>{" "}
               total flame · {data ? nf.format(data.participants) : "…"} wallets
+              {data && data.participants > data.shown
+                ? ` · top ${data.shown} by plots`
+                : ""}
             </div>
           </div>
         </div>
@@ -82,9 +84,8 @@ export default function TierModal({ tier, onClose, onTrackWallet }: Props) {
           <span>#</span>
           <span>Wallet</span>
           <span className={styles.right}>Plots</span>
+          <span className={styles.right}>Axies</span>
           <span className={styles.right}>Flame</span>
-          <span className={styles.right}>Share</span>
-          <span className={styles.right}>bAXS</span>
         </div>
 
         <div className={styles.list}>
@@ -103,13 +104,10 @@ export default function TierModal({ tier, onClose, onTrackWallet }: Props) {
                 <span className={styles.rank}>{e.rank}</span>
                 <span className={styles.addr}>{shortAddress(e.address)}</span>
                 <span className={styles.right}>{e.plots}</span>
+                <span className={styles.right}>{e.axies}</span>
                 <span className={`${styles.right} ${styles.flame}`}>
                   {nf.format(e.flame)}
                 </span>
-                <span className={styles.right}>
-                  {(e.share * 100).toFixed(1)}%
-                </span>
-                <span className={styles.right}>{nf2.format(e.baxs)}</span>
               </button>
             ))
           )}

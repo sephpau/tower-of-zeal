@@ -70,7 +70,7 @@
 .cols,
 .row {
   display: grid;
-  grid-template-columns: 28px 1fr 52px 80px 60px 64px;
+  grid-template-columns: 28px 1fr 56px 56px 90px;
   align-items: center;
   gap: 8px;
 }
@@ -142,12 +142,10 @@
 @media (max-width: 520px) {
   .cols,
   .row {
-    grid-template-columns: 24px 1fr 64px 56px;
+    grid-template-columns: 24px 1fr 48px 80px;
   }
-  .cols span:nth-child(5),
-  .cols span:nth-child(6),
-  .row > *:nth-child(5),
-  .row > *:nth-child(6) {
+  .cols span:nth-child(4),
+  .row > *:nth-child(4) {
     display: none;
   }
 }
