@@ -6,9 +6,10 @@ import { landOwners } from "@/app/lib/landOwners";
 // reward formula). Computes EVERY wallet, so it's edge-cached (~10 min).
 //
 // GET /api/tier-flame?key=<tierKey>
-// Returns { key, total, reportedTotal, wallets, computed, approx }
+// Returns { key, total, reportedTotal, reportedHourly, wallets, computed, approx }
 // `total` = our summed-wallets value (matches the per-wallet breakdown).
-// `reportedTotal` = the leaderboard's own total_atia_flame, for comparison.
+// `reportedTotal` = the leaderboard's own total_atia_flame (monthly = season).
+// `reportedHourly` = the leaderboard total_atia_flame for the last tick (hourly).
 
 export const maxDuration = 60;
 
@@ -71,13 +72,14 @@ async function allEntries(landType: string): Promise<RawEntry[]> {
   return out;
 }
 
-// Some tiers (Luna's Landing) don't expose a participant list — fall back to
-// the leaderboard's reported total_atia_flame.
-async function reportedTotal(landType: string): Promise<number> {
+// The leaderboard's reported total_atia_flame for a tier+window. Used as a
+// fallback (non-enumerable tiers) and for the all-plots roll-up (monthly =
+// season total, hourly = last tick).
+async function reportedTotal(landType: string, period = "monthly"): Promise<number> {
   const r = await fetch(
     `${API_BASE}/api/v1/leaderboards/baxs?land_type=${encodeURIComponent(
       landType
-    )}&period=monthly&limit=1`,
+    )}&period=${period}&limit=1`,
     { cache: "no-store" }
   );
   if (!r.ok) return 0;
@@ -103,12 +105,16 @@ export async function GET(req: Request) {
       const merged = [...new Set([...live, ...(tier.knownWallets ?? [])])];
       raw = merged.map((user_address) => ({ user_address }));
     } else if (raw.length === 0) {
-      const reported = await reportedTotal(tier.landType);
+      const [reported, reportedHr] = await Promise.all([
+        reportedTotal(tier.landType),
+        reportedTotal(tier.landType, "hourly"),
+      ]);
       return Response.json(
         {
           key: tier.key,
           total: reported,
           reportedTotal: reported,
+          reportedHourly: reportedHr,
           wallets: 0,
           computed: 0,
           reported: true,
@@ -125,9 +131,10 @@ export async function GET(req: Request) {
 
     // Compute every wallet in the tier (match on the terrariums land_type), and
     // grab the leaderboard's own reported total in parallel for comparison.
-    const [total, apiReported] = await Promise.all([
+    const [total, apiReported, apiHourly] = await Promise.all([
       pool(raw, (e) => walletTierFlame(e.user_address, tier.terrariumType)),
       reportedTotal(tier.landType),
+      reportedTotal(tier.landType, "hourly"),
     ]);
 
     return Response.json(
@@ -135,6 +142,7 @@ export async function GET(req: Request) {
         key: tier.key,
         total,
         reportedTotal: apiReported,
+        reportedHourly: apiHourly,
         wallets,
         computed: raw.length,
         approx: false,
