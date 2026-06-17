@@ -95,7 +95,7 @@ export default function Home() {
               <span className="pulse-dot" /> Terrariums · Live
             </span>
             <span className="chip chip-gold">
-              {flameLoaded ? "Live flame · current tick" : "Loading live data…"}
+              {flameLoaded ? "Live · total flame per tier" : "Loading live data…"}
             </span>
           </div>
         </section>
