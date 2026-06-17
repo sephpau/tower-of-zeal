@@ -140,6 +140,24 @@
   box-shadow: var(--sh-lift);
   border-color: var(--glass-border-hi);
 }
+.cardClickable {
+  cursor: pointer;
+}
+.cardHint {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  opacity: 0;
+  transition: opacity 200ms;
+}
+.cardClickable:hover .cardHint {
+  opacity: 1;
+}
 .cardBar {
   position: absolute;
   top: 0;

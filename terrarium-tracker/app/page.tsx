@@ -2,10 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { TIERS } from "@/app/lib/tiers";
+import { TIERS, Tier } from "@/app/lib/tiers";
+import {
+  readTracked,
+  writeTracked,
+  addTracked,
+  notifyTrackedUpdated,
+} from "@/app/lib/tracked";
 import LoginModal from "@/app/_components/LoginModal";
 import FlameCalculator from "@/app/_components/FlameCalculator";
 import AccountsPanel from "@/app/_components/AccountsPanel";
+import TierModal from "@/app/_components/TierModal";
 import styles from "./page.module.css";
 
 const nf = new Intl.NumberFormat("en-US");
@@ -13,8 +20,17 @@ const nf = new Intl.NumberFormat("en-US");
 export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
   const [showCalc, setShowCalc] = useState(false);
+  const [selectedTier, setSelectedTier] = useState<Tier | null>(null);
   const [liveTotals, setLiveTotals] = useState<Record<string, number | null>>({});
   const [flameLoaded, setFlameLoaded] = useState(false);
+
+  // From the tier modal: track a wallet and jump to the Accounts Summary.
+  function trackWallet(address: string) {
+    writeTracked(addTracked(readTracked(), address));
+    notifyTrackedUpdated();
+    setSelectedTier(null);
+    document.getElementById("accounts")?.scrollIntoView({ behavior: "smooth" });
+  }
 
   // Pull the live per-tier Total Atia's Flame (cumulative category total).
   useEffect(() => {
@@ -92,11 +108,19 @@ export default function Home() {
         {/* ---------- Tier cards ---------- */}
         <section id="tiers" className={styles.grid}>
           {TIERS.map((t) => (
-            <article key={t.key} className={`glass-card ${styles.card}`}>
+            <article
+              key={t.key}
+              className={`glass-card ${styles.card} ${styles.cardClickable}`}
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelectedTier(t)}
+              onKeyDown={(e) => e.key === "Enter" && setSelectedTier(t)}
+            >
               <span
                 className={styles.cardBar}
                 style={{ background: t.accent }}
               />
+              <span className={styles.cardHint}>View wallets ↗</span>
               <div className={styles.cardHead}>
                 <span
                   className={styles.tierTile}
@@ -163,6 +187,14 @@ export default function Home() {
         <FlameCalculator
           onClose={() => setShowCalc(false)}
           liveTotals={liveTotals}
+        />
+      ) : null}
+
+      {selectedTier ? (
+        <TierModal
+          tier={selectedTier}
+          onClose={() => setSelectedTier(null)}
+          onTrackWallet={trackWallet}
         />
       ) : null}
     </div>
