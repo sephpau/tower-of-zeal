@@ -48,11 +48,24 @@ homeland.markofthezeal.com:
   rotate-captcha widget (`x.skymavis.com/captcha-srv`). For now there's a captcha-token
   field; the interactive widget is the one remaining piece to validate on launch day.
 
-## To wire up live data (launch day)
+## Live data (wired ✅)
 
-1. Inspect the live Terrariums client's network calls to find the per-tier
-   (or per-plot) Atia's Flame endpoint — same recon method used for homeland.
-2. Add a `POST /api/getTierFlame` route (proxy) and fetch it per tier in `page.tsx`,
-   replacing the `—` placeholder.
-3. If only per-plot flame is exposed, sum per tier client-side.
-4. Point `TERRARIUM_UPSTREAM_BASE` at the real backend.
+Total Atia's Flame per tier is **live** from the public Terrarium API:
+
+```
+GET https://axie-terrarium-api.axieinfinity.com/api/v1/leaderboards/baxs
+    ?land_type=<Savannah|Forest|Arctic|Mystic|Genesis|LunasLanding>
+    &period=<hourly|daily|monthly>
+→ { total_atia_flame, window_start_tick, window_end_tick, entries[] }
+```
+
+- `app/api/tier-flame/route.ts` proxies all six tiers (default `period=hourly`
+  = current tick). Override host with `TERRARIUM_API_BASE`.
+- `app/page.tsx` fetches it on mount + every 60s; the cards and the calculator
+  read the same `liveTotals`, so the bAXS estimate computes from the real
+  denominator. No login needed for tier totals.
+- Param is snake_case `land_type`; Luna's Landing = `LunasLanding`.
+
+### Still per-account (needs Sky Mavis auth)
+`/api/v1/me/*` (getMe, listActivatedAxies, baxs-rewards) for the Accounts
+Summary's "current Axies in plots" — auth via `athena.skymavis.com/v2`.
