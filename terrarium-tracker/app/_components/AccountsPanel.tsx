@@ -19,6 +19,9 @@ import styles from "./AccountsPanel.module.css";
 
 const nf = new Intl.NumberFormat("en-US");
 const tierByKey = Object.fromEntries(TIERS.map((t) => [t.key, t]));
+// Display order: Luna's Landing → Genesis → Mystic → Arctic → Forest → Savannah
+// (matches the TIERS array order).
+const tierOrder = Object.fromEntries(TIERS.map((t, i) => [t.key, i]));
 
 export default function AccountsPanel() {
   const [tracked, setTracked] = useState<TrackedAddress[]>([]);
@@ -113,6 +116,14 @@ export default function AccountsPanel() {
           {tracked.map((t) => {
             const summary = data[t.address];
             const busy = loading[t.address];
+            // Paid plots that actually have Axies, ordered by tier.
+            const shownPlots = (summary?.plots ?? [])
+              .filter((p) => !p.isFree && p.axieCount > 0)
+              .sort(
+                (a, b) =>
+                  (tierOrder[a.tierKey ?? ""] ?? 99) -
+                  (tierOrder[b.tierKey ?? ""] ?? 99)
+              );
             return (
               <div key={t.address} className={`glass-card ${styles.card}`}>
                 <div className={styles.cardHead}>
@@ -158,11 +169,9 @@ export default function AccountsPanel() {
                       </div>
                     </div>
 
-                    {summary.plots.filter((p) => !p.isFree).length > 0 ? (
+                    {shownPlots.length > 0 ? (
                       <div className={styles.plots}>
-                        {summary.plots
-                          .filter((p) => !p.isFree)
-                          .map((p) => {
+                        {shownPlots.map((p) => {
                             const tier = p.tierKey
                               ? tierByKey[p.tierKey]
                               : undefined;
@@ -217,7 +226,7 @@ export default function AccountsPanel() {
                       </div>
                     ) : (
                       <div className={styles.noPlots}>
-                        No activated paid plots yet.
+                        No Axies in plots yet.
                       </div>
                     )}
                   </>

@@ -9,13 +9,12 @@ import { TIERS } from "@/app/lib/tiers";
 // Returns { name, total, participants, shown, entries: [{rank, address, plots,
 // axies, flame}] }
 
+export const maxDuration = 60;
+
 const API_BASE =
   process.env.TERRARIUM_API_BASE ?? "https://axie-terrarium-api.axieinfinity.com";
 
-// Cap how many wallets we compute deployed-flame for (each needs 2 upstream
-// calls). Must match /api/tier-flame so the card total == this modal's total.
-const COMPUTE_CAP = 100;
-const CONCURRENCY = 20;
+const CONCURRENCY = 24;
 
 type RawEntry = { user_address: string; terrarium_count?: number };
 type RawTerr = { id: string; land_type: string };
@@ -41,6 +40,27 @@ async function walletTierFlame(address: string, landType: string) {
   const mine = axies.filter((a) => tids.has(a.assignment?.terrarium_id ?? ""));
   const flame = mine.reduce((s, a) => s + (a.base_atia_flame ?? 0), 0);
   return { plots: tids.size, axies: mine.length, flame };
+}
+
+// The leaderboard caps at 200 rows/page — paginate via offset to get all.
+async function allEntries(landType: string): Promise<RawEntry[]> {
+  const PAGE = 200;
+  const out: RawEntry[] = [];
+  for (let offset = 0; offset < 4000; offset += PAGE) {
+    const r = await fetch(
+      `${API_BASE}/api/v1/leaderboards/baxs?land_type=${encodeURIComponent(
+        landType
+      )}&period=monthly&limit=${PAGE}&offset=${offset}`,
+      { cache: "no-store" }
+    );
+    if (!r.ok) break;
+    const j = await r.json();
+    const e = (j?.entries ?? []) as RawEntry[];
+    out.push(...e);
+    const total = j?.total ?? out.length;
+    if (e.length < PAGE || out.length >= total) break;
+  }
+  return out;
 }
 
 type Computed = { address: string; plots: number; axies: number; flame: number };
@@ -70,23 +90,11 @@ export async function GET(req: Request) {
   if (!tier) return Response.json({ error: "Unknown tier." }, { status: 400 });
 
   try {
-    const r = await fetch(
-      `${API_BASE}/api/v1/leaderboards/baxs?land_type=${encodeURIComponent(
-        tier.landType
-      )}&period=monthly&limit=500`,
-      { cache: "no-store" }
-    );
-    if (!r.ok) return Response.json({ error: "Upstream error." }, { status: 502 });
-    const j = await r.json();
-    const raw = (j?.entries ?? []) as RawEntry[];
-    const participants: number = j?.total ?? raw.length;
+    const raw = await allEntries(tier.landType);
+    const participants = raw.length;
 
-    // Same selection as /api/tier-flame: top wallets by plot count.
-    const candidates = [...raw]
-      .sort((a, b) => (b.terrarium_count ?? 0) - (a.terrarium_count ?? 0))
-      .slice(0, COMPUTE_CAP);
-
-    const computed = await poolCompute(candidates, tier.landType);
+    // Compute every wallet (matches /api/tier-flame exactly).
+    const computed = await poolCompute(raw, tier.landType);
 
     // Only list wallets that actually have axies (0-flame ones add nothing to
     // the total, so the header still equals the sum of shown rows).
@@ -102,7 +110,7 @@ export async function GET(req: Request) {
         name: tier.name,
         deployedTotal,
         participants,
-        shown: candidates.length,
+        shown: computed.length,
         entries,
       },
       {
