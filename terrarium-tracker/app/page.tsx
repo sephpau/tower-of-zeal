@@ -32,7 +32,6 @@ export default function Home() {
   const [showCalc, setShowCalc] = useState(false);
   const [selectedTier, setSelectedTier] = useState<Tier | null>(null);
   const [liveTotals, setLiveTotals] = useState<Record<string, number | null>>({});
-  const [reportedTotals, setReportedTotals] = useState<Record<string, number | null>>({});
   const [reportedMap, setReportedMap] = useState<Record<string, boolean>>({});
   const [flameLoaded, setFlameLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -68,26 +67,22 @@ export default function Home() {
             typeof j.total === "number" ? j.total : null,
             !!j.reported,
             j.updatedAt ? Date.parse(j.updatedAt) : null,
-            typeof j.reportedTotal === "number" ? j.reportedTotal : null,
           ] as const;
         } catch {
-          return [t.key, null, false, null, null] as const;
+          return [t.key, null, false, null] as const;
         }
       })
     );
     const totals: Record<string, number | null> = {};
     const reported: Record<string, boolean> = {};
-    const reportedVals: Record<string, number | null> = {};
     const times: number[] = [];
-    for (const [k, v, rep, ts, repVal] of results) {
+    for (const [k, v, rep, ts] of results) {
       totals[k] = v;
       reported[k] = rep;
-      reportedVals[k] = repVal;
       if (ts) times.push(ts);
     }
     setLiveTotals(totals);
     setReportedMap(reported);
-    setReportedTotals(reportedVals);
     // Oldest compute time across tiers = how fresh the dashboard is.
     setUpdatedAt(times.length ? Math.min(...times) : Date.now());
     setFlameLoaded(true);
@@ -114,10 +109,10 @@ export default function Home() {
   const totalFor = (key: string, fallback: number | null) =>
     liveTotals[key] ?? fallback;
 
-  // All-plots roll-up: season total vs last hour, both summed across tiers from
-  // the leaderboard's reported total_atia_flame (apples-to-apples windows).
-  const allPlotsSeason = TIERS.reduce(
-    (s, t) => s + (reportedTotals[t.key] ?? 0),
+  // All-plots roll-up = sum of the per-tier headline (our deployed flame), so it
+  // equals the total of the cards above.
+  const allPlotsTotal = TIERS.reduce(
+    (s, t) => s + (totalFor(t.key, t.totalAtiasFlame) ?? 0),
     0
   );
 
@@ -261,7 +256,7 @@ export default function Home() {
           <div className={styles.rollupItem}>
             <span className="eyebrow">Total Atia&apos;s Flame · all plots</span>
             <span className={styles.rollupValue}>
-              {flameLoaded ? nf.format(allPlotsSeason) : "—"}
+              {flameLoaded ? nf.format(allPlotsTotal) : "—"}
             </span>
             <span className={styles.rollupSub}>current atia flame</span>
           </div>
