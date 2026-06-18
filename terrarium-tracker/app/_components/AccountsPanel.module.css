@@ -187,6 +187,19 @@
   align-items: center;
   gap: 12px;
 }
+.plotSub {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+.plotEst {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
 .breakdown {
   display: flex;
   flex-wrap: wrap;

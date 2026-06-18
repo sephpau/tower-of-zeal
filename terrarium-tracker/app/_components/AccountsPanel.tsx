@@ -233,6 +233,13 @@ export default function AccountsPanel({ liveTotals = {} }: Props) {
                             const tier = p.tierKey
                               ? tierByKey[p.tierKey]
                               : undefined;
+                            const tierTotal = p.tierKey
+                              ? liveTotals[p.tierKey]
+                              : null;
+                            const plotEstHr =
+                              tier && tierTotal && tierTotal > 0
+                                ? (p.flame / tierTotal) * tier.bAxsPerTick
+                                : null;
                             return (
                               <div key={p.id} className={styles.plot}>
                                 <div className={styles.plotMain}>
@@ -256,26 +263,38 @@ export default function AccountsPanel({ liveTotals = {} }: Props) {
                                     {nf.format(p.flame)}
                                   </span>
                                 </div>
-                                {p.breakdown.length > 0 ? (
-                                  <div className={styles.breakdown}>
-                                    {p.breakdown.map((b) => {
-                                      const info = flameInfo(b.flame);
-                                      return (
-                                        <span
-                                          key={b.flame}
-                                          className={styles.kind}
-                                        >
-                                          <span
-                                            className={styles.kindDot}
-                                            style={{ background: info.color }}
-                                          />
-                                          {info.label}
-                                          <span className={styles.kindCount}>
-                                            ×{b.count}
-                                          </span>
-                                        </span>
-                                      );
-                                    })}
+                                {p.breakdown.length > 0 || plotEstHr !== null ? (
+                                  <div className={styles.plotSub}>
+                                    {p.breakdown.length > 0 ? (
+                                      <div className={styles.breakdown}>
+                                        {p.breakdown.map((b) => {
+                                          const info = flameInfo(b.flame);
+                                          return (
+                                            <span
+                                              key={b.flame}
+                                              className={styles.kind}
+                                            >
+                                              <span
+                                                className={styles.kindDot}
+                                                style={{ background: info.color }}
+                                              />
+                                              {info.label}
+                                              <span className={styles.kindCount}>
+                                                ×{b.count}
+                                              </span>
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <span />
+                                    )}
+                                    {plotEstHr !== null ? (
+                                      <span className={styles.plotEst}>
+                                        ≈ {nf2.format(plotEstHr)} / hr ·{" "}
+                                        {nf2.format(plotEstHr * 24)} / day
+                                      </span>
+                                    ) : null}
                                   </div>
                                 ) : null}
                               </div>
