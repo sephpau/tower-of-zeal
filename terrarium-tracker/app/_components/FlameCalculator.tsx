@@ -39,8 +39,12 @@ export default function FlameCalculator({ onClose, liveTotals = {} }: Props) {
   const hourlyTick = tier.bAxsPerTick;
   // Live denominator from the Terrarium leaderboard API (current tick).
   const tierTotal = liveTotals[tier.key] ?? tier.totalAtiasFlame;
+  // Deploying your Axies adds their flame to the tier total, so include it in
+  // the denominator: your share = yourFlame / (tierTotal + yourFlame).
   const estPerHr =
-    tierTotal && tierTotal > 0 ? (yourFlame / tierTotal) * hourlyTick : null;
+    tierTotal && tierTotal > 0
+      ? (yourFlame / (tierTotal + yourFlame)) * hourlyTick
+      : null;
 
   function setCount(key: string, value: number) {
     const v = Math.max(0, Math.floor(value) || 0);
@@ -196,8 +200,8 @@ export default function FlameCalculator({ onClose, liveTotals = {} }: Props) {
             </span>
           </div>
           <span className={styles.hint}>
-            Your flame ÷ tier total × hourly tick. Fills in automatically once
-            the tier total goes live at launch.
+            Your flame ÷ (tier total + your flame) × hourly tick. Fills in
+            automatically once the tier total goes live at launch.
           </span>
         </div>
 
