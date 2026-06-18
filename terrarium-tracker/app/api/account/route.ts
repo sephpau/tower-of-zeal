@@ -1,21 +1,24 @@
 import { TIERS } from "@/app/lib/tiers";
+import { fetchActivatedAxies, ActivatedAxie } from "@/app/lib/terrariumApi";
 
 // Public per-account summary, by Ronin address (no login required).
 // GET /api/account?address=0x...
 // Combines /api/v1/terrariums and /api/v1/activated-axies into a per-plot
-// breakdown with Atia's Flame totals.
+// breakdown with Atia's Flame totals, open slots, and idle (unplaced) Axies.
 
 const API_BASE =
   process.env.TERRARIUM_API_BASE ?? "https://axie-terrarium-api.axieinfinity.com";
 
 export const revalidate = 0;
 
-type RawTerrarium = { id: string; land_type: string; land_token_id: string | null };
-type RawAxie = {
-  axie_id: string;
-  base_atia_flame?: number;
-  assignment?: { terrarium_id?: string; role?: string } | null;
+type RawTerrarium = {
+  id: string;
+  land_type: string;
+  land_token_id: string | null;
+  total_assigned_axies?: number;
+  total_axie_slots?: number;
 };
+type RawAxie = ActivatedAxie;
 
 function tierKeyForLandType(landType: string): string | null {
   const t = TIERS.find(
@@ -37,18 +40,15 @@ export async function GET(req: Request) {
   }
 
   try {
-    const [tRes, aRes] = await Promise.all([
+    const [tRes, axies] = await Promise.all([
       fetch(`${API_BASE}/api/v1/terrariums?user_address=${address}`, {
         cache: "no-store",
       }),
-      fetch(`${API_BASE}/api/v1/activated-axies?user_address=${address}`, {
-        cache: "no-store",
-      }),
+      fetchActivatedAxies(address),
     ]);
     const terrariums: RawTerrarium[] = tRes.ok
       ? (await tRes.json())?.terrariums ?? []
       : [];
-    const axies: RawAxie[] = aRes.ok ? (await aRes.json())?.axies ?? [] : [];
 
     // Group axies by terrarium id.
     const byTerr = new Map<string, RawAxie[]>();
@@ -71,6 +71,10 @@ export async function GET(req: Request) {
       const breakdown = [...counts.entries()]
         .map(([flame, count]) => ({ flame, count }))
         .sort((a, b) => b.flame - a.flame);
+      // Capacity from the terrarium itself (authoritative); fall back to the
+      // axie list count if the slot fields are missing.
+      const filled = t.total_assigned_axies ?? list.length;
+      const slots = t.total_axie_slots ?? filled;
       return {
         id: t.id,
         landType: t.land_type,
@@ -79,6 +83,9 @@ export async function GET(req: Request) {
         axieCount: list.length,
         flame,
         breakdown,
+        slots,
+        filled,
+        openSlots: Math.max(0, slots - filled),
       };
     });
 
@@ -86,6 +93,12 @@ export async function GET(req: Request) {
     const totalAxies = axies.length;
     // Only paid plots count toward "active plots".
     const paidPlots = plots.filter((p) => !p.isFree);
+    // Open slots across every plot (free + paid) and idle Axies (activated but
+    // not placed on any plot) — i.e. spare deploy capacity.
+    const openSlots = plots.reduce((s, p) => s + p.openSlots, 0);
+    const idleAxies = axies.filter(
+      (a) => !a.assignment?.terrarium_id
+    ).length;
 
     return Response.json(
       {
@@ -94,6 +107,8 @@ export async function GET(req: Request) {
         paidPlotCount: paidPlots.length,
         totalAxies,
         totalFlame,
+        openSlots,
+        idleAxies,
         plots,
         updatedAt: new Date().toISOString(),
       },

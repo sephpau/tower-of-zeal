@@ -242,6 +242,36 @@
   font-size: 12px;
   color: var(--text-muted);
 }
+.openSlots {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+/* ---- Available-to-deploy capacity line ---- */
+.capacity {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: rgba(74, 222, 128, 0.07);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  border-radius: var(--r-md);
+}
+.capLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.capValue {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: #4ade80;
+}
 .plotFlame {
   font-family: var(--font-mono);
   font-size: 14px;

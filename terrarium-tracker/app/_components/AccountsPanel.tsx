@@ -119,9 +119,10 @@ export default function AccountsPanel({ liveTotals = {} }: Props) {
           {tracked.map((t) => {
             const summary = data[t.address];
             const busy = loading[t.address];
-            // Paid plots that actually have Axies, ordered by tier.
+            // Plots with Axies OR open slots (so empty, deployable plots show
+            // too), ordered by tier (free plots last).
             const shownPlots = (summary?.plots ?? [])
-              .filter((p) => !p.isFree && p.axieCount > 0)
+              .filter((p) => p.axieCount > 0 || p.openSlots > 0)
               .sort(
                 (a, b) =>
                   (tierOrder[a.tierKey ?? ""] ?? 99) -
@@ -227,6 +228,19 @@ export default function AccountsPanel({ liveTotals = {} }: Props) {
                       </div>
                     ) : null}
 
+                    <div className={styles.capacity}>
+                      <span className={styles.capLabel}>
+                        Available to deploy
+                      </span>
+                      <span className={styles.capValue}>
+                        {summary.openSlots} open slot
+                        {summary.openSlots === 1 ? "" : "s"}
+                        {" · "}
+                        {summary.idleAxies} idle ax
+                        {summary.idleAxies === 1 ? "ie" : "ies"}
+                      </span>
+                    </div>
+
                     {shownPlots.length > 0 ? (
                       <div className={styles.plots}>
                         {shownPlots.map((p) => {
@@ -257,7 +271,13 @@ export default function AccountsPanel({ liveTotals = {} }: Props) {
                                     {tier?.name ?? p.landType}
                                   </span>
                                   <span className={styles.plotMeta}>
-                                    {p.axieCount} axie{p.axieCount === 1 ? "" : "s"}
+                                    {p.filled} / {p.slots} slots
+                                    {p.openSlots > 0 ? (
+                                      <span className={styles.openSlots}>
+                                        {" "}
+                                        · {p.openSlots} open
+                                      </span>
+                                    ) : null}
                                   </span>
                                   <span className={styles.plotFlame}>
                                     {nf.format(p.flame)}

@@ -1,5 +1,6 @@
 import { TIERS } from "@/app/lib/tiers";
 import { landOwners } from "@/app/lib/landOwners";
+import { fetchActivatedAxies } from "@/app/lib/terrariumApi";
 
 // Deployed Total Atia's Flame for ONE tier = sum of every axie's base flame
 // across all plots in the category (matches the per-wallet breakdown and the
@@ -20,18 +21,13 @@ const CONCURRENCY = 24;
 
 type RawEntry = { user_address: string; terrarium_count?: number };
 type RawTerr = { id: string; land_type: string };
-type RawAxie = {
-  base_atia_flame?: number;
-  assignment?: { terrarium_id?: string } | null;
-};
 
 async function walletTierFlame(address: string, landType: string): Promise<number> {
-  const [tRes, aRes] = await Promise.all([
+  const [tRes, axies] = await Promise.all([
     fetch(`${API_BASE}/api/v1/terrariums?user_address=${address}`, { cache: "no-store" }),
-    fetch(`${API_BASE}/api/v1/activated-axies?user_address=${address}`, { cache: "no-store" }),
+    fetchActivatedAxies(address),
   ]);
   const terrariums: RawTerr[] = tRes.ok ? (await tRes.json())?.terrariums ?? [] : [];
-  const axies: RawAxie[] = aRes.ok ? (await aRes.json())?.axies ?? [] : [];
   const tids = new Set(
     terrariums.filter((t) => t.land_type === landType).map((t) => t.id)
   );

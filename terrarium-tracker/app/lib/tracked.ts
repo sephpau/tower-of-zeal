@@ -15,6 +15,9 @@ export type PlotSummary = {
   axieCount: number;
   flame: number;
   breakdown: FlameCount[];
+  slots: number;
+  filled: number;
+  openSlots: number;
 };
 
 export type AccountSummary = {
@@ -23,6 +26,8 @@ export type AccountSummary = {
   paidPlotCount: number;
   totalAxies: number;
   totalFlame: number;
+  openSlots: number;
+  idleAxies: number;
   plots: PlotSummary[];
 };
 
