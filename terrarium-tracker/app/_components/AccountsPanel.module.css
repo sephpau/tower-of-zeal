@@ -89,7 +89,7 @@
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
   margin: 16px 0;
   padding: 14px 0;
@@ -119,6 +119,52 @@
   font-weight: 700;
   color: var(--winner-gold);
   text-shadow: 0 0 18px rgba(251, 191, 36, 0.3);
+}
+.statSub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ---- Lands per tier ---- */
+.lands {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.landsLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.landsChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.landChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border-radius: var(--r-pill);
+  background: var(--surface-strong);
+  border: 1px solid var(--glass-border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.landChip img {
+  border-radius: 5px;
+}
+.landChipCount {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--winner-gold);
 }
 
 .plots {
@@ -224,5 +270,8 @@
 @media (max-width: 560px) {
   .addRow {
     flex-direction: column;
+  }
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
   }
 }

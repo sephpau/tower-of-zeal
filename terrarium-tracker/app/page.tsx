@@ -263,7 +263,7 @@ export default function Home() {
         </section>
 
         {/* ---------- Accounts summary (live, by Ronin address) ---------- */}
-        <AccountsPanel />
+        <AccountsPanel liveTotals={liveTotals} />
       </main>
 
       <footer className={styles.footer}>

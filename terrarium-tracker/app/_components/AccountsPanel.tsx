@@ -18,12 +18,15 @@ import {
 import styles from "./AccountsPanel.module.css";
 
 const nf = new Intl.NumberFormat("en-US");
+const nf2 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 const tierByKey = Object.fromEntries(TIERS.map((t) => [t.key, t]));
 // Display order: Luna's Landing → Genesis → Mystic → Arctic → Forest → Savannah
 // (matches the TIERS array order).
 const tierOrder = Object.fromEntries(TIERS.map((t, i) => [t.key, i]));
 
-export default function AccountsPanel() {
+type Props = { liveTotals?: Record<string, number | null> };
+
+export default function AccountsPanel({ liveTotals = {} }: Props) {
   const [tracked, setTracked] = useState<TrackedAddress[]>([]);
   const [data, setData] = useState<Record<string, AccountSummary | null>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
@@ -124,6 +127,28 @@ export default function AccountsPanel() {
                   (tierOrder[a.tierKey ?? ""] ?? 99) -
                   (tierOrder[b.tierKey ?? ""] ?? 99)
               );
+
+            // Lands owned per tier (paid plots), and the est. bAXS/hr summed
+            // across tiers: the wallet's flame is already in each tier total, so
+            // est = walletFlame / tierTotal × hourly tick (no self-add here).
+            const paidPlots = (summary?.plots ?? []).filter((p) => !p.isFree);
+            const landsByTier = TIERS.map((t) => ({
+              tier: t,
+              count: paidPlots.filter((p) => p.tierKey === t.key).length,
+            })).filter((x) => x.count > 0);
+
+            let estPerHr = 0;
+            let estOk = false;
+            for (const t of TIERS) {
+              const tierTotal = liveTotals[t.key];
+              if (!tierTotal || tierTotal <= 0) continue;
+              const flame = paidPlots
+                .filter((p) => p.tierKey === t.key)
+                .reduce((s, p) => s + p.flame, 0);
+              if (flame <= 0) continue;
+              estPerHr += (flame / tierTotal) * t.bAxsPerTick;
+              estOk = true;
+            }
             return (
               <div key={t.address} className={`glass-card ${styles.card}`}>
                 <div className={styles.cardHead}>
@@ -162,12 +187,45 @@ export default function AccountsPanel() {
                         </span>
                       </div>
                       <div className={styles.stat}>
-                        <span className={styles.statLabel}>Your Atia&apos;s Flame</span>
+                        <span className={styles.statLabel}>Total flame</span>
                         <span className={styles.statValueGold}>
                           {nf.format(summary.totalFlame)}
                         </span>
                       </div>
+                      <div className={styles.stat}>
+                        <span className={styles.statLabel}>Est. bAXS / hr</span>
+                        <span className={styles.statValueGold}>
+                          {estOk ? nf2.format(estPerHr) : "—"}
+                        </span>
+                        {estOk ? (
+                          <span className={styles.statSub}>
+                            ≈ {nf2.format(estPerHr * 24)} / day
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
+
+                    {landsByTier.length > 0 ? (
+                      <div className={styles.lands}>
+                        <span className={styles.landsLabel}>Lands</span>
+                        <div className={styles.landsChips}>
+                          {landsByTier.map(({ tier, count }) => (
+                            <span key={tier.key} className={styles.landChip}>
+                              <Image
+                                src={tier.img}
+                                alt=""
+                                width={18}
+                                height={18}
+                              />
+                              {tier.name}
+                              <span className={styles.landChipCount}>
+                                ×{count}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
 
                     {shownPlots.length > 0 ? (
                       <div className={styles.plots}>
