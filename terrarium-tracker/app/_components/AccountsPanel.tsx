@@ -24,9 +24,15 @@ const tierByKey = Object.fromEntries(TIERS.map((t) => [t.key, t]));
 // (matches the TIERS array order).
 const tierOrder = Object.fromEntries(TIERS.map((t, i) => [t.key, i]));
 
-type Props = { liveTotals?: Record<string, number | null> };
+type Props = {
+  liveTotals?: Record<string, number | null>;
+  liveTicks?: Record<string, number | null>;
+};
 
-export default function AccountsPanel({ liveTotals = {} }: Props) {
+export default function AccountsPanel({
+  liveTotals = {},
+  liveTicks = {},
+}: Props) {
   const [tracked, setTracked] = useState<TrackedAddress[]>([]);
   const [data, setData] = useState<Record<string, AccountSummary | null>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
@@ -147,7 +153,7 @@ export default function AccountsPanel({ liveTotals = {} }: Props) {
                 .filter((p) => p.tierKey === t.key)
                 .reduce((s, p) => s + p.flame, 0);
               if (flame <= 0) continue;
-              estPerHr += (flame / tierTotal) * t.bAxsPerTick;
+              estPerHr += (flame / tierTotal) * (liveTicks[t.key] ?? t.bAxsPerTick);
               estOk = true;
             }
             return (
@@ -252,7 +258,8 @@ export default function AccountsPanel({ liveTotals = {} }: Props) {
                               : null;
                             const plotEstHr =
                               tier && tierTotal && tierTotal > 0
-                                ? (p.flame / tierTotal) * tier.bAxsPerTick
+                                ? (p.flame / tierTotal) *
+                                  (liveTicks[tier.key] ?? tier.bAxsPerTick)
                                 : null;
                             return (
                               <div key={p.id} className={styles.plot}>

@@ -12,9 +12,14 @@ const nf2 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 type Props = {
   onClose: () => void;
   liveTotals?: Record<string, number | null>;
+  liveTicks?: Record<string, number | null>;
 };
 
-export default function FlameCalculator({ onClose, liveTotals = {} }: Props) {
+export default function FlameCalculator({
+  onClose,
+  liveTotals = {},
+  liveTicks = {},
+}: Props) {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [tierKey, setTierKey] = useState<string>(TIERS[0].key);
 
@@ -35,8 +40,9 @@ export default function FlameCalculator({ onClose, liveTotals = {} }: Props) {
   const over = used > MAX_WORKING_AXIES;
   const remaining = MAX_WORKING_AXIES - used;
 
-  // 1 tick = 1 hour (pool/month ÷ perTick = 720 ticks ≈ 24/day).
-  const hourlyTick = tier.bAxsPerTick;
+  // 1 tick = 1 hour. Live bAXS/tick from the hourly leaderboard when available,
+  // else the static Land-Utility value.
+  const hourlyTick = liveTicks[tier.key] ?? tier.bAxsPerTick;
   // Live denominator from the Terrarium leaderboard API (current tick).
   const tierTotal = liveTotals[tier.key] ?? tier.totalAtiasFlame;
   // Deploying your Axies adds their flame to the tier total, so include it in

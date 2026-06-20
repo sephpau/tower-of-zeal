@@ -7,10 +7,10 @@ import { fetchActivatedAxies } from "@/app/lib/terrariumApi";
 // reward formula). Computes EVERY wallet, so it's edge-cached (~10 min).
 //
 // GET /api/tier-flame?key=<tierKey>
-// Returns { key, total, reportedTotal, reportedHourly, wallets, computed, approx }
+// Returns { key, total, reportedTotal, bAxsPerTick, wallets, computed, approx }
 // `total` = our summed-wallets value (matches the per-wallet breakdown).
 // `reportedTotal` = the leaderboard's own total_atia_flame (monthly = season).
-// `reportedHourly` = the leaderboard total_atia_flame for the last tick (hourly).
+// `bAxsPerTick` = live bAXS distributed per tick (from the hourly leaderboard).
 
 export const maxDuration = 60;
 
@@ -83,6 +83,27 @@ async function reportedTotal(landType: string, period = "monthly"): Promise<numb
   return typeof j?.total_atia_flame === "number" ? j.total_atia_flame : 0;
 }
 
+// Live bAXS distributed per tick for a tier, from the hourly leaderboard. For
+// any wallet: baxs = (atia_flame / total_atia_flame) × pool, so the pool is
+// exact from a single entry: pool = baxs × total_atia_flame / atia_flame.
+async function livePoolPerTick(landType: string): Promise<number | null> {
+  const r = await fetch(
+    `${API_BASE}/api/v1/leaderboards/baxs?land_type=${encodeURIComponent(
+      landType
+    )}&period=hourly&limit=1`,
+    { cache: "no-store" }
+  );
+  if (!r.ok) return null;
+  const j = await r.json();
+  const e = j?.entries?.[0];
+  const total = j?.total_atia_flame;
+  const af = e?.atia_flame;
+  if (e?.baxs && af > 0 && total > 0) {
+    return (Number(e.baxs) / 1e18) * (total / af);
+  }
+  return null;
+}
+
 export async function GET(req: Request) {
   const key = new URL(req.url).searchParams.get("key");
   const tier = TIERS.find((t) => t.key === key);
@@ -101,16 +122,16 @@ export async function GET(req: Request) {
       const merged = [...new Set([...live, ...(tier.knownWallets ?? [])])];
       raw = merged.map((user_address) => ({ user_address }));
     } else if (raw.length === 0) {
-      const [reported, reportedHr] = await Promise.all([
+      const [reported, liveTick] = await Promise.all([
         reportedTotal(tier.landType),
-        reportedTotal(tier.landType, "hourly"),
+        livePoolPerTick(tier.landType),
       ]);
       return Response.json(
         {
           key: tier.key,
           total: reported,
           reportedTotal: reported,
-          reportedHourly: reportedHr,
+          bAxsPerTick: liveTick,
           wallets: 0,
           computed: 0,
           reported: true,
@@ -127,10 +148,10 @@ export async function GET(req: Request) {
 
     // Compute every wallet in the tier (match on the terrariums land_type), and
     // grab the leaderboard's own reported total in parallel for comparison.
-    const [total, apiReported, apiHourly] = await Promise.all([
+    const [total, apiReported, liveTick] = await Promise.all([
       pool(raw, (e) => walletTierFlame(e.user_address, tier.terrariumType)),
       reportedTotal(tier.landType),
-      reportedTotal(tier.landType, "hourly"),
+      livePoolPerTick(tier.landType),
     ]);
 
     return Response.json(
@@ -138,7 +159,7 @@ export async function GET(req: Request) {
         key: tier.key,
         total,
         reportedTotal: apiReported,
-        reportedHourly: apiHourly,
+        bAxsPerTick: liveTick,
         wallets,
         computed: raw.length,
         approx: false,

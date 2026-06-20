@@ -17,6 +17,7 @@ import TierModal from "@/app/_components/TierModal";
 import styles from "./page.module.css";
 
 const nf = new Intl.NumberFormat("en-US");
+const nf2 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 
 function relTime(ts: number): string {
   const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
@@ -32,6 +33,7 @@ export default function Home() {
   const [showCalc, setShowCalc] = useState(false);
   const [selectedTier, setSelectedTier] = useState<Tier | null>(null);
   const [liveTotals, setLiveTotals] = useState<Record<string, number | null>>({});
+  const [liveTicks, setLiveTicks] = useState<Record<string, number | null>>({});
   const [reportedMap, setReportedMap] = useState<Record<string, boolean>>({});
   const [flameLoaded, setFlameLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -67,22 +69,26 @@ export default function Home() {
             typeof j.total === "number" ? j.total : null,
             !!j.reported,
             j.updatedAt ? Date.parse(j.updatedAt) : null,
+            typeof j.bAxsPerTick === "number" ? j.bAxsPerTick : null,
           ] as const;
         } catch {
-          return [t.key, null, false, null] as const;
+          return [t.key, null, false, null, null] as const;
         }
       })
     );
     const totals: Record<string, number | null> = {};
     const reported: Record<string, boolean> = {};
+    const ticks: Record<string, number | null> = {};
     const times: number[] = [];
-    for (const [k, v, rep, ts] of results) {
+    for (const [k, v, rep, ts, tick] of results) {
       totals[k] = v;
       reported[k] = rep;
+      ticks[k] = tick;
       if (ts) times.push(ts);
     }
     setLiveTotals(totals);
     setReportedMap(reported);
+    setLiveTicks(ticks);
     // Oldest compute time across tiers = how fresh the dashboard is.
     setUpdatedAt(times.length ? Math.min(...times) : Date.now());
     setFlameLoaded(true);
@@ -241,7 +247,9 @@ export default function Home() {
                 </div>
                 <div className={styles.stat}>
                   <span className={styles.statLabel}>bAXS / tick</span>
-                  <span className={styles.statValue}>{t.bAxsPerTick}</span>
+                  <span className={styles.statValue}>
+                    {nf2.format(liveTicks[t.key] ?? t.bAxsPerTick)}
+                  </span>
                 </div>
               </div>
             </article>
@@ -263,7 +271,7 @@ export default function Home() {
         </section>
 
         {/* ---------- Accounts summary (live, by Ronin address) ---------- */}
-        <AccountsPanel liveTotals={liveTotals} />
+        <AccountsPanel liveTotals={liveTotals} liveTicks={liveTicks} />
       </main>
 
       <footer className={styles.footer}>
@@ -281,6 +289,7 @@ export default function Home() {
         <FlameCalculator
           onClose={() => setShowCalc(false)}
           liveTotals={liveTotals}
+          liveTicks={liveTicks}
         />
       ) : null}
 
