@@ -12,6 +12,7 @@ import {
 import LoginModal from "@/app/_components/LoginModal";
 import FlameCalculator from "@/app/_components/FlameCalculator";
 import AccountsPanel from "@/app/_components/AccountsPanel";
+import TickChart from "@/app/_components/TickChart";
 import TierLeaderboard from "@/app/_components/TierLeaderboard";
 import TierModal from "@/app/_components/TierModal";
 import styles from "./page.module.css";
@@ -255,6 +256,9 @@ export default function Home() {
             </article>
           ))}
         </section>
+
+        {/* ---------- Live bAXS-per-tick chart ---------- */}
+        <TickChart liveTicks={liveTicks} />
 
         {/* ---------- Tier leaderboard (ranked wallets, in-game style) ---------- */}
         <TierLeaderboard />
