@@ -14,6 +14,12 @@ import FlameCalculator from "@/app/_components/FlameCalculator";
 import AccountsPanel from "@/app/_components/AccountsPanel";
 import TickChart from "@/app/_components/TickChart";
 import TierLeaderboard from "@/app/_components/TierLeaderboard";
+import {
+  recordTickSamples,
+  readTickHistory,
+  TickSample,
+  TickPoint,
+} from "@/app/lib/tickHistory";
 import TierModal from "@/app/_components/TierModal";
 import styles from "./page.module.css";
 
@@ -35,6 +41,7 @@ export default function Home() {
   const [selectedTier, setSelectedTier] = useState<Tier | null>(null);
   const [liveTotals, setLiveTotals] = useState<Record<string, number | null>>({});
   const [liveTicks, setLiveTicks] = useState<Record<string, number | null>>({});
+  const [tickHistory, setTickHistory] = useState<Record<string, TickPoint[]>>({});
   const [reportedMap, setReportedMap] = useState<Record<string, boolean>>({});
   const [flameLoaded, setFlameLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -65,15 +72,25 @@ export default function Home() {
             `/api/tier-flame?key=${t.key}` + (fresh ? `&t=${Date.now()}` : "");
           const res = await fetch(url, fresh ? { cache: "no-store" } : {});
           const j = await res.json();
-          return [
-            t.key,
-            typeof j.total === "number" ? j.total : null,
-            !!j.reported,
-            j.updatedAt ? Date.parse(j.updatedAt) : null,
-            typeof j.bAxsPerTick === "number" ? j.bAxsPerTick : null,
-          ] as const;
+          return {
+            key: t.key,
+            total: typeof j.total === "number" ? j.total : null,
+            reported: !!j.reported,
+            ts: j.updatedAt ? Date.parse(j.updatedAt) : null,
+            pool: typeof j.bAxsPerTick === "number" ? j.bAxsPerTick : null,
+            tick: typeof j.tick === "number" ? j.tick : null,
+            hourlyTotal: typeof j.hourlyTotal === "number" ? j.hourlyTotal : null,
+          };
         } catch {
-          return [t.key, null, false, null, null] as const;
+          return {
+            key: t.key,
+            total: null,
+            reported: false,
+            ts: null,
+            pool: null,
+            tick: null,
+            hourlyTotal: null,
+          };
         }
       })
     );
@@ -81,11 +98,20 @@ export default function Home() {
     const reported: Record<string, boolean> = {};
     const ticks: Record<string, number | null> = {};
     const times: number[] = [];
-    for (const [k, v, rep, ts, tick] of results) {
-      totals[k] = v;
-      reported[k] = rep;
-      ticks[k] = tick;
-      if (ts) times.push(ts);
+    const samples: TickSample[] = [];
+    for (const r of results) {
+      totals[r.key] = r.total;
+      reported[r.key] = r.reported;
+      ticks[r.key] = r.pool;
+      if (r.ts) times.push(r.ts);
+      if (r.tick && r.pool && r.hourlyTotal) {
+        samples.push({
+          tierKey: r.key,
+          tick: r.tick,
+          pool: r.pool,
+          total: r.hourlyTotal,
+        });
+      }
     }
     setLiveTotals(totals);
     setReportedMap(reported);
@@ -93,6 +119,13 @@ export default function Home() {
     // Oldest compute time across tiers = how fresh the dashboard is.
     setUpdatedAt(times.length ? Math.min(...times) : Date.now());
     setFlameLoaded(true);
+    // Log this tick into local history so the chart builds over time.
+    if (samples.length) setTickHistory(recordTickSamples(samples, Date.now()));
+  }, []);
+
+  // Show any history already logged in this browser, instantly on mount.
+  useEffect(() => {
+    setTickHistory(readTickHistory());
   }, []);
 
   // Initial load + 2-min polling (cached values, cheap).
@@ -257,8 +290,8 @@ export default function Home() {
           ))}
         </section>
 
-        {/* ---------- Live bAXS-per-tick chart ---------- */}
-        <TickChart liveTicks={liveTicks} />
+        {/* ---------- bAXS-per-tick history chart ---------- */}
+        <TickChart history={tickHistory} />
 
         {/* ---------- Tier leaderboard (ranked wallets, in-game style) ---------- */}
         <TierLeaderboard />

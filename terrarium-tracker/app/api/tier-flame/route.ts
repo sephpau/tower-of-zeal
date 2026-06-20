@@ -7,10 +7,12 @@ import { fetchActivatedAxies } from "@/app/lib/terrariumApi";
 // reward formula). Computes EVERY wallet, so it's edge-cached (~10 min).
 //
 // GET /api/tier-flame?key=<tierKey>
-// Returns { key, total, reportedTotal, bAxsPerTick, wallets, computed, approx }
+// Returns { key, total, reportedTotal, bAxsPerTick, tick, hourlyTotal, ... }
 // `total` = our summed-wallets value (matches the per-wallet breakdown).
 // `reportedTotal` = the leaderboard's own total_atia_flame (monthly = season).
 // `bAxsPerTick` = live bAXS distributed per tick (from the hourly leaderboard).
+// `tick` = current tick number; `hourlyTotal` = hourly competing flame. Together
+// these let the client log a bAXS-per-flame (= bAxsPerTick / hourlyTotal) series.
 
 export const maxDuration = 60;
 
@@ -86,7 +88,10 @@ async function reportedTotal(landType: string, period = "monthly"): Promise<numb
 // Live bAXS distributed per tick for a tier, from the hourly leaderboard. For
 // any wallet: baxs = (atia_flame / total_atia_flame) × pool, so the pool is
 // exact from a single entry: pool = baxs × total_atia_flame / atia_flame.
-async function livePoolPerTick(landType: string): Promise<number | null> {
+// Also returns the tick number and the hourly total flame (the "competing
+// flame"), so the client can log a bAXS-per-flame time series.
+type LiveTick = { pool: number; tick: number; total: number };
+async function livePoolPerTick(landType: string): Promise<LiveTick | null> {
   const r = await fetch(
     `${API_BASE}/api/v1/leaderboards/baxs?land_type=${encodeURIComponent(
       landType
@@ -98,8 +103,13 @@ async function livePoolPerTick(landType: string): Promise<number | null> {
   const e = j?.entries?.[0];
   const total = j?.total_atia_flame;
   const af = e?.atia_flame;
+  const tick = j?.window_end_tick;
   if (e?.baxs && af > 0 && total > 0) {
-    return (Number(e.baxs) / 1e18) * (total / af);
+    return {
+      pool: (Number(e.baxs) / 1e18) * (total / af),
+      tick: typeof tick === "number" ? tick : 0,
+      total,
+    };
   }
   return null;
 }
@@ -131,7 +141,9 @@ export async function GET(req: Request) {
           key: tier.key,
           total: reported,
           reportedTotal: reported,
-          bAxsPerTick: liveTick,
+          bAxsPerTick: liveTick?.pool ?? null,
+          tick: liveTick?.tick ?? null,
+          hourlyTotal: liveTick?.total ?? null,
           wallets: 0,
           computed: 0,
           reported: true,
@@ -159,7 +171,9 @@ export async function GET(req: Request) {
         key: tier.key,
         total,
         reportedTotal: apiReported,
-        bAxsPerTick: liveTick,
+        bAxsPerTick: liveTick?.pool ?? null,
+        tick: liveTick?.tick ?? null,
+        hourlyTotal: liveTick?.total ?? null,
         wallets,
         computed: raw.length,
         approx: false,
