@@ -13,11 +13,15 @@ export type PlotSummary = {
   tierKey: string | null;
   isFree: boolean;
   axieCount: number;
-  flame: number;
+  flame: number; // ACTIVE (Lunium-powered) flame — counts toward bAXS
   breakdown: FlameCount[];
   slots: number;
   filled: number;
   openSlots: number;
+  shrineState: string | null; // "running" | "resting" | null (free plot)
+  active: boolean;
+  lunium: number;
+  luniumTicks: number | null; // est ticks of Lunium left (null = sustainable)
 };
 
 export type AccountSummary = {

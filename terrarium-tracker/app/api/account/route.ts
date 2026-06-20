@@ -1,23 +1,14 @@
 import { TIERS } from "@/app/lib/tiers";
-import { fetchActivatedAxies, ActivatedAxie } from "@/app/lib/terrariumApi";
+import { fetchActivatedAxies, fetchTerrariums, ActivatedAxie } from "@/app/lib/terrariumApi";
 
 // Public per-account summary, by Ronin address (no login required).
 // GET /api/account?address=0x...
 // Combines /api/v1/terrariums and /api/v1/activated-axies into a per-plot
-// breakdown with Atia's Flame totals, open slots, and idle (unplaced) Axies.
-
-const API_BASE =
-  process.env.TERRARIUM_API_BASE ?? "https://axie-terrarium-api.axieinfinity.com";
+// breakdown: ACTIVE (Lunium-powered) Atia's Flame, shrine state + Lunium runway,
+// open slots, and idle (unplaced) Axies.
 
 export const revalidate = 0;
 
-type RawTerrarium = {
-  id: string;
-  land_type: string;
-  land_token_id: string | null;
-  total_assigned_axies?: number;
-  total_axie_slots?: number;
-};
 type RawAxie = ActivatedAxie;
 
 function tierKeyForLandType(landType: string): string | null {
@@ -40,15 +31,10 @@ export async function GET(req: Request) {
   }
 
   try {
-    const [tRes, axies] = await Promise.all([
-      fetch(`${API_BASE}/api/v1/terrariums?user_address=${address}`, {
-        cache: "no-store",
-      }),
+    const [terrariums, axies] = await Promise.all([
+      fetchTerrariums(address),
       fetchActivatedAxies(address),
     ]);
-    const terrariums: RawTerrarium[] = tRes.ok
-      ? (await tRes.json())?.terrariums ?? []
-      : [];
 
     // Group axies by terrarium id.
     const byTerr = new Map<string, RawAxie[]>();
@@ -61,7 +47,6 @@ export async function GET(req: Request) {
 
     const plots = terrariums.map((t) => {
       const list = byTerr.get(t.id) ?? [];
-      const flame = list.reduce((s, a) => s + (a.base_atia_flame ?? 0), 0);
       // Breakdown by base Atia's Flame (≈ collection), sorted by flame desc.
       const counts = new Map<number, number>();
       for (const a of list) {
@@ -75,6 +60,16 @@ export async function GET(req: Request) {
       // axie list count if the slot fields are missing.
       const filled = t.total_assigned_axies ?? list.length;
       const slots = t.total_axie_slots ?? filled;
+      // Lunium / shrine: `flame` is the ACTIVE flame (what counts for bAXS).
+      const sh = t.atia_shrine;
+      const active = sh?.atia_shrine_state === "running";
+      const flame = sh
+        ? sh.active_atia_flame ?? 0
+        : list.reduce((s, a) => s + (a.base_atia_flame ?? 0), 0);
+      const lunium = sh?.individual_lunium_pool ?? 0;
+      const drain =
+        (sh?.lunium_consumed_per_tick ?? 0) - (sh?.lunium_recovered_per_tick ?? 0);
+      const luniumTicks = sh && drain > 0 ? Math.floor(lunium / drain) : null;
       return {
         id: t.id,
         landType: t.land_type,
@@ -86,9 +81,14 @@ export async function GET(req: Request) {
         slots,
         filled,
         openSlots: Math.max(0, slots - filled),
+        shrineState: sh?.atia_shrine_state ?? null,
+        active,
+        lunium,
+        luniumTicks,
       };
     });
 
+    // Active (Lunium-powered) flame only — the real bAXS-competing total.
     const totalFlame = plots.reduce((s, p) => s + p.flame, 0);
     const totalAxies = axies.length;
     // Only paid plots count toward "active plots".

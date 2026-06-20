@@ -1,6 +1,6 @@
 import { TIERS } from "@/app/lib/tiers";
 import { landOwners } from "@/app/lib/landOwners";
-import { fetchActivatedAxies } from "@/app/lib/terrariumApi";
+import { fetchTerrariums, activeFlameFor } from "@/app/lib/terrariumApi";
 
 // Deployed Total Atia's Flame for ONE tier = sum of every axie's base flame
 // across all plots in the category (matches the per-wallet breakdown and the
@@ -22,20 +22,13 @@ const API_BASE =
 const CONCURRENCY = 24;
 
 type RawEntry = { user_address: string; terrarium_count?: number };
-type RawTerr = { id: string; land_type: string };
 
+// Active (Lunium-powered) flame the wallet has in this tier — the flame that
+// actually competes for bAXS. Resting shrines (out of Lunium) contribute their
+// reduced active_atia_flame, so this no longer overcounts idle plots.
 async function walletTierFlame(address: string, landType: string): Promise<number> {
-  const [tRes, axies] = await Promise.all([
-    fetch(`${API_BASE}/api/v1/terrariums?user_address=${address}`, { cache: "no-store" }),
-    fetchActivatedAxies(address),
-  ]);
-  const terrariums: RawTerr[] = tRes.ok ? (await tRes.json())?.terrariums ?? [] : [];
-  const tids = new Set(
-    terrariums.filter((t) => t.land_type === landType).map((t) => t.id)
-  );
-  return axies
-    .filter((a) => tids.has(a.assignment?.terrarium_id ?? ""))
-    .reduce((s, a) => s + (a.base_atia_flame ?? 0), 0);
+  const terrariums = await fetchTerrariums(address);
+  return activeFlameFor(terrariums, landType);
 }
 
 // Run async tasks with a concurrency limit.

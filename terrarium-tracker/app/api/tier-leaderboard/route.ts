@@ -1,15 +1,14 @@
 import { TIERS } from "@/app/lib/tiers";
 import { landOwners } from "@/app/lib/landOwners";
-import { fetchActivatedAxies } from "@/app/lib/terrariumApi";
+import { fetchTerrariums } from "@/app/lib/terrariumApi";
 
-// Per-tier wallet breakdown: who holds plots in a land category, with each
-// wallet's actually-DEPLOYED Atia's Flame (computed from their axies — the
-// leaderboard's per-wallet atia_flame is an earned field that's mostly 0 early
-// on and doesn't reconcile with the category total).
+// Per-tier wallet breakdown: who holds plots in a land category, ranked by their
+// ACTIVE (Lunium-powered) Atia's Flame — the flame that actually competes for
+// bAXS (resting/out-of-Lunium plots contribute their reduced active_atia_flame).
 //
 // GET /api/tier-leaderboard?key=<tierKey>
-// Returns { name, total, participants, shown, entries: [{rank, address, plots,
-// axies, flame}] }
+// Returns { name, deployedTotal, participants, shown, entries: [{rank, address,
+// plots, axies, flame}] }
 
 export const maxDuration = 60;
 
@@ -19,22 +18,18 @@ const API_BASE =
 const CONCURRENCY = 24;
 
 type RawEntry = { user_address: string; terrarium_count?: number };
-type RawTerr = { id: string; land_type: string };
 
+// Plots, axies, and ACTIVE flame for a wallet in one tier — all from the
+// terrarium objects (total_assigned_axies + shrine active_atia_flame), so the
+// flame reflects Lunium and no axie pagination is needed.
 async function walletTierFlame(address: string, landType: string) {
-  const [tRes, axies] = await Promise.all([
-    fetch(`${API_BASE}/api/v1/terrariums?user_address=${address}`, {
-      cache: "no-store",
-    }),
-    fetchActivatedAxies(address),
-  ]);
-  const terrariums: RawTerr[] = tRes.ok ? (await tRes.json())?.terrariums ?? [] : [];
-  const tids = new Set(
-    terrariums.filter((t) => t.land_type === landType).map((t) => t.id)
-  );
-  const mine = axies.filter((a) => tids.has(a.assignment?.terrarium_id ?? ""));
-  const flame = mine.reduce((s, a) => s + (a.base_atia_flame ?? 0), 0);
-  return { plots: tids.size, axies: mine.length, flame };
+  const terrariums = await fetchTerrariums(address);
+  const mine = terrariums.filter((t) => t.land_type === landType);
+  return {
+    plots: mine.length,
+    axies: mine.reduce((s, t) => s + (t.total_assigned_axies ?? 0), 0),
+    flame: mine.reduce((s, t) => s + (t.atia_shrine?.active_atia_flame ?? 0), 0),
+  };
 }
 
 // The leaderboard caps at 200 rows/page — paginate via offset to get all.

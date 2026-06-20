@@ -194,7 +194,7 @@ export default function AccountsPanel({
                         </span>
                       </div>
                       <div className={styles.stat}>
-                        <span className={styles.statLabel}>Total flame</span>
+                        <span className={styles.statLabel}>Active flame</span>
                         <span className={styles.statValueGold}>
                           {nf.format(summary.totalFlame)}
                         </span>
@@ -290,6 +290,35 @@ export default function AccountsPanel({
                                     {nf.format(p.flame)}
                                   </span>
                                 </div>
+                                {!p.isFree && p.shrineState ? (
+                                  <div className={styles.energy}>
+                                    <span
+                                      className={`${styles.energyDot} ${
+                                        p.active ? styles.energyOn : styles.energyOff
+                                      }`}
+                                    />
+                                    <span
+                                      className={
+                                        p.active
+                                          ? styles.energyLabelOn
+                                          : styles.energyLabelOff
+                                      }
+                                    >
+                                      {p.active ? "Active" : "Resting"}
+                                    </span>
+                                    <span className={styles.energyNote}>
+                                      {p.active
+                                        ? p.luniumTicks != null
+                                          ? `~${p.luniumTicks} tick${
+                                              p.luniumTicks === 1 ? "" : "s"
+                                            } of Lunium left`
+                                          : "Lunium stable"
+                                        : p.lunium > 0
+                                        ? "low Lunium"
+                                        : "out of Lunium · not earning bAXS"}
+                                    </span>
+                                  </div>
+                                ) : null}
                                 {p.breakdown.length > 0 || plotEstHr !== null ? (
                                   <div className={styles.plotSub}>
                                     {p.breakdown.length > 0 ? (
