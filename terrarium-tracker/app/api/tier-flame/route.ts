@@ -1,14 +1,18 @@
 import { TIERS } from "@/app/lib/tiers";
 import { landOwners } from "@/app/lib/landOwners";
-import { fetchTerrariums, activeFlameFor } from "@/app/lib/terrariumApi";
+import {
+  fetchTerrariums,
+  fetchActivatedAxies,
+  activeFlameFor,
+} from "@/app/lib/terrariumApi";
 
-// Deployed Total Atia's Flame for ONE tier = sum of every axie's base flame
-// across all plots in the category (matches the per-wallet breakdown and the
-// reward formula). Computes EVERY wallet, so it's edge-cached (~10 min).
+// Atia's Flame for ONE tier, computed across EVERY wallet (edge-cached ~10 min).
 //
 // GET /api/tier-flame?key=<tierKey>
-// Returns { key, total, reportedTotal, bAxsPerTick, tick, hourlyTotal, ... }
-// `total` = our summed-wallets value (matches the per-wallet breakdown).
+// Returns { key, total, active, reportedTotal, bAxsPerTick, tick, hourlyTotal,...}
+// `total`  = all deployed base flame (every assigned axie, active or resting).
+// `active` = Lunium-powered flame (sum of running shrines' active_atia_flame) —
+//            the real bAXS denominator.
 // `reportedTotal` = the leaderboard's own total_atia_flame (monthly = season).
 // `bAxsPerTick` = live bAXS distributed per tick (from the hourly leaderboard).
 // `tick` = current tick number; `hourlyTotal` = hourly competing flame. Together
@@ -23,23 +27,43 @@ const CONCURRENCY = 24;
 
 type RawEntry = { user_address: string; terrarium_count?: number };
 
-// Active (Lunium-powered) flame the wallet has in this tier — the flame that
-// actually competes for bAXS. Resting shrines (out of Lunium) contribute their
-// reduced active_atia_flame, so this no longer overcounts idle plots.
-async function walletTierFlame(address: string, landType: string): Promise<number> {
-  const terrariums = await fetchTerrariums(address);
-  return activeFlameFor(terrariums, landType);
+// Per wallet, in one tier: total deployed base flame (all assigned axies) AND
+// active (Lunium-powered) flame (running shrines' active_atia_flame).
+async function walletTierFlames(
+  address: string,
+  landType: string
+): Promise<{ total: number; active: number }> {
+  const [terrariums, axies] = await Promise.all([
+    fetchTerrariums(address),
+    fetchActivatedAxies(address),
+  ]);
+  const tids = new Set(
+    terrariums.filter((t) => t.land_type === landType).map((t) => t.id)
+  );
+  const total = axies
+    .filter((a) => tids.has(a.assignment?.terrarium_id ?? ""))
+    .reduce((s, a) => s + (a.base_atia_flame ?? 0), 0);
+  return { total, active: activeFlameFor(terrariums, landType) };
 }
 
-// Run async tasks with a concurrency limit.
-async function pool<T>(items: T[], fn: (t: T) => Promise<number>): Promise<number> {
-  let sum = 0;
+// Sum total + active across all wallets, with a concurrency limit.
+async function poolFlames(
+  items: RawEntry[],
+  landType: string
+): Promise<{ total: number; active: number }> {
+  let total = 0;
+  let active = 0;
   for (let i = 0; i < items.length; i += CONCURRENCY) {
     const batch = items.slice(i, i + CONCURRENCY);
-    const res = await Promise.all(batch.map(fn));
-    sum += res.reduce((s, v) => s + v, 0);
+    const res = await Promise.all(
+      batch.map((e) => walletTierFlames(e.user_address, landType))
+    );
+    for (const r of res) {
+      total += r.total;
+      active += r.active;
+    }
   }
-  return sum;
+  return { total, active };
 }
 
 // The leaderboard caps at 200 rows/page — paginate via offset to get all.
@@ -133,6 +157,7 @@ export async function GET(req: Request) {
         {
           key: tier.key,
           total: reported,
+          active: reported,
           reportedTotal: reported,
           bAxsPerTick: liveTick?.pool ?? null,
           tick: liveTick?.tick ?? null,
@@ -153,8 +178,8 @@ export async function GET(req: Request) {
 
     // Compute every wallet in the tier (match on the terrariums land_type), and
     // grab the leaderboard's own reported total in parallel for comparison.
-    const [total, apiReported, liveTick] = await Promise.all([
-      pool(raw, (e) => walletTierFlame(e.user_address, tier.terrariumType)),
+    const [flames, apiReported, liveTick] = await Promise.all([
+      poolFlames(raw, tier.terrariumType),
       reportedTotal(tier.landType),
       livePoolPerTick(tier.landType),
     ]);
@@ -162,7 +187,8 @@ export async function GET(req: Request) {
     return Response.json(
       {
         key: tier.key,
-        total,
+        total: flames.total,
+        active: flames.active,
         reportedTotal: apiReported,
         bAxsPerTick: liveTick?.pool ?? null,
         tick: liveTick?.tick ?? null,

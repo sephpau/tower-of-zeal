@@ -40,6 +40,7 @@ export default function Home() {
   const [showCalc, setShowCalc] = useState(false);
   const [selectedTier, setSelectedTier] = useState<Tier | null>(null);
   const [liveTotals, setLiveTotals] = useState<Record<string, number | null>>({});
+  const [liveActive, setLiveActive] = useState<Record<string, number | null>>({});
   const [liveTicks, setLiveTicks] = useState<Record<string, number | null>>({});
   const [tickHistory, setTickHistory] = useState<Record<string, TickPoint[]>>({});
   const [reportedMap, setReportedMap] = useState<Record<string, boolean>>({});
@@ -75,6 +76,7 @@ export default function Home() {
           return {
             key: t.key,
             total: typeof j.total === "number" ? j.total : null,
+            active: typeof j.active === "number" ? j.active : null,
             reported: !!j.reported,
             ts: j.updatedAt ? Date.parse(j.updatedAt) : null,
             pool: typeof j.bAxsPerTick === "number" ? j.bAxsPerTick : null,
@@ -85,6 +87,7 @@ export default function Home() {
           return {
             key: t.key,
             total: null,
+            active: null,
             reported: false,
             ts: null,
             pool: null,
@@ -95,12 +98,14 @@ export default function Home() {
       })
     );
     const totals: Record<string, number | null> = {};
+    const active: Record<string, number | null> = {};
     const reported: Record<string, boolean> = {};
     const ticks: Record<string, number | null> = {};
     const times: number[] = [];
     const samples: TickSample[] = [];
     for (const r of results) {
       totals[r.key] = r.total;
+      active[r.key] = r.active;
       reported[r.key] = r.reported;
       ticks[r.key] = r.pool;
       if (r.ts) times.push(r.ts);
@@ -114,6 +119,7 @@ export default function Home() {
       }
     }
     setLiveTotals(totals);
+    setLiveActive(active);
     setReportedMap(reported);
     setLiveTicks(ticks);
     // Oldest compute time across tiers = how fresh the dashboard is.
@@ -191,8 +197,9 @@ export default function Home() {
             Total <span className="text-gradient">Atia&apos;s Flame</span> per Tier
           </h1>
           <p className={styles.heroSub}>
-            The reward-formula denominator, live for every land tier. Your bAXS
-            share = your flame ÷ the tier total below.
+            Live for every land tier. Only <strong>active</strong> (Lunium-powered)
+            flame earns bAXS — your share = your active flame ÷ the tier&apos;s
+            active total.
           </p>
           <div className={styles.heroBadges}>
             <span className="chip chip-live">
@@ -264,12 +271,23 @@ export default function Home() {
                   }}
                 >
                   {(() => {
-                    // Headline = our live deployed flame (sum across all plots).
+                    // Headline = total deployed flame (every assigned axie).
                     const deployed = totalFor(t.key, t.totalAtiasFlame);
                     if (deployed == null) return flameLoaded ? "0" : "—";
                     return nf.format(deployed);
                   })()}
                 </div>
+                {(() => {
+                  // Active = Lunium-powered flame that actually earns bAXS.
+                  const active = liveActive[t.key];
+                  if (active == null) return null;
+                  return (
+                    <span className={styles.activeFlame}>
+                      <span className={styles.activeDot} /> {nf.format(active)}{" "}
+                      active · earns bAXS
+                    </span>
+                  );
+                })()}
               </div>
 
               <div className={styles.cardStats}>
@@ -308,7 +326,8 @@ export default function Home() {
         </section>
 
         {/* ---------- Accounts summary (live, by Ronin address) ---------- */}
-        <AccountsPanel liveTotals={liveTotals} liveTicks={liveTicks} />
+        {/* est uses ACTIVE flame as the denominator (the real bAXS pool) */}
+        <AccountsPanel liveTotals={liveActive} liveTicks={liveTicks} />
       </main>
 
       <footer className={styles.footer}>
@@ -325,7 +344,7 @@ export default function Home() {
       {showCalc ? (
         <FlameCalculator
           onClose={() => setShowCalc(false)}
-          liveTotals={liveTotals}
+          liveTotals={liveActive}
           liveTicks={liveTicks}
         />
       ) : null}
