@@ -46,6 +46,13 @@ export const ITEM_PRICES_WEI: Record<ShopItemId, bigint> = {
  *  the player wait forever for a Buy click to resolve. */
 const REQUIRED_CONFIRMATIONS = 3n;
 
+/** A payment tx must be RECENT. Old transactions can never be claimed, even
+ *  if the used-tx record for them is gone — this makes season resets that
+ *  re-namespace Redis (KEY_PREFIX) safe against replaying pre-reset payments,
+ *  and bounds the replay surface in general. Players submit the hash within
+ *  seconds of paying, so an hour is generous. */
+const MAX_TX_AGE_SECONDS = 60n * 60n;
+
 /** Used-tx-hash store: prevents replaying the same payment for multiple
  *  item grants. Keyed per-hash with a 1-year TTL (way longer than needed,
  *  but harmless and gives us a nice audit log). */
@@ -125,6 +132,17 @@ export async function verifyShopPayment(
   if (!receipt) return { ok: false, pending: true, reason: "tx not found on-chain yet" };
   if (receipt.status !== "success") return { ok: false, reason: `tx reverted (status: ${receipt.status})` };
   if (!tx) return { ok: false, reason: "tx body not retrievable" };
+
+  // Tx must be fresh — reject anything older than MAX_TX_AGE_SECONDS.
+  try {
+    const block = await roninClient.getBlock({ blockNumber: receipt.blockNumber });
+    const ageSec = BigInt(Math.floor(Date.now() / 1000)) - block.timestamp;
+    if (ageSec > MAX_TX_AGE_SECONDS) {
+      return { ok: false, reason: "transaction too old — shop payments must be submitted right after paying" };
+    }
+  } catch {
+    return { ok: false, pending: true, reason: "could not verify transaction age yet — retrying" };
+  }
 
   // `to` must be the treasury wallet.
   const to = receipt.to ? getAddress(receipt.to) : null;
