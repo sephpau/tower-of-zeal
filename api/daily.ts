@@ -1,11 +1,41 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifySession } from "./_lib/jwt.js";
-import { getDailyStatus, claimDaily } from "./_lib/daily.js";
+import { getDailyStatus, claimDaily, getBestStreak } from "./_lib/daily.js";
+import { getMaxFloorCleared } from "./_lib/runState.js";
 
 // Combined daily endpoint to stay under the Vercel Hobby 12-function cap.
 // GET  /api/daily — status (streak, claimedToday, today's reward, multiplier)
+// GET  /api/daily?guildStats=0x… — public read-only stats for the MoTZ Guild
+//                                  badge system (no session; only exposes what
+//                                  the public leaderboards already show)
 // POST /api/daily — atomically claim today's bonus
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+  const gsRaw = req.query?.guildStats;
+  const gs = typeof gsRaw === "string" ? gsRaw.trim().toLowerCase() : "";
+  if (req.method === "GET" && gs) {
+    if (!/^0x[0-9a-f]{40}$/.test(gs)) {
+      res.status(400).json({ ok: false, error: "bad wallet" });
+      return;
+    }
+    try {
+      const [status, best, maxFloor] = await Promise.all([
+        getDailyStatus(gs),
+        getBestStreak(gs),
+        getMaxFloorCleared(gs).catch(() => 0),
+      ]);
+      res.status(200).json({
+        ok: true,
+        maxFloor,
+        currentStreak: status.streak,
+        bestStreak: Math.max(best, status.streak),
+      });
+      return;
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "server error" });
+      return;
+    }
+  }
+
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) { res.status(401).json({ error: "no token" }); return; }
 
