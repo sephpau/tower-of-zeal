@@ -50,6 +50,14 @@ import { renderShop } from "./ui/shop";
 import { renderInventory } from "./ui/inventory";
 import { renderReferral } from "./ui/referral";
 import { getPendingRefCode, clearPendingRefCode, captureReferral, setPendingRefCode } from "./core/referral";
+import { renderMaintenance } from "./ui/maintenance";
+
+/** MAINTENANCE SWITCH — set to `true` to take the game offline for all players
+ *  and show the "Under Maintenance" notice instead of the wallet gate / game.
+ *  This stops every mode (Tower, Survival, Boss Raid) at the door: bootstrap()
+ *  returns immediately, so no run can be started. Flip back to `false` and
+ *  redeploy to bring Gauntlet Tower back online. */
+const MAINTENANCE_MODE = true;
 
 const root = document.getElementById("app");
 if (!root) throw new Error("#app not found");
@@ -59,6 +67,12 @@ let currentSession: Session | null = null;
 void bootstrap();
 
 async function bootstrap(): Promise<void> {
+  // Maintenance gate — short-circuit before ANY game code runs so no mode can
+  // be launched while the game is down for development.
+  if (MAINTENANCE_MODE) {
+    renderMaintenance(root!);
+    return;
+  }
   // Referral link capture — if the player arrived via ?ref=CODE, stash the
   // code before auth and strip it from the URL so a refresh / bookmark
   // doesn't carry it around. The code is submitted to the server right

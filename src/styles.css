@@ -3338,6 +3338,68 @@ body:has(.battle) {
  * red-gradient primary CTA with sheen + lift, JetBrains Mono
  * overlines for labels/status, semantic colors for state.
  * ============================================================ */
+/* ---- Maintenance gate ----------------------------------------------------
+   Full-screen notice shown when MAINTENANCE_MODE is on (main.ts). Reuses the
+   wallet-gate card look (dark glass + gold hairline) for a consistent identity. */
+.maintenance-gate {
+  position: relative;
+  max-width: 500px;
+  width: min(92vw, 500px);
+  margin: 90px auto;
+  padding: 40px 34px 36px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--motz-glass-border);
+  border-radius: var(--motz-r-xl);
+  text-align: center;
+  color: var(--motz-text-primary);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--motz-sh-card), 0 24px 60px rgba(0, 0, 0, 0.45);
+  font-family: var(--motz-font-body);
+  isolation: isolate;
+}
+.maintenance-gate::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 18px; right: 18px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.6), rgba(245, 158, 11, 0.6), transparent);
+}
+.maintenance-gate__icon {
+  font-size: 52px;
+  line-height: 1;
+  margin-bottom: 14px;
+  filter: drop-shadow(0 0 20px rgba(251, 191, 36, 0.35));
+}
+.maintenance-gate h1 {
+  font-family: var(--motz-font-display);
+  font-size: 32px;
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 12px;
+  background: var(--motz-grad-gold);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  filter: drop-shadow(0 0 18px rgba(251, 191, 36, 0.30));
+}
+.maintenance-gate__desc {
+  color: var(--motz-text-muted);
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0 0 18px;
+}
+.maintenance-gate__thanks {
+  color: var(--motz-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.55;
+  margin: 0;
+}
+
 .wallet-gate {
   position: relative;
   max-width: 460px;
