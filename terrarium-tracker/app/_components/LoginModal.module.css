@@ -1,0 +1,153 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(8, 3, 14, 0.7);
+  backdrop-filter: blur(6px);
+}
+
+.modal {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  background: linear-gradient(180deg, #1a0e29 0%, #140a20 100%);
+  border: 1px solid var(--glass-border-hi);
+  border-radius: var(--r-xl);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 42, 85, 0.12);
+  padding: 28px;
+}
+
+.close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 200ms;
+}
+.close:hover {
+  color: var(--text-primary);
+}
+
+.title {
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: 22px;
+}
+
+/* Wallet badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-sm);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* Primary Ronin button — MoTZ red gradient */
+.primaryWallet {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 18px;
+  background: var(--grad-button);
+  border: none;
+  border-radius: var(--r-md);
+  color: #fff;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: var(--sh-cta);
+  transition: transform 200ms cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 200ms;
+}
+.primaryWallet:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--sh-cta-hi);
+}
+.primaryWallet:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--glass-border);
+}
+
+.others {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.walletBtn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 18px;
+  background: var(--surface-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-md);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 200ms, border-color 200ms, transform 200ms;
+}
+.walletBtn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--glass-border-hi);
+  transform: translateY(-1px);
+}
+.walletBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error {
+  margin-top: 16px;
+  background: rgba(255, 90, 107, 0.12);
+  border: 1px solid rgba(255, 90, 107, 0.4);
+  border-radius: var(--r-sm);
+  padding: 9px 12px;
+  color: #ffb0b8;
+  font-size: 13px;
+  text-align: center;
+}
+
+.terms {
+  text-align: center;
+  margin: 20px 0 0;
+  color: var(--text-dim);
+  font-size: 12px;
+}

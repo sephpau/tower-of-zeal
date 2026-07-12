@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ego — Limb Editor</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #1a0a2e; }
+  canvas { display: block; }
+  #title {
+    position: fixed; top: 16px; left: 20px;
+    font-family: 'Segoe UI', system-ui, sans-serif; color: #fff;
+    pointer-events: none; user-select: none;
+  }
+  #title .t {
+    font-size: 26px; font-weight: 900; font-style: italic;
+    background: linear-gradient(180deg, #ffe97a 0%, #ffb02e 45%, #ff5e7a 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  #title .s { font-size: 12px; opacity: 0.6; letter-spacing: 0.15em; text-transform: uppercase; margin-top: 2px; }
+
+  #panel {
+    position: fixed; top: 16px; right: 16px; width: 290px;
+    background: rgba(34, 14, 58, 0.92); border: 1px solid #4b2a7a; border-radius: 12px;
+    font-family: 'Segoe UI', system-ui, sans-serif; color: #fff;
+    padding: 14px 16px; font-size: 13px;
+    max-height: calc(100vh - 32px); overflow-y: auto;
+  }
+  #panel h3 { font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #ffe97a; margin: 10px 0 6px; }
+  #panel h3:first-child { margin-top: 0; }
+  .row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .row label { flex: 0 0 88px; opacity: 0.85; }
+  .row input[type=range] { flex: 1; accent-color: #ff5e7a; }
+  .row .val { flex: 0 0 46px; text-align: right; font-variant-numeric: tabular-nums; color: #9ad6ff; }
+  .row input[type=checkbox] { accent-color: #ff5e7a; width: 15px; height: 15px; }
+  #stats { font-size: 11px; opacity: 0.7; line-height: 1.7; margin-top: 6px; white-space: pre; font-family: Consolas, monospace; }
+  button {
+    width: 100%; margin-top: 10px; padding: 9px 0;
+    font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
+    color: #fff; background: linear-gradient(180deg, #ff5e7a, #c0306a);
+    border: none; border-radius: 8px; cursor: pointer;
+  }
+  button:hover { filter: brightness(1.15); }
+  #copied { text-align: center; font-size: 11px; color: #7affc0; height: 14px; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div id="title">
+  <div class="t">EGO — LIMB EDITOR</div>
+  <div class="s">native parts &middot; drag to orbit &middot; scroll to zoom</div>
+</div>
+
+<div id="panel">
+  <h3>Orientation</h3>
+  <div class="row"><label>facing yaw&deg;</label><input type="range" id="yaw" min="-180" max="180" step="1" value="-95"><span class="val" id="yawV"></span></div>
+  <div class="row"><label>pitch&deg; (lean)</label><input type="range" id="pitch" min="-45" max="45" step="1" value="20"><span class="val" id="pitchV"></span></div>
+  <div class="row"><label>roll&deg;</label><input type="range" id="roll" min="-45" max="45" step="1" value="4"><span class="val" id="rollV"></span></div>
+
+  <h3>Colors</h3>
+  <div class="row"><label>display</label>
+    <select id="colorMode" style="flex:1;background:#2a1045;color:#fff;border:1px solid #4b2a7a;border-radius:6px;padding:4px;font-family:inherit">
+      <option value="texture">original texture</option>
+      <option value="tint">my colors (tint)</option>
+      <option value="segments">debug segments</option>
+    </select>
+  </div>
+  <div class="row"><label>body</label><input type="color" id="cbody" value="#ffffff"><span style="flex:1"></span><label style="flex:0;opacity:0.7">hide</label><input type="checkbox" id="hbody"></div>
+  <div class="row"><label>arm L</label><input type="color" id="carmL" value="#ffffff"><span style="flex:1"></span><label style="flex:0;opacity:0.7">hide</label><input type="checkbox" id="harmL"></div>
+  <div class="row"><label>arm R</label><input type="color" id="carmR" value="#ffffff"><span style="flex:1"></span><label style="flex:0;opacity:0.7">hide</label><input type="checkbox" id="harmR"></div>
+  <div class="row"><label>leg L</label><input type="color" id="clegL" value="#ffffff"><span style="flex:1"></span><label style="flex:0;opacity:0.7">hide</label><input type="checkbox" id="hlegL"></div>
+  <div class="row"><label>leg R</label><input type="color" id="clegR" value="#ffffff"><span style="flex:1"></span><label style="flex:0;opacity:0.7">hide</label><input type="checkbox" id="hlegR"></div>
+
+  <h3>Texture Paint</h3>
+  <div class="row"><label>tool</label>
+    <select id="tool" style="flex:1;background:#2a1045;color:#fff;border:1px solid #4b2a7a;border-radius:6px;padding:4px;font-family:inherit">
+      <option value="orbit">orbit (no paint)</option>
+      <option value="brush">paint brush</option>
+      <option value="fill">fill bucket</option>
+      <option value="pick">copy color (eyedropper)</option>
+    </select>
+  </div>
+  <div class="row"><label>paint color</label><input type="color" id="paintColor" value="#ff5e7a"><span style="flex:1"></span></div>
+  <div class="row"><label>brush size</label><input type="range" id="brushSize" min="2" max="120" step="1" value="24"><span class="val" id="brushSizeV">24</span></div>
+  <div class="row"><label>fill range</label><input type="range" id="fillTol" min="4" max="120" step="1" value="40"><span class="val" id="fillTolV">40</span></div>
+  <div class="row" style="gap:6px">
+    <button id="undoBtn" style="margin-top:0;padding:7px 0">undo</button>
+    <button id="exportBtn" style="margin-top:0;padding:7px 0">save GLB</button>
+  </div>
+
+  <h3>Preview</h3>
+  <div class="row"><label>run</label><input type="checkbox" id="animate" checked><span style="flex:1"></span></div>
+  <div class="row"><label>leg swing</label><input type="range" id="legSwing" min="0" max="1.2" step="0.05" value="0.6"><span class="val" id="legSwingV"></span></div>
+  <div class="row"><label>arm swing</label><input type="range" id="armSwing" min="0" max="1.2" step="0.05" value="0.6"><span class="val" id="armSwingV"></span></div>
+  <div class="row"><label>speed</label><input type="range" id="tempo" min="2" max="20" step="0.5" value="13"><span class="val" id="tempoV"></span></div>
+
+  <div id="stats">loading model…</div>
+  <button id="copy">copy settings JSON</button>
+  <div id="copied"></div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ---------- scene ----------
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a0a2e);
+scene.fog = new THREE.Fog(0x1a0a2e, 14, 30);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(2.5, 2.2, 6.0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.2, 0);
+controls.enableDamping = true;
+
+scene.add(new THREE.AmbientLight(0x8877bb, 0.85));
+const key = new THREE.DirectionalLight(0xfff2dd, 1.6);
+key.position.set(4, 7, 5);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -5; key.shadow.camera.right = 5;
+key.shadow.camera.top = 5; key.shadow.camera.bottom = -5;
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xff5e7a, 0.9);
+rim.position.set(-5, 3, -4);
+scene.add(rim);
+
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(20, 48),
+  new THREE.MeshStandardMaterial({ color: 0x241040, roughness: 0.95 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+const grid = new THREE.GridHelper(40, 40, 0x6a3aaa, 0x3a1a66);
+grid.position.y = 0.01;
+grid.material.transparent = true;
+grid.material.opacity = 0.35;
+scene.add(grid);
+
+// ---------- params (persisted) ----------
+const PARAMS_KEY = 'egoLimbEditorParams';
+const defaults = {
+  yaw: -95, pitch: 20, roll: 4,
+  legSwing: 0.6, armSwing: 0.6, tempo: 13,
+  colorMode: 'texture',
+  colors: { body: '#ffffff', armL: '#ffffff', armR: '#ffffff', legL: '#ffffff', legR: '#ffffff' },
+  hidden: { body: false, armL: false, armR: false, legL: false, legR: false },
+};
+const stored = JSON.parse(localStorage.getItem(PARAMS_KEY) || '{}');
+const params = { ...defaults, ...stored,
+  colors: { ...defaults.colors, ...(stored.colors || {}) },
+  hidden: { ...defaults.hidden, ...(stored.hidden || {}) } };
+
+const ids = ['yaw', 'pitch', 'roll', 'legSwing', 'armSwing', 'tempo'];
+for (const id of ids) {
+  const el = document.getElementById(id);
+  el.value = params[id];
+  document.getElementById(id + 'V').textContent = params[id];
+  el.addEventListener('input', () => {
+    params[id] = parseFloat(el.value);
+    document.getElementById(id + 'V').textContent = el.value;
+    localStorage.setItem(PARAMS_KEY, JSON.stringify(params));
+    if (['yaw', 'pitch', 'roll'].includes(id)) requestBuild();
+  });
+}
+const animateBox = document.getElementById('animate');
+
+// color mode + per-limb pickers
+const colorModeSel = document.getElementById('colorMode');
+colorModeSel.value = params.colorMode;
+colorModeSel.addEventListener('change', () => {
+  params.colorMode = colorModeSel.value;
+  localStorage.setItem(PARAMS_KEY, JSON.stringify(params));
+  applyColors();
+});
+for (const key of ['body', 'armL', 'armR', 'legL', 'legR']) {
+  const el = document.getElementById('c' + key);
+  el.value = params.colors[key];
+  el.addEventListener('input', () => {
+    params.colors[key] = el.value;
+    params.colorMode = 'tint';            // picking a color switches to tint view
+    colorModeSel.value = 'tint';
+    localStorage.setItem(PARAMS_KEY, JSON.stringify(params));
+    applyColors();
+  });
+  // hide toggle — removes the part from view (and the exported/game model)
+  const hb = document.getElementById('h' + key);
+  hb.checked = !!params.hidden[key];
+  hb.addEventListener('change', () => {
+    params.hidden[key] = hb.checked;
+    localStorage.setItem(PARAMS_KEY, JSON.stringify(params));
+    applyHidden();
+  });
+}
+function applyHidden() {
+  for (const key of Object.keys(limbs)) if (limbs[key]) limbs[key].visible = !params.hidden[key];
+}
+
+// ---------- model: native parts ----------
+let rawParts = null;     // [{ geo (baked world, unrotated), mat, name }]
+const holder = new THREE.Group();
+scene.add(holder);
+const limbs = { body: null, armL: null, armR: null, legL: null, legR: null };
+const COLORS = { body: 0xd94f5c, armL: 0x4dd0e1, armR: 0x7a6aff, legL: 0xffe97a, legR: 0x4ad0a0 };
+const colorMats = Object.fromEntries(Object.entries(COLORS).map(([k, c]) =>
+  [k, new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, metalness: 0.08 })]));
+const stats = document.getElementById('stats');
+
+let originalScene = null;   // untouched GLB scene graph — exported with painted textures
+new GLTFLoader().load('ego.glb', (gltf) => {
+  const root = gltf.scene;
+  originalScene = root;
+  root.updateWorldMatrix(true, true);
+  rawParts = [];
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    o.material.side = THREE.DoubleSide;   // shell interiors render the real lit texture
+    const g = o.geometry.clone();
+    g.applyMatrix4(o.matrixWorld);
+    rawParts.push({ geo: g, mat: o.material, name: o.name });
+    preparePaint(o.material);   // make its texture a paintable canvas
+  });
+  build();
+}, undefined, (err) => { stats.textContent = 'failed to load ego.glb: ' + err; });
+
+// ---------- texture painting ----------
+// each material's texture becomes a canvas we can draw on; the material keeps
+// pointing at it, so paint shows live on the model AND in the exported GLB.
+const paintTargets = new Map();   // material.uuid -> { canvas, ctx, tex }
+function preparePaint(mat) {
+  if (!mat.map || paintTargets.has(mat.uuid)) return paintTargets.get(mat.uuid);
+  const img = mat.map.image;
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width; canvas.height = img.height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.flipY = mat.map.flipY;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = mat.map.wrapS; tex.wrapT = mat.map.wrapT;
+  mat.map = tex;
+  mat.needsUpdate = true;
+  const entry = { canvas, ctx, tex };
+  paintTargets.set(mat.uuid, entry);
+  return entry;
+}
+
+const toolSel = document.getElementById('tool');
+const paintColorEl = document.getElementById('paintColor');
+const brushSizeEl = document.getElementById('brushSize');
+const fillTolEl = document.getElementById('fillTol');
+brushSizeEl.addEventListener('input', () => document.getElementById('brushSizeV').textContent = brushSizeEl.value);
+fillTolEl.addEventListener('input', () => document.getElementById('fillTolV').textContent = fillTolEl.value);
+toolSel.addEventListener('change', () => {
+  const painting = toolSel.value !== 'orbit';
+  controls.enabled = !painting;
+  if (painting) {
+    animateBox.checked = false;                 // freeze the pose while painting
+    params.colorMode = 'texture';               // paint what you see
+    colorModeSel.value = 'texture';
+    applyColors();
+  }
+});
+
+// debug: count painted (non-baseline) pixels per part — used by automated checks
+window.__paintCheck = (key, hex) => {
+  const grp = limbs[key];
+  if (!grp) return -1;
+  const mesh = grp.children.find(m => m.userData.srcMat);
+  const cv = mesh.material.map.image;
+  const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height;
+  const x = c.getContext('2d'); x.drawImage(cv, 0, 0);
+  const d = x.getImageData(0, 0, cv.width, cv.height).data;
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  let n = 0;
+  for (let i = 0; i < d.length; i += 4)
+    if (Math.abs(d[i]-r)+Math.abs(d[i+1]-g)+Math.abs(d[i+2]-b) < 30) n++;
+  return n;
+};
+
+const raycaster = new THREE.Raycaster();
+function raycastAt(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  const ndc = new THREE.Vector2(
+    ((e.clientX - r.left) / r.width) * 2 - 1,
+    -((e.clientY - r.top) / r.height) * 2 + 1
+  );
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObjects(holder.children, true);
+  for (const h of hits) {
+    if (!h.object.userData.srcMat || !h.uv) continue;
+    // raycaster ignores object.visible, so skip hidden parts manually — the ray
+    // passes through them and paints the first VISIBLE part behind instead
+    let o = h.object, visible = true;
+    while (o && o !== holder) { if (!o.visible) { visible = false; break; } o = o.parent; }
+    if (!visible) continue;
+    return { uv: h.uv, target: preparePaint(h.object.userData.srcMat) };
+  }
+  return null;
+}
+
+// one-step-back undo history (last 12 strokes)
+const undoStack = [];
+function pushUndo(t) {
+  undoStack.push({ target: t, data: t.ctx.getImageData(0, 0, t.canvas.width, t.canvas.height) });
+  if (undoStack.length > 12) undoStack.shift();
+}
+document.getElementById('undoBtn').addEventListener('click', () => {
+  const u = undoStack.pop();
+  if (!u) return;
+  u.target.ctx.putImageData(u.data, 0, 0);
+  u.target.tex.needsUpdate = true;
+  updateFillColors();
+});
+
+function stamp(hit) {
+  const { uv, target } = hit;
+  const x = uv.x * target.canvas.width, y = uv.y * target.canvas.height;
+  target.ctx.fillStyle = paintColorEl.value;
+  target.ctx.beginPath();
+  target.ctx.arc(x, y, parseFloat(brushSizeEl.value), 0, Math.PI * 2);
+  target.ctx.fill();
+  target.tex.needsUpdate = true;
+}
+
+function floodFill(hit) {
+  const { uv, target } = hit;
+  const { canvas, ctx } = target;
+  const w = canvas.width, h = canvas.height;
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  const sx = Math.floor(uv.x * w), sy = Math.floor(uv.y * h);
+  const si = (sy * w + sx) * 4;
+  const sr = d[si], sg = d[si+1], sb = d[si+2];
+  const col = paintColorEl.value;
+  const fr = parseInt(col.slice(1, 3), 16), fg = parseInt(col.slice(3, 5), 16), fb = parseInt(col.slice(5, 7), 16);
+  const tol = parseFloat(fillTolEl.value);
+  if (Math.abs(sr - fr) + Math.abs(sg - fg) + Math.abs(sb - fb) === 0) return;
+  const match = (i) => Math.abs(d[i] - sr) + Math.abs(d[i+1] - sg) + Math.abs(d[i+2] - sb) <= tol * 3;
+  const seen = new Uint8Array(w * h);
+  const stack = [sy * w + sx];
+  while (stack.length) {
+    const p = stack.pop();
+    if (seen[p]) continue;
+    seen[p] = 1;
+    const i = p * 4;
+    if (!match(i)) continue;
+    d[i] = fr; d[i+1] = fg; d[i+2] = fb;
+    const px = p % w, py = (p / w) | 0;
+    if (px > 0) stack.push(p - 1);
+    if (px < w - 1) stack.push(p + 1);
+    if (py > 0) stack.push(p - w);
+    if (py < h - 1) stack.push(p + w);
+  }
+  ctx.putImageData(img, 0, 0);
+  target.tex.needsUpdate = true;
+}
+
+function pickColor(hit) {
+  const { uv, target } = hit;
+  const x = Math.floor(uv.x * target.canvas.width), y = Math.floor(uv.y * target.canvas.height);
+  const p = target.ctx.getImageData(x, y, 1, 1).data;
+  paintColorEl.value = '#' + [p[0], p[1], p[2]].map(v => v.toString(16).padStart(2, '0')).join('');
+  toolSel.value = 'brush';   // grab a color, then keep painting with it
+}
+
+let strokeActive = false;
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (toolSel.value === 'orbit' || e.button !== 0) return;
+  const hit = raycastAt(e);
+  if (!hit) return;
+  if (toolSel.value === 'pick') { pickColor(hit); return; }
+  pushUndo(hit.target);
+  if (toolSel.value === 'fill') { floodFill(hit); return; }
+  strokeActive = true;
+  stamp(hit);
+});
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (!strokeActive || toolSel.value !== 'brush') return;
+  const hit = raycastAt(e);
+  if (hit) stamp(hit);
+});
+addEventListener('pointerup', () => {
+  if (strokeActive || toolSel.value === 'fill') updateFillColors();
+  strokeActive = false;
+});
+
+// export the ORIGINAL scene graph (untouched transforms) with painted textures
+document.getElementById('exportBtn').addEventListener('click', () => {
+  if (!originalScene) return;
+  new GLTFExporter().parse(originalScene, (buf) => {
+    const blob = new Blob([buf], { type: 'model/gltf-binary' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ego-painted.glb';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }, (err) => { stats.textContent = 'export failed: ' + err; }, { binary: true });
+});
+
+// ---------- build limb rig from native parts ----------
+let buildPending = false;
+function requestBuild() {
+  if (buildPending) return;
+  buildPending = true;
+  requestAnimationFrame(() => { buildPending = false; build(); });
+}
+
+function build() {
+  if (!rawParts) return;
+  const d2r = Math.PI / 180;
+  const rot = new THREE.Matrix4().makeRotationZ(params.roll * d2r)
+    .multiply(new THREE.Matrix4().makeRotationX(params.pitch * d2r))
+    .multiply(new THREE.Matrix4().makeRotationY(params.yaw * d2r));
+
+  const parts = rawParts.map((p) => {
+    const geo = p.geo.clone();
+    geo.applyMatrix4(rot);
+    geo.computeBoundingBox();
+    return { geo, mat: p.mat, name: p.name, box: geo.boundingBox.clone() };
+  });
+  const all = parts.reduce((b, p) => b.union(p.box), new THREE.Box3());
+  const size = all.getSize(new THREE.Vector3());
+  const cx = (all.min.x + all.max.x) / 2, cz = (all.min.z + all.max.z) / 2;
+  const feetY = all.min.y, H = size.y;
+
+  // largest part = body; rest by height: lowest two = legs, next two = arms; L/R by x
+  const vol = (p) => { const s = p.box.getSize(new THREE.Vector3()); return s.x * s.y * s.z; };
+  parts.sort((a, b) => vol(b) - vol(a));
+  const cenY = (p) => (p.box.min.y + p.box.max.y) / 2;
+  const cenX = (p) => (p.box.min.x + p.box.max.x) / 2;
+  const assign = { body: [parts[0]], armL: [], armR: [], legL: [], legR: [] };
+  const rest = parts.slice(1);
+  rest.sort((a, b) => cenY(a) - cenY(b));
+  const legs = rest.slice(0, 2).sort((a, b) => cenX(a) - cenX(b));
+  const arms = rest.slice(2, 4).sort((a, b) => cenX(a) - cenX(b));
+  if (legs[0]) assign.legL.push(legs[0]);
+  if (legs[1]) assign.legR.push(legs[1]);
+  if (arms[0]) assign.armL.push(arms[0]);
+  if (arms[1]) assign.armR.push(arms[1]);
+  for (const p of rest.slice(4)) assign.body.push(p);
+
+  while (holder.children.length) holder.remove(holder.children[0]);
+  const inner = new THREE.Group();
+  const lines = [];
+  for (const key of Object.keys(assign)) {
+    const plist = assign[key];
+    if (!plist.length) { limbs[key] = null; continue; }
+    const joint = plist[0].box;
+    const pivot = key === 'body'
+      ? new THREE.Vector3(cx, feetY, cz)
+      : new THREE.Vector3(cenX(plist[0]), joint.max.y - (joint.max.y - joint.min.y) * 0.12,
+                          (joint.min.z + joint.max.z) / 2);
+    const grp = new THREE.Group();
+    grp.position.copy(pivot);
+    for (const p of plist) {
+      const geo = p.geo;   // already a per-build clone
+      geo.translate(-pivot.x, -pivot.y, -pivot.z);
+      const mesh = new THREE.Mesh(geo, p.mat);
+      mesh.userData.srcMat = p.mat;
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      grp.add(mesh);
+    }
+    inner.add(grp);
+    limbs[key] = grp;
+    lines.push(`${key.padEnd(5)} ← ${plist.map(p => p.name).join('+')}`);
+  }
+  inner.position.set(-cx, -feetY, -cz);
+  holder.add(inner);
+  holder.scale.setScalar(2.4 / H);
+  applyColors();
+  applyHidden();
+  stats.textContent = lines.join('\n');
+}
+
+// fill color for a part's interior: sample the texture at the part's underside
+// (where the sockets are — on the body that's the suit), so the inside is the
+// same color as the skin around the hole
+function fillColorOf(geo, mat) {
+  try {
+    const img = mat.map && mat.map.image;
+    if (!img) return new THREE.Color(0x555066);
+    geo.computeBoundingBox();
+    const bb = geo.boundingBox;
+    const probe = new THREE.Mesh(geo, new THREE.MeshBasicMaterial());
+    const rc = new THREE.Raycaster(
+      new THREE.Vector3((bb.min.x + bb.max.x) / 2, bb.min.y - 1, (bb.min.z + bb.max.z) / 2),
+      new THREE.Vector3(0, 1, 0)
+    );
+    const hit = rc.intersectObject(probe)[0];
+    if (!hit || !hit.uv) return new THREE.Color(0x555066);
+    const c = document.createElement('canvas');
+    c.width = c.height = 1;
+    const x = c.getContext('2d');
+    x.drawImage(img, Math.floor(hit.uv.x * img.width), Math.floor(hit.uv.y * img.height), 1, 1, 0, 0, 1, 1);
+    const p = x.getImageData(0, 0, 1, 1).data;
+    return new THREE.Color().setRGB(p[0] / 255, p[1] / 255, p[2] / 255, THREE.SRGBColorSpace);
+  } catch { return new THREE.Color(0x555066); }
+}
+
+// no separate fill geometry anymore — double-sided shells render interiors
+function updateFillColors() {}
+
+const tintCache = new Map();
+function applyColors() {
+  const mode = params.colorMode;
+  for (const key of Object.keys(limbs)) {
+    const grp = limbs[key];
+    if (!grp) continue;
+    for (const mesh of grp.children) {
+      if (mesh.userData.isFill) continue;
+      if (mode === 'segments') {
+        mesh.material = colorMats[key];
+      } else if (mode === 'tint') {
+        const col = params.colors[key];
+        const ck = `${key}/${mesh.userData.srcMat.uuid}/${col}`;
+        if (!tintCache.has(ck)) {
+          const m = mesh.userData.srcMat.clone();
+          m.color.set(col);
+          tintCache.set(ck, m);
+        }
+        mesh.material = tintCache.get(ck);
+      } else {
+        mesh.material = mesh.userData.srcMat;
+      }
+    }
+  }
+}
+
+// ---------- copy settings ----------
+document.getElementById('copy').addEventListener('click', async () => {
+  const out = {
+    yawDeg: params.yaw, pitchDeg: params.pitch, rollDeg: params.roll,
+    legSwing: params.legSwing, armSwing: params.armSwing, tempo: params.tempo,
+    colorMode: params.colorMode === 'segments' ? 'texture' : params.colorMode,
+    colors: { ...params.colors },
+    hidden: { ...params.hidden },
+  };
+  await navigator.clipboard.writeText(JSON.stringify(out, null, 2));
+  const c = document.getElementById('copied');
+  c.textContent = 'copied!';
+  setTimeout(() => c.textContent = '', 1500);
+});
+
+// ---------- loop ----------
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  if (limbs.legL) {
+    if (animateBox.checked) {
+      const stride = t * params.tempo;
+      const a = Math.sin(stride);
+      holder.position.y = Math.abs(a) * 0.1;
+      limbs.legL.rotation.x = a * params.legSwing;
+      limbs.legR.rotation.x = -a * params.legSwing;
+      if (limbs.armL) limbs.armL.rotation.x = -a * params.armSwing;
+      if (limbs.armR) limbs.armR.rotation.x = a * params.armSwing;
+      limbs.body.rotation.x = -0.06 - Math.sin(stride * 2) * 0.03;
+    } else {
+      holder.position.y = 0;
+      for (const k of Object.keys(limbs)) if (limbs[k]) limbs[k].rotation.x = 0;
+    }
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

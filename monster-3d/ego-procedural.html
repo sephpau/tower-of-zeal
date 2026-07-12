@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ego 3D</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #1a0a2e; }
+  canvas { display: block; }
+  #label {
+    position: fixed; top: 18px; left: 0; right: 0; text-align: center;
+    font-family: 'Segoe UI', system-ui, sans-serif; color: #fff;
+    pointer-events: none; user-select: none;
+  }
+  #label .t {
+    font-size: 34px; font-weight: 900; font-style: italic;
+    background: linear-gradient(180deg, #ffe97a 0%, #ffb02e 45%, #ff5e7a 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 3px 0 rgba(120,20,80,0.9));
+  }
+  #label .s { font-size: 13px; opacity: 0.6; letter-spacing: 0.2em; text-transform: uppercase; margin-top: 4px; }
+  #btns {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 14px;
+  }
+  #btns button {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 18px; font-weight: 900; font-style: italic; letter-spacing: 0.12em;
+    color: #fff; background: linear-gradient(180deg, #ff5e7a, #c0306a);
+    border: none; border-radius: 999px; padding: 14px 32px; cursor: pointer;
+    box-shadow: 0 6px 20px rgba(255, 94, 122, 0.45);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  #jetBtn { background: linear-gradient(180deg, #7a6aff, #4a3acd); box-shadow: 0 6px 20px rgba(122, 106, 255, 0.45); }
+  #skateBtn { background: linear-gradient(180deg, #4ad0a0, #1a8a70); box-shadow: 0 6px 20px rgba(74, 208, 160, 0.45); }
+  #ollieBtn { background: linear-gradient(180deg, #ffb02e, #e8762e); box-shadow: 0 6px 20px rgba(255, 176, 46, 0.45); }
+  #tuckBtn { background: linear-gradient(180deg, #6a8aff, #3a4acd); box-shadow: 0 6px 20px rgba(106, 138, 255, 0.45); }
+  #styleBtn { background: linear-gradient(180deg, #b86aff, #7a3acd); box-shadow: 0 6px 20px rgba(184, 106, 255, 0.45); }
+  #ollieBtn.hidden, #tuckBtn.hidden, #styleBtn.hidden { display: none; }
+  #btns button:hover { transform: scale(1.06); }
+  #btns button.on { background: linear-gradient(180deg, #ffe97a, #ffb02e); color: #4a1230; box-shadow: 0 6px 24px rgba(255, 233, 122, 0.5); }
+</style>
+</head>
+<body>
+<div id="label">
+  <div class="t">EGO</div>
+  <div class="s">drag to spin &middot; scroll to zoom &middot; R run &middot; J jetpack &middot; S skate &middot; space ollie &middot; hold &#8595; to tuck</div>
+</div>
+<div id="btns">
+  <button id="runBtn">&#9654; RUN</button>
+  <button id="jetBtn">&#128640; JETPACK</button>
+  <button id="skateBtn">&#128756; SKATE</button>
+  <button id="ollieBtn" class="hidden">&#11014; OLLIE</button>
+  <button id="tuckBtn" class="hidden">&#11015; TUCK</button>
+  <button id="styleBtn" class="hidden">&#129528; TOON</button>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a0a2e);
+scene.fog = new THREE.Fog(0x1a0a2e, 12, 26);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(0, 2.2, 7.0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.45, 0);
+controls.enableDamping = true;
+controls.minDistance = 3;
+controls.maxDistance = 14;
+controls.maxPolarAngle = Math.PI * 0.55;
+
+// ---------- lights ----------
+scene.add(new THREE.AmbientLight(0x8877bb, 0.85));
+const key = new THREE.DirectionalLight(0xfff2dd, 1.6);
+key.position.set(4, 7, 5);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -5; key.shadow.camera.right = 5;
+key.shadow.camera.top = 5; key.shadow.camera.bottom = -5;
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xff5e7a, 0.9);
+rim.position.set(-5, 3, -4);
+scene.add(rim);
+const fill = new THREE.DirectionalLight(0x6a5acd, 0.5);
+fill.position.set(-3, 2, 4);
+scene.add(fill);
+
+// ---------- materials ----------
+const mat = (color, rough = 0.65) => new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0.05 });
+const RED      = mat(0xd94f5c);
+const RED_DARK = mat(0xa8323f);
+const WHITE    = mat(0xf2ede4, 0.8);
+const GOLD     = mat(0xe8a93c, 0.45);
+const HORN     = mat(0x8a4a2a, 0.6);
+const PURPLE   = mat(0x4a2a6a, 0.4);
+const MAGENTA  = mat(0xc04a8a, 0.55);
+const DARKMOUTH= mat(0x3a1228, 0.9);
+const BLACK    = mat(0x2a1020, 0.9);
+
+const sphere = (r, m, sx = 1, sy = 1, sz = 1) => {
+  const s = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 24), m);
+  s.scale.set(sx, sy, sz);
+  s.castShadow = true;
+  return s;
+};
+
+// ---------- character ----------
+const chompo = new THREE.Group();
+scene.add(chompo);
+
+// the whole body is one egg: white base + red "hood" dome on top
+const body = new THREE.Group();
+body.position.y = 1.35;
+chompo.add(body);
+
+const belly = sphere(1.0, WHITE, 1.0, 1.12, 0.92);
+body.add(belly);
+
+// red dome covering the top ~60%, slightly larger so it sits over the white
+const hood = new THREE.Mesh(
+  new THREE.SphereGeometry(1.03, 48, 32, 0, Math.PI * 2, 0, Math.PI * 0.58),
+  RED
+);
+hood.scale.set(1.0, 1.12, 0.92);
+hood.castShadow = true;
+body.add(hood);
+
+// zigzag trim where red meets white (front)
+const trim = new THREE.Group();
+for (let i = 0; i < 10; i++) {
+  const a = -0.9 + i * 0.2;
+  const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.18, 4), RED);
+  const x = Math.sin(a) * 0.99, z = Math.cos(a) * 0.91;
+  tooth.position.set(x, -0.18, z);
+  tooth.rotation.x = Math.PI; // point down
+  tooth.lookAt(0, -2.5, 0);
+  trim.add(tooth);
+}
+trim.position.y = -0.16;
+body.add(trim);
+
+// ---------- face (front of the red hood) ----------
+const face = new THREE.Group();
+face.position.set(0, 0.42, 0.66);
+body.add(face);
+
+function makeEye(side) {
+  const g = new THREE.Group();
+  // big rounded dark-purple eye
+  const ball = sphere(0.26, PURPLE, 1, 1.05, 0.5);
+  g.add(ball);
+  // gold 4-point star sparkle
+  const star = new THREE.Group();
+  const spikeV = new THREE.Mesh(new THREE.OctahedronGeometry(0.11), GOLD);
+  spikeV.scale.set(0.35, 1.0, 0.35);
+  const spikeH = spikeV.clone();
+  spikeH.rotation.z = Math.PI / 2;
+  star.add(spikeV, spikeH);
+  star.position.z = 0.12;
+  g.add(star);
+  // tiny white glint
+  const glint = sphere(0.045, mat(0xffffff, 0.2));
+  glint.position.set(0.08, 0.1, 0.13);
+  g.add(glint);
+  // angry gold brow above
+  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.07, 0.06), GOLD);
+  brow.position.set(0, 0.3, -0.02);
+  brow.rotation.z = side * -0.45;
+  g.add(brow);
+  g.position.set(side * 0.42, 0.05, 0.12);
+  g.rotation.y = side * 0.35;
+  return g;
+}
+face.add(makeEye(-1), makeEye(1));
+
+// gold star on the forehead
+const browStar = new THREE.Group();
+{
+  const v = new THREE.Mesh(new THREE.OctahedronGeometry(0.09), GOLD);
+  v.scale.set(0.35, 1, 0.35);
+  const h = v.clone(); h.rotation.z = Math.PI / 2;
+  browStar.add(v, h);
+}
+browStar.position.set(0, 0.42, -0.06);
+face.add(browStar);
+
+// grinning mouth with fangs
+const mouth = sphere(0.3, DARKMOUTH, 1.15, 0.55, 0.4);
+mouth.position.set(0, -0.42, 0.22);
+face.add(mouth);
+const fangGeo = new THREE.ConeGeometry(0.06, 0.16, 8);
+for (const s of [-1, 1]) {
+  const fang = new THREE.Mesh(fangGeo, WHITE);
+  fang.position.set(s * 0.18, -0.36, 0.36);
+  face.add(fang);
+}
+// little tongue
+const tongue = sphere(0.1, mat(0xe06a8a, 0.5), 1.2, 0.6, 0.8);
+tongue.position.set(0, -0.5, 0.32);
+face.add(tongue);
+
+// ---------- horns ----------
+for (const s of [-1, 1]) {
+  const horn = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.42, 16), RED_DARK);
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.2, 16), HORN);
+  tip.position.y = 0.18;
+  horn.add(base, tip);
+  horn.position.set(s * 0.68, 1.12, 0.12);
+  horn.rotation.z = s * -0.5;
+  horn.children.forEach(c => c.castShadow = true);
+  body.add(horn);
+}
+
+// ---------- arms ----------
+const arms = [];
+for (const s of [-1, 1]) {
+  const arm = new THREE.Group();
+  const upper = sphere(0.21, WHITE, 1, 1.7, 1);
+  upper.position.y = -0.25;
+  arm.add(upper);
+  const paw = sphere(0.23, WHITE);
+  paw.position.y = -0.62;
+  arm.add(paw);
+  const pad = sphere(0.1, GOLD, 1, 1, 0.5);
+  pad.position.set(0, -0.62, 0.17);
+  arm.add(pad);
+  arm.position.set(s * 1.02, 0.05, 0.15);
+  arm.rotation.z = s * 1.05;
+  body.add(arm);
+  arms.push(arm);
+}
+
+// ---------- legs ----------
+const legs = [];
+for (const s of [-1, 1]) {
+  const leg = new THREE.Group();
+  const thigh = sphere(0.3, WHITE, 1, 1.25, 1);
+  leg.add(thigh);
+  const foot = sphere(0.3, WHITE, 1.15, 0.7, 1.35);
+  foot.position.set(0, -0.42, 0.12);
+  leg.add(foot);
+  const pad = sphere(0.11, GOLD, 1, 0.5, 1);
+  pad.position.set(0, -0.6, 0.3);
+  leg.add(pad);
+  leg.position.set(s * 0.52, 0.62, 0.32);
+  chompo.add(leg);
+  legs.push(leg);
+}
+
+// gold spots low on the white belly
+for (const s of [-1, 1]) {
+  const spot = sphere(0.13, GOLD, 1, 1, 0.45);
+  spot.position.set(s * 0.38, -0.62, 0.66);
+  spot.lookAt(s * 1.2, -1.4, 2.6);
+  body.add(spot);
+}
+
+// ---------- back details ----------
+// claw-scratch mark: three dark slashes on the red back
+for (let i = -1; i <= 1; i++) {
+  const slash = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.5, 0.04), RED_DARK);
+  slash.position.set(i * 0.17, 0.55 + Math.abs(i) * -0.06, -0.82);
+  slash.rotation.x = -0.35;
+  slash.rotation.z = i * 0.12;
+  body.add(slash);
+}
+// stitches above the scratch
+for (let i = 0; i < 3; i++) {
+  const st = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.035, 0.03), BLACK);
+  st.position.set(0, 0.95 - i * 0.12, -0.46 - i * 0.07);
+  st.rotation.x = -0.5;
+  body.add(st);
+}
+
+// purple diamond flowers on the rear (white part)
+function diamondFlower(x, y, scale) {
+  const g = new THREE.Group();
+  const outer = new THREE.Mesh(new THREE.OctahedronGeometry(0.16), MAGENTA);
+  outer.scale.set(1, 1.25, 0.35);
+  const inner = new THREE.Mesh(new THREE.OctahedronGeometry(0.09), PURPLE);
+  inner.scale.set(1, 1.25, 0.4);
+  inner.position.z = -0.03;
+  const dot = sphere(0.035, GOLD);
+  dot.position.z = -0.07;
+  g.add(outer, inner, dot);
+  g.position.set(x, y, -0.78);
+  g.rotation.x = 0.35;
+  g.scale.setScalar(scale);
+  return g;
+}
+body.add(diamondFlower(0.22, -0.55, 1.0));
+body.add(diamondFlower(-0.12, -0.72, 0.8));
+
+// ---------- head buddy: little magenta blob ----------
+const buddy = new THREE.Group();
+const blob = sphere(0.3, MAGENTA, 1, 1.15, 0.95);
+buddy.add(blob);
+const blobTop = sphere(0.12, MAGENTA, 1, 1.4, 1);
+blobTop.position.set(0.05, 0.32, 0);
+blobTop.rotation.z = -0.4;
+buddy.add(blobTop);
+// buddy face
+for (const s of [-1, 1]) {
+  const eye = sphere(0.05, PURPLE, 1, 1.4, 0.5);
+  eye.position.set(s * 0.12, 0.02, 0.27);
+  buddy.add(eye);
+}
+const buddyMouth = sphere(0.05, DARKMOUTH, 1.4, 0.5, 0.5);
+buddyMouth.position.set(0, -0.12, 0.28);
+buddy.add(buddyMouth);
+// darker spots
+for (const [x, y] of [[0.18, 0.18], [-0.15, 0.22]]) {
+  const sp = sphere(0.05, mat(0x8a2a5a, 0.6), 1, 1, 0.4);
+  sp.position.set(x, y, 0.26);
+  buddy.add(sp);
+}
+buddy.position.set(0.12, 2.62, 0.1);
+buddy.rotation.z = -0.15;
+chompo.add(buddy);
+
+// ---------- jetpack (hidden until jet mode) ----------
+const jetpack = new THREE.Group();
+const METAL = new THREE.MeshStandardMaterial({ color: 0x9aa4b8, roughness: 0.35, metalness: 0.8 });
+const METAL_DARK = new THREE.MeshStandardMaterial({ color: 0x4a5468, roughness: 0.5, metalness: 0.7 });
+const flames = [];
+for (const s of [-1, 1]) {
+  // thruster tank
+  const tank = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.55, 8, 16), METAL);
+  tank.position.set(s * 0.3, 0, 0);
+  tank.castShadow = true;
+  jetpack.add(tank);
+  // red nose cap, synthwave accent
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.225, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), RED);
+  cap.position.set(s * 0.3, 0.28, 0);
+  jetpack.add(cap);
+  // nozzle
+  const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.2, 0.22, 16), METAL_DARK);
+  nozzle.position.set(s * 0.3, -0.48, 0);
+  jetpack.add(nozzle);
+  // flame: bright core + softer outer cone, flickered in the loop
+  const flame = new THREE.Group();
+  const outer = new THREE.Mesh(
+    new THREE.ConeGeometry(0.16, 0.7, 16),
+    new THREE.MeshBasicMaterial({ color: 0xff8c2e, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  outer.rotation.x = Math.PI;
+  outer.position.y = -0.35;
+  const core = new THREE.Mesh(
+    new THREE.ConeGeometry(0.08, 0.45, 12),
+    new THREE.MeshBasicMaterial({ color: 0xffe97a, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  core.rotation.x = Math.PI;
+  core.position.y = -0.22;
+  flame.add(outer, core);
+  flame.position.set(s * 0.3, -0.58, 0);
+  jetpack.add(flame);
+  flames.push(flame);
+}
+// crossbar + strap stubs so it reads as worn, not floating
+const bar = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.18, 0.12), METAL_DARK);
+bar.position.set(0, 0.05, 0.12);
+jetpack.add(bar);
+// warm glow under the thrusters
+const jetGlow = new THREE.PointLight(0xff9c4e, 0, 6, 2);
+jetGlow.position.set(0, -0.8, 0);
+jetpack.add(jetGlow);
+
+jetpack.position.set(0, 0.22, -1.02);
+jetpack.visible = false;
+body.add(jetpack);
+
+// ---------- skateboard (hidden until skate mode) ----------
+// long axis along x, matching his foot spread — he rides side-stance
+const board = new THREE.Group();
+const DECK = new THREE.MeshStandardMaterial({ color: 0x2a1a3e, roughness: 0.8 });
+const DECK_UNDER = new THREE.MeshStandardMaterial({ color: 0xff5e7a, roughness: 0.5 });
+const deck = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.07, 0.55), DECK);
+deck.castShadow = true;
+board.add(deck);
+const under = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.02, 0.53), DECK_UNDER);
+under.position.y = -0.04;
+board.add(under);
+// kicked-up nose and tail
+for (const s of [-1, 1]) {
+  const kick = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.07, 0.55), DECK);
+  kick.position.set(s * 0.97, 0.055, 0);
+  kick.rotation.z = s * 0.38;
+  board.add(kick);
+}
+// trucks + wheels
+const WHEEL = new THREE.MeshStandardMaterial({ color: 0xffe97a, roughness: 0.35 });
+for (const sx of [-1, 1]) {
+  const truck = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.09, 0.4), METAL_DARK);
+  truck.position.set(sx * 0.55, -0.08, 0);
+  board.add(truck);
+  for (const sz of [-1, 1]) {
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.09, 16), WHEEL);
+    wheel.rotation.x = Math.PI / 2;
+    wheel.position.set(sx * 0.55, -0.12, sz * 0.24);
+    wheel.castShadow = true;
+    board.add(wheel);
+  }
+}
+board.position.set(0, -0.03, 0.32);
+board.visible = false;
+chompo.add(board);
+
+// ---------- GLB Ego (user-supplied model, swaps in for the toon body) ----------
+// static mesh (no rig/clips), so modes drive it with whole-body motion
+const glbWrap = new THREE.Group();
+glbWrap.visible = false;
+chompo.add(glbWrap);
+let glbLoaded = false;
+
+new GLTFLoader().load('ego.glb', (gltf) => {
+  const model = gltf.scene;
+  // raw geometry only (no materials/UVs) — give it Ego's red
+  model.traverse((o) => {
+    if (o.isMesh) {
+      o.material = RED;
+      o.castShadow = true;
+    }
+  });
+  // center on x/z, feet to y 0, scale to match the toon's height
+  let bb = new THREE.Box3().setFromObject(model);
+  const size = bb.getSize(new THREE.Vector3());
+  const s = 2.45 / size.y;
+  model.scale.setScalar(s);
+  bb = new THREE.Box3().setFromObject(model);
+  const c = bb.getCenter(new THREE.Vector3());
+  model.position.set(-c.x, -bb.min.y, -c.z);
+  glbWrap.add(model);
+  // park the jetpack mount point against the model's back
+  glbJetpackPos.set(0, (bb.max.y - bb.min.y) * 0.62, bb.min.z - c.z + 0.12);
+  glbLoaded = true;
+  setStyle('glb');
+}, undefined, (err) => console.warn('ego.glb failed to load, keeping toon Ego', err));
+
+// toon <-> glb swap
+const glbJetpackPos = new THREE.Vector3(0, 1.55, -0.95);
+let style = 'toon';
+function setStyle(next) {
+  style = next;
+  const glb = style === 'glb';
+  glbWrap.visible = glb;
+  body.visible = !glb;
+  legs[0].visible = legs[1].visible = !glb;
+  buddy.visible = !glb;
+  // jetpack rides whichever body is active
+  if (glb) {
+    glbWrap.add(jetpack);
+    jetpack.position.copy(glbJetpackPos);
+  } else {
+    body.add(jetpack);
+    jetpack.position.set(0, 0.22, -1.02);
+  }
+  styleBtn.textContent = glb ? '✨ GLB' : '🧸 TOON';
+  styleBtn.classList.remove('hidden');
+}
+
+// ---------- ground ----------
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(20, 48),
+  new THREE.MeshStandardMaterial({ color: 0x241040, roughness: 0.95 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(40, 40, 0x6a3aaa, 0x3a1a66);
+grid.position.y = 0.01;
+grid.material.transparent = true;
+grid.material.opacity = 0.35;
+scene.add(grid);
+
+// soft spotlight ring under the character
+const ring = new THREE.Mesh(
+  new THREE.RingGeometry(1.5, 1.7, 48),
+  new THREE.MeshBasicMaterial({ color: 0xff5e7a, transparent: true, opacity: 0.35, side: THREE.DoubleSide })
+);
+ring.rotation.x = -Math.PI / 2;
+ring.position.y = 0.02;
+scene.add(ring);
+
+// ---------- animation ----------
+const clock = new THREE.Clock();
+let running = false;     // target states, toggled by the buttons / keyboard
+let jetting = false;
+let skating = false;
+let run = 0, jet = 0, skate = 0;  // idle->mode blends, 0..1
+let ollie = -1;                   // ollie progress, -1 = not jumping
+let trip = -1;                    // bail-stumble progress, -1 = not tripping
+let tucking = false;              // held crouch while skating
+let tuck = 0;                     // tuck blend, 0..1
+let lastT = 0;
+let gx = 0, gz = 0;      // scrolling grid offset
+
+const lerp = (a, b, k) => a + (b - a) * k;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  const dt = Math.min(t - lastT, 0.05);
+  lastT = t;
+
+  // blend toward the target states, eased
+  run = Math.min(1, Math.max(0, run + (running ? 1 : -1) * dt * 3.5));
+  jet = Math.min(1, Math.max(0, jet + (jetting ? 1 : -1) * dt * 2.2));
+  skate = Math.min(1, Math.max(0, skate + (skating ? 1 : -1) * dt * 3));
+  const e = run * run * (3 - 2 * run);
+  const j = jet * jet * (3 - 2 * jet);
+  const k = skate * skate * (3 - 2 * skate);
+  const push = Math.max(0, Math.sin(t * 2.6));   // kick-push cycle
+
+  // ollie arc: 0..1 over ~0.7s
+  if (ollie >= 0) { ollie += dt / 0.7; if (ollie >= 1) ollie = -1; }
+  const op = Math.max(0, ollie);
+  const air = Math.sin(Math.PI * op);            // 0 -> 1 -> 0 over the jump
+
+  // bail stumble: 0..1 over ~1s, overlaps the skate->run blend
+  if (trip >= 0) { trip += dt / 1.0; if (trip >= 1) trip = -1; }
+  const tp = Math.max(0, trip);
+  const stumble = trip >= 0 ? Math.sin(Math.PI * tp) : 0;
+
+  // speed tuck: quick blend, only meaningful on the board
+  tuck = Math.min(1, Math.max(0, tuck + ((tucking && skating) ? 1 : -1) * dt * 5));
+  const tk = tuck * tuck * (3 - 2 * tuck) * k;
+
+  // idle bounce vs running hops vs airborne hover
+  const bounce = Math.sin(t * 3.2);
+  const stride = t * 11;
+  const idleY = Math.max(0, bounce) * 0.06;
+  const hopY = Math.abs(Math.sin(stride)) * 0.14;
+  const hoverY = 0.95 + Math.sin(t * 1.6) * 0.16 + Math.sin(t * 4.3) * 0.04;
+  const skateY = 0.27 + push * 0.04 + air * 1.15;
+  chompo.position.y = lerp(lerp(lerp(idleY, hopY, e), skateY, k), hoverY, j);
+  // pitch forward over the feet and dip low while stumbling off the board
+  chompo.rotation.x = stumble * 0.6 * (1 + 0.15 * Math.sin(tp * 18));
+  chompo.position.y = Math.max(0.0, chompo.position.y - 0.1 * stumble);
+  body.scale.y = 1 + bounce * 0.025 * (1 - e) * (1 - j) * (1 - k) - Math.cos(stride * 2) * 0.02 * e + air * 0.05 * k - 0.16 * tk;
+  body.scale.x = body.scale.z = 1 - bounce * 0.015 + 0.08 * tk;
+
+  // eager forward lean while running; cruising tilt while flying; crouch on the board
+  body.rotation.x = 0.18 * e + 0.3 * j;
+  body.rotation.y = 0.45 * k;                       // shoulders twist toward travel
+  body.position.y = 1.35 - 0.1 * k - push * 0.04 * k - 0.5 * tk;  // crouch into pushes, sink deep in a tuck
+  chompo.rotation.z = (Math.sin(t * 1.3) * 0.07 - 0.04) * k * (1 + 0.8 * tk);  // carving lean, harder when tucked
+
+  // legs: pump at a sprint, dangle loose in the air
+  const dangle0 = 0.4 + Math.sin(t * 2.6) * 0.12;
+  const dangle1 = 0.4 + Math.sin(t * 2.6 + 1.1) * 0.12;
+  legs[0].rotation.x = Math.sin(stride) * 0.95 * e + dangle0 * j;
+  legs[1].rotation.x = Math.sin(stride + Math.PI) * 0.95 * e + dangle1 * j;
+  // rear foot kicks off sideways along the board while skating;
+  // both legs tuck up mid-ollie
+  legs[0].rotation.z = push * 0.85 * k * (1 - air) * (1 - tk);  // no kicking while tucked, just coast
+  legs[1].rotation.z = 0;
+  legs[0].rotation.x += -0.4 * air * k;
+  legs[1].rotation.x += -0.4 * air * k;
+  legs[0].scale.y = legs[1].scale.y = 1 - 0.3 * tk;             // knees bend into the crouch
+
+  // arms: sway at rest, pump at a sprint, spread wide superhero-style in the air,
+  // out for balance on the board
+  const armIdle0 =  1.05 + Math.sin(t * 3.2) * 0.12;
+  const armIdle1 = -1.05 - Math.sin(t * 3.2 + 0.4) * 0.12;
+  arms[0].rotation.z = lerp(lerp(lerp(armIdle0,  0.6, e),  1.5 + Math.sin(t * 2.0) * 0.12, k),  1.45 + Math.sin(t * 2.2) * 0.08, j);
+  arms[1].rotation.z = lerp(lerp(lerp(armIdle1, -0.6, e), -1.5 - Math.sin(t * 2.0 + 0.7) * 0.12, k), -1.45 - Math.sin(t * 2.2 + 0.5) * 0.08, j);
+  arms[0].rotation.x = Math.sin(stride + Math.PI) * 0.85 * e + Math.sin(tp * 22) * 1.1 * stumble - 0.5 * tk;
+  arms[1].rotation.x = Math.sin(stride) * 0.85 * e + Math.sin(tp * 22 + 2.2) * 1.1 * stumble - 0.5 * tk;
+  // arms sweep back tight against the body in a tuck
+  arms[0].rotation.z *= 1 - 0.55 * tk;
+  arms[1].rotation.z *= 1 - 0.55 * tk;
+
+  // buddy hangs on — flapping in the wind while airborne
+  buddy.rotation.z = -0.15 + Math.sin(t * 3.2 - 0.6) * 0.1 * (1 - e) * (1 - j) + Math.sin(t * 7) * 0.08 * j;
+  buddy.rotation.x = Math.sin(stride - 0.9) * 0.18 * e - 0.2 * j + Math.sin(tp * 20) * 0.4 * stumble;
+  buddy.position.y = 2.62 + Math.max(0, Math.sin(t * 3.2 - 0.3)) * 0.05 * (1 - e)
+                   + Math.abs(Math.sin(stride - 0.5)) * 0.1 * e
+                   + Math.sin(Math.PI * Math.max(0, op - 0.12) / 0.88) * 0.22 * k
+                   + body.scale.y - 1 - 0.5 * tk;
+  // buddy flattens itself onto his head, hanging on
+  buddy.scale.y = 1 - 0.35 * tk;
+  buddy.scale.x = buddy.scale.z = 1 + 0.15 * tk;
+
+  // GLB body mirrors the toon body's motion (lean, twist, squash, crouch),
+  // pivoting at the feet
+  if (style === 'glb') {
+    glbWrap.position.y = body.position.y - 1.35;
+    glbWrap.rotation.x = body.rotation.x;
+    glbWrap.rotation.y = body.rotation.y;
+    glbWrap.scale.copy(body.scale);
+  }
+
+  // skateboard: pop in under his feet; nose-up tilt through the ollie
+  board.visible = skate > 0.01;
+  if (board.visible) {
+    board.scale.setScalar(0.5 + 0.5 * k);
+    board.rotation.z = 0.5 * air * (1 - 1.4 * op);
+  }
+
+  // jetpack: pop in, flicker the flames, glow
+  jetpack.visible = jet > 0.01;
+  if (jetpack.visible) {
+    jetpack.scale.setScalar(0.5 + 0.5 * j);
+    for (let i = 0; i < flames.length; i++) {
+      const fl = 0.75 + Math.sin(t * 31 + i * 2.1) * 0.15 + Math.sin(t * 47 + i) * 0.1;
+      flames[i].scale.set(1, fl * j, 1);
+    }
+    jetGlow.intensity = j * (2.2 + Math.sin(t * 37) * 0.6);
+  }
+
+  // scroll the grid past him so the motion reads;
+  // the board rolls along its long axis (his local +x), surfer-stance
+  const groundSpeed = 7 * e + 10 * j;
+  const skateSpeed = (4.5 + push * 3.5 * (1 - tk)) * k * (1 + 0.9 * tk);
+  if (groundSpeed + skateSpeed > 0.01) {
+    const ry = chompo.rotation.y;
+    gx -= Math.sin(ry) * groundSpeed * dt + Math.cos(ry) * skateSpeed * dt;
+    gz -= Math.cos(ry) * groundSpeed * dt - Math.sin(ry) * skateSpeed * dt;
+    grid.position.x = gx % 1;
+    grid.position.z = gz % 1;
+  }
+
+  // slow auto-spin until the user grabs it or picks a mode
+  if (!userInteracted) chompo.rotation.y = t * 0.45;
+
+  // pulse the floor ring; it fades once he's airborne
+  ring.material.opacity = (0.25 + Math.sin(t * 2) * 0.12 + e * 0.15) * (1 - j * 0.7);
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+let userInteracted = false;
+controls.addEventListener('start', () => { userInteracted = true; });
+
+// mode toggles: buttons + R / J / Space
+const runBtn = document.getElementById('runBtn');
+const jetBtn = document.getElementById('jetBtn');
+const skateBtn = document.getElementById('skateBtn');
+const ollieBtn = document.getElementById('ollieBtn');
+const tuckBtn = document.getElementById('tuckBtn');
+function doOllie() { if (skating && ollie < 0) ollie = 0; }
+function refreshBtns() {
+  ollieBtn.classList.toggle('hidden', !skating);
+  tuckBtn.classList.toggle('hidden', !skating);
+  if (!skating) tucking = false;
+  runBtn.textContent = running ? '■ STOP' : '▶ RUN';
+  runBtn.classList.toggle('on', running);
+  jetBtn.textContent = jetting ? '■ LAND' : '🚀 JETPACK';
+  jetBtn.classList.toggle('on', jetting);
+  skateBtn.textContent = skating ? '■ BAIL' : '🛹 SKATE';
+  skateBtn.classList.toggle('on', skating);
+}
+function setMode(mode) {
+  const wasSkating = skating;
+  running = mode === 'run' ? !running : false;
+  jetting = mode === 'jet' ? !jetting : false;
+  skating = mode === 'skate' ? !skating : false;
+  // bailing off the board trips him straight into a sprint
+  if (mode === 'skate' && wasSkating && !skating) { trip = 0; running = true; }
+  userInteracted = true;
+  refreshBtns();
+}
+runBtn.addEventListener('click', () => setMode('run'));
+jetBtn.addEventListener('click', () => setMode('jet'));
+skateBtn.addEventListener('click', () => setMode('skate'));
+const styleBtn = document.getElementById('styleBtn');
+styleBtn.addEventListener('click', () => { if (glbLoaded) setStyle(style === 'glb' ? 'toon' : 'glb'); });
+ollieBtn.addEventListener('click', doOllie);
+// hold to tuck: pointer on the button, or held key below
+tuckBtn.addEventListener('pointerdown', () => { tucking = true; });
+addEventListener('pointerup', () => { tucking = false; });
+tuckBtn.addEventListener('pointerleave', () => { tucking = false; });
+addEventListener('keydown', (e) => {
+  if (e.code === 'ArrowDown' || e.code === 'KeyC') { e.preventDefault(); if (skating) tucking = true; return; }
+  if (e.repeat) return;
+  if (e.code === 'Space' || e.code === 'ArrowUp') {
+    e.preventDefault();
+    if (skating) doOllie(); else if (e.code === 'Space') setMode('run');
+    return;
+  }
+  if (e.code === 'KeyR') { e.preventDefault(); setMode('run'); }
+  if (e.code === 'KeyJ') { e.preventDefault(); setMode('jet'); }
+  if (e.code === 'KeyS') { e.preventDefault(); setMode('skate'); }
+});
+addEventListener('keyup', (e) => {
+  if (e.code === 'ArrowDown' || e.code === 'KeyC') tucking = false;
+});
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+animate();
+</script>
+</body>
+</html>

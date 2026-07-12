@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ego Run! — Model Gallery</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a0a2e; color: #fff; font-family: 'Segoe UI', system-ui, sans-serif; padding: 24px; }
+  h1 { font-style: italic; font-weight: 900; margin-bottom: 4px;
+       background: linear-gradient(180deg, #ffe97a, #ff5e7a);
+       -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  p { opacity: 0.6; margin-bottom: 20px; font-size: 14px; }
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  .card { background: #2a1045; border-radius: 10px; overflow: hidden; border: 1px solid #4b2a7a; }
+  .card canvas { display: block; width: 100%; height: 180px; cursor: grab; }
+  .card .name { padding: 8px 12px; font-size: 13px; font-weight: 600; color: #ffe97a;
+                display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .card .meta { padding: 0 12px 10px; font-size: 11px; opacity: 0.55; }
+  .card label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 400;
+                color: #fff; opacity: 0.8; cursor: pointer; white-space: nowrap; }
+  .card input[type=checkbox] { accent-color: #ff5e7a; width: 15px; height: 15px; cursor: pointer; }
+  .card.excluded canvas { opacity: 0.25; filter: grayscale(1); }
+  .card.excluded .name { color: #888; }
+  .roles { display: flex; margin: 0 12px 8px; border: 1px solid #4b2a7a; border-radius: 8px; overflow: hidden; }
+  .roles button { flex: 1; background: transparent; color: #999; border: none; padding: 6px 0;
+                  font-size: 11px; cursor: pointer; font-family: inherit; letter-spacing: 0.05em; }
+  .roles button.active { background: #ff5e7a; color: #fff; font-weight: 700; }
+</style>
+</head>
+<body>
+<a href="./" style="color:#ffe97a;font-size:14px;text-decoration:none;opacity:0.8">&#8592; back to the game</a>
+<h1>EGO RUN! — model gallery</h1>
+<p>every 3D object loaded by the game · drag any model to spin it · uncheck a model to stop it spawning (then refresh the game)</p>
+<div id="grid"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const MODELS = [
+  'tree-branched', 'tree-columnar', 'tree-conical', 'tree-open', 'tree-oval',
+  'tree-pyramidal', 'tree-round', 'tree-spreading', 'tree-vase',
+  'bicycle', 'bus', 'car_01', 'car_02', 'car_03', 'car_04', 'jeep_01', 'jeep_02',
+  'pickup', 'truck_01', 'truck_02', 'truck_03', 'truck_04', 'truck_05',
+  'sword_1', 'sword_2', 'sword_3', 'sword_4', 'sword_5', 'sword_6', 'sword_7', 'sword_8', 'sword_9',
+  'rock_01', 'rock_02',
+];
+const SWORD_TINTS = [0xcfd6e0, 0xffd24a, 0x9ad6ff, 0xff8c6a, 0xc8a2ff];
+const LEAF_COLORS = [0x2ea35e, 0x3ddc97, 0x47b86b, 0x1f8a4c, 0x6fcf6f];
+const BODY_COLORS = [0xff5e7a, 0x4dd0e1, 0xffd24a, 0xb04ddb, 0xf2f2f2, 0xff8c42];
+
+const STORAGE_KEY = 'egoRunDisabledModels';
+const disabled = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
+const ROLES_KEY = 'egoRunModelRoles';
+const roles = JSON.parse(localStorage.getItem(ROLES_KEY) || '{}');
+const isWeapon = (n) => n.startsWith('sword');
+const roleOf = (n) => isWeapon(n) ? 'weapon' : (roles[n] || (n.startsWith('tree') ? 'design' : 'obstacle'));
+const metaText = (r) => r === 'obstacle' ? 'obstacle — spawns on the 3 lanes'
+  : r === 'weapon' ? 'weapon — mounts on Ego’s right hand when picked up'
+  : 'design — scenery outside the lanes';
+
+const grid = document.getElementById('grid');
+const loader = new GLTFLoader();
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(400, 360);   // offscreen; rendered per-card then copied
+
+const cells = [];   // { scene, camera, canvas, spin }
+
+for (const name of MODELS) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  const canvas = document.createElement('canvas');
+  canvas.width = 400; canvas.height = 360;
+  const label = document.createElement('div');
+  label.className = 'name';
+  const nameSpan = document.createElement('span');
+  nameSpan.textContent = name;
+  const toggle = document.createElement('label');
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = !disabled.has(name);
+  card.classList.toggle('excluded', disabled.has(name));
+  checkbox.addEventListener('change', () => {
+    checkbox.checked ? disabled.delete(name) : disabled.add(name);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...disabled]));
+    card.classList.toggle('excluded', !checkbox.checked);
+  });
+  toggle.append(checkbox, document.createTextNode('in game'));
+  label.append(nameSpan, toggle);
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.textContent = metaText(roleOf(name));
+  const rolesBar = document.createElement('div');
+  rolesBar.className = 'roles';
+  if (isWeapon(name)) {
+    const b = document.createElement('button');
+    b.textContent = 'weapon';
+    b.classList.add('active');
+    b.disabled = true;
+    rolesBar.append(b);
+  } else {
+    for (const r of ['obstacle', 'design']) {
+      const b = document.createElement('button');
+      b.textContent = r;
+      b.classList.toggle('active', roleOf(name) === r);
+      b.addEventListener('click', () => {
+        roles[name] = r;
+        localStorage.setItem(ROLES_KEY, JSON.stringify(roles));
+        rolesBar.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+        meta.textContent = metaText(r);
+      });
+      rolesBar.append(b);
+    }
+  }
+  card.append(canvas, label, rolesBar, meta);
+  grid.append(card);
+
+  loader.load(`assets/models/${name}.glb`, (gltf) => {
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x2a1045);
+    scene.add(new THREE.HemisphereLight(0xff9ad5, 0x3a1a5e, 1.1));
+    const sun = new THREE.DirectionalLight(0xffd9a0, 1.8);
+    sun.position.set(3, 6, 4);
+    scene.add(sun);
+
+    const root = gltf.scene;
+    root.traverse((o) => { if (o.name === 'ground') o.visible = false; });
+    // same coloring rules as the game
+    const isTree = name.startsWith('tree');
+    const leafMat = new THREE.MeshStandardMaterial({ color: LEAF_COLORS[Math.floor(Math.random() * LEAF_COLORS.length)], roughness: 0.8 });
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3b2e, roughness: 0.9 });
+    const painted = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 });
+    const body = new THREE.MeshStandardMaterial({ color: BODY_COLORS[Math.floor(Math.random() * BODY_COLORS.length)], roughness: 0.6 });
+    const steel = new THREE.MeshStandardMaterial({ color: SWORD_TINTS[Math.floor(Math.random() * SWORD_TINTS.length)], roughness: 0.3, metalness: 0.85 });
+    const isRock = name.startsWith('rock');
+    root.traverse((o) => {
+      if (!o.isMesh) return;
+      if (isRock) { if (!o.geometry.getAttribute('normal')) o.geometry.computeVertexNormals(); return; }  // keep baked texture
+      if (isTree) o.material = o.name.includes('leaves') ? leafMat : trunkMat;
+      else if (isWeapon(name)) o.material = o.geometry.getAttribute('color')
+        ? new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.6 }) : steel;
+      else o.material = o.geometry.getAttribute('color') ? painted : body;
+    });
+
+    // center + frame
+    const box = new THREE.Box3().setFromObject(root);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const holder = new THREE.Group();
+    root.position.sub(center);
+    holder.add(root);
+    scene.add(holder);
+
+    const dim = Math.max(size.x, size.y, size.z);
+    const camera = new THREE.PerspectiveCamera(40, 400 / 360, 0.01, 100);
+    camera.position.set(dim * 1.1, dim * 0.7, dim * 1.4);
+    camera.lookAt(0, 0, 0);
+
+    const cell = { scene, camera, canvas, holder, active: false };
+    cells.push(cell);
+    drawCell(cell);   // render the thumbnail once
+
+    // spin while hovered, drag to rotate by hand
+    let dragging = false, lastX = 0;
+    canvas.addEventListener('pointerenter', () => { cell.active = true; });
+    canvas.addEventListener('pointerleave', () => { if (!dragging) cell.active = false; });
+    canvas.addEventListener('pointerdown', (e) => { dragging = true; lastX = e.clientX; });
+    window.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      holder.rotation.y += (e.clientX - lastX) * 0.02;
+      lastX = e.clientX;
+      drawCell(cell);
+    });
+    window.addEventListener('pointerup', () => { dragging = false; });
+  });
+}
+
+function drawCell(c) {
+  renderer.render(c.scene, c.camera);
+  c.canvas.getContext('2d').drawImage(renderer.domElement, 0, 0);
+}
+
+// only the hovered card animates — everything else is a static thumbnail
+function tick() {
+  for (const c of cells) {
+    if (!c.active) continue;
+    c.holder.rotation.y += 0.02;
+    drawCell(c);
+  }
+  requestAnimationFrame(tick);
+}
+tick();
+</script>
+</body>
+</html>
