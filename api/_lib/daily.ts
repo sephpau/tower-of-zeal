@@ -31,6 +31,28 @@ interface DailyState {
 
 function key(address: string): string { return `daily:${address.toLowerCase()}`; }
 
+/** Longest daily streak ever reached. Written on every successful claim and
+ *  read by the MoTZ Guild badge system — the current-streak state above
+ *  resets on a missed day and expires after 60d, so best-ever must live in
+ *  its own key. Long TTL, refreshed on every claim. Write-only side channel:
+ *  never affects claim behavior or rewards. */
+const BEST_TTL_SECONDS = 60 * 60 * 24 * 365 * 3; // ~3y, refreshed on claim
+function bestKey(address: string): string { return `daily:best:${address.toLowerCase()}`; }
+
+export async function getBestStreak(address: string): Promise<number> {
+  const raw = await getJson<{ best: number }>(bestKey(address));
+  return raw && Number.isFinite(raw.best) ? Math.max(0, Math.floor(raw.best)) : 0;
+}
+
+async function recordBestStreak(address: string, streak: number): Promise<void> {
+  try {
+    const prev = await getBestStreak(address);
+    await setJson(bestKey(address), { best: Math.max(prev, streak) }, BEST_TTL_SECONDS);
+  } catch {
+    // Best-effort only — a failed best-streak write must never break a claim.
+  }
+}
+
 export function lastResetBoundary(now = Date.now()): number {
   const phNow = new Date(now + PH_OFFSET_MS);
   const phY = phNow.getUTCFullYear();
@@ -187,6 +209,7 @@ export async function claimDaily(address: string, txHash?: string): Promise<Dail
 
   // Persist the state change first so a crash mid-claim doesn't double-grant.
   await write(address, { streak: newStreak, lastClaim: today, multiplier: reward.multiplier });
+  await recordBestStreak(address, newStreak);
 
   // Add energy on top of current balance. Capped at ENERGY_MAX + reward so
   // the bonus is always meaningful even on a full pool.
