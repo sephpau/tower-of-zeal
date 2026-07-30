@@ -10,6 +10,12 @@ public class GameManager : MonoBehaviour
     public int combo;
     public int best;
 
+    // Zeal Survivors layer
+    public int xpLevel = 1;
+    public int xp;
+    public bool Paused { get; private set; }
+    SkillSystem _skills;
+
     float _comboTimer;
     Health _playerHealth;
     WaveDirector _waves;
@@ -43,15 +49,50 @@ public class GameManager : MonoBehaviour
         _hud.ShowStart();
     }
 
-    public void StartRun()
+    public void StartRun(int pilotIndex)
     {
         Running = true;
         score = 0;
         combo = 0;
+        xpLevel = 1;
+        xp = 0;
+        _skills = _playerHealth.GetComponent<SkillSystem>();
+        _skills.InitPilot(ZealData.Pilots[Mathf.Clamp(pilotIndex, 0, ZealData.Pilots.Length - 1)]);
         _music.Play();
         _waves.Begin();
         _hud.ShowGameHud();
         Cursor.visible = false;
+        _hud.WaveBanner(_skills.pilot.name.ToUpperInvariant() + " — " + _skills.pilot.title.ToUpperInvariant());
+    }
+
+    public void GainXp(int amount)
+    {
+        if (!Running) return;
+        xp += Mathf.Max(1, Mathf.RoundToInt(amount * _skills.XpMult));
+        PlaySfx(SfxSynth.Pickup, 0.15f);
+        while (xp >= ZealData.XpToNext(xpLevel))
+        {
+            xp -= ZealData.XpToNext(xpLevel);
+            xpLevel++;
+            OpenLevelUp();
+        }
+    }
+
+    void OpenLevelUp()
+    {
+        var choices = LevelUpChoices.Generate(_skills);
+        if (choices.Count == 0) { score += 300; return; }
+        Paused = true;
+        Time.timeScale = 0f;
+        Cursor.visible = true;
+        PlaySfx(SfxSynth.WaveUp, 0.6f);
+        _hud.ShowLevelUp(xpLevel, choices, choice =>
+        {
+            choice.Apply(_skills);
+            Paused = false;
+            Time.timeScale = 1f;
+            Cursor.visible = false;
+        });
     }
 
     void Update()
@@ -62,9 +103,10 @@ public class GameManager : MonoBehaviour
         if (!Running)
         {
             if ((Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space)) && _hud != null && _hud.WantsRestart)
+            {
+                Time.timeScale = 1f;
                 SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-            else if ((Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space)) && _hud != null && _hud.WantsStart)
-                StartRun();
+            }
             return;
         }
 
@@ -82,9 +124,11 @@ public class GameManager : MonoBehaviour
         combo++;
         _comboTimer = 5f;
         int mult = 1 + Mathf.Min(7, combo / 4);
-        score += baseScore * mult;
+        float greed = _skills != null ? _skills.GreedMult : 1f;
+        score += Mathf.RoundToInt(baseScore * mult * greed);
         _hud.SetCombo(mult >= 2 ? mult : 0);
-        _hud.ScorePopup(baseScore * mult, where);
+        _hud.ScorePopup(Mathf.RoundToInt(baseScore * mult * greed), where);
+        XpOrb.Drop(where, Mathf.Clamp(baseScore / 40, 1, 10));
     }
 
     public void OnWaveStarted(int wave)

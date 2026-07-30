@@ -16,16 +16,18 @@ public class ShipController : MonoBehaviour
 
     Rigidbody _rb;
     Weapon _weapon;
+    SkillSystem _skills;
 
     void Awake()
     {
         _rb = GetComponent<Rigidbody>();
         _weapon = GetComponent<Weapon>();
+        _skills = GetComponent<SkillSystem>();
     }
 
     void Update()
     {
-        if (!GameManager.I.Running) return;
+        if (!GameManager.I.Running || GameManager.I.Paused) return;
 
         throttle = Mathf.Clamp01(throttle + Input.GetAxisRaw("Vertical") * Time.deltaTime * 0.8f);
         boosting = Input.GetKey(KeyCode.LeftShift) && throttle > 0.3f;
@@ -56,7 +58,8 @@ public class ShipController : MonoBehaviour
 
         _rb.MoveRotation(_rb.rotation * Quaternion.Euler(pitch, yaw, roll));
 
-        float target = maxSpeed * throttle * (boosting ? boostMultiplier : 1f);
+        float speedMult = _skills != null ? _skills.SpeedMult : 1f;
+        float target = maxSpeed * speedMult * throttle * (boosting ? boostMultiplier : 1f);
         currentSpeed = Mathf.MoveTowards(currentSpeed, target, accel * Time.fixedDeltaTime);
         _rb.linearVelocity = transform.forward * currentSpeed;
     }

@@ -9,10 +9,11 @@ public class Projectile : MonoBehaviour
     float _damage, _life;
     GameObject _owner;
     bool _fromPlayer;
+    int _pierce;
     TrailRenderer _trail;
     MeshRenderer _core;
 
-    public static void Spawn(Vector3 pos, Vector3 velocity, float damage, Color color, GameObject owner, bool fromPlayer)
+    public static void Spawn(Vector3 pos, Vector3 velocity, float damage, Color color, GameObject owner, bool fromPlayer, int pierce = 0)
     {
         Projectile p = Pool.Count > 0 ? Pool.Dequeue() : Build();
         p.gameObject.SetActive(true);
@@ -22,6 +23,7 @@ public class Projectile : MonoBehaviour
         p._damage = damage;
         p._owner = owner;
         p._fromPlayer = fromPlayer;
+        p._pierce = pierce;
         p._life = 3f;
         p._core.material.SetColor("_TintColor", color);
         p._trail.startColor = color;
@@ -75,8 +77,16 @@ public class Projectile : MonoBehaviour
                             ChaseCamera.Shake(0.35f);
                             GameManager.I.FlashDamage();
                         }
-                        Release();
-                        return;
+                        if (_pierce > 0)
+                        {
+                            _pierce--;
+                            transform.position = hit.point + step.normalized * 0.6f;
+                        }
+                        else
+                        {
+                            Release();
+                            return;
+                        }
                     }
                 }
                 else if (h == null)

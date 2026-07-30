@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 // The entire HUD is built in code with uGUI: reticle, shield/hull bars,
@@ -17,9 +19,21 @@ public class HudController : MonoBehaviour
     float _bannerTimer, _vignetteAlpha;
     WaveDirector _wavesRef;
 
+    Text _xpLevelText;
+    Image _xpBar;
+    GameObject _levelUpPanel;
+    readonly List<GameObject> _levelUpCards = new List<GameObject>();
+
     public void Build()
     {
         _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+        if (FindAnyObjectByType<EventSystem>() == null)
+        {
+            var es = new GameObject("EventSystem");
+            es.AddComponent<EventSystem>();
+            es.AddComponent<StandaloneInputModule>();
+        }
 
         var canvasGo = new GameObject("Canvas");
         canvasGo.transform.SetParent(transform, false);
@@ -71,7 +85,7 @@ public class HudController : MonoBehaviour
         _throttleText.color = new Color(0.6f, 0.9f, 1f, 0.75f);
 
         _weaponText = NewText(_gameHud.transform, "weapon", "PULSER LV 1", 20, TextAnchor.LowerLeft,
-            new Vector2(0, 0), new Vector2(0, 0), new Vector2(30, 52), new Vector2(500, 30));
+            new Vector2(0, 0), new Vector2(0, 0), new Vector2(30, 52), new Vector2(500, 160));
         _weaponText.color = new Color(0.5f, 1f, 0.6f, 0.9f);
         _weaponText.fontStyle = FontStyle.Bold;
 
@@ -104,28 +118,137 @@ public class HudController : MonoBehaviour
         _bannerText.color = new Color(1f, 0.4f, 0.85f, 0f);
         _bannerText.fontStyle = FontStyle.BoldAndItalic;
 
+        // XP bar across the very top + level chip
+        var xpBg = NewImage(_gameHud.transform, "xpbg", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -6), new Vector2(900, 8));
+        xpBg.color = new Color(0.05f, 0.05f, 0.15f, 0.8f);
+        _xpBar = NewImage(xpBg.transform, "fill", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        _xpBar.color = new Color(0.4f, 0.95f, 1f);
+        _xpBar.type = Image.Type.Filled;
+        _xpBar.fillMethod = Image.FillMethod.Horizontal;
+        _xpBar.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));
+        _xpLevelText = NewText(_gameHud.transform, "xplevel", "LV 1", 22, TextAnchor.UpperCenter,
+            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -14), new Vector2(200, 30));
+        _xpLevelText.color = new Color(0.4f, 0.95f, 1f);
+        _xpLevelText.fontStyle = FontStyle.Bold;
+
         BuildStartPanel();
         BuildOverPanel();
         BuildWinPanel();
+        BuildLevelUpPanel();
         _gameHud.SetActive(false);
+    }
+
+    public void ShowLevelUp(int level, List<LevelUpChoices> choices, System.Action<LevelUpChoices> onPick)
+    {
+        foreach (var c in _levelUpCards) Destroy(c);
+        _levelUpCards.Clear();
+        _levelUpPanel.SetActive(true);
+        _levelUpPanel.transform.Find("title").GetComponent<Text>().text = "LEVEL " + level + " — CHOOSE";
+
+        for (int i = 0; i < choices.Count; i++)
+        {
+            var choice = choices[i];
+            var card = new GameObject("choice" + i);
+            card.transform.SetParent(_levelUpPanel.transform, false);
+            var img = card.AddComponent<Image>();
+            img.color = new Color(0.07f, 0.05f, 0.16f, 0.97f);
+            var rt = img.rectTransform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.45f);
+            rt.anchoredPosition = new Vector2((i - (choices.Count - 1) * 0.5f) * 380f, 0f);
+            rt.sizeDelta = new Vector2(340, 300);
+            var btn = card.AddComponent<Button>();
+            var colors = btn.colors;
+            colors.highlightedColor = new Color(1.7f, 1.7f, 2f);
+            colors.pressedColor = new Color(2f, 2f, 2.4f);
+            btn.colors = colors;
+            btn.onClick.AddListener(() => {
+                _levelUpPanel.SetActive(false);
+                onPick(choice);
+            });
+
+            var icon = NewText(card.transform, "icon", choice.icon, 60, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.78f), new Vector2(0.5f, 0.78f), Vector2.zero, new Vector2(320, 80));
+            var name = NewText(card.transform, "name", choice.title, 24, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.55f), new Vector2(0.5f, 0.55f), Vector2.zero, new Vector2(320, 70));
+            name.color = new Color(1f, 0.85f, 0.4f);
+            name.fontStyle = FontStyle.Bold;
+            var desc = NewText(card.transform, "desc", choice.desc, 19, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.26f), new Vector2(0.5f, 0.26f), Vector2.zero, new Vector2(310, 110));
+            desc.color = new Color(0.85f, 0.9f, 1f, 0.9f);
+            _levelUpCards.Add(card);
+        }
     }
 
     // ---------- panels ----------
     void BuildStartPanel()
     {
         _startPanel = Panel("StartPanel");
-        var t = NewText(_startPanel.transform, "title", "NEON VOID", 110, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.62f), new Vector2(0.5f, 0.62f), Vector2.zero, new Vector2(1600, 140));
+        var t = NewText(_startPanel.transform, "title", "NEON VOID", 100, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.82f), new Vector2(0.5f, 0.82f), Vector2.zero, new Vector2(1600, 130));
         t.color = new Color(0.5f, 0.95f, 1f);
         t.fontStyle = FontStyle.BoldAndItalic;
-        var s = NewText(_startPanel.transform, "sub", "SECTOR 7 // CLEAR ALL 10 WAVES — DESTROY THE VOID DREADNOUGHT\n\nMOUSE steer · W/S throttle · SHIFT boost · Q/E roll\nCLICK / SPACE fire · M mute\nGrab drops: LV UP · RAPID · HOMING · SHIELD", 26, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.42f), new Vector2(0.5f, 0.42f), Vector2.zero, new Vector2(1500, 260));
-        s.color = new Color(0.8f, 0.9f, 1f, 0.85f);
-        var p = NewText(_startPanel.transform, "pulse", "CLICK TO LAUNCH", 34, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.22f), new Vector2(0.5f, 0.22f), Vector2.zero, new Vector2(800, 60));
-        p.color = new Color(1f, 0.85f, 0.4f);
-        p.fontStyle = FontStyle.Bold;
+        var s = NewText(_startPanel.transform, "sub", "ZEAL SURVIVORS PROTOCOL // CLEAR 10 WAVES — DESTROY THE VOID DREADNOUGHT", 24, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.72f), new Vector2(0.5f, 0.72f), Vector2.zero, new Vector2(1600, 40));
+        s.color = new Color(1f, 0.55f, 0.9f);
+        var pick = NewText(_startPanel.transform, "pick", "CHOOSE YOUR EGO", 32, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.64f), new Vector2(0.5f, 0.64f), Vector2.zero, new Vector2(800, 50));
+        pick.color = new Color(1f, 0.85f, 0.4f);
+        pick.fontStyle = FontStyle.Bold;
+
+        for (int i = 0; i < ZealData.Pilots.Length; i++)
+        {
+            var pilot = ZealData.Pilots[i];
+            int idx = i;
+            var card = new GameObject("pilot-" + pilot.id);
+            card.transform.SetParent(_startPanel.transform, false);
+            var img = card.AddComponent<Image>();
+            img.color = new Color(0.07f, 0.05f, 0.16f, 0.95f);
+            var rt = img.rectTransform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.42f);
+            rt.anchoredPosition = new Vector2((i - 1.5f) * 330f, 0f);
+            rt.sizeDelta = new Vector2(300, 260);
+            var btn = card.AddComponent<Button>();
+            var colors = btn.colors;
+            colors.highlightedColor = new Color(1.6f, 1.6f, 1.9f);
+            colors.pressedColor = new Color(2f, 2f, 2.4f);
+            btn.colors = colors;
+            btn.onClick.AddListener(() => {
+                _startPanel.SetActive(false);
+                _gameHud.SetActive(true);
+                GameManager.I.StartRun(idx);
+            });
+
+            var edge = NewImage(card.transform, "edge", Vector2.zero, new Vector2(1, 0), new Vector2(0, 4), new Vector2(0, 8));
+            edge.color = pilot.accent;
+            var name = NewText(card.transform, "name", pilot.name, 30, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.82f), new Vector2(0.5f, 0.82f), Vector2.zero, new Vector2(290, 40));
+            name.color = pilot.accent;
+            name.fontStyle = FontStyle.BoldAndItalic;
+            var title = NewText(card.transform, "ptitle", pilot.title.ToUpperInvariant(), 17, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(290, 30));
+            title.color = new Color(0.85f, 0.9f, 1f, 0.8f);
+            var wpn = NewText(card.transform, "wpn", ZealData.Weapons[pilot.startWeapon].icon + "  " + ZealData.Weapons[pilot.startWeapon].name, 20, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(290, 34));
+            wpn.color = new Color(1f, 0.85f, 0.4f);
+            var perk = NewText(card.transform, "perk", pilot.perkText, 17, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.26f), new Vector2(0.5f, 0.26f), Vector2.zero, new Vector2(280, 80));
+            perk.color = new Color(0.8f, 0.9f, 1f, 0.85f);
+        }
+
+        var ctl = NewText(_startPanel.transform, "controls", "MOUSE steer · W/S throttle · SHIFT boost · Q/E roll · CLICK / SPACE fire · M mute\nZeal weapons fire on their own — collect XP shards, choose upgrades on level up", 20, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.12f), new Vector2(0.5f, 0.12f), Vector2.zero, new Vector2(1500, 80));
+        ctl.color = new Color(0.8f, 0.9f, 1f, 0.7f);
         _startPanel.SetActive(false);
+    }
+
+    void BuildLevelUpPanel()
+    {
+        _levelUpPanel = Panel("LevelUpPanel");
+        var t = NewText(_levelUpPanel.transform, "title", "LEVEL UP", 64, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.74f), new Vector2(0.5f, 0.74f), Vector2.zero, new Vector2(1200, 90));
+        t.color = new Color(0.4f, 0.95f, 1f);
+        t.fontStyle = FontStyle.BoldAndItalic;
+        _levelUpPanel.SetActive(false);
     }
 
     void BuildOverPanel()
@@ -219,8 +342,16 @@ public class HudController : MonoBehaviour
             string status = "PULSER LV " + weapon.level;
             if (weapon.rapidTimer > 0f) status += "   RAPID " + Mathf.CeilToInt(weapon.rapidTimer) + "s";
             if (weapon.homingTimer > 0f) status += "   HOMING " + Mathf.CeilToInt(weapon.homingTimer) + "s";
+            var skills = player.GetComponent<SkillSystem>();
+            if (skills != null)
+                foreach (var ow in skills.weapons)
+                    status += "\n" + ow.def.icon + " " + ow.def.name + " LV " + ow.level;
             _weaponText.text = status;
         }
+
+        // XP progress
+        _xpBar.fillAmount = Mathf.Clamp01(GameManager.I.xp / (float)ZealData.XpToNext(GameManager.I.xpLevel));
+        _xpLevelText.text = "LV " + GameManager.I.xpLevel;
 
         // boss bar
         bool bossUp = waves.bossHealth != null;

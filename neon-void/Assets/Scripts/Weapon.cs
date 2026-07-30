@@ -47,7 +47,13 @@ public class Weapon : MonoBehaviour
     public void TryFire()
     {
         if (_cooldown > 0f || muzzles == null || muzzles.Length == 0) return;
-        _cooldown = rapidTimer > 0f ? fireInterval * 0.55f : fireInterval;
+        float statCd = 1f;
+        if (isPlayerWeapon)
+        {
+            var skills = GetComponent<SkillSystem>();
+            if (skills != null) statCd = skills.CooldownMult;
+        }
+        _cooldown = (rapidTimer > 0f ? fireInterval * 0.55f : fireInterval) * statCd;
 
         if (!isPlayerWeapon)
         {
@@ -104,8 +110,20 @@ public class Weapon : MonoBehaviour
     Vector3 Spread(Vector3 fwd, float degrees) =>
         Quaternion.AngleAxis(degrees, transform.up) * fwd;
 
+    SkillSystem _skillsRef;
+    bool _skillsChecked;
+    float PlayerDmgMult
+    {
+        get
+        {
+            if (!_skillsChecked) { _skillsRef = GetComponent<SkillSystem>(); _skillsChecked = true; }
+            return _skillsRef != null ? _skillsRef.DamageMult : 1f;
+        }
+    }
+
     void FireOne(Vector3 origin, Vector3 dir, float dmg)
     {
+        if (isPlayerWeapon) dmg *= PlayerDmgMult;
         Projectile.Spawn(origin, dir * projectileSpeed, dmg, boltColor, gameObject, isPlayerWeapon);
     }
 }

@@ -136,6 +136,7 @@ public static class PlayerShipFactory
         }
         weapon.muzzles = muzzles;
 
+        ship.AddComponent<SkillSystem>();
         ship.AddComponent<ShipController>();
         return ship;
     }
