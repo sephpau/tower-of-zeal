@@ -18,6 +18,7 @@ public class EnemyAI : MonoBehaviour
     float _strafeTimer;
     float _burstTimer;
     int _burstLeft;
+    int _burstSize = 3;
 
     void Awake()
     {
@@ -28,9 +29,15 @@ public class EnemyAI : MonoBehaviour
         h.OnDeath += OnDeath;
     }
 
+    void OnEnable()
+    {
+        var bc = GetComponent<BurstConfig>();
+        if (bc != null) _burstSize = bc.burstSize;
+    }
+
     void Start()
     {
-        var ship = FindFirstObjectByType<ShipController>();
+        var ship = FindAnyObjectByType<ShipController>();
         if (ship != null) { _player = ship.transform; _playerRb = ship.GetComponent<Rigidbody>(); }
     }
 
@@ -39,6 +46,7 @@ public class EnemyAI : MonoBehaviour
         ExplosionFactory.Explode(transform.position, new Color(1f, 0.4f, 0.85f), 1.4f, true);
         GameManager.I.PlaySfxAt(SfxSynth.Boom, transform.position, 0.9f);
         GameManager.I.EnemyKilled(scoreValue, transform.position);
+        Powerup.TryDrop(transform.position, 0.25f);
         Destroy(gameObject);
     }
 
@@ -78,7 +86,7 @@ public class EnemyAI : MonoBehaviour
         else if (_burstLeft <= 0 && _burstTimer <= 0f && dist < fireRange)
         {
             float facing = Vector3.Angle(transform.forward, toPlayer);
-            if (facing < 20f) { _burstLeft = 3; }
+            if (facing < 20f) { _burstLeft = _burstSize; }
             else _burstTimer = 0.3f;
         }
     }

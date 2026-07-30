@@ -10,10 +10,10 @@ public class HudController : MonoBehaviour
 
     Canvas _canvas;
     Font _font;
-    Text _scoreText, _waveText, _hostilesText, _comboText, _bannerText, _throttleText;
-    Image _shieldBar, _hullBar, _vignette, _reticle;
-    GameObject _gameHud, _startPanel, _overPanel;
-    Text _overScore, _overBest, _overStats;
+    Text _scoreText, _waveText, _hostilesText, _comboText, _bannerText, _throttleText, _weaponText, _bossName;
+    Image _shieldBar, _hullBar, _vignette, _reticle, _bossBar;
+    GameObject _gameHud, _startPanel, _overPanel, _winPanel, _bossGroup;
+    Text _overScore, _overBest, _overStats, _winScore, _winBest;
     float _bannerTimer, _vignetteAlpha;
     WaveDirector _wavesRef;
 
@@ -70,6 +70,31 @@ public class HudController : MonoBehaviour
             new Vector2(0, 0), new Vector2(0, 0), new Vector2(30, 22), new Vector2(400, 30));
         _throttleText.color = new Color(0.6f, 0.9f, 1f, 0.75f);
 
+        _weaponText = NewText(_gameHud.transform, "weapon", "PULSER LV 1", 20, TextAnchor.LowerLeft,
+            new Vector2(0, 0), new Vector2(0, 0), new Vector2(30, 52), new Vector2(500, 30));
+        _weaponText.color = new Color(0.5f, 1f, 0.6f, 0.9f);
+        _weaponText.fontStyle = FontStyle.Bold;
+
+        // boss health bar (hidden until the dreadnought shows up)
+        _bossGroup = new GameObject("BossGroup");
+        _bossGroup.transform.SetParent(_gameHud.transform, false);
+        var bgRt = _bossGroup.AddComponent<RectTransform>();
+        bgRt.anchorMin = new Vector2(0.5f, 1f); bgRt.anchorMax = new Vector2(0.5f, 1f);
+        bgRt.anchoredPosition = new Vector2(0, -110);
+        bgRt.sizeDelta = new Vector2(700, 50);
+        _bossName = NewText(_bossGroup.transform, "bossname", "VOID DREADNOUGHT", 24, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -8), new Vector2(700, 30));
+        _bossName.color = new Color(1f, 0.25f, 0.35f);
+        _bossName.fontStyle = FontStyle.BoldAndItalic;
+        var bossBg = NewImage(_bossGroup.transform, "bossbarbg", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 8), new Vector2(640, 12));
+        bossBg.color = new Color(0.05f, 0.05f, 0.15f, 0.8f);
+        _bossBar = NewImage(bossBg.transform, "fill", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        _bossBar.color = new Color(1f, 0.25f, 0.35f);
+        _bossBar.type = Image.Type.Filled;
+        _bossBar.fillMethod = Image.FillMethod.Horizontal;
+        _bossBar.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));
+        _bossGroup.SetActive(false);
+
         // shield + hull bars bottom center
         _shieldBar = Bar(new Vector2(0, 46), new Color(0.35f, 0.8f, 1f));
         _hullBar = Bar(new Vector2(0, 28), new Color(1f, 0.5f, 0.35f));
@@ -81,6 +106,7 @@ public class HudController : MonoBehaviour
 
         BuildStartPanel();
         BuildOverPanel();
+        BuildWinPanel();
         _gameHud.SetActive(false);
     }
 
@@ -92,8 +118,8 @@ public class HudController : MonoBehaviour
             new Vector2(0.5f, 0.62f), new Vector2(0.5f, 0.62f), Vector2.zero, new Vector2(1600, 140));
         t.color = new Color(0.5f, 0.95f, 1f);
         t.fontStyle = FontStyle.BoldAndItalic;
-        var s = NewText(_startPanel.transform, "sub", "FREE FLIGHT // SECTOR 7\n\nMOUSE steer · W/S throttle · SHIFT boost · Q/E roll\nCLICK / SPACE fire · M mute", 26, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.42f), new Vector2(0.5f, 0.42f), Vector2.zero, new Vector2(1400, 220));
+        var s = NewText(_startPanel.transform, "sub", "SECTOR 7 // CLEAR ALL 10 WAVES — DESTROY THE VOID DREADNOUGHT\n\nMOUSE steer · W/S throttle · SHIFT boost · Q/E roll\nCLICK / SPACE fire · M mute\nGrab drops: LV UP · RAPID · HOMING · SHIELD", 26, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.42f), new Vector2(0.5f, 0.42f), Vector2.zero, new Vector2(1500, 260));
         s.color = new Color(0.8f, 0.9f, 1f, 0.85f);
         var p = NewText(_startPanel.transform, "pulse", "CLICK TO LAUNCH", 34, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.22f), new Vector2(0.5f, 0.22f), Vector2.zero, new Vector2(800, 60));
@@ -126,6 +152,30 @@ public class HudController : MonoBehaviour
         _overPanel.SetActive(false);
     }
 
+    void BuildWinPanel()
+    {
+        _winPanel = Panel("WinPanel");
+        var t = NewText(_winPanel.transform, "title", "SECTOR CLEARED", 92, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(1600, 120));
+        t.color = new Color(0.5f, 1f, 0.6f);
+        t.fontStyle = FontStyle.BoldAndItalic;
+        var sub = NewText(_winPanel.transform, "sub", "THE VOID DREADNOUGHT IS DUST", 30, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.59f), new Vector2(0.5f, 0.59f), Vector2.zero, new Vector2(1400, 50));
+        sub.color = new Color(1f, 0.55f, 0.9f);
+        _winScore = NewText(_winPanel.transform, "score", "0", 90, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.47f), new Vector2(0.5f, 0.47f), Vector2.zero, new Vector2(1200, 120));
+        _winScore.color = new Color(0.5f, 0.95f, 1f);
+        _winScore.fontStyle = FontStyle.Bold;
+        _winBest = NewText(_winPanel.transform, "best", "", 30, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.36f), new Vector2(0.5f, 0.36f), Vector2.zero, new Vector2(1200, 50));
+        _winBest.color = new Color(1f, 0.85f, 0.4f);
+        var p = NewText(_winPanel.transform, "pulse", "CLICK TO FLY AGAIN", 34, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.2f), new Vector2(0.5f, 0.2f), Vector2.zero, new Vector2(800, 60));
+        p.color = new Color(1f, 0.85f, 0.4f);
+        p.fontStyle = FontStyle.Bold;
+        _winPanel.SetActive(false);
+    }
+
     // ---------- public API ----------
     public void ShowStart() { _startPanel.SetActive(true); WantsStart = true; }
     public void ShowGameHud() { WantsStart = false; _startPanel.SetActive(false); _gameHud.SetActive(true); }
@@ -136,16 +186,25 @@ public class HudController : MonoBehaviour
         _overPanel.SetActive(true);
         _overScore.text = score.ToString("N0");
         _overBest.text = newBest ? "NEW BEST!" : "BEST  " + best.ToString("N0");
-        _overStats.text = "Reached wave " + wave;
+        _overStats.text = "Reached wave " + wave + " / " + WaveDirector.FinalWave;
         Invoke(nameof(EnableRestart), 1.2f);
     }
     void EnableRestart() { WantsRestart = true; }
+
+    public void ShowVictory(int score, int best, bool newBest)
+    {
+        _gameHud.SetActive(false);
+        _winPanel.SetActive(true);
+        _winScore.text = score.ToString("N0");
+        _winBest.text = newBest ? "NEW BEST!" : "BEST  " + best.ToString("N0");
+        Invoke(nameof(EnableRestart), 1.5f);
+    }
 
     public void Tick(Health player, WaveDirector waves, int score)
     {
         _wavesRef = waves;
         _scoreText.text = score.ToString("N0");
-        _waveText.text = "WAVE " + Mathf.Max(1, waves.wave);
+        _waveText.text = "WAVE " + Mathf.Max(1, waves.wave) + " / " + WaveDirector.FinalWave;
         _hostilesText.text = waves.hostilesAlive > 0 ? waves.hostilesAlive + " HOSTILE" + (waves.hostilesAlive > 1 ? "S" : "") : "";
         _shieldBar.fillAmount = player.maxShield > 0 ? player.shield / player.maxShield : 0f;
         _hullBar.fillAmount = player.hull / player.maxHull;
@@ -153,6 +212,24 @@ public class HudController : MonoBehaviour
         var ship = player.GetComponent<ShipController>();
         if (ship != null)
             _throttleText.text = "THR " + Mathf.RoundToInt(ship.throttle * 100) + "%" + (ship.boosting ? "  BOOST" : "");
+
+        var weapon = player.GetComponent<Weapon>();
+        if (weapon != null)
+        {
+            string status = "PULSER LV " + weapon.level;
+            if (weapon.rapidTimer > 0f) status += "   RAPID " + Mathf.CeilToInt(weapon.rapidTimer) + "s";
+            if (weapon.homingTimer > 0f) status += "   HOMING " + Mathf.CeilToInt(weapon.homingTimer) + "s";
+            _weaponText.text = status;
+        }
+
+        // boss bar
+        bool bossUp = waves.bossHealth != null;
+        if (_bossGroup.activeSelf != bossUp) _bossGroup.SetActive(bossUp);
+        if (bossUp)
+        {
+            var b = waves.bossHealth;
+            _bossBar.fillAmount = (b.shield + b.hull) / (b.maxShield + b.maxHull);
+        }
 
         // reticle follows mouse
         _reticle.rectTransform.position = Input.mousePosition;

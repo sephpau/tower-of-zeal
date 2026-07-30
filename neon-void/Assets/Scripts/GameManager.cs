@@ -89,14 +89,67 @@ public class GameManager : MonoBehaviour
 
     public void OnWaveStarted(int wave)
     {
-        _hud.WaveBanner("WAVE " + wave);
+        _hud.WaveBanner("WAVE " + wave + " / " + WaveDirector.FinalWave);
         PlaySfx(SfxSynth.WaveUp, 0.8f);
+    }
+
+    public void OnBossWave()
+    {
+        _hud.WaveBanner("!! VOID DREADNOUGHT !!");
+        PlaySfx(SfxSynth.WaveUp, 1f);
+        PlaySfx(SfxSynth.BigBoom, 0.6f);
     }
 
     public void OnWaveCleared(int wave)
     {
         score += 250 * wave;
         _hud.WaveBanner("WAVE " + wave + " CLEAR  +" + (250 * wave));
+    }
+
+    public void Victory()
+    {
+        Running = false;
+        _music.Stop();
+        Cursor.visible = true;
+        bool newBest = score > best;
+        if (newBest)
+        {
+            best = score;
+            PlayerPrefs.SetInt(BestKey, best);
+            PlayerPrefs.Save();
+        }
+        PlaySfx(SfxSynth.WaveUp, 1f);
+        _hud.ShowVictory(score, best, newBest);
+    }
+
+    public void CollectPowerup(PowerupType type)
+    {
+        var weapon = _playerHealth != null ? _playerHealth.GetComponent<Weapon>() : null;
+        PlaySfx(SfxSynth.Pickup, 0.9f);
+        switch (type)
+        {
+            case PowerupType.WeaponUp:
+                if (weapon != null && weapon.level < Weapon.MaxLevel)
+                {
+                    weapon.level++;
+                    _hud.WaveBanner("PULSER LV " + weapon.level);
+                }
+                else score += 500;   // maxed — convert to score
+                break;
+            case PowerupType.Rapid:
+                if (weapon != null) weapon.rapidTimer = Mathf.Max(weapon.rapidTimer, 10f);
+                _hud.WaveBanner("RAPID FIRE");
+                break;
+            case PowerupType.Homing:
+                if (weapon != null) weapon.homingTimer = Mathf.Max(weapon.homingTimer, 12f);
+                _hud.WaveBanner("HOMING MISSILES");
+                break;
+            case PowerupType.ShieldCell:
+                _playerHealth.shield = Mathf.Min(_playerHealth.maxShield, _playerHealth.shield + 40f);
+                _playerHealth.hull = Mathf.Min(_playerHealth.maxHull, _playerHealth.hull + 10f);
+                _hud.WaveBanner("SHIELD RESTORED");
+                break;
+        }
     }
 
     void OnPlayerDeath(Health h)

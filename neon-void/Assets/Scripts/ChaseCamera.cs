@@ -17,7 +17,7 @@ public class ChaseCamera : MonoBehaviour
     {
         if (target == null)
         {
-            _ship = FindFirstObjectByType<ShipController>();
+            _ship = FindAnyObjectByType<ShipController>();
             if (_ship != null) target = _ship.transform;
             else return;
         }

@@ -1,7 +1,7 @@
 using UnityEngine;
 
-// Assembles the player fighter from primitives: dark hull, cyan neon
-// stripes, pink fins, engine glows with trails — Space Strike's ship, in 3D.
+// The player fighter: lathed fuselage, bubble canopy, swept airfoil wings,
+// underslung engine nacelles with glow and trails. Smooth-shaded, no boxes.
 public static class PlayerShipFactory
 {
     public static GameObject Build(Vector3 pos)
@@ -9,35 +9,87 @@ public static class PlayerShipFactory
         var ship = new GameObject("PlayerShip");
         ship.transform.position = pos;
 
-        var hull = NVAssets.Hull;
+        var hullMat = NVAssets.Standard(new Color(0.32f, 0.34f, 0.44f), 0.85f, 0.25f);
+        var darkMat = NVAssets.Standard(new Color(0.12f, 0.12f, 0.2f), 0.7f, 0.3f);
         var cyan = NVAssets.CyanEmissive;
         var pink = NVAssets.PinkEmissive;
+        var glassMat = NVAssets.Standard(new Color(0.08f, 0.2f, 0.3f), 0.9f, 0.05f);
+        glassMat.EnableKeyword("_EMISSION");
+        glassMat.SetColor("_EmissionColor", new Color(0.1f, 0.5f, 0.8f) * 0.7f);
 
-        AddPart(ship, PrimitiveType.Cube, new Vector3(0f, 0f, 0.4f), new Vector3(1.0f, 0.55f, 3.2f), Quaternion.identity, hull);
-        // nose cone (stretched sphere reads better than Unity's capsule here)
-        AddPart(ship, PrimitiveType.Sphere, new Vector3(0f, 0f, 2.4f), new Vector3(0.7f, 0.45f, 1.9f), Quaternion.identity, hull);
-        // canopy
-        AddPart(ship, PrimitiveType.Sphere, new Vector3(0f, 0.42f, 0.9f), new Vector3(0.5f, 0.35f, 1.1f), Quaternion.identity, cyan);
+        // fuselage: sleek revolve, nose at +Z
+        Vector2[] fuselage = {
+            new Vector2(0.001f,  3.4f),
+            new Vector2(0.14f,   2.9f),
+            new Vector2(0.30f,   2.1f),
+            new Vector2(0.42f,   1.1f),
+            new Vector2(0.48f,   0.0f),
+            new Vector2(0.46f,  -0.9f),
+            new Vector2(0.36f,  -1.7f),
+            new Vector2(0.26f,  -2.0f),
+            new Vector2(0.001f, -2.0f),
+        };
+        NVMeshes.Part(ship, NVMeshes.Lathe(fuselage), hullMat, Vector3.zero, Vector3.zero, Vector3.one);
+
+        // dorsal spine + canopy bubble
+        NVMeshes.SpherePart(ship, glassMat, new Vector3(0f, 0.38f, 0.9f), new Vector3(0.55f, 0.42f, 1.5f));
+        NVMeshes.SpherePart(ship, darkMat, new Vector3(0f, 0.2f, -0.7f), new Vector3(0.5f, 0.35f, 1.8f));
+
+        var wingMesh = NVMeshes.Wing(2.9f, 2.1f, 0.7f, 1.6f, 0.16f);
+        var finMesh = NVMeshes.Wing(1.0f, 0.9f, 0.35f, 0.55f, 0.1f);
 
         foreach (float side in new[] { -1f, 1f })
         {
-            var wingRot = Quaternion.Euler(0f, 0f, side * 12f);
-            AddPart(ship, PrimitiveType.Cube, new Vector3(side * 1.8f, -0.1f, -0.3f), new Vector3(2.6f, 0.09f, 1.5f), wingRot, hull);
-            AddPart(ship, PrimitiveType.Cube, new Vector3(side * 1.85f, -0.06f, 0.25f), new Vector3(2.4f, 0.1f, 0.16f), wingRot, cyan);
-            AddPart(ship, PrimitiveType.Cube, new Vector3(side * 3.0f, 0.25f, -0.6f), new Vector3(0.08f, 0.8f, 1.0f), wingRot, pink);
+            // main wing, swept back, slight anhedral
+            NVMeshes.Part(ship, wingMesh, hullMat,
+                new Vector3(side * 0.42f, -0.06f, 0.1f),
+                new Vector3(0f, 0f, side > 0 ? -4f : 184f),
+                new Vector3(side > 0 ? 1f : 1f, 1f, 1f));
+            // neon leading-edge stripe
+            var stripe = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Object.Destroy(stripe.GetComponent<Collider>());
+            stripe.transform.SetParent(ship.transform, false);
+            stripe.transform.localPosition = new Vector3(side * 1.85f, -0.12f, 0.72f);
+            stripe.transform.localRotation = Quaternion.Euler(0f, side * 28f, 0f);
+            stripe.transform.localScale = new Vector3(2.9f, 0.05f, 0.07f);
+            stripe.GetComponent<MeshRenderer>().sharedMaterial = cyan;
 
-            // engine glow + trail
-            var glow = NVAssets.Quad(NVAssets.AdditiveTinted(new Color(0.4f, 0.95f, 1f)), 1.4f);
+            // vertical tail fins, canted out, pink edge
+            NVMeshes.Part(ship, finMesh, darkMat,
+                new Vector3(side * 0.55f, 0.25f, -1.5f),
+                new Vector3(0f, 0f, side > 0 ? 68f : 112f),   // V-tail: both fins cant up-outward
+                Vector3.one);
+            var finEdge = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Object.Destroy(finEdge.GetComponent<Collider>());
+            finEdge.transform.SetParent(ship.transform, false);
+            finEdge.transform.localPosition = new Vector3(side * 0.95f, 0.72f, -1.75f);
+            finEdge.transform.localRotation = Quaternion.Euler(0f, 0f, side * 22f);
+            finEdge.transform.localScale = new Vector3(0.06f, 0.9f, 0.09f);
+            finEdge.GetComponent<MeshRenderer>().sharedMaterial = pink;
+
+            // engine nacelle under each wing
+            Vector2[] nacelle = {
+                new Vector2(0.001f, 0.9f),
+                new Vector2(0.16f,  0.7f),
+                new Vector2(0.22f,  0.1f),
+                new Vector2(0.20f, -0.55f),
+                new Vector2(0.14f, -0.75f),
+                new Vector2(0.001f,-0.75f),
+            };
+            var nac = NVMeshes.Part(ship, NVMeshes.Lathe(nacelle, 16), darkMat,
+                new Vector3(side * 1.15f, -0.28f, -0.7f), Vector3.zero, Vector3.one);
+
+            var glow = NVAssets.Quad(NVAssets.AdditiveTinted(new Color(0.4f, 0.95f, 1f)), 1.1f);
             glow.transform.SetParent(ship.transform, false);
-            glow.transform.localPosition = new Vector3(side * 0.6f, 0f, -1.7f);
+            glow.transform.localPosition = new Vector3(side * 1.15f, -0.28f, -1.55f);
             glow.AddComponent<Billboard>();
 
             var trailGo = new GameObject("trail");
             trailGo.transform.SetParent(ship.transform, false);
-            trailGo.transform.localPosition = new Vector3(side * 0.6f, 0f, -1.8f);
+            trailGo.transform.localPosition = new Vector3(side * 1.15f, -0.28f, -1.6f);
             var trail = trailGo.AddComponent<TrailRenderer>();
             trail.time = 0.35f;
-            trail.startWidth = 0.45f;
+            trail.startWidth = 0.4f;
             trail.endWidth = 0.02f;
             trail.material = NVAssets.Additive;
             trail.startColor = new Color(0.35f, 0.9f, 1f, 0.85f);
@@ -47,15 +99,15 @@ public static class PlayerShipFactory
 
         var engineLight = new GameObject("engineLight").AddComponent<Light>();
         engineLight.transform.SetParent(ship.transform, false);
-        engineLight.transform.localPosition = new Vector3(0f, 0f, -2f);
+        engineLight.transform.localPosition = new Vector3(0f, -0.2f, -1.9f);
         engineLight.type = LightType.Point;
         engineLight.color = new Color(0.4f, 0.9f, 1f);
         engineLight.intensity = 2.4f;
         engineLight.range = 9f;
 
         var col = ship.AddComponent<BoxCollider>();
-        col.center = new Vector3(0f, 0f, 0.4f);
-        col.size = new Vector3(4.5f, 0.9f, 4.5f);
+        col.center = new Vector3(0f, 0f, 0.2f);
+        col.size = new Vector3(6.2f, 1.0f, 5.2f);
 
         var rb = ship.AddComponent<Rigidbody>();
         rb.useGravity = false;
@@ -70,7 +122,7 @@ public static class PlayerShipFactory
 
         var weapon = ship.AddComponent<Weapon>();
         weapon.isPlayerWeapon = true;
-        weapon.fireInterval = 0.12f;
+        weapon.fireInterval = 0.14f;
         weapon.projectileSpeed = 240f;
         weapon.damage = 11f;
         weapon.boltColor = new Color(0.35f, 0.95f, 1f);
@@ -86,16 +138,5 @@ public static class PlayerShipFactory
 
         ship.AddComponent<ShipController>();
         return ship;
-    }
-
-    static void AddPart(GameObject parent, PrimitiveType type, Vector3 pos, Vector3 scale, Quaternion rot, Material mat)
-    {
-        var p = GameObject.CreatePrimitive(type);
-        Object.Destroy(p.GetComponent<Collider>());
-        p.transform.SetParent(parent.transform, false);
-        p.transform.localPosition = pos;
-        p.transform.localScale = scale;
-        p.transform.localRotation = rot;
-        p.GetComponent<MeshRenderer>().sharedMaterial = mat;
     }
 }

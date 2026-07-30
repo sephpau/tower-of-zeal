@@ -1,0 +1,220 @@
+using UnityEngine;
+
+// Enemy hulls, all lathe/wing built. Interceptor (fast drone), Gunship
+// (heavy, wave 4+), and the wave-10 boss: the Void Dreadnought.
+public static class EnemyFactory
+{
+    public static GameObject BuildInterceptor(Vector3 pos, int wave)
+    {
+        var go = new GameObject("interceptor");
+        go.transform.position = pos;
+
+        var hull = NVAssets.Standard(new Color(0.2f, 0.1f, 0.28f), 0.75f, 0.3f);
+        var pink = NVAssets.PinkEmissive;
+
+        // dart-shaped fuselage
+        Vector2[] body = {
+            new Vector2(0.001f,  2.2f),
+            new Vector2(0.22f,   1.3f),
+            new Vector2(0.38f,   0.2f),
+            new Vector2(0.34f,  -0.8f),
+            new Vector2(0.2f,   -1.3f),
+            new Vector2(0.001f, -1.3f),
+        };
+        NVMeshes.Part(go, NVMeshes.Lathe(body, 18), hull, Vector3.zero, Vector3.zero, Vector3.one);
+        NVMeshes.SpherePart(go, pink, new Vector3(0f, 0.16f, 0.7f), new Vector3(0.34f, 0.26f, 0.7f));
+
+        var wing = NVMeshes.Wing(1.9f, 1.4f, 0.4f, 1.3f, 0.12f);
+        foreach (float side in new[] { -1f, 1f })
+        {
+            NVMeshes.Part(go, wing, hull,
+                new Vector3(side * 0.3f, 0f, -0.2f),
+                new Vector3(0f, 0f, side > 0 ? -14f : 194f), Vector3.one);
+            var tip = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Object.Destroy(tip.GetComponent<Collider>());
+            tip.transform.SetParent(go.transform, false);
+            tip.transform.localPosition = new Vector3(side * 2.0f, -0.45f, -1.1f);
+            tip.transform.localScale = new Vector3(0.07f, 0.07f, 1.2f);
+            tip.GetComponent<MeshRenderer>().sharedMaterial = pink;
+        }
+
+        var glow = NVAssets.Quad(NVAssets.AdditiveTinted(new Color(1f, 0.4f, 0.85f)), 1.3f);
+        glow.transform.SetParent(go.transform, false);
+        glow.transform.localPosition = new Vector3(0f, 0f, -1.5f);
+        glow.AddComponent<Billboard>();
+
+        Rig(go, 1.7f, 26f + wave * 4f);
+        Armament(go, 0.14f, 70f, Mathf.Min(16f, 8f + wave), new Color(1f, 0.35f, 0.8f), new Vector3(0f, 0f, 2.4f), 3);
+
+        var ai = go.AddComponent<EnemyAI>();
+        ai.speed = Mathf.Min(30f, 20f + wave * 1.2f);
+        ai.scoreValue = 100 + wave * 10;
+        return go;
+    }
+
+    public static GameObject BuildGunship(Vector3 pos, int wave)
+    {
+        var go = new GameObject("gunship");
+        go.transform.position = pos;
+
+        var hull = NVAssets.Standard(new Color(0.26f, 0.14f, 0.1f), 0.7f, 0.35f);
+        var orange = NVAssets.Emissive(new Color(1f, 0.55f, 0.15f), 3f);
+
+        Vector2[] body = {
+            new Vector2(0.001f,  2.6f),
+            new Vector2(0.5f,    1.6f),
+            new Vector2(0.75f,   0.2f),
+            new Vector2(0.7f,   -1.2f),
+            new Vector2(0.45f,  -2.0f),
+            new Vector2(0.001f, -2.0f),
+        };
+        NVMeshes.Part(go, NVMeshes.Lathe(body, 20), hull, Vector3.zero, Vector3.zero, Vector3.one);
+        NVMeshes.SpherePart(go, orange, new Vector3(0f, 0.3f, 1.1f), new Vector3(0.5f, 0.35f, 0.8f));
+
+        // side weapon pods
+        Vector2[] pod = {
+            new Vector2(0.001f,  1.0f),
+            new Vector2(0.28f,   0.5f),
+            new Vector2(0.32f,  -0.5f),
+            new Vector2(0.2f,   -0.9f),
+            new Vector2(0.001f, -0.9f),
+        };
+        foreach (float side in new[] { -1f, 1f })
+        {
+            NVMeshes.Part(go, NVMeshes.Lathe(pod, 14), hull, new Vector3(side * 1.25f, -0.1f, 0.2f), Vector3.zero, Vector3.one);
+            var stripe = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Object.Destroy(stripe.GetComponent<Collider>());
+            stripe.transform.SetParent(go.transform, false);
+            stripe.transform.localPosition = new Vector3(side * 1.25f, 0.25f, 0.2f);
+            stripe.transform.localScale = new Vector3(0.08f, 0.08f, 1.6f);
+            stripe.GetComponent<MeshRenderer>().sharedMaterial = orange;
+        }
+
+        var glow = NVAssets.Quad(NVAssets.AdditiveTinted(new Color(1f, 0.6f, 0.2f)), 2f);
+        glow.transform.SetParent(go.transform, false);
+        glow.transform.localPosition = new Vector3(0f, 0f, -2.3f);
+        glow.AddComponent<Billboard>();
+
+        Rig(go, 2.4f, 90f + wave * 10f);
+        Armament(go, 0.16f, 60f, Mathf.Min(20f, 12f + wave), new Color(1f, 0.6f, 0.2f), new Vector3(0f, -0.1f, 3f), 5);
+
+        var ai = go.AddComponent<EnemyAI>();
+        ai.speed = 15f;
+        ai.turnDegPerSec = 55f;
+        ai.orbitDistance = 75f;
+        ai.fireRange = 160f;
+        ai.scoreValue = 300 + wave * 15;
+        return go;
+    }
+
+    public static GameObject BuildDreadnought(Vector3 pos)
+    {
+        var go = new GameObject("dreadnought");
+        go.transform.position = pos;
+
+        var hull = NVAssets.Standard(new Color(0.13f, 0.1f, 0.16f), 0.8f, 0.3f);
+        var red = NVAssets.Emissive(new Color(1f, 0.15f, 0.25f), 3.5f);
+
+        // 45-unit capital hull
+        Vector2[] body = {
+            new Vector2(0.001f,  23f),
+            new Vector2(2.2f,    17f),
+            new Vector2(3.6f,     8f),
+            new Vector2(4.2f,    -2f),
+            new Vector2(3.8f,   -12f),
+            new Vector2(2.8f,   -19f),
+            new Vector2(1.8f,   -22f),
+            new Vector2(0.001f, -22f),
+        };
+        NVMeshes.Part(go, NVMeshes.Lathe(body, 28), hull, Vector3.zero, Vector3.zero, new Vector3(1f, 0.55f, 1f));
+
+        // bridge tower + red spine strips
+        NVMeshes.SpherePart(go, hull, new Vector3(0f, 2.4f, -8f), new Vector3(3f, 2f, 6f));
+        NVMeshes.SpherePart(go, red, new Vector3(0f, 3.4f, -8f), new Vector3(1.4f, 0.6f, 2.6f));
+        for (int i = 0; i < 3; i++)
+        {
+            var strip = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Object.Destroy(strip.GetComponent<Collider>());
+            strip.transform.SetParent(go.transform, false);
+            strip.transform.localPosition = new Vector3(0f, 1.5f, 12f - i * 11f);
+            strip.transform.localScale = new Vector3(0.35f, 0.12f, 7f);
+            strip.GetComponent<MeshRenderer>().sharedMaterial = red;
+        }
+
+        // engine block
+        foreach (float side in new[] { -1.6f, 0f, 1.6f })
+        {
+            var glow = NVAssets.Quad(NVAssets.AdditiveTinted(new Color(1f, 0.25f, 0.35f)), 3.4f);
+            glow.transform.SetParent(go.transform, false);
+            glow.transform.localPosition = new Vector3(side, 0f, -23.5f);
+            glow.AddComponent<Billboard>();
+        }
+
+        // four turrets with muzzles — BossAI aims these
+        var turretMuzzles = new Transform[4];
+        Vector3[] tPos = {
+            new Vector3(-2.4f, 1.6f,  6f), new Vector3(2.4f, 1.6f,  6f),
+            new Vector3(-2.6f, 1.4f, -3f), new Vector3(2.6f, 1.4f, -3f),
+        };
+        for (int i = 0; i < 4; i++)
+        {
+            var turret = NVMeshes.SpherePart(go, hull, tPos[i], Vector3.one * 1.6f);
+            NVMeshes.SpherePart(turret.gameObject, red, new Vector3(0f, 0f, 0.45f), new Vector3(0.4f, 0.4f, 0.5f));
+            var m = new GameObject("tmuzzle").transform;
+            m.SetParent(turret.transform, false);
+            m.localPosition = new Vector3(0f, 0f, 0.8f);
+            turretMuzzles[i] = m;
+        }
+
+        var col = go.AddComponent<BoxCollider>();
+        col.size = new Vector3(9f, 5f, 46f);
+
+        var rb = go.AddComponent<Rigidbody>();
+        rb.useGravity = false;
+        rb.mass = 400f;
+        rb.linearDamping = 0f;
+        rb.angularDamping = 3f;
+
+        var h = go.AddComponent<Health>();
+        h.Configure(400f, 1400f);
+        h.shieldRegenPerSec = 10f;
+
+        var boss = go.AddComponent<BossAI>();
+        boss.turretMuzzles = turretMuzzles;
+        return go;
+    }
+
+    // shared: collider + rigidbody + health
+    static void Rig(GameObject go, float radius, float hp)
+    {
+        var col = go.AddComponent<SphereCollider>();
+        col.radius = radius;
+        var rb = go.AddComponent<Rigidbody>();
+        rb.useGravity = false;
+        rb.linearDamping = 0f;
+        rb.angularDamping = 2f;
+        var h = go.AddComponent<Health>();
+        h.Configure(0f, hp);
+    }
+
+    static void Armament(GameObject go, float interval, float speed, float damage, Color color, Vector3 muzzlePos, int burst)
+    {
+        var w = go.AddComponent<Weapon>();
+        w.isPlayerWeapon = false;
+        w.fireInterval = interval;
+        w.projectileSpeed = speed;
+        w.damage = damage;
+        w.boltColor = color;
+        var muzzle = new GameObject("muzzle").transform;
+        muzzle.SetParent(go.transform, false);
+        muzzle.localPosition = muzzlePos;
+        w.muzzles = new[] { muzzle };
+        // burst size is read by EnemyAI when it's added right after this
+        go.AddComponent<BurstConfig>().burstSize = burst;
+    }
+}
+
+public class BurstConfig : MonoBehaviour
+{
+    public int burstSize = 3;
+}
