@@ -184,6 +184,78 @@ public static class EnemyFactory
         return go;
     }
 
+    // The three Zeal bosses — distinct silhouettes per legend.
+    public static GameObject BuildMiniboss(Vector3 pos, ZealData.BossDef def)
+    {
+        var go = new GameObject("boss-" + def.id);
+        go.transform.position = pos;
+        var accent = NVAssets.Emissive(def.tint, 3.5f);
+
+        if (def.id == "smuggler")
+        {
+            // long stealth dart — fade-capable hull for the cloak
+            var hull = NVAssets.StandardFade(new Color(0.16f, 0.1f, 0.26f, 1f), 0.8f, 0.25f);
+            Vector2[] body = {
+                new Vector2(0.001f, 5.5f), new Vector2(0.5f, 2.5f), new Vector2(0.9f, 0f),
+                new Vector2(0.7f, -2.5f), new Vector2(0.4f, -3.6f), new Vector2(0.001f, -3.6f) };
+            NVMeshes.Part(go, NVMeshes.Lathe(body, 20), hull, Vector3.zero, Vector3.zero, new Vector3(1.6f, 0.7f, 1.6f));
+            var wing = NVMeshes.Wing(4.5f, 3f, 0.8f, 3f, 0.18f);
+            NVMeshes.Part(go, wing, hull, new Vector3(0.6f, 0f, -0.5f), new Vector3(0f, 0f, -8f), Vector3.one);
+            NVMeshes.Part(go, wing, hull, new Vector3(-0.6f, 0f, -0.5f), new Vector3(0f, 0f, 188f), Vector3.one);
+            NVMeshes.SpherePart(go, accent, new Vector3(0f, 0.5f, 1.5f), new Vector3(0.9f, 0.5f, 1.6f));
+            Rig(go, 5f, def.hp);
+        }
+        else if (def.id == "gruyere")
+        {
+            // carnival wheel: hub + spinning ring + spoke lights
+            var hull = NVAssets.Standard(new Color(0.3f, 0.18f, 0.08f), 0.6f, 0.35f);
+            NVMeshes.SpherePart(go, hull, Vector3.zero, new Vector3(4f, 4f, 3f));
+            NVMeshes.SpherePart(go, accent, new Vector3(0f, 0f, 1.8f), Vector3.one * 1.6f);
+            var ringGo = new GameObject("wheel");
+            ringGo.transform.SetParent(go.transform, false);
+            ringGo.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            ringGo.AddComponent<MeshFilter>().sharedMesh = NVAssets.RingMesh(6.5f, 8.5f, 48);
+            ringGo.AddComponent<MeshRenderer>().sharedMaterial = accent;
+            for (int i = 0; i < 8; i++)
+            {
+                float a = i / 8f * Mathf.PI * 2f;
+                NVMeshes.SpherePart(go, accent, new Vector3(Mathf.Cos(a) * 7.5f, Mathf.Sin(a) * 7.5f, 0f), Vector3.one * 1.1f);
+            }
+            Rig(go, 8f, def.hp);
+        }
+        else
+        {
+            // Garrison: brutalist void hulk with a burning core
+            var hull = NVAssets.Standard(new Color(0.1f, 0.07f, 0.14f), 0.85f, 0.3f);
+            Vector2[] body = {
+                new Vector2(0.001f, 6f), new Vector2(2.2f, 3f), new Vector2(3.2f, -1f),
+                new Vector2(2.6f, -4.5f), new Vector2(1.5f, -6f), new Vector2(0.001f, -6f) };
+            NVMeshes.Part(go, NVMeshes.Lathe(body, 10), hull, Vector3.zero, Vector3.zero, Vector3.one);  // low segs = brutalist facets
+            NVMeshes.SpherePart(go, accent, Vector3.zero, Vector3.one * 2.6f);
+            for (int i = 0; i < 4; i++)
+            {
+                float a = i / 4f * Mathf.PI * 2f + 0.4f;
+                var spike = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Object.Destroy(spike.GetComponent<Collider>());
+                spike.transform.SetParent(go.transform, false);
+                spike.transform.localPosition = new Vector3(Mathf.Cos(a) * 3.4f, Mathf.Sin(a) * 3.4f, -1f);
+                spike.transform.localRotation = Quaternion.Euler(0f, 0f, a * Mathf.Rad2Deg);
+                spike.transform.localScale = new Vector3(3.5f, 0.6f, 0.6f);
+                spike.GetComponent<MeshRenderer>().sharedMaterial = hull;
+            }
+            var glow = NVAssets.Quad(NVAssets.AdditiveTinted(def.tint), 10f);
+            glow.transform.SetParent(go.transform, false);
+            glow.AddComponent<Billboard>();
+            Rig(go, 7f, def.hp);
+        }
+
+        var rb = go.GetComponent<Rigidbody>();
+        rb.mass = 60f;
+        var boss = go.AddComponent<MinibossAI>();
+        boss.Configure(def);
+        return go;
+    }
+
     // shared: collider + rigidbody + health
     static void Rig(GameObject go, float radius, float hp)
     {

@@ -17,14 +17,14 @@ public class Missile : MonoBehaviour
     {
         Transform best = null;
         float bestScore = float.MaxValue;
-        foreach (var ai in Object.FindObjectsByType<EnemyAI>())
+        foreach (var h in SkillSystem.AllHostiles())
         {
-            float d = Vector3.Distance(from, ai.transform.position);
-            if (d < range && d < bestScore) { bestScore = d; best = ai.transform; }
+            float d = Vector3.Distance(from, h.transform.position);
+            if (d < range && d < bestScore) { bestScore = d; best = h.transform; }
         }
         var boss = Object.FindAnyObjectByType<BossAI>();
         if (boss != null && Vector3.Distance(from, boss.transform.position) < range * 1.4f)
-            best = boss.transform;   // boss always preferred when in reach
+            best = boss.transform;   // the dreadnought is always preferred when in reach
         return best;
     }
 

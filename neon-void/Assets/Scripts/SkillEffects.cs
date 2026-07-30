@@ -42,15 +42,9 @@ public class CannonShell : MonoBehaviour
     {
         ExplosionFactory.Explode(transform.position, new Color(1f, 0.6f, 0.2f), _radius / 8f, _radius > 14f);
         GameManager.I.PlaySfxAt(SfxSynth.Boom, transform.position, 0.6f);
-        foreach (var ai in Object.FindObjectsByType<EnemyAI>())
-            if (Vector3.Distance(transform.position, ai.transform.position) < _radius)
-            {
-                var h = ai.GetComponent<Health>();
-                if (h != null) h.TakeDamage(_dmg);
-            }
-        var boss = Object.FindAnyObjectByType<BossAI>();
-        if (boss != null && Vector3.Distance(transform.position, boss.transform.position) < _radius + 8f)
-            boss.GetComponent<Health>().TakeDamage(_dmg);
+        foreach (var h in SkillSystem.AllHostiles())
+            if (Vector3.Distance(transform.position, h.transform.position) < _radius + 5f)
+                h.TakeDamage(_dmg);
         Destroy(gameObject);
     }
 }
@@ -99,15 +93,13 @@ public class BoomerangDisc : MonoBehaviour
             transform.position += to.normalized * _speed * 1.15f * Time.deltaTime;
         }
 
-        foreach (var ai in Object.FindObjectsByType<EnemyAI>())
+        foreach (var h in SkillSystem.AllHostiles())
         {
-            if (Vector3.Distance(transform.position, ai.transform.position) > _radius + 2.5f) continue;
-            var h = ai.GetComponent<Health>();
-            if (h == null) continue;
+            if (Vector3.Distance(transform.position, h.transform.position) > _radius + 3.5f) continue;
             if (_hitCd.TryGetValue(h, out float until) && Time.time < until) continue;
             _hitCd[h] = Time.time + 0.4f;
             h.TakeDamage(_dmg);
-            ExplosionFactory.Sparks(ai.transform.position, new Color(1f, 0.55f, 0.35f));
+            ExplosionFactory.Sparks(h.transform.position, new Color(1f, 0.55f, 0.35f));
         }
     }
 }
@@ -161,7 +153,7 @@ public class SweepVisual : MonoBehaviour
     float _life = 0.25f, _range;
     MeshRenderer _mr;
 
-    public static void Show(Transform ship, Vector3 dir, float range)
+    public static void Show(Transform ship, Vector3 dir, float range, float halfAngle = 55f)
     {
         var go = new GameObject("sweep");
         go.transform.position = ship.position;
@@ -169,7 +161,7 @@ public class SweepVisual : MonoBehaviour
         var sv = go.AddComponent<SweepVisual>();
         sv._range = range;
         var mf = go.AddComponent<MeshFilter>();
-        mf.sharedMesh = ArcMesh(55f);
+        mf.sharedMesh = ArcMesh(Mathf.Min(halfAngle, 180f));
         sv._mr = go.AddComponent<MeshRenderer>();
         var mat = new Material(Shader.Find("Legacy Shaders/Particles/Additive"));
         mat.mainTexture = NVAssets.GlowTex;

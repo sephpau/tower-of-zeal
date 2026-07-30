@@ -49,6 +49,8 @@ public class GameManager : MonoBehaviour
         _hud.ShowStart();
     }
 
+    float _elapsed;
+
     public void StartRun(int pilotIndex)
     {
         Running = true;
@@ -56,13 +58,18 @@ public class GameManager : MonoBehaviour
         combo = 0;
         xpLevel = 1;
         xp = 0;
+        _elapsed = 0f;
+        if (TournamentMode.Active)
+            Random.InitState(unchecked((int)TournamentMode.Seed));
         _skills = _playerHealth.GetComponent<SkillSystem>();
         _skills.InitPilot(ZealData.Pilots[Mathf.Clamp(pilotIndex, 0, ZealData.Pilots.Length - 1)]);
         _music.Play();
         _waves.Begin();
         _hud.ShowGameHud();
         Cursor.visible = false;
-        _hud.WaveBanner(_skills.pilot.name.ToUpperInvariant() + " — " + _skills.pilot.title.ToUpperInvariant());
+        _hud.WaveBanner(TournamentMode.Active
+            ? "BLITZ // " + TournamentMode.MatchCode + " // " + _skills.pilot.name.ToUpperInvariant()
+            : _skills.pilot.name.ToUpperInvariant() + " — " + _skills.pilot.title.ToUpperInvariant());
     }
 
     public void GainXp(int amount)
@@ -80,7 +87,7 @@ public class GameManager : MonoBehaviour
 
     void OpenLevelUp()
     {
-        var choices = LevelUpChoices.Generate(_skills);
+        var choices = LevelUpChoices.Generate(_skills, TournamentMode.Active ? TournamentMode.DraftRng(xpLevel) : null);
         if (choices.Count == 0) { score += 300; return; }
         Paused = true;
         Time.timeScale = 0f;
@@ -115,7 +122,30 @@ public class GameManager : MonoBehaviour
             _comboTimer -= Time.deltaTime;
             if (_comboTimer <= 0f) { combo = 0; _hud.SetCombo(0); }
         }
+
+        _elapsed += Time.deltaTime;
+        if (TournamentMode.Active)
+        {
+            float left = TournamentMode.Duration - _elapsed;
+            _hud.SetTimer(left);
+            if (left <= 0f) EndTournament("TIME!");
+        }
+
         _hud.Tick(_playerHealth, _waves, score);
+    }
+
+    void EndTournament(string reason)
+    {
+        if (!Running) return;
+        Running = false;
+        _music.Stop();
+        Cursor.visible = true;
+        int t = Mathf.RoundToInt(Mathf.Min(_elapsed, TournamentMode.Duration));
+        string verify = TournamentMode.VerifyCode(score, t);
+        TournamentMode.RecordResult(score, t);
+        var standings = TournamentMode.LoadStandings();
+        _hud.ShowTournamentResults(reason, score, verify, TournamentMode.MatchCode, standings);
+        TournamentMode.Disarm();
     }
 
     public void EnemyKilled(int baseScore, Vector3 where)
@@ -137,12 +167,23 @@ public class GameManager : MonoBehaviour
         PlaySfx(SfxSynth.WaveUp, 0.8f);
     }
 
-    public void OnBossWave()
+    public void OnBossWave(string banner, string taunt = null)
     {
-        _hud.WaveBanner("!! VOID DREADNOUGHT !!");
+        _hud.WaveBanner(banner);
         PlaySfx(SfxSynth.WaveUp, 1f);
         PlaySfx(SfxSynth.BigBoom, 0.6f);
+        if (!string.IsNullOrEmpty(taunt)) StartCoroutine(TauntLater(taunt));
     }
+
+    System.Collections.IEnumerator TauntLater(string taunt)
+    {
+        yield return new WaitForSeconds(2.3f);
+        if (Running) _hud.WaveBanner("“" + taunt + "”");
+    }
+
+    public int CurrentWave() => _waves != null ? _waves.wave : 1;
+    public void RegisterSummon(GameObject enemy) => _waves.RegisterSummon(enemy);
+    public void BossDown() { _waves.ClearBoss(); _waves.HostileDown(); }
 
     public void OnWaveCleared(int wave)
     {
@@ -152,6 +193,7 @@ public class GameManager : MonoBehaviour
 
     public void Victory()
     {
+        if (TournamentMode.Active) { EndTournament("SECTOR CLEARED"); return; }
         Running = false;
         _music.Stop();
         Cursor.visible = true;
@@ -198,12 +240,13 @@ public class GameManager : MonoBehaviour
 
     void OnPlayerDeath(Health h)
     {
-        Running = false;
-        _music.Stop();
-        Cursor.visible = true;
         ExplosionFactory.Explode(h.transform.position, new Color(0.4f, 0.9f, 1f), 2.5f, true);
         PlaySfx(SfxSynth.BigBoom);
         h.gameObject.SetActive(false);
+        if (TournamentMode.Active) { EndTournament("SHIP DESTROYED"); return; }
+        Running = false;
+        _music.Stop();
+        Cursor.visible = true;
 
         bool newBest = score > best;
         if (newBest)

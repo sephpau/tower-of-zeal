@@ -102,6 +102,20 @@ public static class NVAssets
         return m;
     }
 
+    // Standard shader switched to Fade mode so color alpha works (cloaking)
+    public static Material StandardFade(Color albedo, float metallic, float smoothnessInverse)
+    {
+        var m = Standard(albedo, metallic, smoothnessInverse);
+        m.SetOverrideTag("RenderType", "Transparent");
+        m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        m.SetInt("_ZWrite", 0);
+        m.EnableKeyword("_ALPHABLEND_ON");
+        m.renderQueue = 3000;
+        m.SetFloat("_Mode", 2f);
+        return m;
+    }
+
     public static Material Emissive(Color c, float intensity)
     {
         var m = Standard(c * 0.25f, 0.4f, 0.4f);

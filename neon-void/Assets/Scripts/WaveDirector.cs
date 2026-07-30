@@ -8,7 +8,8 @@ public class WaveDirector : MonoBehaviour
 
     public int wave;
     public int hostilesAlive;
-    public Health bossHealth;    // non-null while the dreadnought lives
+    public Health bossHealth;    // non-null while a boss lives
+    public string bossName = "";
 
     float _intermission;
     bool _spawning;
@@ -39,14 +40,23 @@ public class WaveDirector : MonoBehaviour
         var player = FindAnyObjectByType<ShipController>();
         Vector3 center = player != null ? player.transform.position : Vector3.zero;
 
+        var miniboss = System.Array.Find(ZealData.Bosses, b => b.wave == wave);
         if (wave >= FinalWave)
         {
-            GameManager.I.OnBossWave();
+            GameManager.I.OnBossWave("!! VOID DREADNOUGHT !!");
             var boss = EnemyFactory.BuildDreadnought(center + RandomShellDir() * 260f);
-            bossHealth = boss.GetComponent<Health>();
-            bossHealth.OnDeath += _ => { bossHealth = null; HostileDown(); };
+            SetBoss(boss.GetComponent<Health>(), "VOID DREADNOUGHT");
+            bossHealth.OnDeath += _ => { ClearBoss(); HostileDown(); };
             hostilesAlive = 1;
             for (int i = 0; i < 3; i++) SpawnOne(center, true, false);
+        }
+        else if (miniboss != null)
+        {
+            GameManager.I.OnBossWave("!! " + miniboss.name.ToUpperInvariant() + " !!", miniboss.taunt);
+            var boss = EnemyFactory.BuildMiniboss(center + RandomShellDir() * 200f, miniboss);
+            SetBoss(boss.GetComponent<Health>(), miniboss.name.ToUpperInvariant());
+            hostilesAlive = 1;   // MinibossAI reports death via GameManager.BossDown
+            for (int i = 0; i < 2; i++) SpawnOne(center, true, false);
         }
         else
         {
@@ -73,6 +83,15 @@ public class WaveDirector : MonoBehaviour
         Vector3 dir = Random.onUnitSphere;
         dir.y *= 0.5f;
         return dir.normalized;
+    }
+
+    public void SetBoss(Health h, string name) { bossHealth = h; bossName = name; }
+    public void ClearBoss() { bossHealth = null; bossName = ""; }
+
+    public void RegisterSummon(GameObject enemy)
+    {
+        enemy.GetComponent<Health>().OnDeath += _ => HostileDown();
+        hostilesAlive++;
     }
 
     public void HostileDown()

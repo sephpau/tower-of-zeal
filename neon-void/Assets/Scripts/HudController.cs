@@ -19,9 +19,11 @@ public class HudController : MonoBehaviour
     float _bannerTimer, _vignetteAlpha;
     WaveDirector _wavesRef;
 
-    Text _xpLevelText;
+    Text _xpLevelText, _timerText;
     Image _xpBar;
-    GameObject _levelUpPanel;
+    GameObject _levelUpPanel, _tourneySetupPanel, _tourneyResultsPanel;
+    InputField _codeInput, _nameInput;
+    Text _tourneyPilotPreview, _resultsTitle, _resultsScore, _resultsVerify, _resultsStandings;
     readonly List<GameObject> _levelUpCards = new List<GameObject>();
 
     public void Build()
@@ -131,11 +133,43 @@ public class HudController : MonoBehaviour
         _xpLevelText.color = new Color(0.4f, 0.95f, 1f);
         _xpLevelText.fontStyle = FontStyle.Bold;
 
+        _timerText = NewText(_gameHud.transform, "timer", "", 34, TextAnchor.UpperCenter,
+            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -46), new Vector2(300, 44));
+        _timerText.color = new Color(1f, 0.85f, 0.4f);
+        _timerText.fontStyle = FontStyle.Bold;
+
         BuildStartPanel();
         BuildOverPanel();
         BuildWinPanel();
         BuildLevelUpPanel();
+        BuildTournamentPanels();
         _gameHud.SetActive(false);
+    }
+
+    public void SetTimer(float secondsLeft)
+    {
+        secondsLeft = Mathf.Max(0f, secondsLeft);
+        _timerText.text = Mathf.FloorToInt(secondsLeft / 60f) + ":" + Mathf.FloorToInt(secondsLeft % 60f).ToString("00");
+        _timerText.color = secondsLeft < 30f ? new Color(1f, 0.35f, 0.5f) : new Color(1f, 0.85f, 0.4f);
+    }
+
+    public void ShowTournamentResults(string reason, int score, string verify, string matchCode, List<TournamentMode.Entry> standings)
+    {
+        _gameHud.SetActive(false);
+        _levelUpPanel.SetActive(false);
+        _tourneyResultsPanel.SetActive(true);
+        _resultsTitle.text = reason;
+        _resultsScore.text = score.ToString("N0");
+        _resultsVerify.text = "MATCH " + matchCode + "   ·   VERIFY CODE  " + verify;
+        var sb = new System.Text.StringBuilder("— LOCAL STANDINGS —\n");
+        int rank = 1;
+        foreach (var e in standings)
+        {
+            sb.AppendLine(rank + ".  " + e.name + "   " + e.score.ToString("N0") + "   [" + e.verify + "]");
+            if (++rank > 8) break;
+        }
+        _resultsStandings.text = sb.ToString();
+        Invoke(nameof(EnableRestart), 1.5f);
     }
 
     public void ShowLevelUp(int level, List<LevelUpChoices> choices, System.Action<LevelUpChoices> onPick)
@@ -238,7 +272,128 @@ public class HudController : MonoBehaviour
         var ctl = NewText(_startPanel.transform, "controls", "MOUSE steer · W/S throttle · SHIFT boost · Q/E roll · CLICK / SPACE fire · M mute\nZeal weapons fire on their own — collect XP shards, choose upgrades on level up", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.12f), new Vector2(0.5f, 0.12f), Vector2.zero, new Vector2(1500, 80));
         ctl.color = new Color(0.8f, 0.9f, 1f, 0.7f);
+
+        MakeButton(_startPanel.transform, "BLITZ TOURNAMENT", new Vector2(0.5f, 0.21f), new Vector2(360, 54),
+            new Color(1f, 0.55f, 0.9f), () => { _startPanel.SetActive(false); _tourneySetupPanel.SetActive(true); });
+
         _startPanel.SetActive(false);
+    }
+
+    void BuildTournamentPanels()
+    {
+        // ----- setup -----
+        _tourneySetupPanel = Panel("TourneySetup");
+        var t = NewText(_tourneySetupPanel.transform, "title", "BLITZ TOURNAMENT", 64, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.78f), new Vector2(0.5f, 0.78f), Vector2.zero, new Vector2(1400, 90));
+        t.color = new Color(1f, 0.55f, 0.9f);
+        t.fontStyle = FontStyle.BoldAndItalic;
+        var sub = NewText(_tourneySetupPanel.transform, "sub", "5-MINUTE SEEDED RUN · SAME MATCH CODE = SAME PILOT, SAME WAVES, SAME DRAFTS\nSCORE BIG BEFORE THE CLOCK RUNS OUT — VERIFY CODE PROVES YOUR RUN", 20, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(1400, 60));
+        sub.color = new Color(0.8f, 0.9f, 1f, 0.8f);
+
+        NewText(_tourneySetupPanel.transform, "lbl1", "MATCH CODE", 20, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.585f), new Vector2(0.5f, 0.585f), Vector2.zero, new Vector2(400, 30))
+            .color = new Color(1f, 0.85f, 0.4f);
+        _codeInput = MakeInput(_tourneySetupPanel.transform, new Vector2(0.5f, 0.525f), "ZEAL-2026");
+        NewText(_tourneySetupPanel.transform, "lbl2", "PILOT NAME", 20, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.445f), new Vector2(0.5f, 0.445f), Vector2.zero, new Vector2(400, 30))
+            .color = new Color(1f, 0.85f, 0.4f);
+        _nameInput = MakeInput(_tourneySetupPanel.transform, new Vector2(0.5f, 0.385f), "YOUR CALLSIGN");
+
+        _tourneyPilotPreview = NewText(_tourneySetupPanel.transform, "preview", "", 22, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.3f), new Vector2(0.5f, 0.3f), Vector2.zero, new Vector2(900, 34));
+        _tourneyPilotPreview.color = new Color(0.5f, 0.95f, 1f);
+        _codeInput.onValueChanged.AddListener(_ => UpdatePilotPreview());
+        UpdatePilotPreview();
+
+        MakeButton(_tourneySetupPanel.transform, "START MATCH", new Vector2(0.42f, 0.2f), new Vector2(300, 56),
+            new Color(0.5f, 1f, 0.6f), () => {
+                TournamentMode.Arm(_codeInput.text, _nameInput.text);
+                _tourneySetupPanel.SetActive(false);
+                _gameHud.SetActive(true);
+                GameManager.I.StartRun(TournamentMode.PilotIndex);
+            });
+        MakeButton(_tourneySetupPanel.transform, "BACK", new Vector2(0.58f, 0.2f), new Vector2(300, 56),
+            new Color(0.8f, 0.9f, 1f), () => { _tourneySetupPanel.SetActive(false); _startPanel.SetActive(true); });
+        _tourneySetupPanel.SetActive(false);
+
+        // ----- results -----
+        _tourneyResultsPanel = Panel("TourneyResults");
+        _resultsTitle = NewText(_tourneyResultsPanel.transform, "title", "TIME!", 76, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.8f), new Vector2(0.5f, 0.8f), Vector2.zero, new Vector2(1400, 100));
+        _resultsTitle.color = new Color(1f, 0.55f, 0.9f);
+        _resultsTitle.fontStyle = FontStyle.BoldAndItalic;
+        _resultsScore = NewText(_tourneyResultsPanel.transform, "score", "0", 80, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.66f), new Vector2(0.5f, 0.66f), Vector2.zero, new Vector2(1200, 100));
+        _resultsScore.color = new Color(0.5f, 0.95f, 1f);
+        _resultsScore.fontStyle = FontStyle.Bold;
+        _resultsVerify = NewText(_tourneyResultsPanel.transform, "verify", "", 26, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.56f), new Vector2(0.5f, 0.56f), Vector2.zero, new Vector2(1200, 40));
+        _resultsVerify.color = new Color(1f, 0.85f, 0.4f);
+        _resultsStandings = NewText(_tourneyResultsPanel.transform, "standings", "", 22, TextAnchor.UpperCenter,
+            new Vector2(0.5f, 0.48f), new Vector2(0.5f, 0.48f), Vector2.zero, new Vector2(900, 260));
+        _resultsStandings.color = new Color(0.85f, 0.9f, 1f, 0.9f);
+        var p = NewText(_tourneyResultsPanel.transform, "pulse", "CLICK TO CONTINUE", 30, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.1f), new Vector2(0.5f, 0.1f), Vector2.zero, new Vector2(800, 50));
+        p.color = new Color(1f, 0.85f, 0.4f);
+        p.fontStyle = FontStyle.Bold;
+        _tourneyResultsPanel.SetActive(false);
+    }
+
+    void UpdatePilotPreview()
+    {
+        string code = string.IsNullOrEmpty(_codeInput.text) ? "OPEN" : _codeInput.text.Trim().ToUpperInvariant();
+        var pilot = ZealData.Pilots[(int)(TournamentMode.Hash32(code) % (uint)ZealData.Pilots.Length)];
+        _tourneyPilotPreview.text = "MATCH PILOT:  " + pilot.name.ToUpperInvariant() + " — " + pilot.title.ToUpperInvariant();
+    }
+
+    Button MakeButton(Transform parent, string label, Vector2 anchor, Vector2 size, Color color, UnityEngine.Events.UnityAction onClick)
+    {
+        var go = new GameObject("btn-" + label);
+        go.transform.SetParent(parent, false);
+        var img = go.AddComponent<Image>();
+        img.color = new Color(0.09f, 0.07f, 0.2f, 0.97f);
+        var rt = img.rectTransform;
+        rt.anchorMin = rt.anchorMax = anchor;
+        rt.sizeDelta = size;
+        var btn = go.AddComponent<Button>();
+        var colors = btn.colors;
+        colors.highlightedColor = new Color(1.6f, 1.6f, 1.9f);
+        colors.pressedColor = new Color(2f, 2f, 2.4f);
+        btn.colors = colors;
+        btn.onClick.AddListener(onClick);
+        var txt = NewText(go.transform, "label", label, 24, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, size);
+        txt.color = color;
+        txt.fontStyle = FontStyle.Bold;
+        return btn;
+    }
+
+    InputField MakeInput(Transform parent, Vector2 anchor, string placeholder)
+    {
+        var go = new GameObject("input");
+        go.transform.SetParent(parent, false);
+        var img = go.AddComponent<Image>();
+        img.color = new Color(0.05f, 0.04f, 0.14f, 0.98f);
+        var rt = img.rectTransform;
+        rt.anchorMin = rt.anchorMax = anchor;
+        rt.sizeDelta = new Vector2(460, 52);
+        var field = go.AddComponent<InputField>();
+        var txt = NewText(go.transform, "text", "", 26, TextAnchor.MiddleCenter,
+            Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        txt.rectTransform.offsetMin = new Vector2(12, 4);
+        txt.rectTransform.offsetMax = new Vector2(-12, -4);
+        txt.supportRichText = false;
+        var ph = NewText(go.transform, "placeholder", placeholder, 26, TextAnchor.MiddleCenter,
+            Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        ph.rectTransform.offsetMin = new Vector2(12, 4);
+        ph.rectTransform.offsetMax = new Vector2(-12, -4);
+        ph.color = new Color(0.6f, 0.65f, 0.85f, 0.45f);
+        ph.fontStyle = FontStyle.Italic;
+        field.textComponent = txt;
+        field.placeholder = ph;
+        field.characterLimit = 24;
+        return field;
     }
 
     void BuildLevelUpPanel()
@@ -345,7 +500,7 @@ public class HudController : MonoBehaviour
             var skills = player.GetComponent<SkillSystem>();
             if (skills != null)
                 foreach (var ow in skills.weapons)
-                    status += "\n" + ow.def.icon + " " + ow.def.name + " LV " + ow.level;
+                    status += "\n" + ow.DisplayIcon + " " + ow.DisplayName + (ow.evolved ? "  ★EVO" : "  LV " + ow.level);
             _weaponText.text = status;
         }
 
@@ -359,6 +514,7 @@ public class HudController : MonoBehaviour
         if (bossUp)
         {
             var b = waves.bossHealth;
+            _bossName.text = waves.bossName;
             _bossBar.fillAmount = (b.shield + b.hull) / (b.maxShield + b.maxHull);
         }
 

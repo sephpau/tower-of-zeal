@@ -10,11 +10,14 @@ public class SkillSystem : MonoBehaviour
     {
         public ZealData.WeaponDef def;
         public int level = 1;
+        public bool evolved;
         public float cooldown;
         // level-derived modifiers, rebuilt by ApplyLevels()
         public int amount, pierce;
         public float dmgMult = 1f, cdMult = 1f, areaMult = 1f, speedMult = 1f;
         public bool sweepBehind;
+        public string DisplayName => evolved ? def.evoName : def.name;
+        public string DisplayIcon => evolved ? def.evoIcon : def.icon;
     }
 
     // aggregated stats: pilot perks + passives (multiplicative bonuses as sums)
@@ -75,6 +78,17 @@ public class SkillSystem : MonoBehaviour
         if (id == "void") RebuildAura(ow);
     }
 
+    public void Evolve(string id)
+    {
+        var ow = GetWeapon(id);
+        if (ow == null || ow.evolved) return;
+        ow.evolved = true;
+        ApplyLevels(ow);
+        if (id == "fox") RebuildDrakes(ow);
+        if (id == "void") RebuildAura(ow);
+        ExplosionFactory.Explode(transform.position, new Color(1f, 0.9f, 0.4f), 1.5f);
+    }
+
     public void AddPassive(string id)
     {
         var def = ZealData.Passives.First(p => p.id == id);
@@ -130,6 +144,23 @@ public class SkillSystem : MonoBehaviour
                 }
             }
         }
+
+        if (ow.evolved) ApplyEvolution(ow);
+    }
+
+    static void ApplyEvolution(OwnedWeapon ow)
+    {
+        switch (ow.def.id)
+        {
+            case "bolt": ow.dmgMult *= 2f; ow.cdMult *= 0.5f; ow.pierce += 3; ow.speedMult *= 1.4f; ow.amount += 1; break;
+            case "fox": ow.amount += 2; ow.speedMult *= 1.6f; ow.dmgMult *= 1.8f; break;
+            case "cutlass": ow.dmgMult *= 1.8f; ow.areaMult *= 1.3f; break;   // full 360° handled in FireSweep
+            case "cannon": ow.amount += 3; ow.areaMult *= 1.4f; ow.dmgMult *= 1.5f; break;
+            case "chain": ow.amount += 6; ow.dmgMult *= 1.7f; ow.cdMult *= 0.7f; break;
+            case "pie": ow.amount += 2; ow.dmgMult *= 1.6f; ow.speedMult *= 1.2f; break;
+            case "coins": ow.amount += 4; ow.pierce += 2; ow.dmgMult *= 1.5f; break;
+            case "void": ow.areaMult *= 1.5f; ow.dmgMult *= 1.8f; break;
+        }
     }
 
     void Update()
@@ -163,18 +194,26 @@ public class SkillSystem : MonoBehaviour
         }
     }
 
+    // every damageable hostile: fighters, the three Zeal bosses, the dreadnought
+    public static List<Health> AllHostiles()
+    {
+        var list = new List<Health>();
+        foreach (var ai in Object.FindObjectsByType<EnemyAI>()) { var h = ai.GetComponent<Health>(); if (h != null) list.Add(h); }
+        foreach (var mb in Object.FindObjectsByType<MinibossAI>()) { var h = mb.GetComponent<Health>(); if (h != null) list.Add(h); }
+        var boss = Object.FindAnyObjectByType<BossAI>();
+        if (boss != null) { var h = boss.GetComponent<Health>(); if (h != null) list.Add(h); }
+        return list;
+    }
+
     Transform Nearest(float range)
     {
         Transform best = null;
         float bd = range;
-        foreach (var ai in Object.FindObjectsByType<EnemyAI>())
+        foreach (var h in AllHostiles())
         {
-            float d = Vector3.Distance(transform.position, ai.transform.position);
-            if (d < bd) { bd = d; best = ai.transform; }
+            float d = Vector3.Distance(transform.position, h.transform.position);
+            if (d < bd) { bd = d; best = h.transform; }
         }
-        var boss = Object.FindAnyObjectByType<BossAI>();
-        if (boss != null && Vector3.Distance(transform.position, boss.transform.position) < range)
-            best = boss.transform;
         return best;
     }
 
@@ -243,11 +282,11 @@ public class SkillSystem : MonoBehaviour
             hitSet.Add(cur);
             Transform next = null;
             float bd = 45f;
-            foreach (var ai in Object.FindObjectsByType<EnemyAI>())
+            foreach (var hh in AllHostiles())
             {
-                if (hitSet.Contains(ai.transform)) continue;
-                float d = Vector3.Distance(cur.position, ai.transform.position);
-                if (d < bd) { bd = d; next = ai.transform; }
+                if (hitSet.Contains(hh.transform)) continue;
+                float d = Vector3.Distance(cur.position, hh.transform.position);
+                if (d < bd) { bd = d; next = hh.transform; }
             }
             cur = next;
         }
@@ -275,32 +314,47 @@ public class SkillSystem : MonoBehaviour
         float range = 30f * ow.areaMult * AreaMult;
         float dmg = ow.def.dmg * ow.dmgMult * DamageMult;
         int waves = ow.amount;
-        bool hitAny = SweepArc(transform.forward, range, dmg, waves);
-        if (ow.sweepBehind) hitAny |= SweepArc(-transform.forward, range * 0.8f, dmg, 1);
+        bool hitAny;
+        if (ow.evolved)   // Tempest Blades: the full hurricane
+            hitAny = SweepArc(transform.forward, range * 1.1f, dmg, waves, 180f);
+        else
+        {
+            hitAny = SweepArc(transform.forward, range, dmg, waves, 55f);
+            if (ow.sweepBehind) hitAny |= SweepArc(-transform.forward, range * 0.8f, dmg, 1, 55f);
+        }
         if (hitAny) GameManager.I.PlaySfx(SfxSynth.Hit, 0.35f);
         return true;   // sweep always cycles, hit or not
     }
 
-    bool SweepArc(Vector3 dir, float range, float dmg, int waves)
+    bool SweepArc(Vector3 dir, float range, float dmg, int waves, float halfAngle)
     {
-        SweepVisual.Show(transform, dir, range);
+        SweepVisual.Show(transform, dir, range, halfAngle);
         bool any = false;
         foreach (var ai in Object.FindObjectsByType<EnemyAI>())
         {
             Vector3 to = ai.transform.position - transform.position;
             if (to.magnitude > range) continue;
-            if (Vector3.Angle(dir, to) > 55f) continue;
+            if (Vector3.Angle(dir, to) > halfAngle) continue;
             var h = ai.GetComponent<Health>();
             if (h != null) h.TakeDamage(dmg * waves);
             var rb = ai.GetComponent<Rigidbody>();
             if (rb != null) rb.AddForce(to.normalized * 900f, ForceMode.Impulse);
             any = true;
         }
+        foreach (var mb in Object.FindObjectsByType<MinibossAI>())
+        {
+            Vector3 to = mb.transform.position - transform.position;
+            if (to.magnitude < range && Vector3.Angle(dir, to) < halfAngle)
+            {
+                mb.GetComponent<Health>().TakeDamage(dmg * waves);
+                any = true;
+            }
+        }
         var boss = Object.FindAnyObjectByType<BossAI>();
         if (boss != null)
         {
             Vector3 to = boss.transform.position - transform.position;
-            if (to.magnitude < range && Vector3.Angle(dir, to) < 55f)
+            if (to.magnitude < range && Vector3.Angle(dir, to) < halfAngle)
             {
                 boss.GetComponent<Health>().TakeDamage(dmg * waves);
                 any = true;
@@ -343,14 +397,9 @@ public class SkillSystem : MonoBehaviour
             Vector3 pos = transform.position + offset;
             _drakes[i].transform.position = pos;
             _drakes[i].transform.rotation = Quaternion.LookRotation(Vector3.Cross(offset.normalized, transform.up) + transform.forward * 0.3f);
-            foreach (var ai in Object.FindObjectsByType<EnemyAI>())
-            {
-                if (Vector3.Distance(pos, ai.transform.position) < 3.5f)
-                {
-                    var h = ai.GetComponent<Health>();
-                    if (h != null) h.TakeDamage(dmg * Time.deltaTime * 3f);
-                }
-            }
+            foreach (var h in AllHostiles())
+                if (Vector3.Distance(pos, h.transform.position) < (h.isPlayer ? 0f : 4.5f))
+                    h.TakeDamage(dmg * Time.deltaTime * 3f);
         }
     }
 
@@ -386,14 +435,8 @@ public class SkillSystem : MonoBehaviour
         _auraTick = ow.def.cd * CooldownMult;
         float r = AuraRadius(ow);
         float dmg = ow.def.dmg * ow.dmgMult * DamageMult;
-        foreach (var ai in Object.FindObjectsByType<EnemyAI>())
-            if (Vector3.Distance(transform.position, ai.transform.position) < r)
-            {
-                var h = ai.GetComponent<Health>();
-                if (h != null) h.TakeDamage(dmg);
-            }
-        var boss = Object.FindAnyObjectByType<BossAI>();
-        if (boss != null && Vector3.Distance(transform.position, boss.transform.position) < r + 8f)
-            boss.GetComponent<Health>().TakeDamage(dmg);
+        foreach (var h in AllHostiles())
+            if (Vector3.Distance(transform.position, h.transform.position) < r + 5f)
+                h.TakeDamage(dmg);
     }
 }
