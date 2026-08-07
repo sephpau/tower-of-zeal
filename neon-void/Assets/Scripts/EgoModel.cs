@@ -30,10 +30,10 @@ public class EgoShowcase : MonoBehaviour
     public static void Create(Camera cam)
     {
         var holder = new GameObject("EgoShowcase");
-        var ego = EgoModel.Spawn(holder.transform, Vector3.zero, 2.2f);
-        if (ego == null) { Object.Destroy(holder); return; }
-        holder.transform.position = cam.transform.position + cam.transform.forward * 6f
-            + cam.transform.right * 2.2f - cam.transform.up * 0.4f;
+        var ego = EgoModel.Spawn(holder.transform, Vector3.zero, 2.6f);
+        if (ego == null) { Object.Destroy(holder); Debug.LogWarning("EgoShowcase: Resources/ego not found"); return; }
+        holder.transform.position = cam.transform.position + cam.transform.forward * 5f
+            + cam.transform.right * 2.6f - cam.transform.up * 1.2f;
         holder.AddComponent<EgoShowcase>();
 
         var l = new GameObject("egoLight").AddComponent<Light>();

@@ -561,7 +561,7 @@ public class HudController : MonoBehaviour
         var rt = go.AddComponent<RectTransform>();
         Stretch(rt);
         var bg = go.AddComponent<Image>();
-        bg.color = new Color(0.03f, 0.01f, 0.1f, 0.72f);
+        bg.color = new Color(0.03f, 0.01f, 0.1f, 0.5f);   // light enough to see the 3D showcase behind
         bg.raycastTarget = false;
         return go;
     }

@@ -35,8 +35,8 @@ public static class PlayerShipFactory
         NVMeshes.SpherePart(ship, glassMat, new Vector3(0f, 0.38f, 0.9f), new Vector3(0.55f, 0.42f, 1.5f));
         NVMeshes.SpherePart(ship, darkMat, new Vector3(0f, 0.2f, -0.7f), new Vector3(0.5f, 0.35f, 1.8f));
 
-        // the pilot himself, seated under the glass
-        EgoModel.Spawn(ship.transform, new Vector3(0f, 0.18f, 0.65f), 0.6f);
+        // the pilot himself, seated under the glass, head in the bubble
+        EgoModel.Spawn(ship.transform, new Vector3(0f, 0.3f, 0.72f), 0.5f);
 
         var wingMesh = NVMeshes.Wing(2.9f, 2.1f, 0.7f, 1.6f, 0.16f);
         var finMesh = NVMeshes.Wing(1.0f, 0.9f, 0.35f, 0.55f, 0.1f);
