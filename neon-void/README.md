@@ -1,4 +1,4 @@
-# Neon Void
+# Zeal Survivors v2: The Void
 
 Free-flight 3D space shooter — Unity 6, synthwave everything. All geometry,
 materials, UI, and audio are generated procedurally in code; there are no

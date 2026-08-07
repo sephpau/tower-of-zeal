@@ -344,13 +344,17 @@ public class HudController : MonoBehaviour
     void BuildStartPanel()
     {
         _startPanel = Panel("StartPanel");
-        var t = NewText(_startPanel.transform, "title", "NEON VOID", 100, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.82f), new Vector2(0.5f, 0.82f), Vector2.zero, new Vector2(1600, 130));
+        var t = NewText(_startPanel.transform, "title", "ZEAL SURVIVORS", 96, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.84f), new Vector2(0.5f, 0.84f), Vector2.zero, new Vector2(1700, 125));
         t.color = new Color(0.5f, 0.95f, 1f);
         t.fontStyle = FontStyle.BoldAndItalic;
-        var s = NewText(_startPanel.transform, "sub", "ZEAL SURVIVORS PROTOCOL // CLEAR 10 WAVES — DESTROY THE VOID DREADNOUGHT", 24, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.72f), new Vector2(0.5f, 0.72f), Vector2.zero, new Vector2(1600, 40));
-        s.color = new Color(1f, 0.55f, 0.9f);
+        var v2 = NewText(_startPanel.transform, "v2", "V2 — THE VOID", 40, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.755f), new Vector2(0.5f, 0.755f), Vector2.zero, new Vector2(1000, 55));
+        v2.color = new Color(1f, 0.55f, 0.9f);
+        v2.fontStyle = FontStyle.BoldAndItalic;
+        var s = NewText(_startPanel.transform, "sub", "CLEAR 10 WAVES — DESTROY THE VOID DREADNOUGHT", 22, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.7f), new Vector2(0.5f, 0.7f), Vector2.zero, new Vector2(1600, 36));
+        s.color = new Color(0.8f, 0.9f, 1f, 0.8f);
         var pick = NewText(_startPanel.transform, "pick", "CHOOSE YOUR EGO", 32, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.64f), new Vector2(0.5f, 0.64f), Vector2.zero, new Vector2(800, 50));
         pick.color = new Color(1f, 0.85f, 0.4f);
