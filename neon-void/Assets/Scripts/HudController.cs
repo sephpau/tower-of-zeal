@@ -392,7 +392,7 @@ public class HudController : MonoBehaviour
             new Vector2(0.5f, 0.78f), new Vector2(0.5f, 0.78f), Vector2.zero, new Vector2(1400, 90));
         t.color = new Color(1f, 0.55f, 0.9f);
         t.fontStyle = FontStyle.BoldAndItalic;
-        var sub = NewText(_tourneySetupPanel.transform, "sub", "5-MINUTE SEEDED RUN · SAME MATCH CODE = SAME PILOT, SAME WAVES, SAME DRAFTS\nSCORE BIG BEFORE THE CLOCK RUNS OUT — VERIFY CODE PROVES YOUR RUN", 20, TextAnchor.MiddleCenter,
+        var sub = NewText(_tourneySetupPanel.transform, "sub", "6-MINUTE SEEDED RUN · +20% XP · SAME MATCH CODE = SAME PILOT, SAME WAVES, SAME DRAFTS\nSCORE BIG BEFORE THE CLOCK RUNS OUT — VERIFY CODE PROVES YOUR RUN", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(1400, 60));
         sub.color = new Color(0.8f, 0.9f, 1f, 0.8f);
 

@@ -80,7 +80,8 @@ public class GameManager : MonoBehaviour
     public void GainXp(int amount)
     {
         if (!Running) return;
-        xp += Mathf.Max(1, Mathf.RoundToInt(amount * _skills.XpMult));
+        float tournamentBonus = TournamentMode.Active ? TournamentMode.XpBonus : 1f;
+        xp += Mathf.Max(1, Mathf.RoundToInt(amount * _skills.XpMult * tournamentBonus));
         PlaySfx(SfxSynth.Pickup, 0.15f);
         while (xp >= ZealData.XpToNext(xpLevel))
         {
