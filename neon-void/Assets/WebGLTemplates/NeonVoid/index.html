@@ -165,17 +165,19 @@
     }, 2400);
 
     // ---------- progress (smoothed toward loader's target) ----------
-    var nvFill = document.getElementById("nv-fill") || document.getElementById("nv-bar-fill");
+    // setInterval, not rAF: rAF freezes in background tabs, and the bar
+    // should keep moving if the player loads the game behind another tab
+    var nvFill = document.getElementById("nv-bar-fill");
     var nvPct = document.getElementById("nv-pct");
     var nvTarget = 0, nvShown = 0;
-    (function nvAnim() {
+    var nvBarTimer = setInterval(function () {
       if (nvShown < nvTarget) {
         nvShown = Math.min(nvTarget, nvShown + 0.008 + (nvTarget - nvShown) * 0.08);
         nvFill.style.width = (nvShown * 100).toFixed(1) + "%";
         nvPct.textContent = Math.round(nvShown * 100) + "%";
       }
-      if (nvShown < 1) requestAnimationFrame(nvAnim);
-    })();
+      if (nvShown >= 1) clearInterval(nvBarTimer);
+    }, 40);
 
     // ---------- Unity boot ----------
     var canvas = document.querySelector("#unity-canvas");
@@ -204,7 +206,8 @@
       createUnityInstance(canvas, config, function (progress) {
         nvTarget = Math.max(nvTarget, progress);
       }).then(function (unityInstance) {
-        nvTarget = 1;
+        nvTarget = 1; nvShown = 1;
+        nvFill.style.width = "100%"; nvPct.textContent = "100%";
         clearInterval(nvFlavorTimer);
         nvFlavor.textContent = "Entering the void…";
         setTimeout(function () {
