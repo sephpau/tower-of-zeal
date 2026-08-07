@@ -19,6 +19,16 @@ public static class SkillIcons
     public static Sprite Active(string id) =>
         ActiveFiles.TryGetValue(id, out var file) ? Load(file) : null;
 
+    static readonly Dictionary<string, string> SpecialFiles = new Dictionary<string, string> {
+        { "ego", "Zeal Bolt" },
+        { "captain", "Corsair Cutlass" },
+        { "chef", "Scalding Pie" },
+        { "lunar", "Storm Mark" },
+    };
+
+    public static Sprite Special(string pilotId) =>
+        pilotId != null && SpecialFiles.TryGetValue(pilotId, out var file) ? Load(file) : null;
+
     // passive icons are per-level; fall back to the highest level that has art
     public static Sprite Passive(string id, int level)
     {

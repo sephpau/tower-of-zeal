@@ -714,11 +714,17 @@ public class HudController : MonoBehaviour
             if (spc != null && spc.DisplayName != null)
             {
                 status += "\nRMB " + spc.DisplayName;
+                if (spc.PilotId != _skillIconFor)
+                {
+                    _skillIconFor = spc.PilotId;
+                    var specialArt = SkillIcons.Special(spc.PilotId);   // hand-drawn art first
+                    _skillIconImg.sprite = specialArt != null ? specialArt : SkillIconSprite(spc.PilotId);
+                }
                 bool ready = spc.cooldownLeft <= 0f;
                 _skillFill.fillAmount = spc.CooldownTotal > 0f ? 1f - spc.cooldownLeft / spc.CooldownTotal : 1f;
                 _skillFill.color = ready
-                    ? new Color(1f, 0.85f, 0.4f, 0.95f)
-                    : new Color(0.4f, 0.6f, 0.9f, 0.55f);
+                    ? new Color(1f, 0.85f, 0.4f, 0.3f)
+                    : new Color(0.2f, 0.3f, 0.5f, 0.55f);
                 _skillCdText.text = ready ? "" : Mathf.CeilToInt(spc.cooldownLeft).ToString();
                 _skillCdText.color = Color.white;
             }
