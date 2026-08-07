@@ -48,8 +48,7 @@ public static class PlayerShipFactory
         noseStripe.transform.localScale = new Vector3(0.12f, 0.06f, 0.9f);
         noseStripe.GetComponent<MeshRenderer>().sharedMaterial = pink;
 
-        // ---- Ego under the dome, then the glass over him ----
-        EgoModel.Spawn(ship.transform, new Vector3(0f, 0.05f, 0f), 0.85f);
+        // ---- glass dome (cockpit Ego removed for now — future plans) ----
         var dome = NVMeshes.SpherePart(ship, glassMat, new Vector3(0f, 0.3f, 0f), new Vector3(1.9f, 1.5f, 1.9f));
         dome.name = "canopyDome";
 
