@@ -63,7 +63,7 @@ public class BossAI : MonoBehaviour
 
         Quaternion want = Quaternion.LookRotation(desired);
         _rb.MoveRotation(Quaternion.RotateTowards(_rb.rotation, want, 14f * Time.fixedDeltaTime));
-        _rb.linearVelocity = transform.forward * speed;
+        _rb.linearVelocity = transform.forward * speed * ActiveSkills.EnemySlow;
 
         // turret bursts with lead
         _turretTimer -= Time.fixedDeltaTime;

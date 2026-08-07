@@ -23,6 +23,8 @@ public class HudController : MonoBehaviour
     Image _xpBar, _skillFill, _skillIconImg;
     string _skillIconFor;
     readonly List<Image> _dirPool = new List<Image>();
+    readonly List<Image> _actFills = new List<Image>();
+    readonly List<Text> _actAbbrevs = new List<Text>();
     Sprite _arrowSprite;
     GameObject _levelUpPanel, _tourneySetupPanel, _tourneyResultsPanel;
     InputField _codeInput, _nameInput;
@@ -137,6 +139,29 @@ public class HudController : MonoBehaviour
             new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, -4), new Vector2(80, 20));
         _skillLabel.color = new Color(1f, 0.85f, 0.4f, 0.85f);
 
+        // active skill slots 1-4, mirrored on the left of the bars
+        for (int i = 0; i < 4; i++)
+        {
+            var slotBg = NewImage(_gameHud.transform, "actslot" + i, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(-240 - i * 60, 44), new Vector2(50, 50));
+            slotBg.sprite = CircleSprite();
+            slotBg.color = new Color(0.05f, 0.05f, 0.15f, 0.7f);
+            var fill = NewImage(slotBg.transform, "fill", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            fill.sprite = CircleSprite();
+            fill.type = Image.Type.Filled;
+            fill.fillMethod = Image.FillMethod.Radial360;
+            fill.fillOrigin = (int)Image.Origin360.Top;
+            fill.color = new Color(0f, 0f, 0f, 0f);
+            _actFills.Add(fill);
+            var ab = NewText(slotBg.transform, "abbrev", "", 15, TextAnchor.MiddleCenter,
+                Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            ab.fontStyle = FontStyle.Bold;
+            _actAbbrevs.Add(ab);
+            var key = NewText(slotBg.transform, "key", (i + 1).ToString(), 13, TextAnchor.UpperCenter,
+                new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, -3), new Vector2(30, 18));
+            key.color = new Color(0.7f, 0.8f, 1f, 0.7f);
+        }
+
         _bannerText = NewText(_gameHud.transform, "banner", "", 64, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.65f), new Vector2(0.5f, 0.65f), Vector2.zero, new Vector2(1400, 90));
         _bannerText.color = new Color(1f, 0.4f, 0.85f, 0f);
@@ -250,8 +275,9 @@ public class HudController : MonoBehaviour
     public void SetTimer(float secondsLeft)
     {
         secondsLeft = Mathf.Max(0f, secondsLeft);
-        _timerText.text = Mathf.FloorToInt(secondsLeft / 60f) + ":" + Mathf.FloorToInt(secondsLeft % 60f).ToString("00");
-        _timerText.color = secondsLeft < 30f ? new Color(1f, 0.35f, 0.5f) : new Color(1f, 0.85f, 0.4f);
+        bool overtime = secondsLeft <= TournamentMode.Overtime;
+        _timerText.text = (overtime ? "OT " : "") + Mathf.FloorToInt(secondsLeft / 60f) + ":" + Mathf.FloorToInt(secondsLeft % 60f).ToString("00");
+        _timerText.color = overtime ? new Color(1f, 0.35f, 0.5f) : new Color(1f, 0.85f, 0.4f);
     }
 
     public void ShowTournamentResults(string reason, int score, string verify, string matchCode, List<TournamentMode.Entry> standings)
@@ -392,7 +418,7 @@ public class HudController : MonoBehaviour
             new Vector2(0.5f, 0.78f), new Vector2(0.5f, 0.78f), Vector2.zero, new Vector2(1400, 90));
         t.color = new Color(1f, 0.55f, 0.9f);
         t.fontStyle = FontStyle.BoldAndItalic;
-        var sub = NewText(_tourneySetupPanel.transform, "sub", "6-MINUTE SEEDED RUN · +20% XP · SAME MATCH CODE = SAME PILOT, SAME WAVES, SAME DRAFTS\nSCORE BIG BEFORE THE CLOCK RUNS OUT — VERIFY CODE PROVES YOUR RUN", 20, TextAnchor.MiddleCenter,
+        var sub = NewText(_tourneySetupPanel.transform, "sub", "5-MINUTE SEEDED RUN + 1 MINUTE OVERTIME · +20% XP · SAME CODE = SAME PILOT, WAVES, DRAFTS\nSCORE BIG BEFORE THE CLOCK RUNS OUT — VERIFY CODE PROVES YOUR RUN", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(1400, 60));
         sub.color = new Color(0.8f, 0.9f, 1f, 0.8f);
 
@@ -603,9 +629,8 @@ public class HudController : MonoBehaviour
         var weapon = player.GetComponent<Weapon>();
         if (weapon != null)
         {
-            string status = "PULSER LV " + weapon.level;
+            string status = "ZEAL SIGIL LV " + weapon.sigilLevel;
             if (weapon.rapidTimer > 0f) status += "   RAPID " + Mathf.CeilToInt(weapon.rapidTimer) + "s";
-            if (weapon.homingTimer > 0f) status += "   HOMING " + Mathf.CeilToInt(weapon.homingTimer) + "s";
             var spc = player.GetComponent<SpecialAttack>();
             if (spc != null && spc.DisplayName != null)
             {
@@ -630,6 +655,26 @@ public class HudController : MonoBehaviour
         _xpLevelText.text = "LV " + GameManager.I.xpLevel;
 
         UpdateIndicators(player);
+
+        // active skill slots
+        var acts = player.GetComponent<ActiveSkills>();
+        for (int i = 0; i < _actFills.Count; i++)
+        {
+            if (acts != null && i < acts.slots.Count)
+            {
+                var slot = acts.slots[i];
+                bool ready = slot.cdLeft <= 0f;
+                _actAbbrevs[i].text = slot.def.abbrev;
+                _actAbbrevs[i].color = ready ? new Color(1f, 0.95f, 0.7f) : new Color(0.7f, 0.75f, 0.9f, 0.8f);
+                _actFills[i].fillAmount = 1f - slot.cdLeft / slot.def.cooldown;
+                _actFills[i].color = ready ? new Color(1f, 0.85f, 0.4f, 0.55f) : new Color(0.4f, 0.6f, 0.9f, 0.35f);
+            }
+            else
+            {
+                _actAbbrevs[i].text = "";
+                _actFills[i].color = new Color(0f, 0f, 0f, 0f);
+            }
+        }
 
         // boss bar
         bool bossUp = waves.bossHealth != null;

@@ -50,9 +50,15 @@ public class GameManager : MonoBehaviour
     }
 
     float _elapsed;
+    int _sigilIdx;
+    bool _overtimeAnnounced;
 
     public void StartRun(int pilotIndex)
     {
+        _sigilIdx = 0;
+        _overtimeAnnounced = false;
+        var actsReset = _playerHealth.GetComponent<ActiveSkills>();
+        if (actsReset != null) actsReset.ResetAll();
         Running = true;
         score = 0;
         combo = 0;
@@ -81,9 +87,11 @@ public class GameManager : MonoBehaviour
     {
         if (!Running) return;
         float tournamentBonus = TournamentMode.Active ? TournamentMode.XpBonus : 1f;
-        xp += Mathf.Max(1, Mathf.RoundToInt(amount * _skills.XpMult * tournamentBonus));
+        int gained = Mathf.Max(1, Mathf.RoundToInt(amount * _skills.XpMult * tournamentBonus));
+        if (xpLevel >= ZealData.MaxLevel) { score += gained * 5; return; }   // capped: xp becomes score
+        xp += gained;
         PlaySfx(SfxSynth.Pickup, 0.15f);
-        while (xp >= ZealData.XpToNext(xpLevel))
+        while (xpLevel < ZealData.MaxLevel && xp >= ZealData.XpToNext(xpLevel))
         {
             xp -= ZealData.XpToNext(xpLevel);
             xpLevel++;
@@ -93,7 +101,8 @@ public class GameManager : MonoBehaviour
 
     void OpenLevelUp()
     {
-        var choices = LevelUpChoices.Generate(_skills, TournamentMode.Active ? TournamentMode.DraftRng(xpLevel) : null);
+        var acts = _playerHealth.GetComponent<ActiveSkills>();
+        var choices = LevelUpChoices.Generate(xpLevel, _skills, acts, TournamentMode.Active ? TournamentMode.DraftRng(xpLevel) : null);
         if (choices.Count == 0) { score += 300; return; }
         Paused = true;
         Time.timeScale = 0f;
@@ -135,10 +144,27 @@ public class GameManager : MonoBehaviour
         }
 
         _elapsed += Time.deltaTime;
+
+        // Zeal Sigil grows on the run clock
+        var weapon = _playerHealth.GetComponent<Weapon>();
+        while (_sigilIdx < ZealData.SigilTimes.Length && _elapsed >= ZealData.SigilTimes[_sigilIdx])
+        {
+            _sigilIdx++;
+            if (weapon != null) weapon.sigilLevel = 1 + _sigilIdx;
+            _hud.WaveBanner("ZEAL SIGIL LV " + (1 + _sigilIdx));
+            PlaySfx(SfxSynth.Pickup, 0.9f);
+        }
+
         if (TournamentMode.Active)
         {
             float left = TournamentMode.Duration - _elapsed;
             _hud.SetTimer(left);
+            if (!_overtimeAnnounced && left <= TournamentMode.Overtime)
+            {
+                _overtimeAnnounced = true;
+                _hud.WaveBanner("!! OVERTIME !!");
+                PlaySfx(SfxSynth.WaveUp, 1f);
+            }
             if (left <= 0f) EndTournament("TIME!");
         }
 
@@ -227,14 +253,6 @@ public class GameManager : MonoBehaviour
         PlaySfx(SfxSynth.Pickup, 0.9f);
         switch (type)
         {
-            case PowerupType.WeaponUp:
-                if (weapon != null && weapon.level < Weapon.MaxLevel)
-                {
-                    weapon.level++;
-                    _hud.WaveBanner("PULSER LV " + weapon.level);
-                }
-                else score += 500;   // maxed — convert to score
-                break;
             case PowerupType.Rapid:
                 if (weapon != null) weapon.rapidTimer = Mathf.Max(weapon.rapidTimer, 10f);
                 _hud.WaveBanner("RAPID FIRE");

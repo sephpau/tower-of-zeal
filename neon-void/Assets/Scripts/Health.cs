@@ -12,6 +12,10 @@ public class Health : MonoBehaviour
     public event Action<Health> OnDeath;
     public event Action<Health, float> OnDamaged;
 
+    // Pocket Drake: absorbs damage before shield/hull; fires when it breaks
+    public float absorb;
+    public event Action OnAbsorbBroken;
+
     float _sinceHit = 99f;
     bool _dead;
 
@@ -38,6 +42,14 @@ public class Health : MonoBehaviour
             if (sc != null && sc.guarding) amount *= 0.5f;   // guard mode halves damage
         }
         _sinceHit = 0f;
+        if (absorb > 0f)
+        {
+            float soaked = Mathf.Min(absorb, amount);
+            absorb -= soaked;
+            amount -= soaked;
+            if (absorb <= 0f) OnAbsorbBroken?.Invoke();
+            if (amount <= 0f) return;
+        }
         float toShield = Mathf.Min(shield, amount);
         shield -= toShield;
         hull -= (amount - toShield);

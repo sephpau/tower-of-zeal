@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public enum PowerupType { WeaponUp, Rapid, ShieldCell }
+public enum PowerupType { Rapid, ShieldCell }
 
 // Drops from kills: drifts in space, magnets to the player when close.
 // WeaponUp is a permanent level (max 5); Rapid/Homing are timed; ShieldCell heals.
@@ -11,7 +11,6 @@ public class Powerup : MonoBehaviour
     Transform _player;
 
     static readonly Color[] Colors = {
-        new Color(0.4f, 1f, 0.5f),    // WeaponUp  — green
         new Color(1f, 0.85f, 0.3f),   // Rapid     — gold
         new Color(0.35f, 0.8f, 1f),   // ShieldCell— cyan
     };
@@ -19,10 +18,7 @@ public class Powerup : MonoBehaviour
     public static void TryDrop(Vector3 pos, float chance)
     {
         if (Random.value > chance) return;
-        float roll = Random.value;
-        PowerupType t =
-            roll < 0.35f ? PowerupType.WeaponUp :
-            roll < 0.65f ? PowerupType.Rapid : PowerupType.ShieldCell;
+        PowerupType t = Random.value < 0.45f ? PowerupType.Rapid : PowerupType.ShieldCell;
 
         var go = new GameObject("powerup-" + t);
         go.transform.position = pos;

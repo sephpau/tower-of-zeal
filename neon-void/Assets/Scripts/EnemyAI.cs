@@ -73,7 +73,7 @@ public class EnemyAI : MonoBehaviour
 
         Quaternion want = Quaternion.LookRotation(desired.normalized);
         _rb.MoveRotation(Quaternion.RotateTowards(_rb.rotation, want, turnDegPerSec * Time.fixedDeltaTime));
-        _rb.linearVelocity = transform.forward * speed;
+        _rb.linearVelocity = transform.forward * speed * ActiveSkills.EnemySlow;
 
         // firing: bursts of 3 with lead correction
         _burstTimer -= Time.fixedDeltaTime;

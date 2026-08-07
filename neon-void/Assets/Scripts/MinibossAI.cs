@@ -68,7 +68,7 @@ public class MinibossAI : MonoBehaviour
         // drift toward the player between blinks
         Quaternion want = Quaternion.LookRotation(toPlayer.normalized);
         _rb.MoveRotation(Quaternion.RotateTowards(_rb.rotation, want, 120f * Time.fixedDeltaTime));
-        _rb.linearVelocity = transform.forward * 26f;
+        _rb.linearVelocity = transform.forward * 26f * ActiveSkills.EnemySlow;
 
         _actTimer -= Time.fixedDeltaTime;
         if (_actTimer <= 0f)
@@ -108,7 +108,7 @@ public class MinibossAI : MonoBehaviour
         Vector3 desired = (tangent + toPlayer.normalized * Mathf.Clamp((dist - 70f) / 40f, -1f, 1f)).normalized;
         Quaternion want = Quaternion.LookRotation(desired);
         _rb.MoveRotation(Quaternion.RotateTowards(_rb.rotation, want, 60f * Time.fixedDeltaTime));
-        _rb.linearVelocity = transform.forward * 18f;
+        _rb.linearVelocity = transform.forward * 18f * ActiveSkills.EnemySlow;
         transform.Rotate(0f, 0f, 80f * Time.fixedDeltaTime, Space.Self);   // the wheel spins
 
         _fireTimer -= Time.fixedDeltaTime;
@@ -146,7 +146,7 @@ public class MinibossAI : MonoBehaviour
     {
         Quaternion want = Quaternion.LookRotation(toPlayer.normalized);
         _rb.MoveRotation(Quaternion.RotateTowards(_rb.rotation, want, 25f * Time.fixedDeltaTime));
-        _rb.linearVelocity = transform.forward * 10f;
+        _rb.linearVelocity = transform.forward * 10f * ActiveSkills.EnemySlow;
 
         // gravity well: drag the player toward the void
         if (dist < 130f && _playerRb != null)

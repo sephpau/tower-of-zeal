@@ -138,6 +138,8 @@ public class ShipController : MonoBehaviour
 
         Vector3 dir = InputDir();
         float speedMult = _skills != null ? _skills.SpeedMult : 1f;
+        var acts = GetComponent<ActiveSkills>();
+        if (acts != null) speedMult *= acts.SpeedBuffMult;
         Vector3 target = AimRotation() * dir * moveSpeed * speedMult;
 
         _vel = Vector3.MoveTowards(_vel, target, accel * Time.fixedDeltaTime);

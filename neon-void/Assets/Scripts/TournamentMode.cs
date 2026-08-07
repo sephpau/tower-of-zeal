@@ -8,7 +8,8 @@ using UnityEngine;
 // code the organizer can check (hash-compatible with the web version).
 public static class TournamentMode
 {
-    public const float Duration = 360f;    // 6:00 blitz clock
+    public const float Duration = 360f;    // 5:00 run + 1:00 overtime
+    public const float Overtime = 60f;     // the final minute is OVERTIME
     public const float XpBonus = 1.2f;     // +20% XP — level 10 is the perfect-run ceiling
 
     public static bool Active;

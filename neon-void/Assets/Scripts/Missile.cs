@@ -7,10 +7,10 @@ public class Missile : MonoBehaviour
     Transform _target;
     GameObject _owner;
     float _life;
+    float _damage = 30f;
 
     const float Speed = 62f;
     const float TurnDegPerSec = 160f;
-    const float Damage = 30f;
     static readonly Color Tint = new Color(1f, 0.55f, 0.9f);
 
     public static Transform FindTarget(Vector3 from, float range)
@@ -28,7 +28,7 @@ public class Missile : MonoBehaviour
         return best;
     }
 
-    public static void Launch(Vector3 pos, Vector3 initialDir, Transform target, GameObject owner)
+    public static void Launch(Vector3 pos, Vector3 initialDir, Transform target, GameObject owner, float damage = 30f)
     {
         var go = new GameObject("missile");
         go.transform.position = pos;
@@ -36,6 +36,7 @@ public class Missile : MonoBehaviour
         m._velocity = initialDir.normalized * Speed * 0.5f;
         m._target = target;
         m._owner = owner;
+        m._damage = damage;
         m._life = 6f;
 
         Vector2[] bodyProfile = {
@@ -86,7 +87,7 @@ public class Missile : MonoBehaviour
 
     void Detonate(Vector3 at, Health direct)
     {
-        if (direct != null && !direct.isPlayer) direct.TakeDamage(Damage);
+        if (direct != null && !direct.isPlayer) direct.TakeDamage(_damage);
         ExplosionFactory.Explode(at, Tint, 0.8f);
         GameManager.I.PlaySfxAt(SfxSynth.Boom, at, 0.5f);
         Destroy(gameObject);

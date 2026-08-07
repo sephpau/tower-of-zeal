@@ -11,14 +11,14 @@ public class Weapon : MonoBehaviour
     public bool isPlayerWeapon = true;
     public Transform[] muzzles;
 
-    public int level = 1;               // player only, 1..5
+    public int sigilLevel = 1;          // player only, 1..6 — advances on the run clock
     public float rapidTimer;            // seconds of rapid fire left
-    public float homingTimer;           // seconds of homing missiles left
+    public float homingTimer;           // legacy, unused
 
     float _cooldown;
     int _muzzleIndex;
 
-    public const int MaxLevel = 5;
+    public const int MaxSigil = 6;
 
     void Update()
     {
@@ -45,17 +45,51 @@ public class Weapon : MonoBehaviour
             return;
         }
 
-        // straight pulse fire only — levels add damage, twin barrels from LV2
+        // Zeal Sigil patterns — grows on the run clock
         Vector3 fwd = transform.forward;
-        Vector3 left = muzzles[0].position, right = muzzles[1 % muzzles.Length].position;
-        float dmg = damage * (1f + 0.15f * (Mathf.Clamp(level, 1, MaxLevel) - 1));
-        if (level >= 2)
+        Vector3 up = transform.up, right = transform.right;
+        Vector3 lp = muzzles[0].position, rp = muzzles[1 % muzzles.Length].position;
+        Vector3 center = (lp + rp) * 0.5f;
+        Vector3 slantL = Quaternion.AngleAxis(-6f, up) * fwd;
+        Vector3 slantR = Quaternion.AngleAxis(6f, up) * fwd;
+        float dmg = damage;
+
+        switch (Mathf.Clamp(sigilLevel, 1, MaxSigil))
         {
-            FireOne(left, fwd, dmg);
-            FireOne(right, fwd, dmg);
+            case 1:   // one straight pulse
+                FireOne(center, fwd, dmg);
+                break;
+            case 2:   // two straight
+                FireOne(lp, fwd, dmg);
+                FireOne(rp, fwd, dmg);
+                break;
+            case 3:   // two slanted + one straight middle
+                FireOne(lp, slantL, dmg);
+                FireOne(rp, slantR, dmg);
+                FireOne(center, fwd, dmg);
+                break;
+            case 4:   // two slanted + two straight middle
+                FireOne(lp, slantL, dmg);
+                FireOne(rp, slantR, dmg);
+                FireOne(center - right * 0.7f, fwd, dmg);
+                FireOne(center + right * 0.7f, fwd, dmg);
+                break;
+            case 5:   // two slanted + triangle formation
+                FireOne(lp, slantL, dmg);
+                FireOne(rp, slantR, dmg);
+                FireOne(center + up * 0.8f, fwd, dmg);
+                FireOne(center - right * 0.8f - up * 0.5f, fwd, dmg);
+                FireOne(center + right * 0.8f - up * 0.5f, fwd, dmg);
+                break;
+            default:  // two slanted + box formation
+                FireOne(lp, slantL, dmg);
+                FireOne(rp, slantR, dmg);
+                FireOne(center - right * 0.8f + up * 0.7f, fwd, dmg);
+                FireOne(center + right * 0.8f + up * 0.7f, fwd, dmg);
+                FireOne(center - right * 0.8f - up * 0.7f, fwd, dmg);
+                FireOne(center + right * 0.8f - up * 0.7f, fwd, dmg);
+                break;
         }
-        else
-            FireOne((left + right) * 0.5f, fwd, dmg);
         GameManager.I.PlaySfx(SfxSynth.Laser, 0.5f);
         ChaseCamera.Shake(0.04f);
     }
@@ -75,7 +109,10 @@ public class Weapon : MonoBehaviour
         get
         {
             if (!_skillsChecked) { _skillsRef = GetComponent<SkillSystem>(); _skillsChecked = true; }
-            return _skillsRef != null ? _skillsRef.DamageMult : 1f;
+            float m = _skillsRef != null ? _skillsRef.DamageMult : 1f;
+            var acts = GetComponent<ActiveSkills>();
+            if (acts != null) m *= acts.DamageBuffMult;
+            return m;
         }
     }
 

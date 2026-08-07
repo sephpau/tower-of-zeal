@@ -92,22 +92,58 @@ public static class ZealData
             evoName = "Void Tempest", evoDesc = "A consuming ring of violet fire.", evoNeeds = "chrono", evoIcon = "🟣" } },
     };
 
-    // ---------- passives ----------
+    // ---------- passives: 3 deep tracks, max level 3 each ----------
+    // Reaching level 3 in a passive grants MASTERY: +10% xp, damage, hp
+    // and movement speed on top.
     public class PassiveDef
     {
-        public string id, name, stat, desc, icon;
-        public float per;
-        public int maxLevel = 5;
+        public string id, name, stat, icon;
+        public float[] totals;       // total bonus at levels 1..3 (not per-level)
+        public string[] tierDesc;
     }
 
     public static readonly PassiveDef[] Passives = {
-        new PassiveDef { id = "sigil", name = "Zeal Sigil", icon = "🔥", stat = "might", per = 0.10f, desc = "+10% damage per rank" },
-        new PassiveDef { id = "chrono", name = "Storm Chronometer", icon = "⏱", stat = "cooldown", per = 0.07f, desc = "-7% weapon cooldown per rank" },
-        new PassiveDef { id = "boots", name = "Galewind Boots", icon = "👢", stat = "speed", per = 0.06f, desc = "+6% ship speed per rank" },
-        new PassiveDef { id = "grog", name = "Hearty Grog", icon = "🍺", stat = "maxhp", per = 0.10f, desc = "+10% max shield per rank" },
-        new PassiveDef { id = "lode", name = "Lodestone Charm", icon = "🧲", stat = "magnet", per = 0.25f, desc = "+25% pickup range per rank" },
-        new PassiveDef { id = "keg", name = "Powder Keg", icon = "🛢", stat = "area", per = 0.10f, desc = "+10% attack area per rank" },
+        new PassiveDef { id = "keg", name = "Powder Keg", icon = "🛢", stat = "might",
+            totals = new[] { 0.10f, 0.25f, 0.50f },
+            tierDesc = new[] { "+10% damage", "+25% damage", "+50% damage" } },
+        new PassiveDef { id = "grog", name = "Hearty Grog", icon = "🍺", stat = "maxhp",
+            totals = new[] { 0.20f, 0.50f, 1.00f },
+            tierDesc = new[] { "+20% max HP", "+50% max HP", "+100% max HP" } },
+        new PassiveDef { id = "lode", name = "Lodestone Charm", icon = "🧲", stat = "xpgain",
+            totals = new[] { 0.20f, 0.40f, 0.80f },
+            tierDesc = new[] { "+20% XP gain", "+40% XP gain", "+80% XP gain" } },
     };
+
+    public const int PassiveMaxLevel = 3;
+    public const float MasteryBonus = 0.10f;   // xp, dmg, hp, speed each
+
+    // ---------- active skills: learned on levels 3/5/7/9, keys 1-4 ----------
+    public class ActiveDef
+    {
+        public string id, name, desc, abbrev;
+        public float cooldown;
+    }
+
+    public static readonly ActiveDef[] Actives = {
+        new ActiveDef { id = "chrono", name = "Storm Chronometer", abbrev = "CHR", cooldown = 20f,
+            desc = "Instantly refund 75% of every other skill's cooldown." },
+        new ActiveDef { id = "boots", name = "Galewind Boots", abbrev = "BTS", cooldown = 10f,
+            desc = "+100% movement speed for 5 seconds." },
+        new ActiveDef { id = "doubloon", name = "Doubloon Toss", abbrev = "DBL", cooldown = 10f,
+            desc = "Hurl a horizontal wall of 25 golden pulses, each 3x pulse damage." },
+        new ActiveDef { id = "cannon", name = "Deck Cannon", abbrev = "CAN", cooldown = 20f,
+            desc = "Homing missile at the enemy in your crosshair. Massive single-target damage." },
+        new ActiveDef { id = "drake", name = "Pocket Drake", abbrev = "DRK", cooldown = 20f,
+            desc = "A drake absorbs the next 25% of your max HP in damage, for 5 seconds." },
+        new ActiveDef { id = "brazier", name = "Void Brazier", abbrev = "VBR", cooldown = 20f,
+            desc = "For 10 seconds: +20% all damage, enemies slowed by 40%." },
+    };
+
+    public const int MaxActives = 4;
+    public const int MaxLevel = 10;
+
+    // Zeal Sigil (the pulser) levels up on a run-time clock
+    public static readonly float[] SigilTimes = { 45f, 90f, 130f, 170f, 210f };   // -> LV2..LV6
 
     // Zeal auto-weapons disabled: combat is the straight LMB pulser only.
     // The system stays wired so new special attacks can slot in later.

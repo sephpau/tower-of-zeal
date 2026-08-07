@@ -196,6 +196,7 @@ public static class PlayerShipFactory
         ship.AddComponent<SkillSystem>();
         ship.AddComponent<ShipController>();
         ship.AddComponent<SpecialAttack>();
+        ship.AddComponent<ActiveSkills>();
         return ship;
     }
 }

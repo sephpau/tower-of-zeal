@@ -50,7 +50,16 @@ public class SpecialAttack : MonoBehaviour
         if (_channel != null) { StopCoroutine(_channel); _channel = null; }
     }
 
-    float Might => _skills != null ? _skills.DamageMult : 1f;
+    float Might
+    {
+        get
+        {
+            float m = _skills != null ? _skills.DamageMult : 1f;
+            var acts = GetComponent<ActiveSkills>();
+            if (acts != null) m *= acts.DamageBuffMult;
+            return m;
+        }
+    }
     Color Accent => _pilot != null ? _pilot.accent : Color.cyan;
 
     void Update()

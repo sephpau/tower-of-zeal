@@ -42,6 +42,8 @@ public class SkillSystem : MonoBehaviour
     public float XpMult => 1f + stats["xpgain"];
     public float GreedMult => 1f + stats["greed"];
 
+    float _baseMaxShield;
+
     public void InitPilot(ZealData.Pilot p)
     {
         pilot = p;
@@ -51,9 +53,17 @@ public class SkillSystem : MonoBehaviour
             else if (stats.ContainsKey(kv.Key)) stats[kv.Key] += kv.Value;
         }
         var health = GetComponent<Health>();
-        health.maxShield *= 1f + stats["maxhp"];
-        health.shield = health.maxShield;
+        _baseMaxShield = health.maxShield;
+        RecalcShield(full: true);
         if (ZealData.AutoWeaponsEnabled) AddWeapon(p.startWeapon);
+    }
+
+    void RecalcShield(bool full = false)
+    {
+        var h = GetComponent<Health>();
+        float frac = full || h.maxShield <= 0f ? 1f : h.shield / h.maxShield;
+        h.maxShield = _baseMaxShield * (1f + stats["maxhp"]);
+        h.shield = h.maxShield * frac;
     }
 
     public bool HasWeapon(string id) => weapons.Any(w => w.def.id == id);
@@ -89,26 +99,32 @@ public class SkillSystem : MonoBehaviour
         ExplosionFactory.Explode(transform.position, new Color(1f, 0.9f, 0.4f), 1.5f);
     }
 
+    // tiered passives: totals per level, mastery bundle at level 3
     public void AddPassive(string id)
     {
         var def = ZealData.Passives.First(p => p.id == id);
         int cur = passives.TryGetValue(id, out int v) ? v : 0;
-        if (cur >= def.maxLevel) return;
+        if (cur >= ZealData.PassiveMaxLevel) return;
         passives[id] = cur + 1;
-        if (def.stat == "recovery") GetComponent<Health>().shieldRegenPerSec += def.per * 4f;
-        else if (def.stat == "maxhp")
+
+        float prevTotal = cur > 0 ? def.totals[cur - 1] : 0f;
+        float delta = def.totals[cur] - prevTotal;
+        stats[def.stat] += delta;
+
+        if (passives[id] >= ZealData.PassiveMaxLevel)
         {
-            var h = GetComponent<Health>();
-            float frac = h.maxShield > 0 ? h.shield / h.maxShield : 1f;
-            stats["maxhp"] += def.per;
-            h.maxShield *= (1f + stats["maxhp"]) / (1f + stats["maxhp"] - def.per);
-            h.shield = h.maxShield * frac;
+            // MASTERY: +10% xp, damage, hp, movement speed
+            stats["xpgain"] += ZealData.MasteryBonus;
+            stats["might"] += ZealData.MasteryBonus;
+            stats["maxhp"] += ZealData.MasteryBonus;
+            stats["speed"] += ZealData.MasteryBonus;
+            GameManager.I.PlaySfx(SfxSynth.WaveUp, 0.9f);
         }
-        else stats[def.stat] += def.per;
-        // aura/drakes scale with area — refresh visuals
-        var voidW = GetWeapon("void");
-        if (voidW != null) RebuildAura(voidW);
+        if (def.stat == "maxhp" || passives[id] >= ZealData.PassiveMaxLevel)
+            RecalcShield();
     }
+
+    public int PassiveLevel(string id) => passives.TryGetValue(id, out int v) ? v : 0;
 
     // interpret the ported levelUps arrays (each entry = effect at that level-up)
     void ApplyLevels(OwnedWeapon ow)
