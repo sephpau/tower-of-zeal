@@ -16,9 +16,7 @@ public static class PlayerShipFactory
         var pink = NVAssets.PinkEmissive;
 
         // see-through glass so Ego is visible inside
-        var glassMat = NVAssets.StandardFade(new Color(0.45f, 0.8f, 1f, 0.16f), 0.9f, 0.03f);
-        glassMat.EnableKeyword("_EMISSION");
-        glassMat.SetColor("_EmissionColor", new Color(0.08f, 0.25f, 0.4f) * 0.4f);
+        var glassMat = NVAssets.StandardFade(new Color(0.45f, 0.8f, 1f, 0.1f), 0.9f, 0.03f);
 
         // ---- saucer hull (lathe around Z, tipped flat) ----
         Vector2[] saucer = {
@@ -137,8 +135,8 @@ public static class PlayerShipFactory
         domeLight.transform.localPosition = new Vector3(0f, 1.1f, 0.4f);
         domeLight.type = LightType.Point;
         domeLight.color = new Color(1f, 0.9f, 0.8f);
-        domeLight.intensity = 1.6f;
-        domeLight.range = 3.5f;
+        domeLight.intensity = 0.8f;
+        domeLight.range = 2.8f;
 
         var col = ship.AddComponent<BoxCollider>();
         col.center = new Vector3(0f, 0.1f, 0f);
