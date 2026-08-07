@@ -41,5 +41,7 @@ public class Boot : MonoBehaviour
         hud.Build();
 
         gm.Init(ship.GetComponent<Health>(), waves, hud);
+
+        if (cam != null) EgoShowcase.Create(cam);
     }
 }
