@@ -9,6 +9,7 @@ using UnityEngine;
 public class LevelUpChoices
 {
     public string title, desc, icon;
+    public Sprite sprite;
     System.Action _apply;
 
     public void Apply(SkillSystem s) => _apply();
@@ -34,6 +35,7 @@ public class LevelUpChoices
             cards.Add(new LevelUpChoices {
                 title = def.name + "  LV " + (cur + 1),
                 icon = def.icon,
+                sprite = SkillIcons.Passive(def.id, cur + 1),
                 desc = def.tierDesc[cur] + (mastery ? "\nMASTERY: +10% xp, dmg, hp, speed" : ""),
                 _apply = () => s.AddPassive(id),
             });
@@ -54,6 +56,7 @@ public class LevelUpChoices
             cards.Add(new LevelUpChoices {
                 title = "LEARN — " + def.name,
                 icon = def.abbrev,
+                sprite = SkillIcons.Active(def.id),
                 desc = def.desc + "\nKey [" + key + "] · " + def.cooldown + "s cooldown",
                 _apply = () => acts.Learn(id),
             });

@@ -24,6 +24,7 @@ public class HudController : MonoBehaviour
     string _skillIconFor;
     readonly List<Image> _dirPool = new List<Image>();
     readonly List<Image> _actFills = new List<Image>();
+    readonly List<Image> _actIcons = new List<Image>();
     readonly List<Text> _actAbbrevs = new List<Text>();
     Sprite _arrowSprite;
     GameObject _levelUpPanel, _tourneySetupPanel, _tourneyResultsPanel;
@@ -157,7 +158,12 @@ public class HudController : MonoBehaviour
             fill.fillMethod = Image.FillMethod.Radial360;
             fill.fillOrigin = (int)Image.Origin360.Top;
             fill.color = new Color(0f, 0f, 0f, 0f);
+            var slotIcon = NewImage(slotBg.transform, "icon", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(40, 40));
+            slotIcon.preserveAspect = true;
+            slotIcon.enabled = false;
+            _actIcons.Add(slotIcon);
             _actFills.Add(fill);
+            fill.transform.SetAsLastSibling();   // cooldown sweep stays over the art
             var ab = NewText(slotBg.transform, "abbrev", "", 15, TextAnchor.MiddleCenter,
                 Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             ab.fontStyle = FontStyle.Bold;
@@ -333,8 +339,17 @@ public class HudController : MonoBehaviour
                 onPick(choice);
             });
 
-            var icon = NewText(card.transform, "icon", choice.icon, 60, TextAnchor.MiddleCenter,
-                new Vector2(0.5f, 0.78f), new Vector2(0.5f, 0.78f), Vector2.zero, new Vector2(320, 80));
+            if (choice.sprite != null)
+            {
+                var img = NewImage(card.transform, "iconimg", new Vector2(0.5f, 0.76f), new Vector2(0.5f, 0.76f), Vector2.zero, new Vector2(110, 110));
+                img.sprite = choice.sprite;
+                img.preserveAspect = true;
+            }
+            else
+            {
+                var icon = NewText(card.transform, "icon", choice.icon, 60, TextAnchor.MiddleCenter,
+                    new Vector2(0.5f, 0.78f), new Vector2(0.5f, 0.78f), Vector2.zero, new Vector2(320, 80));
+            }
             var name = NewText(card.transform, "name", choice.title, 24, TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 0.55f), new Vector2(0.5f, 0.55f), Vector2.zero, new Vector2(320, 70));
             name.color = new Color(1f, 0.85f, 0.4f);
@@ -692,13 +707,26 @@ public class HudController : MonoBehaviour
             {
                 var slot = acts.slots[i];
                 bool ready = slot.cdLeft <= 0f;
-                _actAbbrevs[i].text = slot.def.abbrev;
-                _actAbbrevs[i].color = ready ? new Color(1f, 0.95f, 0.7f) : new Color(0.7f, 0.75f, 0.9f, 0.8f);
+                var art = SkillIcons.Active(slot.def.id);
+                if (art != null)
+                {
+                    _actIcons[i].enabled = true;
+                    _actIcons[i].sprite = art;
+                    _actIcons[i].color = ready ? Color.white : new Color(0.55f, 0.6f, 0.75f, 0.9f);
+                    _actAbbrevs[i].text = "";
+                }
+                else
+                {
+                    _actIcons[i].enabled = false;
+                    _actAbbrevs[i].text = slot.def.abbrev;
+                    _actAbbrevs[i].color = ready ? new Color(1f, 0.95f, 0.7f) : new Color(0.7f, 0.75f, 0.9f, 0.8f);
+                }
                 _actFills[i].fillAmount = 1f - slot.cdLeft / slot.def.cooldown;
-                _actFills[i].color = ready ? new Color(1f, 0.85f, 0.4f, 0.55f) : new Color(0.4f, 0.6f, 0.9f, 0.35f);
+                _actFills[i].color = ready ? new Color(1f, 0.85f, 0.4f, 0.3f) : new Color(0.2f, 0.3f, 0.5f, 0.55f);
             }
             else
             {
+                _actIcons[i].enabled = false;
                 _actAbbrevs[i].text = "";
                 _actFills[i].color = new Color(0f, 0f, 0f, 0f);
             }
