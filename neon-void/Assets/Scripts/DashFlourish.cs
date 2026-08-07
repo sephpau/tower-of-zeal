@@ -67,9 +67,7 @@ public class DashFlourish : MonoBehaviour
         yield return Phase(0.32f, k => Quaternion.Euler(-180f * k, 0f, 0f));
         // phase 2: 180° sideways roll on top of the flip
         yield return Phase(0.28f, k => Quaternion.Euler(0f, 0f, 180f * k) * Quaternion.Euler(-180f, 0f, 0f));
-        // settle: blend the leftover net rotation back to identity
-        Quaternion from = visualRoot.localRotation;
-        yield return Phase(0.22f, k => Quaternion.Slerp(from, Quaternion.identity, k));
+        // done — snap straight back to the original pov, no extra spin
         visualRoot.localRotation = Quaternion.identity;
         CameraSpin = Quaternion.identity;
         _active = null;
