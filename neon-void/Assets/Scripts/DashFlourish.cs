@@ -6,13 +6,16 @@ using UnityEngine;
 //  W: forward lunge dip                       S: 180° somersault, then 180° sideways, settle
 public class DashFlourish : MonoBehaviour
 {
+    // extra roll the chase camera applies this frame — barrel rolls spin the POV too
+    public static float CameraRoll;
+
     public Transform visualRoot;
     Coroutine _active;
 
     public void Play(char type)
     {
         if (visualRoot == null) return;
-        if (_active != null) StopCoroutine(_active);
+        if (_active != null) { StopCoroutine(_active); CameraRoll = 0f; visualRoot.localScale = Vector3.one; }
         switch (type)
         {
             case 'A': _active = StartCoroutine(BarrelRoll(360f)); break;
@@ -31,9 +34,11 @@ public class DashFlourish : MonoBehaviour
             t += Time.deltaTime;
             float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / dur));
             visualRoot.localRotation = Quaternion.Euler(0f, 0f, totalDeg * k);
+            CameraRoll = totalDeg * k;   // POV rolls with the ship — the world spins
             yield return null;
         }
         visualRoot.localRotation = Quaternion.identity;
+        CameraRoll = 0f;
         _active = null;
     }
 
