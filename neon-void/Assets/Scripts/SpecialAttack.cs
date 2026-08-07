@@ -73,14 +73,32 @@ public class SpecialAttack : MonoBehaviour
     IEnumerator ZealBeam()
     {
         var go = new GameObject("zealBeam");
-        var lr = go.AddComponent<LineRenderer>();
-        lr.material = NVAssets.Additive;
-        lr.startWidth = 1.1f;
-        lr.endWidth = 0.5f;
-        lr.startColor = Color.white;
-        lr.endColor = Accent;
-        var tip = NVAssets.Quad(NVAssets.AdditiveTinted(Accent), 6f);
+        // white-hot core
+        var core = go.AddComponent<LineRenderer>();
+        core.material = NVAssets.Additive;
+        core.startWidth = 2.2f;
+        core.endWidth = 1.4f;
+        core.startColor = Color.white;
+        core.endColor = new Color(1f, 1f, 1f, 0.9f);
+        // wide colored outer glow
+        var outerGo = new GameObject("beamOuter");
+        outerGo.transform.SetParent(go.transform, false);
+        var outer = outerGo.AddComponent<LineRenderer>();
+        outer.material = NVAssets.Additive;
+        outer.startWidth = 6.5f;
+        outer.endWidth = 3.5f;
+        outer.startColor = new Color(Accent.r, Accent.g, Accent.b, 0.55f);
+        outer.endColor = new Color(Accent.r, Accent.g, Accent.b, 0.15f);
+        // muzzle flare + impact tip
+        var muzzleGlow = NVAssets.Quad(NVAssets.AdditiveTinted(Accent), 10f);
+        muzzleGlow.AddComponent<Billboard>();
+        var tip = NVAssets.Quad(NVAssets.AdditiveTinted(Accent), 16f);
         tip.AddComponent<Billboard>();
+        var tipLight = new GameObject("tipLight").AddComponent<Light>();
+        tipLight.type = LightType.Point;
+        tipLight.color = Accent;
+        tipLight.intensity = 4f;
+        tipLight.range = 30f;
 
         float t = 0f;
         while (t < BeamDuration && GameManager.I.Running && !GameManager.I.Paused)
@@ -88,25 +106,35 @@ public class SpecialAttack : MonoBehaviour
             t += Time.deltaTime;
             Vector3 origin = transform.position + transform.forward * 3f;
             Vector3 end = origin + transform.forward * BeamRange;
-            lr.SetPositions(new[] { origin, end });
+            // breathing pulse so the beam feels alive
+            float pulse = 1f + Mathf.Sin(t * 30f) * 0.15f;
+            core.widthMultiplier = pulse;
+            outer.widthMultiplier = pulse;
+            core.SetPositions(new[] { origin, end });
+            outer.SetPositions(new[] { origin, end });
+            muzzleGlow.transform.position = origin;
             tip.transform.position = end;
+            tipLight.transform.position = end - transform.forward * 4f;
 
             // continuous damage to every hostile the beam passes through
-            foreach (var hit in Physics.SphereCastAll(origin, 1.6f, transform.forward, BeamRange))
+            foreach (var hit in Physics.SphereCastAll(origin, 2.6f, transform.forward, BeamRange))
             {
                 var h = hit.collider.GetComponentInParent<Health>();
                 if (h != null && !h.isPlayer)
                 {
                     h.TakeDamage(BeamDps * Might * Time.deltaTime);
-                    if (Random.value < 8f * Time.deltaTime)
+                    if (Random.value < 14f * Time.deltaTime)
                         ExplosionFactory.Sparks(hit.point, Accent);
                 }
             }
+            ChaseCamera.Shake(0.03f);
             if (Random.value < 6f * Time.deltaTime) GameManager.I.PlaySfx(SfxSynth.Laser, 0.3f);
             yield return null;
         }
         Destroy(go);
         Destroy(tip);
+        Destroy(muzzleGlow);
+        Destroy(tipLight.gameObject);
         _channel = null;
     }
 
