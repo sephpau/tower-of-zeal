@@ -15,20 +15,23 @@ public static class TournamentMode
     public static bool Active;
     public static string MatchCode = "", PlayerName = "";
     public static uint Seed;
+    public static int PilotChoice = -1;   // -1 = auto (seeded from match code)
 
-    public static void Arm(string code, string playerName)
+    public static void Arm(string code, string playerName, int pilotChoice = -1)
     {
         MatchCode = code.Trim().ToUpperInvariant();
         PlayerName = playerName.Trim();
         if (string.IsNullOrEmpty(MatchCode)) MatchCode = "OPEN";
         if (string.IsNullOrEmpty(PlayerName)) PlayerName = "PILOT";
         Seed = Hash32(MatchCode);
+        PilotChoice = pilotChoice >= 0 && pilotChoice < ZealData.Pilots.Length ? pilotChoice : -1;
         Active = true;
     }
 
     public static void Disarm() => Active = false;
 
-    public static int PilotIndex => (int)(Seed % (uint)ZealData.Pilots.Length);
+    public static int PilotIndex =>
+        PilotChoice >= 0 ? PilotChoice : (int)(Seed % (uint)ZealData.Pilots.Length);
 
     // deterministic per-level draft stream — play order can't desync it
     public static System.Random DraftRng(int level) =>
@@ -55,7 +58,12 @@ public static class TournamentMode
 
     public static string VerifyCode(int score, int timeSeconds)
     {
-        uint h = Hash32($"{MatchCode}|{PlayerName}|{score}|{timeSeconds}|zealblitz");
+        // auto-pilot runs keep the legacy format so web-game verifiers still match;
+        // chosen-pilot runs fold the pilot id into the hash so the choice is provable
+        string payload = PilotChoice < 0
+            ? $"{MatchCode}|{PlayerName}|{score}|{timeSeconds}|zealblitz"
+            : $"{MatchCode}|{PlayerName}|{score}|{timeSeconds}|{ZealData.Pilots[PilotChoice].id}|zealblitz";
+        uint h = Hash32(payload);
         return ToBase36(h).ToUpperInvariant().PadLeft(7, '0');
     }
 
@@ -69,18 +77,19 @@ public static class TournamentMode
     }
 
     // ---------- local standings per match code ----------
-    public class Entry { public string name, verify; public int score, time; }
+    public class Entry { public string name, verify, pilot; public int score, time; }
 
     static string Key => "nv-tournament-" + MatchCode;
 
     public static void RecordResult(int score, int timeSeconds)
     {
         var list = LoadStandings();
-        list.Add(new Entry { name = PlayerName, score = score, time = timeSeconds, verify = VerifyCode(score, timeSeconds) });
+        list.Add(new Entry { name = PlayerName, score = score, time = timeSeconds,
+            verify = VerifyCode(score, timeSeconds), pilot = ZealData.Pilots[PilotIndex].name });
         list.Sort((a, b) => b.score.CompareTo(a.score));
         if (list.Count > 20) list.RemoveRange(20, list.Count - 20);
         var lines = new List<string>();
-        foreach (var e in list) lines.Add($"{e.name}\t{e.score}\t{e.time}\t{e.verify}");
+        foreach (var e in list) lines.Add($"{e.name}\t{e.score}\t{e.time}\t{e.verify}\t{e.pilot}");
         PlayerPrefs.SetString(Key, string.Join("\n", lines));
         PlayerPrefs.Save();
     }
@@ -94,7 +103,8 @@ public static class TournamentMode
         {
             var p = line.Split('\t');
             if (p.Length >= 4 && int.TryParse(p[1], out int sc) && int.TryParse(p[2], out int tm))
-                list.Add(new Entry { name = p[0], score = sc, time = tm, verify = p[3] });
+                list.Add(new Entry { name = p[0], score = sc, time = tm, verify = p[3],
+                    pilot = p.Length >= 5 ? p[4] : "" });   // pre-pilot-choice rows have 4 columns
         }
         return list;
     }

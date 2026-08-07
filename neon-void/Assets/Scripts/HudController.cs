@@ -28,9 +28,12 @@ public class HudController : MonoBehaviour
     readonly List<Image> _actIcons = new List<Image>();
     readonly List<Text> _actAbbrevs = new List<Text>();
     Sprite _arrowSprite;
-    GameObject _levelUpPanel, _tourneySetupPanel, _tourneyResultsPanel;
+    GameObject _levelUpPanel, _tourneySetupPanel, _tourneyResultsPanel, _homePanel;
+    Text _bestHomeText;
     InputField _codeInput, _nameInput;
     Text _tourneyPilotPreview, _resultsTitle, _resultsScore, _resultsVerify, _resultsStandings;
+    int _tourneyPilotChoice = -1;                    // -1 = match auto-pick
+    readonly List<Button> _tourneyPilotButtons = new List<Button>();
     readonly List<GameObject> _levelUpCards = new List<GameObject>();
 
     Font _titleFont;
@@ -217,6 +220,7 @@ public class HudController : MonoBehaviour
             _dirPool.Add(ind);
         }
 
+        BuildHomePanel();
         BuildStartPanel();
         BuildOverPanel();
         BuildWinPanel();
@@ -307,7 +311,8 @@ public class HudController : MonoBehaviour
         int rank = 1;
         foreach (var e in standings)
         {
-            sb.AppendLine(rank + ".  " + e.name + "   " + e.score.ToString("N0") + "   [" + e.verify + "]");
+            sb.AppendLine(rank + ".  " + e.name + (string.IsNullOrEmpty(e.pilot) ? "" : " · " + e.pilot.ToUpperInvariant())
+                + "   " + e.score.ToString("N0") + "   [" + e.verify + "]");
             if (++rank > 8) break;
         }
         _resultsStandings.text = sb.ToString();
@@ -371,36 +376,56 @@ public class HudController : MonoBehaviour
     }
 
     // ---------- panels ----------
-    void BuildStartPanel()
+    void BuildHomePanel()
     {
-        _startPanel = Panel("StartPanel");
+        _homePanel = Panel("HomePanel");
         // v1-style logo: chunky Luckiest Guy, red ZEAL over gold SURVIVORS
-        var zeal = NewText(_startPanel.transform, "titleZeal", "ZEAL", 84, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.875f), new Vector2(0.5f, 0.875f), Vector2.zero, new Vector2(1200, 100));
+        var zeal = NewText(_homePanel.transform, "titleZeal", "ZEAL", 92, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.845f), new Vector2(0.5f, 0.845f), Vector2.zero, new Vector2(1200, 110));
         zeal.font = _titleFont;
         zeal.color = new Color(0.85f, 0.36f, 0.42f);
-        var surv = NewText(_startPanel.transform, "titleSurv", "SURVIVORS", 76, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.795f), new Vector2(0.5f, 0.795f), Vector2.zero, new Vector2(1500, 95));
+        var surv = NewText(_homePanel.transform, "titleSurv", "SURVIVORS", 82, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.755f), new Vector2(0.5f, 0.755f), Vector2.zero, new Vector2(1500, 100));
         surv.font = _titleFont;
         surv.color = new Color(0.98f, 0.78f, 0.25f);
-        var v2 = NewText(_startPanel.transform, "v2", "V2 — THE VOID", 34, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.725f), new Vector2(0.5f, 0.725f), Vector2.zero, new Vector2(1000, 50));
+        var v2 = NewText(_homePanel.transform, "v2", "V2 — THE VOID", 36, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.675f), new Vector2(0.5f, 0.675f), Vector2.zero, new Vector2(1000, 52));
         v2.font = _titleFont;
         v2.color = new Color(1f, 0.55f, 0.9f);
         foreach (var logo in new[] { zeal, surv })
         {
             var o = logo.GetComponent<Outline>();
             o.effectColor = new Color(0.13f, 0.07f, 0.2f, 1f);
-            o.effectDistance = new Vector2(4, -5);   // thick drop for the 3D sticker feel
+            o.effectDistance = new Vector2(4, -5);
             var glow = logo.gameObject.AddComponent<Outline>();
             glow.effectColor = new Color(1f, 0.9f, 0.5f, 0.25f);
             glow.effectDistance = new Vector2(-3, 3);
         }
-        var s = NewText(_startPanel.transform, "sub", "CLEAR 10 WAVES — DESTROY THE VOID DREADNOUGHT", 22, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.7f), new Vector2(0.5f, 0.7f), Vector2.zero, new Vector2(1600, 36));
-        s.color = new Color(0.8f, 0.9f, 1f, 0.8f);
-        var pick = NewText(_startPanel.transform, "pick", "CHOOSE YOUR EGO", 32, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.64f), new Vector2(0.5f, 0.64f), Vector2.zero, new Vector2(800, 50));
+
+        _bestHomeText = NewText(_homePanel.transform, "best", "", 26, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.585f), new Vector2(0.5f, 0.585f), Vector2.zero, new Vector2(700, 40));
+        _bestHomeText.color = new Color(0.5f, 0.98f, 1f, 0.9f);
+        _bestHomeText.font = _titleFont;
+
+        MakeButton(_homePanel.transform, "PLAY", new Vector2(0.5f, 0.47f), new Vector2(430, 74),
+            new Color(1f, 0.85f, 0.4f), () => { _homePanel.SetActive(false); _startPanel.SetActive(true); });
+        MakeButton(_homePanel.transform, "BLITZ TOURNAMENT", new Vector2(0.5f, 0.36f), new Vector2(360, 56),
+            new Color(1f, 0.55f, 0.9f), () => { _homePanel.SetActive(false); _tourneySetupPanel.SetActive(true); });
+        MakeButton(_homePanel.transform, "SETTINGS", new Vector2(0.5f, 0.27f), new Vector2(360, 56),
+            new Color(0.6f, 0.9f, 1f), () => { _homePanel.SetActive(false); _settingsPanel.SetActive(true); });
+
+        var ctl = NewText(_homePanel.transform, "controls", "MOUSE aim · WASD move · SHIFT up / CTRL down · SPACE dash (spins!) · G guard (½ dmg, attack drops it, 5s CD) · LMB fire · RMB special · V 1st/3rd person · M mute
+Collect XP shards — choose upgrades on level up", 20, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.12f), new Vector2(0.5f, 0.12f), Vector2.zero, new Vector2(1500, 80));
+        ctl.color = new Color(0.8f, 0.9f, 1f, 0.7f);
+        _homePanel.SetActive(false);
+    }
+
+    void BuildStartPanel()   // character select, reached from the homepage
+    {
+        _startPanel = Panel("SelectPanel");
+        var pick = NewText(_startPanel.transform, "pick", "CHOOSE YOUR EGO", 46, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.85f), new Vector2(0.5f, 0.85f), Vector2.zero, new Vector2(1000, 64));
         pick.color = new Color(1f, 0.85f, 0.4f);
         pick.font = _titleFont;
 
@@ -415,7 +440,7 @@ public class HudController : MonoBehaviour
             img.type = Image.Type.Sliced;
             img.color = new Color(0.07f, 0.05f, 0.16f, 0.62f);
             var rt = img.rectTransform;
-            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.43f);
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = new Vector2((i - 1.5f) * 330f, 0f);
             rt.sizeDelta = new Vector2(300, 370);
             var btn = card.AddComponent<Button>();
@@ -464,15 +489,8 @@ public class HudController : MonoBehaviour
             spcText.fontStyle = FontStyle.Bold;
         }
 
-        var ctl = NewText(_startPanel.transform, "controls", "MOUSE aim · WASD move · SHIFT up / CTRL down · SPACE dash (spins!) · G guard (½ dmg, attack drops it, 5s CD) · LMB fire · RMB special · V 1st/3rd person · M mute\nCollect XP shards — choose upgrades on level up", 20, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.12f), new Vector2(0.5f, 0.12f), Vector2.zero, new Vector2(1500, 80));
-        ctl.color = new Color(0.8f, 0.9f, 1f, 0.7f);
-
-        MakeButton(_startPanel.transform, "BLITZ TOURNAMENT", new Vector2(0.41f, 0.21f), new Vector2(340, 54),
-            new Color(1f, 0.55f, 0.9f), () => { _startPanel.SetActive(false); _tourneySetupPanel.SetActive(true); });
-        MakeButton(_startPanel.transform, "SETTINGS", new Vector2(0.59f, 0.21f), new Vector2(340, 54),
-            new Color(0.6f, 0.9f, 1f), () => { _startPanel.SetActive(false); _settingsPanel.SetActive(true); });
-
+        MakeButton(_startPanel.transform, "BACK", new Vector2(0.5f, 0.12f), new Vector2(300, 54),
+            new Color(0.8f, 0.9f, 1f), () => { _startPanel.SetActive(false); _homePanel.SetActive(true); });
         _startPanel.SetActive(false);
     }
 
@@ -504,7 +522,7 @@ public class HudController : MonoBehaviour
         });
 
         MakeButton(_settingsPanel.transform, "BACK", new Vector2(0.5f, 0.2f), new Vector2(300, 56),
-            new Color(0.8f, 0.9f, 1f), () => { _settingsPanel.SetActive(false); _startPanel.SetActive(true); });
+            new Color(0.8f, 0.9f, 1f), () => { _settingsPanel.SetActive(false); _homePanel.SetActive(true); });
         _settingsPanel.SetActive(false);
     }
 
@@ -517,7 +535,7 @@ public class HudController : MonoBehaviour
         t.color = new Color(1f, 0.55f, 0.9f);
         t.fontStyle = FontStyle.BoldAndItalic;
         t.font = _titleFont;
-        var sub = NewText(_tourneySetupPanel.transform, "sub", "5-MINUTE SEEDED RUN + 1 MINUTE OVERTIME · +20% XP · SAME CODE = SAME PILOT, WAVES, DRAFTS\nSCORE BIG BEFORE THE CLOCK RUNS OUT — VERIFY CODE PROVES YOUR RUN", 20, TextAnchor.MiddleCenter,
+        var sub = NewText(_tourneySetupPanel.transform, "sub", "5-MINUTE SEEDED RUN + 1 MINUTE OVERTIME · +20% XP · SAME CODE = SAME WAVES & DRAFTS\nPICK YOUR PILOT — VERIFY CODE PROVES YOUR RUN AND YOUR PILOT", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(1400, 60));
         sub.color = new Color(0.8f, 0.9f, 1f, 0.8f);
 
@@ -530,21 +548,37 @@ public class HudController : MonoBehaviour
             .color = new Color(1f, 0.85f, 0.4f);
         _nameInput = MakeInput(_tourneySetupPanel.transform, new Vector2(0.5f, 0.385f), "YOUR CALLSIGN");
 
+        // pilot picker: MATCH PICK keeps the seeded auto-pilot, or choose your own
+        _tourneyPilotButtons.Clear();
+        _tourneyPilotChoice = -1;
+        for (int i = -1; i < ZealData.Pilots.Length; i++)
+        {
+            int choice = i;
+            string label = i < 0 ? "MATCH PICK" : ZealData.Pilots[i].name.ToUpperInvariant();
+            Color accent = i < 0 ? new Color(0.8f, 0.9f, 1f) : ZealData.Pilots[i].accent;
+            var pb = MakeButton(_tourneySetupPanel.transform, label,
+                new Vector2(0.26f + (i + 1) * 0.12f, 0.315f), new Vector2(170, 44),
+                accent, () => { _tourneyPilotChoice = choice; RefreshPilotButtons(); UpdatePilotPreview(); });
+            pb.GetComponentInChildren<Text>().fontSize = 18;
+            _tourneyPilotButtons.Add(pb);
+        }
+        RefreshPilotButtons();
+
         _tourneyPilotPreview = NewText(_tourneySetupPanel.transform, "preview", "", 22, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.3f), new Vector2(0.5f, 0.3f), Vector2.zero, new Vector2(900, 34));
+            new Vector2(0.5f, 0.255f), new Vector2(0.5f, 0.255f), Vector2.zero, new Vector2(900, 34));
         _tourneyPilotPreview.color = new Color(0.5f, 0.95f, 1f);
         _codeInput.onValueChanged.AddListener(_ => UpdatePilotPreview());
         UpdatePilotPreview();
 
-        MakeButton(_tourneySetupPanel.transform, "START MATCH", new Vector2(0.42f, 0.2f), new Vector2(300, 56),
+        MakeButton(_tourneySetupPanel.transform, "START MATCH", new Vector2(0.42f, 0.18f), new Vector2(300, 56),
             new Color(0.5f, 1f, 0.6f), () => {
-                TournamentMode.Arm(_codeInput.text, _nameInput.text);
+                TournamentMode.Arm(_codeInput.text, _nameInput.text, _tourneyPilotChoice);
                 _tourneySetupPanel.SetActive(false);
                 _gameHud.SetActive(true);
                 GameManager.I.StartRun(TournamentMode.PilotIndex);
             });
-        MakeButton(_tourneySetupPanel.transform, "BACK", new Vector2(0.58f, 0.2f), new Vector2(300, 56),
-            new Color(0.8f, 0.9f, 1f), () => { _tourneySetupPanel.SetActive(false); _startPanel.SetActive(true); });
+        MakeButton(_tourneySetupPanel.transform, "BACK", new Vector2(0.58f, 0.18f), new Vector2(300, 56),
+            new Color(0.8f, 0.9f, 1f), () => { _tourneySetupPanel.SetActive(false); _homePanel.SetActive(true); });
         _tourneySetupPanel.SetActive(false);
 
         // ----- results -----
@@ -570,11 +604,31 @@ public class HudController : MonoBehaviour
         _tourneyResultsPanel.SetActive(false);
     }
 
+    void RefreshPilotButtons()
+    {
+        for (int i = 0; i < _tourneyPilotButtons.Count; i++)
+        {
+            bool selected = (i - 1) == _tourneyPilotChoice;   // slot 0 = MATCH PICK (-1)
+            var bg = _tourneyPilotButtons[i].GetComponent<Image>();
+            bg.color = selected ? new Color(0.22f, 0.18f, 0.42f, 0.95f) : new Color(0.09f, 0.07f, 0.2f, 0.72f);
+            var border = _tourneyPilotButtons[i].transform.Find("border").GetComponent<Image>();
+            border.color = new Color(border.color.r, border.color.g, border.color.b, selected ? 1f : 0.25f);
+        }
+    }
+
     void UpdatePilotPreview()
     {
+        if (_tourneyPilotChoice >= 0)
+        {
+            var chosen = ZealData.Pilots[_tourneyPilotChoice];
+            _tourneyPilotPreview.text = "YOUR PILOT:  " + chosen.name.ToUpperInvariant() + " — " + chosen.title.ToUpperInvariant();
+            _tourneyPilotPreview.color = chosen.accent;
+            return;
+        }
         string code = string.IsNullOrEmpty(_codeInput.text) ? "OPEN" : _codeInput.text.Trim().ToUpperInvariant();
         var pilot = ZealData.Pilots[(int)(TournamentMode.Hash32(code) % (uint)ZealData.Pilots.Length)];
         _tourneyPilotPreview.text = "MATCH PILOT:  " + pilot.name.ToUpperInvariant() + " — " + pilot.title.ToUpperInvariant();
+        _tourneyPilotPreview.color = new Color(0.5f, 0.95f, 1f);
     }
 
     Button MakeButton(Transform parent, string label, Vector2 anchor, Vector2 size, Color color, UnityEngine.Events.UnityAction onClick)
@@ -694,7 +748,12 @@ public class HudController : MonoBehaviour
     }
 
     // ---------- public API ----------
-    public void ShowStart() { _startPanel.SetActive(true); WantsStart = true; }
+    public void ShowStart()
+    {
+        _homePanel.SetActive(true);
+        _bestHomeText.text = GameManager.I != null && GameManager.I.best > 0 ? "BEST  " + GameManager.I.best.ToString("N0") : "";
+        WantsStart = true;
+    }
     public void ShowGameHud() { WantsStart = false; _startPanel.SetActive(false); _gameHud.SetActive(true); }
 
     public void ShowGameOver(int score, int best, bool newBest, int wave)
