@@ -261,12 +261,19 @@ public class HudController : MonoBehaviour
             var title = NewText(card.transform, "ptitle", pilot.title.ToUpperInvariant(), 17, TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(290, 30));
             title.color = new Color(0.85f, 0.9f, 1f, 0.8f);
+            string specialLine = pilot.id == "ego" ? "RMB — ZEAL BOLT beam"
+                : pilot.id == "captain" ? "RMB — CUTLASS storm"
+                : pilot.id == "chef" ? "RMB — SCALDING PIE homing"
+                : "RMB — STORM MARK chain";
+            var spcText = NewText(card.transform, "special", specialLine, 18, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(290, 30));
+            spcText.color = new Color(1f, 0.85f, 0.4f);
             var perk = NewText(card.transform, "perk", pilot.perkText, 17, TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 0.26f), new Vector2(0.5f, 0.26f), Vector2.zero, new Vector2(280, 80));
             perk.color = new Color(0.8f, 0.9f, 1f, 0.85f);
         }
 
-        var ctl = NewText(_startPanel.transform, "controls", "MOUSE aim · WASD move · SHIFT up / CTRL down · SPACE dash (spins!) · G guard (½ dmg, attack drops it, 5s CD) · LMB fire · V 1st/3rd person · M mute\nCollect XP shards — choose upgrades on level up", 20, TextAnchor.MiddleCenter,
+        var ctl = NewText(_startPanel.transform, "controls", "MOUSE aim · WASD move · SHIFT up / CTRL down · SPACE dash (spins!) · G guard (½ dmg, attack drops it, 5s CD) · LMB fire · RMB special · V 1st/3rd person · M mute\nCollect XP shards — choose upgrades on level up", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.12f), new Vector2(0.5f, 0.12f), Vector2.zero, new Vector2(1500, 80));
         ctl.color = new Color(0.8f, 0.9f, 1f, 0.7f);
 
@@ -498,6 +505,9 @@ public class HudController : MonoBehaviour
             string status = "PULSER LV " + weapon.level;
             if (weapon.rapidTimer > 0f) status += "   RAPID " + Mathf.CeilToInt(weapon.rapidTimer) + "s";
             if (weapon.homingTimer > 0f) status += "   HOMING " + Mathf.CeilToInt(weapon.homingTimer) + "s";
+            var spc = player.GetComponent<SpecialAttack>();
+            if (spc != null && spc.DisplayName != null)
+                status += "\nRMB " + spc.DisplayName + (spc.cooldownLeft <= 0f ? "  READY" : "  " + spc.cooldownLeft.ToString("0.0") + "s");
             var skills = player.GetComponent<SkillSystem>();
             if (skills != null)
                 foreach (var ow in skills.weapons)

@@ -53,6 +53,8 @@ public class ShipController : MonoBehaviour
             else if (guardCooldown <= 0f)
             {
                 guarding = true;
+                var spc = GetComponent<SpecialAttack>();
+                if (spc != null) spc.CancelChannel();   // raising guard interrupts a channeled special
                 GameManager.I.PlaySfx(SfxSynth.Pickup, 0.4f);
             }
         }
@@ -89,6 +91,8 @@ public class ShipController : MonoBehaviour
             _weapon.TryFire();
         }
     }
+
+    public void BreakGuard() { if (guarding) EndGuard(); }
 
     void EndGuard()
     {

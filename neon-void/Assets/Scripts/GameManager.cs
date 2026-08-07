@@ -65,6 +65,8 @@ public class GameManager : MonoBehaviour
         _skills.InitPilot(ZealData.Pilots[Mathf.Clamp(pilotIndex, 0, ZealData.Pilots.Length - 1)]);
         var tint = _playerHealth.GetComponent<ShipTint>();
         if (tint != null) tint.Apply(_skills.pilot.accent);
+        var special = _playerHealth.GetComponent<SpecialAttack>();
+        if (special != null) special.Init(_skills.pilot);
         _music.Play();
         _waves.Begin();
         _hud.ShowGameHud();
