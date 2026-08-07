@@ -23,13 +23,10 @@ public class ChaseCamera : MonoBehaviour
         }
         if (_ship == null) _ship = target.GetComponent<ShipController>();
 
+        // rigid shooter cam: glued behind the ship, looking where it looks
         Vector3 desired = target.position + target.rotation * offset;
-        float lag = 1f - Mathf.Exp(-Time.deltaTime * 7f);
-        transform.position = Vector3.Lerp(transform.position, desired, lag);
-
-        Quaternion look = Quaternion.LookRotation(
-            (target.position + target.forward * 14f) - transform.position, target.up);
-        transform.rotation = Quaternion.Slerp(transform.rotation, look, 1f - Mathf.Exp(-Time.deltaTime * 9f));
+        transform.position = Vector3.Lerp(transform.position, desired, 1f - Mathf.Exp(-Time.deltaTime * 18f));
+        transform.rotation = Quaternion.Slerp(transform.rotation, target.rotation, 1f - Mathf.Exp(-Time.deltaTime * 22f));
 
         // shake
         if (_shake > 0.001f)

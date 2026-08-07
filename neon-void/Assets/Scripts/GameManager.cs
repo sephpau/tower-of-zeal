@@ -67,6 +67,7 @@ public class GameManager : MonoBehaviour
         _waves.Begin();
         _hud.ShowGameHud();
         Cursor.visible = false;
+        Cursor.lockState = CursorLockMode.Locked;
         _hud.WaveBanner(TournamentMode.Active
             ? "BLITZ // " + TournamentMode.MatchCode + " // " + _skills.pilot.name.ToUpperInvariant()
             : _skills.pilot.name.ToUpperInvariant() + " — " + _skills.pilot.title.ToUpperInvariant());
@@ -92,13 +93,18 @@ public class GameManager : MonoBehaviour
         Paused = true;
         Time.timeScale = 0f;
         Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
         PlaySfx(SfxSynth.WaveUp, 0.6f);
         _hud.ShowLevelUp(xpLevel, choices, choice =>
         {
             choice.Apply(_skills);
             Paused = false;
             Time.timeScale = 1f;
-            Cursor.visible = false;
+            if (Running)
+            {
+                Cursor.visible = false;
+                Cursor.lockState = CursorLockMode.Locked;
+            }
         });
     }
 
@@ -140,6 +146,7 @@ public class GameManager : MonoBehaviour
         Running = false;
         _music.Stop();
         Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
         int t = Mathf.RoundToInt(Mathf.Min(_elapsed, TournamentMode.Duration));
         string verify = TournamentMode.VerifyCode(score, t);
         TournamentMode.RecordResult(score, t);
@@ -197,6 +204,7 @@ public class GameManager : MonoBehaviour
         Running = false;
         _music.Stop();
         Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
         bool newBest = score > best;
         if (newBest)
         {
@@ -247,6 +255,7 @@ public class GameManager : MonoBehaviour
         Running = false;
         _music.Stop();
         Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
 
         bool newBest = score > best;
         if (newBest)

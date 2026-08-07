@@ -1,19 +1,20 @@
 using UnityEngine;
 
-// Mouse-aim arcade flight: the ship pitches/yaws toward the cursor's offset
-// from screen center. W/S throttle, Shift boost, Q/E roll, LMB/Space fire.
+// Shooter-style controls: mouse-look aims the ship (cursor locked,
+// crosshair at screen center), WASD strafes relative to where you look,
+// Space/Ctrl for up/down, Shift boost, LMB fire.
 public class ShipController : MonoBehaviour
 {
-    public float maxSpeed = 34f;
+    public float moveSpeed = 32f;
     public float boostMultiplier = 1.9f;
-    public float accel = 22f;
-    public float turnRate = 95f;    // deg/sec at full cursor deflection
-    public float rollRate = 110f;
+    public float accel = 45f;
+    public float mouseSens = 2.1f;
 
-    [HideInInspector] public float throttle = 0.65f;   // 0..1
     [HideInInspector] public bool boosting;
     [HideInInspector] public float currentSpeed;
 
+    float _yaw, _pitch, _roll;
+    Vector3 _vel;
     Rigidbody _rb;
     Weapon _weapon;
     SkillSystem _skills;
@@ -23,45 +24,48 @@ public class ShipController : MonoBehaviour
         _rb = GetComponent<Rigidbody>();
         _weapon = GetComponent<Weapon>();
         _skills = GetComponent<SkillSystem>();
+        Vector3 e = transform.rotation.eulerAngles;
+        _yaw = e.y; _pitch = e.x;
     }
 
     void Update()
     {
         if (!GameManager.I.Running || GameManager.I.Paused) return;
 
-        throttle = Mathf.Clamp01(throttle + Input.GetAxisRaw("Vertical") * Time.deltaTime * 0.8f);
-        boosting = Input.GetKey(KeyCode.LeftShift) && throttle > 0.3f;
+        _yaw += Input.GetAxis("Mouse X") * mouseSens;
+        _pitch = Mathf.Clamp(_pitch - Input.GetAxis("Mouse Y") * mouseSens, -85f, 85f);
 
-        if ((Input.GetMouseButton(0) || Input.GetKey(KeyCode.Space)) && _weapon != null)
+        if (Input.GetMouseButton(0) && _weapon != null)
             _weapon.TryFire();
     }
 
     void FixedUpdate()
     {
-        if (!GameManager.I.Running) { _rb.linearVelocity = Vector3.Lerp(_rb.linearVelocity, Vector3.zero, 0.02f); return; }
+        if (!GameManager.I.Running || GameManager.I.Paused)
+        {
+            _vel = Vector3.Lerp(_vel, Vector3.zero, 0.04f);
+            _rb.linearVelocity = _vel;
+            return;
+        }
 
-        // cursor offset from screen center drives pitch/yaw
-        Vector2 offset = new Vector2(
-            (Input.mousePosition.x / Screen.width - 0.5f) * 2f,
-            (Input.mousePosition.y / Screen.height - 0.5f) * 2f);
-        offset = Vector2.ClampMagnitude(offset * 1.35f, 1f);
-        // small deadzone so the ship settles
-        if (offset.magnitude < 0.06f) offset = Vector2.zero;
+        float h = (Input.GetKey(KeyCode.D) ? 1f : 0f) - (Input.GetKey(KeyCode.A) ? 1f : 0f);
+        float fwd = (Input.GetKey(KeyCode.W) ? 1f : 0f) - (Input.GetKey(KeyCode.S) ? 1f : 0f);
+        float up = (Input.GetKey(KeyCode.Space) ? 1f : 0f) - (Input.GetKey(KeyCode.LeftControl) ? 1f : 0f);
+        Vector3 dir = new Vector3(h, up, fwd);
+        if (dir.sqrMagnitude > 1f) dir.Normalize();
 
-        float pitch = -offset.y * turnRate * Time.fixedDeltaTime;
-        float yaw = offset.x * turnRate * Time.fixedDeltaTime;
-        float roll = 0f;
-        if (Input.GetKey(KeyCode.Q)) roll += rollRate * Time.fixedDeltaTime;
-        if (Input.GetKey(KeyCode.E)) roll -= rollRate * Time.fixedDeltaTime;
-        // auto-bank into turns for feel
-        roll += -offset.x * 24f * Time.fixedDeltaTime;
-
-        _rb.MoveRotation(_rb.rotation * Quaternion.Euler(pitch, yaw, roll));
-
+        boosting = Input.GetKey(KeyCode.LeftShift) && dir.sqrMagnitude > 0.01f;
         float speedMult = _skills != null ? _skills.SpeedMult : 1f;
-        float target = maxSpeed * speedMult * throttle * (boosting ? boostMultiplier : 1f);
-        currentSpeed = Mathf.MoveTowards(currentSpeed, target, accel * Time.fixedDeltaTime);
-        _rb.linearVelocity = transform.forward * currentSpeed;
+        Vector3 target = Quaternion.Euler(0f, _yaw, 0f) * Quaternion.AngleAxis(_pitch, Vector3.right) * dir
+            * moveSpeed * speedMult * (boosting ? boostMultiplier : 1f);
+
+        _vel = Vector3.MoveTowards(_vel, target, accel * Time.fixedDeltaTime);
+        _rb.linearVelocity = _vel;
+        currentSpeed = _vel.magnitude;
+
+        // bank into strafes, ease back level
+        _roll = Mathf.Lerp(_roll, -h * 14f, Time.fixedDeltaTime * 6f);
+        _rb.MoveRotation(Quaternion.Euler(_pitch, _yaw, _roll));
     }
 
     void OnCollisionEnter(Collision c)
@@ -74,6 +78,6 @@ public class ShipController : MonoBehaviour
         ExplosionFactory.Sparks(c.GetContact(0).point, new Color(1f, 0.7f, 0.3f));
         ChaseCamera.Shake(0.6f);
         GameManager.I.PlaySfx(SfxSynth.Hit);
-        currentSpeed *= 0.4f;
+        _vel *= 0.3f;
     }
 }

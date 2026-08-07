@@ -269,7 +269,7 @@ public class HudController : MonoBehaviour
             perk.color = new Color(0.8f, 0.9f, 1f, 0.85f);
         }
 
-        var ctl = NewText(_startPanel.transform, "controls", "MOUSE steer · W/S throttle · SHIFT boost · Q/E roll · CLICK / SPACE fire · M mute\nZeal weapons fire on their own — collect XP shards, choose upgrades on level up", 20, TextAnchor.MiddleCenter,
+        var ctl = NewText(_startPanel.transform, "controls", "MOUSE aim · WASD move · SPACE / CTRL up-down · SHIFT boost · LMB fire · M mute\nZeal weapons fire on their own — collect XP shards, choose upgrades on level up", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.12f), new Vector2(0.5f, 0.12f), Vector2.zero, new Vector2(1500, 80));
         ctl.color = new Color(0.8f, 0.9f, 1f, 0.7f);
 
@@ -489,7 +489,7 @@ public class HudController : MonoBehaviour
 
         var ship = player.GetComponent<ShipController>();
         if (ship != null)
-            _throttleText.text = "THR " + Mathf.RoundToInt(ship.throttle * 100) + "%" + (ship.boosting ? "  BOOST" : "");
+            _throttleText.text = "SPD " + Mathf.RoundToInt(ship.currentSpeed) + (ship.boosting ? "  BOOST" : "");
 
         var weapon = player.GetComponent<Weapon>();
         if (weapon != null)
@@ -518,8 +518,8 @@ public class HudController : MonoBehaviour
             _bossBar.fillAmount = (b.shield + b.hull) / (b.maxShield + b.maxHull);
         }
 
-        // reticle follows mouse
-        _reticle.rectTransform.position = Input.mousePosition;
+        // fixed center crosshair (mouse-look aiming)
+        _reticle.rectTransform.anchoredPosition = Vector2.zero;
 
         // banner fade
         if (_bannerTimer > 0f)
