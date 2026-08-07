@@ -31,9 +31,13 @@ public class HudController : MonoBehaviour
     Text _tourneyPilotPreview, _resultsTitle, _resultsScore, _resultsVerify, _resultsStandings;
     readonly List<GameObject> _levelUpCards = new List<GameObject>();
 
+    Font _titleFont;
+
     public void Build()
     {
         _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        _titleFont = Resources.Load<Font>("LuckiestGuy-Regular");   // Zeal Survivors v1 heading font
+        if (_titleFont == null) _titleFont = _font;
 
         if (FindAnyObjectByType<EventSystem>() == null)
         {
@@ -107,6 +111,7 @@ public class HudController : MonoBehaviour
             new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -8), new Vector2(700, 30));
         _bossName.color = new Color(1f, 0.25f, 0.35f);
         _bossName.fontStyle = FontStyle.BoldAndItalic;
+        _bossName.font = _titleFont;
         var bossBg = NewImage(_bossGroup.transform, "bossbarbg", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 8), new Vector2(640, 12));
         bossBg.color = new Color(0.05f, 0.05f, 0.15f, 0.8f);
         _bossBar = NewImage(bossBg.transform, "fill", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -166,6 +171,7 @@ public class HudController : MonoBehaviour
             new Vector2(0.5f, 0.65f), new Vector2(0.5f, 0.65f), Vector2.zero, new Vector2(1400, 90));
         _bannerText.color = new Color(1f, 0.4f, 0.85f, 0f);
         _bannerText.fontStyle = FontStyle.BoldAndItalic;
+        _bannerText.font = _titleFont;
 
         // XP bar across the very top + level chip
         var xpBg = NewImage(_gameHud.transform, "xpbg", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -6), new Vector2(900, 8));
@@ -344,21 +350,35 @@ public class HudController : MonoBehaviour
     void BuildStartPanel()
     {
         _startPanel = Panel("StartPanel");
-        var t = NewText(_startPanel.transform, "title", "ZEAL SURVIVORS", 96, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.84f), new Vector2(0.5f, 0.84f), Vector2.zero, new Vector2(1700, 125));
-        t.color = new Color(0.5f, 0.95f, 1f);
-        t.fontStyle = FontStyle.BoldAndItalic;
-        var v2 = NewText(_startPanel.transform, "v2", "V2 — THE VOID", 40, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.755f), new Vector2(0.5f, 0.755f), Vector2.zero, new Vector2(1000, 55));
+        // v1-style logo: chunky Luckiest Guy, red ZEAL over gold SURVIVORS
+        var zeal = NewText(_startPanel.transform, "titleZeal", "ZEAL", 84, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.875f), new Vector2(0.5f, 0.875f), Vector2.zero, new Vector2(1200, 100));
+        zeal.font = _titleFont;
+        zeal.color = new Color(0.85f, 0.36f, 0.42f);
+        var surv = NewText(_startPanel.transform, "titleSurv", "SURVIVORS", 76, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.795f), new Vector2(0.5f, 0.795f), Vector2.zero, new Vector2(1500, 95));
+        surv.font = _titleFont;
+        surv.color = new Color(0.98f, 0.78f, 0.25f);
+        var v2 = NewText(_startPanel.transform, "v2", "V2 — THE VOID", 34, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.725f), new Vector2(0.5f, 0.725f), Vector2.zero, new Vector2(1000, 50));
+        v2.font = _titleFont;
         v2.color = new Color(1f, 0.55f, 0.9f);
-        v2.fontStyle = FontStyle.BoldAndItalic;
+        foreach (var logo in new[] { zeal, surv })
+        {
+            var o = logo.GetComponent<Outline>();
+            o.effectColor = new Color(0.13f, 0.07f, 0.2f, 1f);
+            o.effectDistance = new Vector2(4, -5);   // thick drop for the 3D sticker feel
+            var glow = logo.gameObject.AddComponent<Outline>();
+            glow.effectColor = new Color(1f, 0.9f, 0.5f, 0.25f);
+            glow.effectDistance = new Vector2(-3, 3);
+        }
         var s = NewText(_startPanel.transform, "sub", "CLEAR 10 WAVES — DESTROY THE VOID DREADNOUGHT", 22, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.7f), new Vector2(0.5f, 0.7f), Vector2.zero, new Vector2(1600, 36));
         s.color = new Color(0.8f, 0.9f, 1f, 0.8f);
         var pick = NewText(_startPanel.transform, "pick", "CHOOSE YOUR EGO", 32, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.64f), new Vector2(0.5f, 0.64f), Vector2.zero, new Vector2(800, 50));
         pick.color = new Color(1f, 0.85f, 0.4f);
-        pick.fontStyle = FontStyle.Bold;
+        pick.font = _titleFont;
 
         for (int i = 0; i < ZealData.Pilots.Length; i++)
         {
@@ -388,7 +408,7 @@ public class HudController : MonoBehaviour
             var name = NewText(card.transform, "name", pilot.name, 30, TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 0.82f), new Vector2(0.5f, 0.82f), Vector2.zero, new Vector2(290, 40));
             name.color = pilot.accent;
-            name.fontStyle = FontStyle.BoldAndItalic;
+            name.font = _titleFont;
             var title = NewText(card.transform, "ptitle", pilot.title.ToUpperInvariant(), 17, TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(290, 30));
             title.color = new Color(0.85f, 0.9f, 1f, 0.8f);
@@ -422,6 +442,7 @@ public class HudController : MonoBehaviour
             new Vector2(0.5f, 0.78f), new Vector2(0.5f, 0.78f), Vector2.zero, new Vector2(1400, 90));
         t.color = new Color(1f, 0.55f, 0.9f);
         t.fontStyle = FontStyle.BoldAndItalic;
+        t.font = _titleFont;
         var sub = NewText(_tourneySetupPanel.transform, "sub", "5-MINUTE SEEDED RUN + 1 MINUTE OVERTIME · +20% XP · SAME CODE = SAME PILOT, WAVES, DRAFTS\nSCORE BIG BEFORE THE CLOCK RUNS OUT — VERIFY CODE PROVES YOUR RUN", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(1400, 60));
         sub.color = new Color(0.8f, 0.9f, 1f, 0.8f);
@@ -457,7 +478,7 @@ public class HudController : MonoBehaviour
         _resultsTitle = NewText(_tourneyResultsPanel.transform, "title", "TIME!", 76, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.8f), new Vector2(0.5f, 0.8f), Vector2.zero, new Vector2(1400, 100));
         _resultsTitle.color = new Color(1f, 0.55f, 0.9f);
-        _resultsTitle.fontStyle = FontStyle.BoldAndItalic;
+        _resultsTitle.font = _titleFont;
         _resultsScore = NewText(_tourneyResultsPanel.transform, "score", "0", 80, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.66f), new Vector2(0.5f, 0.66f), Vector2.zero, new Vector2(1200, 100));
         _resultsScore.color = new Color(0.5f, 0.95f, 1f);
@@ -538,6 +559,7 @@ public class HudController : MonoBehaviour
             new Vector2(0.5f, 0.74f), new Vector2(0.5f, 0.74f), Vector2.zero, new Vector2(1200, 90));
         t.color = new Color(0.4f, 0.95f, 1f);
         t.fontStyle = FontStyle.BoldAndItalic;
+        t.font = _titleFont;
         _levelUpPanel.SetActive(false);
     }
 
@@ -548,6 +570,7 @@ public class HudController : MonoBehaviour
             new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(1600, 110));
         t.color = new Color(1f, 0.35f, 0.5f);
         t.fontStyle = FontStyle.BoldAndItalic;
+        t.font = _titleFont;
         _overScore = NewText(_overPanel.transform, "score", "0", 90, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1200, 120));
         _overScore.color = new Color(0.5f, 0.95f, 1f);
@@ -572,6 +595,7 @@ public class HudController : MonoBehaviour
             new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(1600, 120));
         t.color = new Color(0.5f, 1f, 0.6f);
         t.fontStyle = FontStyle.BoldAndItalic;
+        t.font = _titleFont;
         var sub = NewText(_winPanel.transform, "sub", "THE VOID DREADNOUGHT IS DUST", 30, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.59f), new Vector2(0.5f, 0.59f), Vector2.zero, new Vector2(1400, 50));
         sub.color = new Color(1f, 0.55f, 0.9f);
