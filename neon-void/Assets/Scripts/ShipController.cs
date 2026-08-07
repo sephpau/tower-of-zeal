@@ -45,16 +45,16 @@ public class ShipController : MonoBehaviour
         dashCooldown = Mathf.Max(0f, dashCooldown - Time.deltaTime);
         guardCooldown = Mathf.Max(0f, guardCooldown - Time.deltaTime);
 
-        // guard: hold SHIFT — instant on, cooldown starts when it ends
-        bool wantGuard = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-        if (!guarding && wantGuard && guardCooldown <= 0f)
+        // guard: tap SHIFT to raise — stays up until you attack (or tap again);
+        // 5s cooldown starts the moment it drops
+        if (Input.GetKeyDown(KeyCode.LeftShift) || Input.GetKeyDown(KeyCode.RightShift))
         {
-            guarding = true;
-            GameManager.I.PlaySfx(SfxSynth.Pickup, 0.4f);
-        }
-        else if (guarding && !wantGuard)
-        {
-            EndGuard();
+            if (guarding) EndGuard();
+            else if (guardCooldown <= 0f)
+            {
+                guarding = true;
+                GameManager.I.PlaySfx(SfxSynth.Pickup, 0.4f);
+            }
         }
         if (_guardBubble != null && _guardBubble.activeSelf != guarding)
             _guardBubble.SetActive(guarding);
