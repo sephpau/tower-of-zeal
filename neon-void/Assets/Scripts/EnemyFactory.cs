@@ -9,7 +9,10 @@ public static class EnemyFactory
         var go = new GameObject("interceptor");
         go.transform.position = pos;
 
-        var hull = NVAssets.Standard(new Color(0.2f, 0.1f, 0.28f), 0.75f, 0.3f);
+        // crimson hull with a hot glow — unmistakably hostile against grey rock
+        var hull = NVAssets.Standard(new Color(0.55f, 0.09f, 0.14f), 0.65f, 0.35f);
+        hull.EnableKeyword("_EMISSION");
+        hull.SetColor("_EmissionColor", new Color(0.35f, 0.03f, 0.06f));
         var pink = NVAssets.PinkEmissive;
 
         // dart-shaped fuselage
@@ -57,7 +60,10 @@ public static class EnemyFactory
         var go = new GameObject("gunship");
         go.transform.position = pos;
 
-        var hull = NVAssets.Standard(new Color(0.26f, 0.14f, 0.1f), 0.7f, 0.35f);
+        // burnt orange with an ember glow
+        var hull = NVAssets.Standard(new Color(0.55f, 0.24f, 0.06f), 0.7f, 0.35f);
+        hull.EnableKeyword("_EMISSION");
+        hull.SetColor("_EmissionColor", new Color(0.3f, 0.1f, 0.02f));
         var orange = NVAssets.Emissive(new Color(1f, 0.55f, 0.15f), 3f);
 
         Vector2[] body = {

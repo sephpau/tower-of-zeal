@@ -88,7 +88,8 @@ public static class NVAssets
         get
         {
             if (_rock != null) return _rock;
-            _rock = Standard(new Color(0.42f, 0.35f, 0.55f), 0.1f, 0.85f);
+            // neutral grey-brown so hostiles (red/orange) stand apart
+            _rock = Standard(new Color(0.36f, 0.33f, 0.3f), 0.05f, 0.9f);
             return _rock;
         }
     }
