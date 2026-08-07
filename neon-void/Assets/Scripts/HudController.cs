@@ -13,7 +13,8 @@ public class HudController : MonoBehaviour
     Canvas _canvas;
     Font _font;
     Text _scoreText, _waveText, _hostilesText, _comboText, _bannerText, _throttleText, _weaponText, _bossName;
-    Image _shieldBar, _hullBar, _vignette, _reticle, _bossBar;
+    Image _shieldBar, _hullBar, _vignette, _reticle, _bossBar, _warnBorder;
+    GameObject _settingsPanel;
     GameObject _gameHud, _startPanel, _overPanel, _winPanel, _bossGroup;
     Text _overScore, _overBest, _overStats, _winScore, _winBest;
     float _bannerTimer, _vignetteAlpha;
@@ -62,6 +63,12 @@ public class HudController : MonoBehaviour
             new Rect(0, 0, 128, 128), new Vector2(0.5f, 0.5f));
         _vignette.color = new Color(1, 1, 1, 0);
         _vignette.raycastTarget = false;
+
+        // incoming-fire warning: full-screen red border flash (toggle in settings)
+        _warnBorder = NewImage(_canvas.transform, "warnBorder", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        _warnBorder.sprite = _vignette.sprite;
+        _warnBorder.color = new Color(1, 1, 1, 0);
+        _warnBorder.raycastTarget = false;
 
         _gameHud = new GameObject("GameHud");
         _gameHud.transform.SetParent(_canvas.transform, false);
@@ -212,6 +219,7 @@ public class HudController : MonoBehaviour
         BuildWinPanel();
         BuildLevelUpPanel();
         BuildTournamentPanels();
+        BuildSettingsPanel();
         _gameHud.SetActive(false);
     }
 
@@ -232,37 +240,28 @@ public class HudController : MonoBehaviour
                 PlaceEdgeIndicator(_dirPool[used++], vp, new Color(1f, 0.85f, 0.2f, 0.85f), 30f);
             }
 
-            // red warnings for bolts that will hit within ~1 second
-            var prb = player.GetComponent<Rigidbody>();
-            Vector3 playerVel = prb != null ? prb.linearVelocity : Vector3.zero;
-            foreach (var bolt in Projectile.EnemyBolts)
+            // incoming-fire check: does any bolt hit within ~1 second?
+            bool threat = false;
+            if (GameSettings.HitWarning)
             {
-                if (used >= _dirPool.Count) break;
-                if (bolt == null || !bolt.gameObject.activeSelf) continue;
-                Vector3 rel = bolt.transform.position - player.transform.position;
-                Vector3 relVel = bolt.Velocity - playerVel;
-                float a = Vector3.Dot(relVel, relVel);
-                if (a < 0.01f) continue;
-                float tStar = -Vector3.Dot(rel, relVel) / a;
-                if (tStar < 0f || tStar > 1f) continue;                    // not hitting inside 1s
-                if ((rel + relVel * tStar).magnitude > 5f) continue;       // will miss anyway
-                Vector3 vp = cam.WorldToViewportPoint(bolt.transform.position);
-                float flash = 0.55f + 0.45f * Mathf.Abs(Mathf.Sin(Time.time * 16f));
-                var col = new Color(1f, 0.15f, 0.2f, flash);
-                bool onScreen = vp.z > 0f && vp.x > 0f && vp.x < 1f && vp.y > 0f && vp.y < 1f;
-                if (onScreen)
+                var prb = player.GetComponent<Rigidbody>();
+                Vector3 playerVel = prb != null ? prb.linearVelocity : Vector3.zero;
+                foreach (var bolt in Projectile.EnemyBolts)
                 {
-                    var ind = _dirPool[used++];
-                    ind.gameObject.SetActive(true);
-                    ind.color = col;
-                    ind.rectTransform.sizeDelta = new Vector2(40, 40);
-                    ind.rectTransform.position = new Vector3(vp.x * Screen.width, vp.y * Screen.height, 0f);
-                    Vector2 dir = new Vector2(vp.x - 0.5f, vp.y - 0.5f);
-                    ind.rectTransform.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f);
+                    if (bolt == null || !bolt.gameObject.activeSelf) continue;
+                    Vector3 rel = bolt.transform.position - player.transform.position;
+                    Vector3 relVel = bolt.Velocity - playerVel;
+                    float a = Vector3.Dot(relVel, relVel);
+                    if (a < 0.01f) continue;
+                    float tStar = -Vector3.Dot(rel, relVel) / a;
+                    if (tStar < 0f || tStar > 1f) continue;                // not hitting inside 1s
+                    if ((rel + relVel * tStar).magnitude > 5f) continue;   // will miss anyway
+                    threat = true;
+                    break;
                 }
-                else
-                    PlaceEdgeIndicator(_dirPool[used++], vp, col, 40f);
             }
+            float warnAlpha = threat ? 0.35f + 0.4f * Mathf.Abs(Mathf.Sin(Time.time * 14f)) : 0f;
+            _warnBorder.color = new Color(1f, 0.12f, 0.18f, warnAlpha);
         }
         for (int i = used; i < _dirPool.Count; i++)
             if (_dirPool[i].gameObject.activeSelf) _dirPool[i].gameObject.SetActive(false);
@@ -297,6 +296,7 @@ public class HudController : MonoBehaviour
         _gameHud.SetActive(false);
         _levelUpPanel.SetActive(false);
         _tourneyResultsPanel.SetActive(true);
+        _warnBorder.color = new Color(1, 1, 1, 0);
         _resultsTitle.text = reason;
         _resultsScore.text = score.ToString("N0");
         _resultsVerify.text = "MATCH " + matchCode + "   ·   VERIFY CODE  " + verify;
@@ -443,10 +443,44 @@ public class HudController : MonoBehaviour
             new Vector2(0.5f, 0.12f), new Vector2(0.5f, 0.12f), Vector2.zero, new Vector2(1500, 80));
         ctl.color = new Color(0.8f, 0.9f, 1f, 0.7f);
 
-        MakeButton(_startPanel.transform, "BLITZ TOURNAMENT", new Vector2(0.5f, 0.21f), new Vector2(360, 54),
+        MakeButton(_startPanel.transform, "BLITZ TOURNAMENT", new Vector2(0.41f, 0.21f), new Vector2(340, 54),
             new Color(1f, 0.55f, 0.9f), () => { _startPanel.SetActive(false); _tourneySetupPanel.SetActive(true); });
+        MakeButton(_startPanel.transform, "SETTINGS", new Vector2(0.59f, 0.21f), new Vector2(340, 54),
+            new Color(0.6f, 0.9f, 1f), () => { _startPanel.SetActive(false); _settingsPanel.SetActive(true); });
 
         _startPanel.SetActive(false);
+    }
+
+    void BuildSettingsPanel()
+    {
+        _settingsPanel = Panel("SettingsPanel");
+        var t = NewText(_settingsPanel.transform, "title", "SETTINGS", 64, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.78f), new Vector2(0.5f, 0.78f), Vector2.zero, new Vector2(1200, 90));
+        t.color = new Color(0.6f, 0.9f, 1f);
+        t.font = _titleFont;
+
+        var lbl = NewText(_settingsPanel.transform, "warnlbl", "INCOMING HIT WARNING", 28, TextAnchor.MiddleRight,
+            new Vector2(0.5f, 0.55f), new Vector2(0.5f, 0.55f), new Vector2(-110, 0), new Vector2(520, 44));
+        lbl.color = new Color(0.9f, 0.95f, 1f);
+        var desc = NewText(_settingsPanel.transform, "warndesc", "Flashes a red screen border when enemy fire will hit you within 1 second", 18, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.48f), new Vector2(0.5f, 0.48f), Vector2.zero, new Vector2(900, 32));
+        desc.color = new Color(0.7f, 0.8f, 1f, 0.7f);
+
+        Text toggleLabel = null;
+        var btn = MakeButton(_settingsPanel.transform, GameSettings.HitWarning ? "ON" : "OFF",
+            new Vector2(0.5f, 0.55f), new Vector2(140, 48),
+            GameSettings.HitWarning ? new Color(0.5f, 1f, 0.6f) : new Color(1f, 0.5f, 0.5f), () => { });
+        btn.transform.localPosition += new Vector3(220, 0, 0);
+        toggleLabel = btn.GetComponentInChildren<Text>();
+        btn.onClick.AddListener(() => {
+            GameSettings.HitWarning = !GameSettings.HitWarning;
+            toggleLabel.text = GameSettings.HitWarning ? "ON" : "OFF";
+            toggleLabel.color = GameSettings.HitWarning ? new Color(0.5f, 1f, 0.6f) : new Color(1f, 0.5f, 0.5f);
+        });
+
+        MakeButton(_settingsPanel.transform, "BACK", new Vector2(0.5f, 0.2f), new Vector2(300, 56),
+            new Color(0.8f, 0.9f, 1f), () => { _settingsPanel.SetActive(false); _startPanel.SetActive(true); });
+        _settingsPanel.SetActive(false);
     }
 
     void BuildTournamentPanels()
@@ -636,6 +670,7 @@ public class HudController : MonoBehaviour
     {
         _gameHud.SetActive(false);
         _overPanel.SetActive(true);
+        _warnBorder.color = new Color(1, 1, 1, 0);
         _overScore.text = score.ToString("N0");
         _overBest.text = newBest ? "NEW BEST!" : "BEST  " + best.ToString("N0");
         _overStats.text = "Reached wave " + wave + " / " + WaveDirector.FinalWave;
@@ -647,6 +682,7 @@ public class HudController : MonoBehaviour
     {
         _gameHud.SetActive(false);
         _winPanel.SetActive(true);
+        _warnBorder.color = new Color(1, 1, 1, 0);
         _winScore.text = score.ToString("N0");
         _winBest.text = newBest ? "NEW BEST!" : "BEST  " + best.ToString("N0");
         Invoke(nameof(EnableRestart), 1.5f);
