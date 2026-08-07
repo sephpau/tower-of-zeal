@@ -97,6 +97,16 @@ public class ShipController : MonoBehaviour
         if (_guardBubble != null) _guardBubble.SetActive(false);
     }
 
+    // called by DashFlourish when the S-dash flip-turn completes:
+    // the somersault+roll physically equals a 180° turn, so committing
+    // yaw+180 (with mirrored pitch) hands off with no visual snap
+    public void CommitFlip()
+    {
+        _yaw += 180f;
+        _pitch = -_pitch;
+        _rb.rotation = Quaternion.Euler(_pitch, _yaw, _roll);
+    }
+
     Vector3 InputDir()
     {
         float h = (Input.GetKey(KeyCode.D) ? 1f : 0f) - (Input.GetKey(KeyCode.A) ? 1f : 0f);

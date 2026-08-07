@@ -68,8 +68,13 @@ public class DashFlourish : MonoBehaviour
 
     IEnumerator Somersault()
     {
-        // single 180° backflip, then snap straight back — no sideways roll
-        yield return Phase(0.34f, k => Quaternion.Euler(-180f * k, 0f, 0f));
+        // flip-turn: 180° somersault + 180° barrel roll = exactly an
+        // about-face. The real aim commits to the new heading at the end,
+        // so the ship comes out of the move looking BEHIND where it was.
+        yield return Phase(0.32f, k => Quaternion.Euler(-180f * k, 0f, 0f));
+        yield return Phase(0.26f, k => Quaternion.Euler(0f, 0f, 180f * k) * Quaternion.Euler(-180f, 0f, 0f));
+        var ship = GetComponent<ShipController>();
+        if (ship != null) ship.CommitFlip();   // yaw += 180, seamless handoff
         visualRoot.localRotation = Quaternion.identity;
         CameraSpin = Quaternion.identity;
         _active = null;
