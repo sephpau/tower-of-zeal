@@ -5,6 +5,10 @@ public class Projectile : MonoBehaviour
 {
     static readonly Queue<Projectile> Pool = new Queue<Projectile>();
 
+    // live enemy bolts, for the HUD's incoming-attack warnings
+    public static readonly List<Projectile> EnemyBolts = new List<Projectile>();
+    public Vector3 Velocity => _velocity;
+
     Vector3 _velocity;
     float _damage, _life;
     GameObject _owner;
@@ -25,6 +29,7 @@ public class Projectile : MonoBehaviour
         p._fromPlayer = fromPlayer;
         p._pierce = pierce;
         p._life = 3f;
+        if (!fromPlayer) EnemyBolts.Add(p);
         p._core.material.SetColor("_TintColor", color);
         p._trail.startColor = color;
         p._trail.endColor = new Color(color.r, color.g, color.b, 0f);
@@ -70,6 +75,8 @@ public class Projectile : MonoBehaviour
                     if (_fromPlayer || h.isPlayer)
                     {
                         h.TakeDamage(_damage);
+                        if (_fromPlayer && !h.isPlayer)
+                            GameManager.I.PlaySfx(SfxSynth.HitPulse, 0.35f);
                         ExplosionFactory.Sparks(hit.point, _fromPlayer ? new Color(0.4f, 0.9f, 1f) : new Color(1f, 0.4f, 0.8f));
                         if (h.isPlayer)
                         {
@@ -102,6 +109,7 @@ public class Projectile : MonoBehaviour
 
     void Release()
     {
+        EnemyBolts.Remove(this);
         gameObject.SetActive(false);
         Pool.Enqueue(this);
     }

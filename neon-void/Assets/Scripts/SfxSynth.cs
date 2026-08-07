@@ -6,6 +6,7 @@ public static class SfxSynth
 {
     const int SR = 44100;
     public static AudioClip Laser, Boom, BigBoom, Hit, Pickup, WaveUp, Music;
+    public static AudioClip HitPulse, HitSpecial;   // hit-confirm cues
 
     static bool _built;
 
@@ -24,6 +25,18 @@ public static class SfxSynth
         {
             float f = Mathf.Lerp(190f, 55f, t / d);
             return Saw(f, t) * 0.7f * Decay(t, d, 3f);
+        });
+        // bright tick when a pulse shot connects
+        HitPulse = Render("hitpulse", 0.07f, (t, d) =>
+        {
+            float f = Mathf.Lerp(1900f, 750f, t / d);
+            return Square(f, t) * 0.55f * Decay(t, d, 4f);
+        });
+        // meatier crunch-zap when a special connects
+        HitSpecial = Render("hitspecial", 0.18f, (t, d) =>
+        {
+            float f = Mathf.Lerp(620f, 130f, t / d);
+            return (Saw(f, t) * 0.55f + Tri(f * 2.7f, t) * 0.3f) * Decay(t, d, 2.6f);
         });
         Pickup = RenderArp("pickup", new[] { 523.3f, 659.3f, 784f, 1046.5f }, 0.07f);
         WaveUp = RenderArp("waveup", new[] { 220f, 277.2f, 329.6f, 440f, 554.4f }, 0.09f);

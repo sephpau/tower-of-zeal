@@ -13,6 +13,7 @@ public class SpecialAttack : MonoBehaviour
     public string DisplayName { get; private set; }
     public float cooldownLeft;
     public float CooldownTotal => _cooldown;
+    public string PilotId => _pilot != null ? _pilot.id : null;
 
     ZealData.Pilot _pilot;
     float _cooldown;
@@ -194,6 +195,8 @@ public class SpecialAttack : MonoBehaviour
                 if (h != null && !h.isPlayer)
                 {
                     h.TakeDamage(BeamDps * Might * Time.deltaTime);
+                    if (Random.value < 6f * Time.deltaTime)
+                        GameManager.I.PlaySfx(SfxSynth.HitSpecial, 0.4f);
                     if (Random.value < 14f * Time.deltaTime)
                         ExplosionFactory.Sparks(hit.point, Accent);
                 }
@@ -239,12 +242,15 @@ public class SpecialAttack : MonoBehaviour
             if (tick <= 0f)
             {
                 tick = 0.2f;
+                bool connected = false;
                 foreach (var h in SkillSystem.AllHostiles())
                     if (Vector3.Distance(transform.position, h.transform.position) < StormRadius + 4f)
                     {
                         h.TakeDamage(StormDps * 0.2f * Might);
                         ExplosionFactory.Sparks(h.transform.position, Accent);
+                        connected = true;
                     }
+                if (connected) GameManager.I.PlaySfx(SfxSynth.HitSpecial, 0.35f);
             }
             yield return null;
         }
@@ -318,7 +324,11 @@ public class HomingPie : MonoBehaviour
         if (Physics.Raycast(transform.position, step.normalized, out RaycastHit hit, step.magnitude + 0.5f))
         {
             var h = hit.collider.GetComponentInParent<Health>();
-            if (h != null && !h.isPlayer) h.TakeDamage(_dmg);
+            if (h != null && !h.isPlayer)
+            {
+                h.TakeDamage(_dmg);
+                GameManager.I.PlaySfx(SfxSynth.HitSpecial, 0.6f);
+            }
             ExplosionFactory.Explode(hit.point, _tint, 0.7f);
             GameManager.I.PlaySfxAt(SfxSynth.Boom, hit.point, 0.4f);
             Destroy(gameObject);
@@ -372,6 +382,7 @@ public class StormMarkBolt : MonoBehaviour
                 if (direct != null && !direct.isPlayer)
                 {
                     direct.TakeDamage(_dmg);
+                    GameManager.I.PlaySfx(SfxSynth.HitSpecial, 0.7f);
                     // the mark detonates: chain to everything nearby, same damage
                     foreach (var h in SkillSystem.AllHostiles())
                     {

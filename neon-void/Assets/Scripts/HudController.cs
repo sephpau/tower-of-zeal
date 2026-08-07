@@ -20,7 +20,10 @@ public class HudController : MonoBehaviour
     WaveDirector _wavesRef;
 
     Text _xpLevelText, _timerText, _skillCdText, _skillLabel;
-    Image _xpBar, _skillFill;
+    Image _xpBar, _skillFill, _skillIconImg;
+    string _skillIconFor;
+    readonly List<Image> _dirPool = new List<Image>();
+    Sprite _arrowSprite;
     GameObject _levelUpPanel, _tourneySetupPanel, _tourneyResultsPanel;
     InputField _codeInput, _nameInput;
     Text _tourneyPilotPreview, _resultsTitle, _resultsScore, _resultsVerify, _resultsStandings;
@@ -119,6 +122,8 @@ public class HudController : MonoBehaviour
         var skillBg = NewImage(_gameHud.transform, "skillbg", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(240, 44), new Vector2(58, 58));
         skillBg.sprite = CircleSprite();
         skillBg.color = new Color(0.05f, 0.05f, 0.15f, 0.85f);
+        _skillIconImg = NewImage(skillBg.transform, "icon", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(38, 38));
+        _skillIconImg.color = new Color(1f, 0.97f, 0.9f, 0.95f);
         _skillFill = NewImage(skillBg.transform, "fill", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         _skillFill.sprite = CircleSprite();
         _skillFill.type = Image.Type.Filled;
@@ -155,12 +160,91 @@ public class HudController : MonoBehaviour
         _timerText.color = new Color(1f, 0.85f, 0.4f);
         _timerText.fontStyle = FontStyle.Bold;
 
+        // pooled direction indicators: yellow = offscreen enemy, red = incoming fire
+        _arrowSprite = ArrowSprite();
+        for (int i = 0; i < 20; i++)
+        {
+            var ind = NewImage(_gameHud.transform, "dir" + i, Vector2.zero, Vector2.zero, Vector2.zero, new Vector2(30, 30));
+            ind.sprite = _arrowSprite;
+            ind.gameObject.SetActive(false);
+            _dirPool.Add(ind);
+        }
+
         BuildStartPanel();
         BuildOverPanel();
         BuildWinPanel();
         BuildLevelUpPanel();
         BuildTournamentPanels();
         _gameHud.SetActive(false);
+    }
+
+    // ---------- direction indicators ----------
+    void UpdateIndicators(Health player)
+    {
+        var cam = Camera.main;
+        int used = 0;
+        if (cam != null)
+        {
+            // yellow arrows for hostiles outside the view
+            foreach (var h in SkillSystem.AllHostiles())
+            {
+                if (used >= _dirPool.Count) break;
+                Vector3 vp = cam.WorldToViewportPoint(h.transform.position);
+                bool onScreen = vp.z > 0f && vp.x > 0f && vp.x < 1f && vp.y > 0f && vp.y < 1f;
+                if (onScreen) continue;
+                PlaceEdgeIndicator(_dirPool[used++], vp, new Color(1f, 0.85f, 0.2f, 0.85f), 30f);
+            }
+
+            // red warnings for bolts that will hit within ~1 second
+            var prb = player.GetComponent<Rigidbody>();
+            Vector3 playerVel = prb != null ? prb.linearVelocity : Vector3.zero;
+            foreach (var bolt in Projectile.EnemyBolts)
+            {
+                if (used >= _dirPool.Count) break;
+                if (bolt == null || !bolt.gameObject.activeSelf) continue;
+                Vector3 rel = bolt.transform.position - player.transform.position;
+                Vector3 relVel = bolt.Velocity - playerVel;
+                float a = Vector3.Dot(relVel, relVel);
+                if (a < 0.01f) continue;
+                float tStar = -Vector3.Dot(rel, relVel) / a;
+                if (tStar < 0f || tStar > 1f) continue;                    // not hitting inside 1s
+                if ((rel + relVel * tStar).magnitude > 5f) continue;       // will miss anyway
+                Vector3 vp = cam.WorldToViewportPoint(bolt.transform.position);
+                float flash = 0.55f + 0.45f * Mathf.Abs(Mathf.Sin(Time.time * 16f));
+                var col = new Color(1f, 0.15f, 0.2f, flash);
+                bool onScreen = vp.z > 0f && vp.x > 0f && vp.x < 1f && vp.y > 0f && vp.y < 1f;
+                if (onScreen)
+                {
+                    var ind = _dirPool[used++];
+                    ind.gameObject.SetActive(true);
+                    ind.color = col;
+                    ind.rectTransform.sizeDelta = new Vector2(40, 40);
+                    ind.rectTransform.position = new Vector3(vp.x * Screen.width, vp.y * Screen.height, 0f);
+                    Vector2 dir = new Vector2(vp.x - 0.5f, vp.y - 0.5f);
+                    ind.rectTransform.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f);
+                }
+                else
+                    PlaceEdgeIndicator(_dirPool[used++], vp, col, 40f);
+            }
+        }
+        for (int i = used; i < _dirPool.Count; i++)
+            if (_dirPool[i].gameObject.activeSelf) _dirPool[i].gameObject.SetActive(false);
+    }
+
+    void PlaceEdgeIndicator(Image ind, Vector3 vp, Color color, float size)
+    {
+        if (vp.z < 0f) { vp.x = 1f - vp.x; vp.y = 1f - vp.y; }   // behind the camera: mirror
+        Vector2 dir = new Vector2(vp.x - 0.5f, vp.y - 0.5f);
+        if (dir.sqrMagnitude < 0.0001f) dir = Vector2.up;
+        // push to the screen border
+        float scale = Mathf.Max(Mathf.Abs(dir.x) / 0.46f, Mathf.Abs(dir.y) / 0.44f);
+        dir /= Mathf.Max(scale, 0.0001f);
+        Vector2 screenPos = new Vector2((0.5f + dir.x) * Screen.width, (0.5f + dir.y) * Screen.height);
+        ind.gameObject.SetActive(true);
+        ind.color = color;
+        ind.rectTransform.sizeDelta = new Vector2(size, size);
+        ind.rectTransform.position = new Vector3(screenPos.x, screenPos.y, 0f);
+        ind.rectTransform.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f);
     }
 
     public void SetTimer(float secondsLeft)
@@ -545,6 +629,8 @@ public class HudController : MonoBehaviour
         _xpBar.fillAmount = Mathf.Clamp01(GameManager.I.xp / (float)ZealData.XpToNext(GameManager.I.xpLevel));
         _xpLevelText.text = "LV " + GameManager.I.xpLevel;
 
+        UpdateIndicators(player);
+
         // boss bar
         bool bossUp = waves.bossHealth != null;
         if (_bossGroup.activeSelf != bossUp) _bossGroup.SetActive(bossUp);
@@ -656,6 +742,81 @@ public class HudController : MonoBehaviour
         rt.anchorMax = Vector2.one;
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
+    }
+
+    Sprite ArrowSprite()
+    {
+        const int S = 64;
+        var tex = new Texture2D(S, S, TextureFormat.RGBA32, false);
+        // triangle pointing up: apex (32,58), base (10,10)-(54,10)
+        Vector2 a = new Vector2(32, 58), b = new Vector2(10, 10), c = new Vector2(54, 10);
+        for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+                tex.SetPixel(x, y, new Color(1, 1, 1, InTriangle(new Vector2(x, y), a, b, c) ? 1f : 0f));
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f));
+    }
+
+    static bool InTriangle(Vector2 p, Vector2 a, Vector2 b, Vector2 c)
+    {
+        float s1 = Cross(a, b, p), s2 = Cross(b, c, p), s3 = Cross(c, a, p);
+        return (s1 >= 0 && s2 >= 0 && s3 >= 0) || (s1 <= 0 && s2 <= 0 && s3 <= 0);
+    }
+    static float Cross(Vector2 a, Vector2 b, Vector2 p) => (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+
+    // per-skill logos, all drawn procedurally
+    Sprite SkillIconSprite(string pilotId)
+    {
+        const int S = 64;
+        var tex = new Texture2D(S, S, TextureFormat.RGBA32, false);
+        for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+                tex.SetPixel(x, y, SkillIconPixel(pilotId, x, y));
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f));
+    }
+
+    Color SkillIconPixel(string id, int x, int y)
+    {
+        Color on = Color.white, off = new Color(1, 1, 1, 0);
+        switch (id)
+        {
+            case "ego":   // laser beam: muzzle ball + widening horizontal beam
+            {
+                if (Vector2.Distance(new Vector2(x, y), new Vector2(12, 32)) < 9f) return on;
+                float half = 3f + (x - 12) * 0.14f;
+                if (x > 12 && Mathf.Abs(y - 32) < half) return on;
+                if (x > 12 && Mathf.Abs(y - 32) < half + 4f) return new Color(1, 1, 1, 0.35f);
+                return off;
+            }
+            case "captain":   // upright sword: blade, guard, grip, pommel
+            {
+                float tipHalf = y > 48 ? Mathf.Max(0f, (58f - y) * 0.45f) : 3.4f;
+                if (y >= 20 && y <= 58 && Mathf.Abs(x - 32) <= tipHalf) return on;
+                if (y >= 15 && y < 20 && Mathf.Abs(x - 32) <= 11) return on;
+                if (y >= 6 && y < 15 && Mathf.Abs(x - 32) <= 2.6f) return on;
+                if (Vector2.Distance(new Vector2(x, y), new Vector2(32, 5)) < 3.2f) return on;
+                return off;
+            }
+            case "chef":   // whole pie: crust rim, filling, lattice
+            {
+                float d = Vector2.Distance(new Vector2(x, y), new Vector2(32, 32));
+                if (d > 25f) return off;
+                if (d > 20f) return on;                                  // crust
+                bool lattice = (x + y) % 14 < 3 || (x - y + 128) % 14 < 3;
+                return lattice ? on : new Color(1, 1, 1, 0.45f);         // filling
+            }
+            default:   // lightning bolt zigzag
+            {
+                Vector2 p = new Vector2(x, y);
+                bool inBolt =
+                    InTriangle(p, new Vector2(38, 58), new Vector2(18, 30), new Vector2(34, 34)) ||
+                    InTriangle(p, new Vector2(38, 58), new Vector2(34, 34), new Vector2(44, 40)) ||
+                    InTriangle(p, new Vector2(30, 34), new Vector2(20, 28), new Vector2(46, 30)) ||
+                    InTriangle(p, new Vector2(26, 6), new Vector2(46, 30), new Vector2(20, 28));
+                return inBolt ? on : off;
+            }
+        }
     }
 
     Sprite CircleSprite()
