@@ -6,8 +6,8 @@ using UnityEngine;
 //  W: forward lunge dip                       S: 180° somersault, then 180° sideways, settle
 public class DashFlourish : MonoBehaviour
 {
-    // extra rotation the chase camera applies this frame — the S-dash
-    // somersault carries the POV through the flip
+    // flourish rotation this frame — applied to the camera ONLY in
+    // first-person view, where every dash spin carries the POV
     public static Quaternion CameraSpin = Quaternion.identity;
 
     public Transform visualRoot;
@@ -34,10 +34,13 @@ public class DashFlourish : MonoBehaviour
         {
             t += Time.deltaTime;
             float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / dur));
-            visualRoot.localRotation = Quaternion.Euler(0f, 0f, totalDeg * k);
+            Quaternion q = Quaternion.Euler(0f, 0f, totalDeg * k);
+            visualRoot.localRotation = q;
+            CameraSpin = q;
             yield return null;
         }
         visualRoot.localRotation = Quaternion.identity;
+        CameraSpin = Quaternion.identity;
         _active = null;
     }
 
@@ -51,23 +54,22 @@ public class DashFlourish : MonoBehaviour
             float k = Mathf.Clamp01(t / dur);
             float dip = Mathf.Sin(k * Mathf.PI) * 14f;      // nose dips and returns
             float stretch = 1f + Mathf.Sin(k * Mathf.PI) * 0.12f;
-            visualRoot.localRotation = Quaternion.Euler(dip, 0f, 0f);
+            Quaternion q = Quaternion.Euler(dip, 0f, 0f);
+            visualRoot.localRotation = q;
+            CameraSpin = q;
             visualRoot.localScale = new Vector3(1f, 1f, stretch);
             yield return null;
         }
         visualRoot.localRotation = Quaternion.identity;
         visualRoot.localScale = Vector3.one;
+        CameraSpin = Quaternion.identity;
         _active = null;
     }
 
     IEnumerator Somersault()
     {
-        // POV rides along: the camera flips with the ship, world wheels around
-        // phase 1: 180° backflip
-        yield return Phase(0.32f, k => Quaternion.Euler(-180f * k, 0f, 0f));
-        // phase 2: 180° sideways roll on top of the flip
-        yield return Phase(0.28f, k => Quaternion.Euler(0f, 0f, 180f * k) * Quaternion.Euler(-180f, 0f, 0f));
-        // done — snap straight back to the original pov, no extra spin
+        // single 180° backflip, then snap straight back — no sideways roll
+        yield return Phase(0.34f, k => Quaternion.Euler(-180f * k, 0f, 0f));
         visualRoot.localRotation = Quaternion.identity;
         CameraSpin = Quaternion.identity;
         _active = null;
