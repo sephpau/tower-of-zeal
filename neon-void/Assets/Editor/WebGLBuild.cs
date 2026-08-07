@@ -23,6 +23,7 @@ public static class WebGLBuild
             }
         }
 
+        PlayerSettings.WebGL.template = "PROJECT:NeonVoid";   // Assets/WebGLTemplates/NeonVoid
         PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Brotli;
         PlayerSettings.WebGL.decompressionFallback = true;   // no server headers needed
         PlayerSettings.runInBackground = true;

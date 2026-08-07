@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no, user-scalable=no">
+  <title>Neon Void — Zeal Survivors</title>
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #05020d; overflow: hidden; }
+    #unity-container { position: absolute; inset: 0; }
+    #unity-canvas { width: 100%; height: 100%; display: block; background: #05020d; }
+
+    /* ---------- loading overlay ---------- */
+    #nv-load {
+      position: absolute; inset: 0; z-index: 10;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(120% 90% at 50% 10%, #1a0f33 0%, #0c0620 55%, #05020d 100%);
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      transition: opacity 0.7s ease;
+    }
+    #nv-load.done { opacity: 0; pointer-events: none; }
+
+    #nv-stars { position: absolute; inset: 0; }
+
+    /* hero art (optional): drop loading-art.png into TemplateData */
+    #nv-art {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; opacity: 0.9;
+    }
+    /* legibility scrim over the art, strongest at the bottom for the bar */
+    #nv-scrim {
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(5,2,13,0.35) 0%, rgba(5,2,13,0.05) 35%, rgba(5,2,13,0.2) 65%, rgba(5,2,13,0.75) 100%);
+    }
+
+    /* synthwave floor grid (visible until art covers it) */
+    #nv-grid {
+      position: absolute; left: -30%; right: -30%; bottom: -14%; height: 60%;
+      background:
+        repeating-linear-gradient(90deg, rgba(122, 77, 255, 0.30) 0 2px, transparent 2px 84px),
+        repeating-linear-gradient(0deg, rgba(122, 77, 255, 0.30) 0 2px, transparent 2px 64px);
+      transform: perspective(420px) rotateX(62deg);
+      -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 45%);
+      mask-image: linear-gradient(180deg, transparent 0%, #000 45%);
+    }
+
+    #nv-center { position: relative; display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 0 24px; }
+
+    #nv-title {
+      font-size: clamp(44px, 9vw, 96px); font-weight: 800; letter-spacing: 0.14em;
+      color: #eafcff; line-height: 1; margin: 0; text-align: center;
+      text-shadow:
+        0 0 6px  rgba(120, 235, 255, 0.9),
+        0 0 22px rgba(62, 230, 255, 0.55),
+        0 0 60px rgba(62, 230, 255, 0.35),
+        0 0 90px rgba(161, 91, 255, 0.45);
+    }
+    #nv-sub {
+      margin: -12px 0 6px; font-size: clamp(12px, 2vw, 16px); letter-spacing: 0.5em;
+      color: #b9a6ff; text-transform: uppercase; text-align: center;
+      text-shadow: 0 0 12px rgba(161, 91, 255, 0.8);
+    }
+
+    #nv-bar-outer {
+      width: min(520px, 74vw); height: 14px; border-radius: 999px;
+      border: 1px solid rgba(120, 220, 255, 0.4);
+      background: rgba(10, 6, 26, 0.75);
+      box-shadow: 0 0 18px rgba(62, 230, 255, 0.25), inset 0 0 10px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+    }
+    #nv-bar-fill {
+      width: 0%; height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, #3ee6ff, #7a8bff 55%, #a15bff);
+      box-shadow: 0 0 14px rgba(62, 230, 255, 0.9);
+      position: relative; transition: width 0.15s linear;
+    }
+    #nv-bar-fill::after {   /* moving sheen */
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%);
+      background-size: 200% 100%;
+      animation: nv-sheen 1.4s linear infinite;
+    }
+    @keyframes nv-sheen { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+    #nv-flavor {
+      min-height: 1.4em; font-size: clamp(13px, 2vw, 16px); color: #cfd6ff;
+      letter-spacing: 0.04em; opacity: 0.9; text-align: center;
+      transition: opacity 0.35s ease;
+      text-shadow: 0 0 10px rgba(30, 20, 60, 0.9);
+    }
+    #nv-flavor.swap { opacity: 0; }
+    #nv-flavor.error { color: #ff8896; opacity: 1; }
+
+    #nv-pct { font-size: 13px; color: #7f8ac4; letter-spacing: 0.2em; }
+  </style>
+</head>
+<body>
+  <div id="unity-container">
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+  </div>
+
+  <div id="nv-load">
+    <canvas id="nv-stars"></canvas>
+    <div id="nv-grid"></div>
+    <img id="nv-art" src="TemplateData/loading-art.png" alt="" onerror="this.remove()">
+    <div id="nv-scrim"></div>
+    <div id="nv-center">
+      <h1 id="nv-title">NEON&nbsp;VOID</h1>
+      <div id="nv-sub">Zeal Survivors</div>
+      <div id="nv-bar-outer"><div id="nv-bar-fill"></div></div>
+      <div id="nv-flavor">Charging the zeal beam&hellip;</div>
+      <div id="nv-pct">0%</div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- starfield ----------
+    (function () {
+      var cv = document.getElementById("nv-stars"), cx = cv.getContext("2d"), stars = [];
+      function fit() {
+        cv.width = innerWidth; cv.height = innerHeight;
+        stars = [];
+        for (var i = 0; i < Math.min(220, innerWidth / 6); i++)
+          stars.push({ x: Math.random() * cv.width, y: Math.random() * cv.height,
+                       r: Math.random() * 1.6 + 0.3, p: Math.random() * Math.PI * 2,
+                       s: 0.5 + Math.random() * 1.5 });
+      }
+      addEventListener("resize", fit); fit();
+      (function tick(t) {
+        if (!document.body.contains(cv)) return;
+        cx.clearRect(0, 0, cv.width, cv.height);
+        for (var i = 0; i < stars.length; i++) {
+          var st = stars[i], a = 0.35 + 0.65 * Math.abs(Math.sin(t * 0.001 * st.s + st.p));
+          cx.globalAlpha = a;
+          cx.fillStyle = i % 7 === 0 ? "#a8f0ff" : (i % 11 === 0 ? "#d0b0ff" : "#ffffff");
+          cx.beginPath(); cx.arc(st.x, st.y, st.r, 0, 6.284); cx.fill();
+        }
+        requestAnimationFrame(tick);
+      })(0);
+    })();
+
+    // ---------- flavor lines ----------
+    var nvFlavor = document.getElementById("nv-flavor");
+    var nvLines = [
+      "Sharpening cutlasses…",
+      "Charging the zeal beam…",
+      "Stoking the void brazier…",
+      "Winding the storm chronometer…",
+      "Lacing galewind boots…",
+      "Counting doubloons…",
+      "Feeding the pocket drake…",
+      "Preheating scalding pies…",
+      "Polishing the saucer…",
+      "Untangling chain lightning…",
+      "Painting the neon grid…",
+      "Waking the void wardens…"
+    ];
+    var nvLine = 0, nvFlavorTimer = setInterval(function () {
+      nvFlavor.classList.add("swap");
+      setTimeout(function () {
+        nvLine = (nvLine + 1) % nvLines.length;
+        nvFlavor.textContent = nvLines[nvLine];
+        nvFlavor.classList.remove("swap");
+      }, 350);
+    }, 2400);
+
+    // ---------- progress (smoothed toward loader's target) ----------
+    var nvFill = document.getElementById("nv-fill") || document.getElementById("nv-bar-fill");
+    var nvPct = document.getElementById("nv-pct");
+    var nvTarget = 0, nvShown = 0;
+    (function nvAnim() {
+      if (nvShown < nvTarget) {
+        nvShown = Math.min(nvTarget, nvShown + 0.008 + (nvTarget - nvShown) * 0.08);
+        nvFill.style.width = (nvShown * 100).toFixed(1) + "%";
+        nvPct.textContent = Math.round(nvShown * 100) + "%";
+      }
+      if (nvShown < 1) requestAnimationFrame(nvAnim);
+    })();
+
+    // ---------- Unity boot ----------
+    var canvas = document.querySelector("#unity-canvas");
+    var buildUrl = "Build";
+    var loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
+    var config = {
+      arguments: [],
+      dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+      frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+      codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+#if MEMORY_FILENAME
+      memoryUrl: buildUrl + "/{{{ MEMORY_FILENAME }}}",
+#endif
+#if SYMBOLS_FILENAME
+      symbolsUrl: buildUrl + "/{{{ SYMBOLS_FILENAME }}}",
+#endif
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+      productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+      productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}}
+    };
+
+    var script = document.createElement("script");
+    script.src = loaderUrl;
+    script.onload = function () {
+      createUnityInstance(canvas, config, function (progress) {
+        nvTarget = Math.max(nvTarget, progress);
+      }).then(function (unityInstance) {
+        nvTarget = 1;
+        clearInterval(nvFlavorTimer);
+        nvFlavor.textContent = "Entering the void…";
+        setTimeout(function () {
+          var overlay = document.getElementById("nv-load");
+          overlay.classList.add("done");
+          setTimeout(function () { overlay.remove(); }, 800);
+        }, 350);
+      }).catch(function (message) {
+        clearInterval(nvFlavorTimer);
+        nvFlavor.classList.add("error");
+        nvFlavor.textContent = message;
+      });
+    };
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>

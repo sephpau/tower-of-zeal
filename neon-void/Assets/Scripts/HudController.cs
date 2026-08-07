@@ -404,9 +404,9 @@ public class HudController : MonoBehaviour
             var img = card.AddComponent<Image>();
             img.color = new Color(0.07f, 0.05f, 0.16f, 0.95f);
             var rt = img.rectTransform;
-            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.42f);
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.43f);
             rt.anchoredPosition = new Vector2((i - 1.5f) * 330f, 0f);
-            rt.sizeDelta = new Vector2(300, 260);
+            rt.sizeDelta = new Vector2(300, 370);
             var btn = card.AddComponent<Button>();
             var colors = btn.colors;
             colors.highlightedColor = new Color(1.6f, 1.6f, 1.9f);
@@ -420,23 +420,33 @@ public class HudController : MonoBehaviour
 
             var edge = NewImage(card.transform, "edge", Vector2.zero, new Vector2(1, 0), new Vector2(0, 4), new Vector2(0, 8));
             edge.color = pilot.accent;
-            var name = NewText(card.transform, "name", pilot.name, 30, TextAnchor.MiddleCenter,
-                new Vector2(0.5f, 0.82f), new Vector2(0.5f, 0.82f), Vector2.zero, new Vector2(290, 40));
+
+            // v1-style card: portrait, TITLE, Name, perks, special skill
+            var portraitTex = Resources.Load<Texture2D>("chars/char-" + pilot.id);
+            if (portraitTex != null)
+            {
+                var portrait = NewImage(card.transform, "portrait", new Vector2(0.5f, 0.8f), new Vector2(0.5f, 0.8f), Vector2.zero, new Vector2(130, 130));
+                portrait.sprite = Sprite.Create(portraitTex, new Rect(0, 0, portraitTex.width, portraitTex.height), new Vector2(0.5f, 0.5f));
+                portrait.preserveAspect = true;
+            }
+            var title = NewText(card.transform, "ptitle", pilot.title.ToUpperInvariant(), 15, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.575f), new Vector2(0.5f, 0.575f), Vector2.zero, new Vector2(290, 26));
+            title.color = new Color(1f, 0.85f, 0.4f, 0.9f);
+            var name = NewText(card.transform, "name", pilot.name, 28, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.48f), new Vector2(0.5f, 0.48f), Vector2.zero, new Vector2(290, 40));
             name.color = pilot.accent;
             name.font = _titleFont;
-            var title = NewText(card.transform, "ptitle", pilot.title.ToUpperInvariant(), 17, TextAnchor.MiddleCenter,
-                new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(290, 30));
-            title.color = new Color(0.85f, 0.9f, 1f, 0.8f);
-            string specialLine = pilot.id == "ego" ? "RMB — ZEAL BOLT beam"
-                : pilot.id == "captain" ? "RMB — CUTLASS storm"
-                : pilot.id == "chef" ? "RMB — SCALDING PIE homing"
-                : "RMB — STORM MARK chain";
-            var spcText = NewText(card.transform, "special", specialLine, 18, TextAnchor.MiddleCenter,
-                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(290, 30));
-            spcText.color = new Color(1f, 0.85f, 0.4f);
-            var perk = NewText(card.transform, "perk", pilot.perkText, 17, TextAnchor.MiddleCenter,
-                new Vector2(0.5f, 0.26f), new Vector2(0.5f, 0.26f), Vector2.zero, new Vector2(280, 80));
+            var perk = NewText(card.transform, "perk", pilot.perkText, 16, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.33f), new Vector2(0.5f, 0.33f), Vector2.zero, new Vector2(280, 70));
             perk.color = new Color(0.8f, 0.9f, 1f, 0.85f);
+            string specialName = pilot.id == "ego" ? "ZEAL BOLT"
+                : pilot.id == "captain" ? "CORSAIR CUTLASS"
+                : pilot.id == "chef" ? "SCALDING PIE"
+                : "STORM MARK";
+            var spcText = NewText(card.transform, "special", "SPECIAL SKILL:  " + specialName, 16, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.15f), new Vector2(0.5f, 0.15f), Vector2.zero, new Vector2(290, 28));
+            spcText.color = new Color(0.4f, 1f, 0.75f);
+            spcText.fontStyle = FontStyle.Bold;
         }
 
         var ctl = NewText(_startPanel.transform, "controls", "MOUSE aim · WASD move · SHIFT up / CTRL down · SPACE dash (spins!) · G guard (½ dmg, attack drops it, 5s CD) · LMB fire · RMB special · V 1st/3rd person · M mute\nCollect XP shards — choose upgrades on level up", 20, TextAnchor.MiddleCenter,
