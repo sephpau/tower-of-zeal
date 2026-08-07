@@ -19,8 +19,8 @@ public class HudController : MonoBehaviour
     float _bannerTimer, _vignetteAlpha;
     WaveDirector _wavesRef;
 
-    Text _xpLevelText, _timerText;
-    Image _xpBar;
+    Text _xpLevelText, _timerText, _skillCdText, _skillLabel;
+    Image _xpBar, _skillFill;
     GameObject _levelUpPanel, _tourneySetupPanel, _tourneyResultsPanel;
     InputField _codeInput, _nameInput;
     Text _tourneyPilotPreview, _resultsTitle, _resultsScore, _resultsVerify, _resultsStandings;
@@ -114,6 +114,23 @@ public class HudController : MonoBehaviour
         // shield + hull bars bottom center
         _shieldBar = Bar(new Vector2(0, 46), new Color(0.35f, 0.8f, 1f));
         _hullBar = Bar(new Vector2(0, 28), new Color(1f, 0.5f, 0.35f));
+
+        // special-skill cooldown gauge beside the bars
+        var skillBg = NewImage(_gameHud.transform, "skillbg", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(240, 44), new Vector2(58, 58));
+        skillBg.sprite = CircleSprite();
+        skillBg.color = new Color(0.05f, 0.05f, 0.15f, 0.85f);
+        _skillFill = NewImage(skillBg.transform, "fill", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        _skillFill.sprite = CircleSprite();
+        _skillFill.type = Image.Type.Filled;
+        _skillFill.fillMethod = Image.FillMethod.Radial360;
+        _skillFill.fillOrigin = (int)Image.Origin360.Top;
+        _skillFill.fillClockwise = true;
+        _skillCdText = NewText(skillBg.transform, "cd", "", 22, TextAnchor.MiddleCenter,
+            Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        _skillCdText.fontStyle = FontStyle.Bold;
+        _skillLabel = NewText(skillBg.transform, "label", "RMB", 14, TextAnchor.UpperCenter,
+            new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, -4), new Vector2(80, 20));
+        _skillLabel.color = new Color(1f, 0.85f, 0.4f, 0.85f);
 
         _bannerText = NewText(_gameHud.transform, "banner", "", 64, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.65f), new Vector2(0.5f, 0.65f), Vector2.zero, new Vector2(1400, 90));
@@ -507,7 +524,16 @@ public class HudController : MonoBehaviour
             if (weapon.homingTimer > 0f) status += "   HOMING " + Mathf.CeilToInt(weapon.homingTimer) + "s";
             var spc = player.GetComponent<SpecialAttack>();
             if (spc != null && spc.DisplayName != null)
-                status += "\nRMB " + spc.DisplayName + (spc.cooldownLeft <= 0f ? "  READY" : "  " + spc.cooldownLeft.ToString("0.0") + "s");
+            {
+                status += "\nRMB " + spc.DisplayName;
+                bool ready = spc.cooldownLeft <= 0f;
+                _skillFill.fillAmount = spc.CooldownTotal > 0f ? 1f - spc.cooldownLeft / spc.CooldownTotal : 1f;
+                _skillFill.color = ready
+                    ? new Color(1f, 0.85f, 0.4f, 0.95f)
+                    : new Color(0.4f, 0.6f, 0.9f, 0.55f);
+                _skillCdText.text = ready ? "" : Mathf.CeilToInt(spc.cooldownLeft).ToString();
+                _skillCdText.color = Color.white;
+            }
             var skills = player.GetComponent<SkillSystem>();
             if (skills != null)
                 foreach (var ow in skills.weapons)
@@ -630,6 +656,20 @@ public class HudController : MonoBehaviour
         rt.anchorMax = Vector2.one;
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
+    }
+
+    Sprite CircleSprite()
+    {
+        const int S = 64;
+        var tex = new Texture2D(S, S, TextureFormat.RGBA32, false);
+        for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                float d = Vector2.Distance(new Vector2(x, y), new Vector2(S / 2f, S / 2f)) / (S / 2f);
+                tex.SetPixel(x, y, new Color(1, 1, 1, Mathf.Clamp01((0.95f - d) * 12f)));
+            }
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f));
     }
 
     Sprite RingSprite()

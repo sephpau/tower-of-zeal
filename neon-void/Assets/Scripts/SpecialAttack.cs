@@ -12,6 +12,7 @@ public class SpecialAttack : MonoBehaviour
 {
     public string DisplayName { get; private set; }
     public float cooldownLeft;
+    public float CooldownTotal => _cooldown;
 
     ZealData.Pilot _pilot;
     float _cooldown;
