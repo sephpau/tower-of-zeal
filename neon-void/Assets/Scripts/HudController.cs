@@ -341,9 +341,9 @@ public class HudController : MonoBehaviour
 
             if (choice.sprite != null)
             {
-                var img = NewImage(card.transform, "iconimg", new Vector2(0.5f, 0.76f), new Vector2(0.5f, 0.76f), Vector2.zero, new Vector2(110, 110));
-                img.sprite = choice.sprite;
-                img.preserveAspect = true;
+                var iconImg = NewImage(card.transform, "iconimg", new Vector2(0.5f, 0.76f), new Vector2(0.5f, 0.76f), Vector2.zero, new Vector2(110, 110));
+                iconImg.sprite = choice.sprite;
+                iconImg.preserveAspect = true;
             }
             else
             {
