@@ -134,10 +134,10 @@ public class HudController : MonoBehaviour
         _hullBar = Bar(new Vector2(0, 28), new Color(1f, 0.5f, 0.35f));
 
         // special-skill cooldown gauge beside the bars
-        var skillBg = NewImage(_gameHud.transform, "skillbg", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(240, 44), new Vector2(58, 58));
+        var skillBg = NewImage(_gameHud.transform, "skillbg", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(190, 112), new Vector2(84, 84));
         skillBg.sprite = CircleSprite();
         skillBg.color = new Color(0.05f, 0.05f, 0.15f, 0.85f);
-        _skillIconImg = NewImage(skillBg.transform, "icon", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(38, 38));
+        _skillIconImg = NewImage(skillBg.transform, "icon", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(56, 56));
         _skillIconImg.color = new Color(1f, 0.97f, 0.9f, 0.95f);
         _skillFill = NewImage(skillBg.transform, "fill", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         _skillFill.sprite = CircleSprite();
@@ -145,7 +145,7 @@ public class HudController : MonoBehaviour
         _skillFill.fillMethod = Image.FillMethod.Radial360;
         _skillFill.fillOrigin = (int)Image.Origin360.Top;
         _skillFill.fillClockwise = true;
-        _skillCdText = NewText(skillBg.transform, "cd", "", 22, TextAnchor.MiddleCenter,
+        _skillCdText = NewText(skillBg.transform, "cd", "", 28, TextAnchor.MiddleCenter,
             Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         _skillCdText.fontStyle = FontStyle.Bold;
         _skillLabel = NewText(skillBg.transform, "label", "RMB", 14, TextAnchor.UpperCenter,
@@ -156,7 +156,7 @@ public class HudController : MonoBehaviour
         for (int i = 0; i < 4; i++)
         {
             var slotBg = NewImage(_gameHud.transform, "actslot" + i, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(-240 - i * 60, 44), new Vector2(50, 50));
+                new Vector2(-190 + i * 90, 112), new Vector2(74, 74));
             slotBg.sprite = CircleSprite();
             slotBg.color = new Color(0.05f, 0.05f, 0.15f, 0.7f);
             var fill = NewImage(slotBg.transform, "fill", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -165,18 +165,18 @@ public class HudController : MonoBehaviour
             fill.fillMethod = Image.FillMethod.Radial360;
             fill.fillOrigin = (int)Image.Origin360.Top;
             fill.color = new Color(0f, 0f, 0f, 0f);
-            var slotIcon = NewImage(slotBg.transform, "icon", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(40, 40));
+            var slotIcon = NewImage(slotBg.transform, "icon", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(58, 58));
             slotIcon.preserveAspect = true;
             slotIcon.enabled = false;
             _actIcons.Add(slotIcon);
             _actFills.Add(fill);
             fill.transform.SetAsLastSibling();   // cooldown sweep stays over the art
-            var ab = NewText(slotBg.transform, "abbrev", "", 15, TextAnchor.MiddleCenter,
+            var ab = NewText(slotBg.transform, "abbrev", "", 19, TextAnchor.MiddleCenter,
                 Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             ab.fontStyle = FontStyle.Bold;
             _actAbbrevs.Add(ab);
-            var key = NewText(slotBg.transform, "key", (i + 1).ToString(), 13, TextAnchor.UpperCenter,
-                new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, -3), new Vector2(30, 18));
+            var key = NewText(slotBg.transform, "key", (i + 1).ToString(), 16, TextAnchor.UpperCenter,
+                new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, -3), new Vector2(30, 20));
             key.color = new Color(0.7f, 0.8f, 1f, 0.7f);
         }
 
