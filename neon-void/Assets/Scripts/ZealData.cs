@@ -109,6 +109,10 @@ public static class ZealData
         new PassiveDef { id = "keg", name = "Powder Keg", icon = "🛢", stat = "area", per = 0.10f, desc = "+10% attack area per rank" },
     };
 
+    // Zeal auto-weapons disabled: combat is the straight LMB pulser only.
+    // The system stays wired so new special attacks can slot in later.
+    public static readonly bool AutoWeaponsEnabled = false;
+
     public const int MaxWeaponSlots = 4;
     public const int MaxPassiveSlots = 4;
 

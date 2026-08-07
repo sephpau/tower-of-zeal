@@ -53,7 +53,7 @@ public class SkillSystem : MonoBehaviour
         var health = GetComponent<Health>();
         health.maxShield *= 1f + stats["maxhp"];
         health.shield = health.maxShield;
-        AddWeapon(p.startWeapon);
+        if (ZealData.AutoWeaponsEnabled) AddWeapon(p.startWeapon);
     }
 
     public bool HasWeapon(string id) => weapons.Any(w => w.def.id == id);

@@ -9,6 +9,7 @@ public static class PlayerShipFactory
     {
         var ship = new GameObject("PlayerShip");
         ship.transform.position = pos;
+        var tint = ship.AddComponent<ShipTint>();
 
         var hullMat = NVAssets.Standard(new Color(0.30f, 0.32f, 0.46f), 0.85f, 0.25f);
         var darkMat = NVAssets.Standard(new Color(0.12f, 0.12f, 0.2f), 0.7f, 0.3f);
@@ -34,7 +35,9 @@ public static class PlayerShipFactory
         rim.transform.SetParent(ship.transform, false);
         rim.transform.localPosition = new Vector3(0f, 0.02f, 0f);
         rim.AddComponent<MeshFilter>().sharedMesh = NVAssets.RingMesh(1.78f, 1.95f, 48);
-        rim.AddComponent<MeshRenderer>().sharedMaterial = cyan;
+        var rimMr = rim.AddComponent<MeshRenderer>();
+        rimMr.sharedMaterial = cyan;
+        tint.accentParts.Add(rimMr);
 
         // nose wedge so the saucer reads "forward"
         NVMeshes.SpherePart(ship, darkMat, new Vector3(0f, -0.05f, 1.7f), new Vector3(0.75f, 0.28f, 1.15f));
@@ -65,7 +68,9 @@ public static class PlayerShipFactory
             stripe.transform.localPosition = new Vector3(side * 2.9f, -0.14f, 0.42f);
             stripe.transform.localRotation = Quaternion.Euler(0f, side * 29f, 0f);
             stripe.transform.localScale = new Vector3(3.1f, 0.05f, 0.08f);
-            stripe.GetComponent<MeshRenderer>().sharedMaterial = cyan;
+            var stripeMr = stripe.GetComponent<MeshRenderer>();
+            stripeMr.sharedMaterial = cyan;
+            tint.accentParts.Add(stripeMr);
 
             // V-fins at the back
             NVMeshes.Part(ship, finMesh, darkMat,
@@ -95,6 +100,7 @@ public static class PlayerShipFactory
             glow.transform.SetParent(ship.transform, false);
             glow.transform.localPosition = new Vector3(side * 1.7f, -0.28f, -1.75f);
             glow.AddComponent<Billboard>();
+            tint.glowQuads.Add(glow.GetComponent<MeshRenderer>());
 
             var trailGo = new GameObject("trail");
             trailGo.transform.SetParent(ship.transform, false);
@@ -107,6 +113,7 @@ public static class PlayerShipFactory
             trail.startColor = new Color(0.35f, 0.9f, 1f, 0.85f);
             trail.endColor = new Color(0.6f, 0.3f, 1f, 0f);
             trail.minVertexDistance = 0.4f;
+            tint.trails.Add(trail);
         }
 
         // guard bubble — toggled by ShipController while SHIFT is held
@@ -128,6 +135,7 @@ public static class PlayerShipFactory
         engineLight.color = new Color(0.4f, 0.9f, 1f);
         engineLight.intensity = 2.4f;
         engineLight.range = 9f;
+        tint.engineLight = engineLight;
 
         // soft light inside the dome so Ego reads through the glass
         var domeLight = new GameObject("domeLight").AddComponent<Light>();
@@ -181,6 +189,9 @@ public static class PlayerShipFactory
             child.SetParent(visual, true);
         var flourish = ship.AddComponent<DashFlourish>();
         flourish.visualRoot = visual;
+
+        // back to the classic fighter footprint — the saucer read too big
+        ship.transform.localScale = Vector3.one * 0.75f;
 
         ship.AddComponent<SkillSystem>();
         ship.AddComponent<ShipController>();

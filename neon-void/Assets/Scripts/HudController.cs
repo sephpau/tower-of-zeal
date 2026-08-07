@@ -261,15 +261,12 @@ public class HudController : MonoBehaviour
             var title = NewText(card.transform, "ptitle", pilot.title.ToUpperInvariant(), 17, TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(290, 30));
             title.color = new Color(0.85f, 0.9f, 1f, 0.8f);
-            var wpn = NewText(card.transform, "wpn", ZealData.Weapons[pilot.startWeapon].icon + "  " + ZealData.Weapons[pilot.startWeapon].name, 20, TextAnchor.MiddleCenter,
-                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(290, 34));
-            wpn.color = new Color(1f, 0.85f, 0.4f);
             var perk = NewText(card.transform, "perk", pilot.perkText, 17, TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 0.26f), new Vector2(0.5f, 0.26f), Vector2.zero, new Vector2(280, 80));
             perk.color = new Color(0.8f, 0.9f, 1f, 0.85f);
         }
 
-        var ctl = NewText(_startPanel.transform, "controls", "MOUSE aim · WASD move · SHIFT up / CTRL down · SPACE dash (spins!) · G guard (½ dmg, attack drops it, 5s CD) · LMB fire · V 1st/3rd person · M mute\nZeal weapons fire on their own — collect XP shards, choose upgrades on level up", 20, TextAnchor.MiddleCenter,
+        var ctl = NewText(_startPanel.transform, "controls", "MOUSE aim · WASD move · SHIFT up / CTRL down · SPACE dash (spins!) · G guard (½ dmg, attack drops it, 5s CD) · LMB fire · V 1st/3rd person · M mute\nCollect XP shards — choose upgrades on level up", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.12f), new Vector2(0.5f, 0.12f), Vector2.zero, new Vector2(1500, 80));
         ctl.color = new Color(0.8f, 0.9f, 1f, 0.7f);
 

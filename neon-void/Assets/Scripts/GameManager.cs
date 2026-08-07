@@ -63,6 +63,8 @@ public class GameManager : MonoBehaviour
             Random.InitState(unchecked((int)TournamentMode.Seed));
         _skills = _playerHealth.GetComponent<SkillSystem>();
         _skills.InitPilot(ZealData.Pilots[Mathf.Clamp(pilotIndex, 0, ZealData.Pilots.Length - 1)]);
+        var tint = _playerHealth.GetComponent<ShipTint>();
+        if (tint != null) tint.Apply(_skills.pilot.accent);
         _music.Play();
         _waves.Begin();
         _hud.ShowGameHud();
@@ -233,10 +235,6 @@ public class GameManager : MonoBehaviour
             case PowerupType.Rapid:
                 if (weapon != null) weapon.rapidTimer = Mathf.Max(weapon.rapidTimer, 10f);
                 _hud.WaveBanner("RAPID FIRE");
-                break;
-            case PowerupType.Homing:
-                if (weapon != null) weapon.homingTimer = Mathf.Max(weapon.homingTimer, 12f);
-                _hud.WaveBanner("HOMING MISSILES");
                 break;
             case PowerupType.ShieldCell:
                 _playerHealth.shield = Mathf.Min(_playerHealth.maxShield, _playerHealth.shield + 40f);

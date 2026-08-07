@@ -104,7 +104,10 @@ public class ShipController : MonoBehaviour
     {
         _yaw += 180f;
         _pitch = -_pitch;
-        _rb.rotation = Quaternion.Euler(_pitch, _yaw, _roll);
+        Quaternion q = Quaternion.Euler(_pitch, _yaw, _roll);
+        _rb.rotation = q;
+        transform.rotation = q;   // bypass interpolation lag — no stale-frame ghost
+        Physics.SyncTransforms();
     }
 
     Vector3 InputDir()

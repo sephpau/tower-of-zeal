@@ -17,6 +17,7 @@ public class LevelUpChoices
         var evos = new List<LevelUpChoices>();
         var pool = new List<LevelUpChoices>();
 
+        if (ZealData.AutoWeaponsEnabled)
         foreach (var ow in s.weapons)
         {
             string id = ow.def.id;
@@ -41,7 +42,7 @@ public class LevelUpChoices
             }
         }
 
-        if (s.weapons.Count < ZealData.MaxWeaponSlots)
+        if (ZealData.AutoWeaponsEnabled && s.weapons.Count < ZealData.MaxWeaponSlots)
         {
             foreach (var def in ZealData.Weapons.Values.Where(w => !s.HasWeapon(w.id)))
             {

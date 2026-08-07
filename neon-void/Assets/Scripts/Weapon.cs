@@ -16,7 +16,6 @@ public class Weapon : MonoBehaviour
     public float homingTimer;           // seconds of homing missiles left
 
     float _cooldown;
-    float _missileCooldown;
     int _muzzleIndex;
 
     public const int MaxLevel = 5;
@@ -25,23 +24,7 @@ public class Weapon : MonoBehaviour
     {
         _cooldown -= Time.deltaTime;
         if (!isPlayerWeapon) return;
-
         rapidTimer = Mathf.Max(0f, rapidTimer - Time.deltaTime);
-        homingTimer = Mathf.Max(0f, homingTimer - Time.deltaTime);
-
-        // homing missiles launch themselves while active
-        _missileCooldown -= Time.deltaTime;
-        if (homingTimer > 0f && _missileCooldown <= 0f && GameManager.I.Running)
-        {
-            var target = Missile.FindTarget(transform.position, 280f);
-            if (target != null)
-            {
-                _missileCooldown = 0.55f;
-                Vector3 origin = transform.position + transform.rotation * new Vector3(_muzzleIndex % 2 == 0 ? -1f : 1f, -0.5f, 0f);
-                Missile.Launch(origin, transform.forward, target, gameObject);
-                GameManager.I.PlaySfx(SfxSynth.Pickup, 0.25f);
-            }
-        }
     }
 
     public void TryFire()
@@ -62,39 +45,17 @@ public class Weapon : MonoBehaviour
             return;
         }
 
-        // player fire pattern by level
+        // straight pulse fire only — levels add damage, twin barrels from LV2
         Vector3 fwd = transform.forward;
         Vector3 left = muzzles[0].position, right = muzzles[1 % muzzles.Length].position;
-        Vector3 center = (left + right) * 0.5f;
-        switch (Mathf.Clamp(level, 1, MaxLevel))
+        float dmg = damage * (1f + 0.15f * (Mathf.Clamp(level, 1, MaxLevel) - 1));
+        if (level >= 2)
         {
-            case 1:
-                FireOne(center, fwd, damage);
-                break;
-            case 2:
-                FireOne(left, fwd, damage);
-                FireOne(right, fwd, damage);
-                break;
-            case 3:
-                FireOne(left, fwd, damage);
-                FireOne(right, fwd, damage);
-                FireOne(center, Spread(fwd, -5f), damage * 0.8f);
-                FireOne(center, Spread(fwd, 5f), damage * 0.8f);
-                break;
-            case 4:
-                FireOne(left, fwd, damage);
-                FireOne(right, fwd, damage);
-                FireOne(left, Spread(fwd, -7f), damage * 0.8f);
-                FireOne(right, Spread(fwd, 7f), damage * 0.8f);
-                break;
-            default:
-                FireOne(left, fwd, damage);
-                FireOne(right, fwd, damage);
-                FireOne(left, Spread(fwd, -7f), damage * 0.8f);
-                FireOne(right, Spread(fwd, 7f), damage * 0.8f);
-                FireOne(center, fwd, damage * 2.6f);   // heavy center lance
-                break;
+            FireOne(left, fwd, dmg);
+            FireOne(right, fwd, dmg);
         }
+        else
+            FireOne((left + right) * 0.5f, fwd, dmg);
         GameManager.I.PlaySfx(SfxSynth.Laser, 0.5f);
         ChaseCamera.Shake(0.04f);
     }
@@ -106,9 +67,6 @@ public class Weapon : MonoBehaviour
         FireOne(muzzles[_muzzleIndex++ % muzzles.Length].position, dir.normalized, damage);
         GameManager.I.PlaySfxAt(SfxSynth.Laser, transform.position, 0.25f);
     }
-
-    Vector3 Spread(Vector3 fwd, float degrees) =>
-        Quaternion.AngleAxis(degrees, transform.up) * fwd;
 
     SkillSystem _skillsRef;
     bool _skillsChecked;
