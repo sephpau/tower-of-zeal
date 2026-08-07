@@ -269,7 +269,7 @@ public class HudController : MonoBehaviour
             perk.color = new Color(0.8f, 0.9f, 1f, 0.85f);
         }
 
-        var ctl = NewText(_startPanel.transform, "controls", "MOUSE aim · WASD move · SPACE dash · SHIFT toggle guard (½ damage, attacking drops it, then 5s CD) · LMB fire · M mute\nZeal weapons fire on their own — collect XP shards, choose upgrades on level up", 20, TextAnchor.MiddleCenter,
+        var ctl = NewText(_startPanel.transform, "controls", "MOUSE aim · WASD move · SHIFT up / CTRL down · SPACE dash (spins!) · G guard (½ dmg, attack drops it, 5s CD) · LMB fire · M mute\nZeal weapons fire on their own — collect XP shards, choose upgrades on level up", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.12f), new Vector2(0.5f, 0.12f), Vector2.zero, new Vector2(1500, 80));
         ctl.color = new Color(0.8f, 0.9f, 1f, 0.7f);
 

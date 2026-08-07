@@ -31,8 +31,8 @@ public class ShipController : MonoBehaviour
         _skills = GetComponent<SkillSystem>();
         Vector3 e = transform.rotation.eulerAngles;
         _yaw = e.y; _pitch = e.x;
-        var bubble = transform.Find("guardBubble");
-        if (bubble != null) _guardBubble = bubble.gameObject;
+        foreach (var t in GetComponentsInChildren<Transform>(true))
+            if (t.name == "guardBubble") { _guardBubble = t.gameObject; break; }
     }
 
     void Update()
@@ -45,9 +45,9 @@ public class ShipController : MonoBehaviour
         dashCooldown = Mathf.Max(0f, dashCooldown - Time.deltaTime);
         guardCooldown = Mathf.Max(0f, guardCooldown - Time.deltaTime);
 
-        // guard: tap SHIFT to raise — stays up until you attack (or tap again);
+        // guard: tap G to raise — stays up until you attack (or tap again);
         // 5s cooldown starts the moment it drops
-        if (Input.GetKeyDown(KeyCode.LeftShift) || Input.GetKeyDown(KeyCode.RightShift))
+        if (Input.GetKeyDown(KeyCode.G))
         {
             if (guarding) EndGuard();
             else if (guardCooldown <= 0f)
@@ -59,15 +59,27 @@ public class ShipController : MonoBehaviour
         if (_guardBubble != null && _guardBubble.activeSelf != guarding)
             _guardBubble.SetActive(guarding);
 
-        // dash: SPACE or CTRL — burst toward current move input (or facing)
-        if ((Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.LeftControl)) && dashCooldown <= 0f)
+        // dash: SPACE — burst toward current move input (or facing)
+        if (Input.GetKeyDown(KeyCode.Space) && dashCooldown <= 0f)
         {
             dashCooldown = dashCooldownTime;
-            Vector3 dashDir = AimRotation() * InputDir();
+            Vector3 input = InputDir();
+            Vector3 dashDir = AimRotation() * input;
             if (dashDir.sqrMagnitude < 0.01f) dashDir = transform.forward;
             _vel += dashDir.normalized * dashPower;
             GameManager.I.PlaySfx(SfxSynth.Laser, 0.35f);
             ChaseCamera.Shake(0.15f);
+
+            // per-direction acrobatics on the visual model
+            var flourish = GetComponent<DashFlourish>();
+            if (flourish != null)
+            {
+                char type = 'W';
+                if (input.x < -0.1f) type = 'A';
+                else if (input.x > 0.1f) type = 'D';
+                else if (input.z < -0.1f) type = 'S';
+                flourish.Play(type);
+            }
         }
 
         // attacking breaks guard instantly — the shot still fires
@@ -89,7 +101,9 @@ public class ShipController : MonoBehaviour
     {
         float h = (Input.GetKey(KeyCode.D) ? 1f : 0f) - (Input.GetKey(KeyCode.A) ? 1f : 0f);
         float fwd = (Input.GetKey(KeyCode.W) ? 1f : 0f) - (Input.GetKey(KeyCode.S) ? 1f : 0f);
-        Vector3 dir = new Vector3(h, 0f, fwd);
+        float up = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 1f : 0f)
+                 - (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ? 1f : 0f);
+        Vector3 dir = new Vector3(h, up, fwd);
         return dir.sqrMagnitude > 1f ? dir.normalized : dir;
     }
 

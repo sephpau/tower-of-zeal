@@ -169,6 +169,19 @@ public static class PlayerShipFactory
         }
         weapon.muzzles = muzzles;
 
+        // gather all geometry under a visual root so dash flourishes can
+        // spin the model without touching aim, physics, or muzzles
+        var visual = new GameObject("visual").transform;
+        visual.SetParent(ship.transform, false);
+        var toMove = new System.Collections.Generic.List<Transform>();
+        foreach (Transform child in ship.transform)
+            if (child != visual && !child.name.StartsWith("muzzle"))
+                toMove.Add(child);
+        foreach (var child in toMove)
+            child.SetParent(visual, true);
+        var flourish = ship.AddComponent<DashFlourish>();
+        flourish.visualRoot = visual;
+
         ship.AddComponent<SkillSystem>();
         ship.AddComponent<ShipController>();
         return ship;
