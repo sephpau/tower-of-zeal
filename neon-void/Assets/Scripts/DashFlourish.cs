@@ -6,8 +6,9 @@ using UnityEngine;
 //  W: forward lunge dip                       S: 180° somersault, then 180° sideways, settle
 public class DashFlourish : MonoBehaviour
 {
-    // extra roll the chase camera applies this frame — barrel rolls spin the POV too
-    public static float CameraRoll;
+    // extra rotation the chase camera applies this frame — the S-dash
+    // somersault carries the POV through the flip
+    public static Quaternion CameraSpin = Quaternion.identity;
 
     public Transform visualRoot;
     Coroutine _active;
@@ -15,7 +16,7 @@ public class DashFlourish : MonoBehaviour
     public void Play(char type)
     {
         if (visualRoot == null) return;
-        if (_active != null) { StopCoroutine(_active); CameraRoll = 0f; visualRoot.localScale = Vector3.one; }
+        if (_active != null) { StopCoroutine(_active); CameraSpin = Quaternion.identity; visualRoot.localScale = Vector3.one; }
         switch (type)
         {
             case 'A': _active = StartCoroutine(BarrelRoll(360f)); break;
@@ -34,11 +35,9 @@ public class DashFlourish : MonoBehaviour
             t += Time.deltaTime;
             float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / dur));
             visualRoot.localRotation = Quaternion.Euler(0f, 0f, totalDeg * k);
-            CameraRoll = totalDeg * k;   // POV rolls with the ship — the world spins
             yield return null;
         }
         visualRoot.localRotation = Quaternion.identity;
-        CameraRoll = 0f;
         _active = null;
     }
 
@@ -63,6 +62,7 @@ public class DashFlourish : MonoBehaviour
 
     IEnumerator Somersault()
     {
+        // POV rides along: the camera flips with the ship, world wheels around
         // phase 1: 180° backflip
         yield return Phase(0.32f, k => Quaternion.Euler(-180f * k, 0f, 0f));
         // phase 2: 180° sideways roll on top of the flip
@@ -71,6 +71,7 @@ public class DashFlourish : MonoBehaviour
         Quaternion from = visualRoot.localRotation;
         yield return Phase(0.22f, k => Quaternion.Slerp(from, Quaternion.identity, k));
         visualRoot.localRotation = Quaternion.identity;
+        CameraSpin = Quaternion.identity;
         _active = null;
     }
 
@@ -80,7 +81,9 @@ public class DashFlourish : MonoBehaviour
         while (t < dur)
         {
             t += Time.deltaTime;
-            visualRoot.localRotation = rot(Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / dur)));
+            Quaternion q = rot(Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / dur)));
+            visualRoot.localRotation = q;
+            CameraSpin = q;
             yield return null;
         }
     }
