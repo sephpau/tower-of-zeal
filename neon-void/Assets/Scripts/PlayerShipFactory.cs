@@ -159,7 +159,7 @@ public static class PlayerShipFactory
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
 
         var health = ship.AddComponent<Health>();
-        health.Configure(100f, 60f, player: true);
+        health.Configure(150f, 60f, player: true);
 
         var weapon = ship.AddComponent<Weapon>();
         weapon.isPlayerWeapon = true;
