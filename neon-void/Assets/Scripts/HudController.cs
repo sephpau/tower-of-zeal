@@ -204,6 +204,9 @@ public class HudController : MonoBehaviour
         _timerText.color = new Color(1f, 0.85f, 0.4f);
         _timerText.fontStyle = FontStyle.Bold;
 
+        _roundedFill = RoundedSprite(false);
+        _roundedOutline = RoundedSprite(true);
+
         // pooled direction indicators: yellow = offscreen enemy, red = incoming fire
         _arrowSprite = ArrowSprite();
         for (int i = 0; i < 20; i++)
@@ -324,7 +327,9 @@ public class HudController : MonoBehaviour
             var card = new GameObject("choice" + i);
             card.transform.SetParent(_levelUpPanel.transform, false);
             var img = card.AddComponent<Image>();
-            img.color = new Color(0.07f, 0.05f, 0.16f, 0.97f);
+            img.sprite = _roundedFill;
+            img.type = Image.Type.Sliced;
+            img.color = new Color(0.07f, 0.05f, 0.16f, 0.72f);
             var rt = img.rectTransform;
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.45f);
             rt.anchoredPosition = new Vector2((i - (choices.Count - 1) * 0.5f) * 380f, 0f);
@@ -338,6 +343,10 @@ public class HudController : MonoBehaviour
                 _levelUpPanel.SetActive(false);
                 onPick(choice);
             });
+            var cardGlow = NewImage(card.transform, "border", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            cardGlow.sprite = _roundedOutline;
+            cardGlow.type = Image.Type.Sliced;
+            cardGlow.color = new Color(1f, 0.85f, 0.4f, 0.75f);
 
             if (choice.sprite != null)
             {
@@ -402,7 +411,9 @@ public class HudController : MonoBehaviour
             var card = new GameObject("pilot-" + pilot.id);
             card.transform.SetParent(_startPanel.transform, false);
             var img = card.AddComponent<Image>();
-            img.color = new Color(0.07f, 0.05f, 0.16f, 0.95f);
+            img.sprite = _roundedFill;
+            img.type = Image.Type.Sliced;
+            img.color = new Color(0.07f, 0.05f, 0.16f, 0.62f);
             var rt = img.rectTransform;
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.43f);
             rt.anchoredPosition = new Vector2((i - 1.5f) * 330f, 0f);
@@ -418,7 +429,11 @@ public class HudController : MonoBehaviour
                 GameManager.I.StartRun(idx);
             });
 
-            var edge = NewImage(card.transform, "edge", Vector2.zero, new Vector2(1, 0), new Vector2(0, 4), new Vector2(0, 8));
+            var borderGlow = NewImage(card.transform, "border", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            borderGlow.sprite = _roundedOutline;
+            borderGlow.type = Image.Type.Sliced;
+            borderGlow.color = new Color(pilot.accent.r, pilot.accent.g, pilot.accent.b, 0.85f);
+            var edge = NewImage(card.transform, "edge", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 8), new Vector2(250, 6));
             edge.color = pilot.accent;
 
             // v1-style card: portrait, TITLE, Name, perks, special skill
@@ -567,7 +582,9 @@ public class HudController : MonoBehaviour
         var go = new GameObject("btn-" + label);
         go.transform.SetParent(parent, false);
         var img = go.AddComponent<Image>();
-        img.color = new Color(0.09f, 0.07f, 0.2f, 0.97f);
+        img.sprite = _roundedFill;
+        img.type = Image.Type.Sliced;
+        img.color = new Color(0.09f, 0.07f, 0.2f, 0.72f);
         var rt = img.rectTransform;
         rt.anchorMin = rt.anchorMax = anchor;
         rt.sizeDelta = size;
@@ -577,6 +594,10 @@ public class HudController : MonoBehaviour
         colors.pressedColor = new Color(2f, 2f, 2.4f);
         btn.colors = colors;
         btn.onClick.AddListener(onClick);
+        var btnGlow = NewImage(go.transform, "border", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        btnGlow.sprite = _roundedOutline;
+        btnGlow.type = Image.Type.Sliced;
+        btnGlow.color = new Color(color.r, color.g, color.b, 0.6f);
         var txt = NewText(go.transform, "label", label, 24, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, size);
         txt.color = color;
@@ -895,6 +916,34 @@ public class HudController : MonoBehaviour
         rt.anchorMax = Vector2.one;
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
+    }
+
+    Sprite _roundedFill, _roundedOutline;
+
+    // 9-sliceable rounded rectangle; outline version is just the rim
+    Sprite RoundedSprite(bool outline)
+    {
+        const int S = 64;
+        const float radius = 14f, thickness = 3.5f;
+        var tex = new Texture2D(S, S, TextureFormat.RGBA32, false);
+        Vector2 half = new Vector2(S / 2f, S / 2f);
+        for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                Vector2 q = new Vector2(Mathf.Abs(x + 0.5f - half.x), Mathf.Abs(y + 0.5f - half.y))
+                          - (half - Vector2.one * radius);
+                float d = new Vector2(Mathf.Max(q.x, 0f), Mathf.Max(q.y, 0f)).magnitude
+                          + Mathf.Min(Mathf.Max(q.x, q.y), 0f) - radius + 1f;
+                float a;
+                if (outline)
+                    a = Mathf.Clamp01(0.5f - d) * Mathf.Clamp01((d + thickness) / 1.2f);
+                else
+                    a = Mathf.Clamp01(0.5f - d);
+                tex.SetPixel(x, y, new Color(1, 1, 1, a));
+            }
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f), 100f, 0,
+            SpriteMeshType.FullRect, new Vector4(20, 20, 20, 20));
     }
 
     Sprite ArrowSprite()
