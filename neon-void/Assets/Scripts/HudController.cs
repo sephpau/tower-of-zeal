@@ -269,7 +269,7 @@ public class HudController : MonoBehaviour
             perk.color = new Color(0.8f, 0.9f, 1f, 0.85f);
         }
 
-        var ctl = NewText(_startPanel.transform, "controls", "MOUSE aim · WASD move · SPACE / CTRL up-down · SHIFT boost · LMB fire · M mute\nZeal weapons fire on their own — collect XP shards, choose upgrades on level up", 20, TextAnchor.MiddleCenter,
+        var ctl = NewText(_startPanel.transform, "controls", "MOUSE aim · WASD move · SPACE dash · SHIFT guard (½ damage, no attacking, 5s CD) · LMB fire · M mute\nZeal weapons fire on their own — collect XP shards, choose upgrades on level up", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.12f), new Vector2(0.5f, 0.12f), Vector2.zero, new Vector2(1500, 80));
         ctl.color = new Color(0.8f, 0.9f, 1f, 0.7f);
 
@@ -489,7 +489,11 @@ public class HudController : MonoBehaviour
 
         var ship = player.GetComponent<ShipController>();
         if (ship != null)
-            _throttleText.text = "SPD " + Mathf.RoundToInt(ship.currentSpeed) + (ship.boosting ? "  BOOST" : "");
+        {
+            string dash = ship.dashCooldown <= 0f ? "DASH RDY" : "DASH " + ship.dashCooldown.ToString("0.0") + "s";
+            string guard = ship.guarding ? "GUARDING" : ship.guardCooldown <= 0f ? "GUARD RDY" : "GUARD " + Mathf.CeilToInt(ship.guardCooldown) + "s";
+            _throttleText.text = "SPD " + Mathf.RoundToInt(ship.currentSpeed) + "   " + dash + "   " + guard;
+        }
 
         var weapon = player.GetComponent<Weapon>();
         if (weapon != null)

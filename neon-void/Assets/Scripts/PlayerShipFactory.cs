@@ -111,6 +111,18 @@ public static class PlayerShipFactory
             trail.minVertexDistance = 0.4f;
         }
 
+        // guard bubble — toggled by ShipController while SHIFT is held
+        var guardBubble = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        Object.Destroy(guardBubble.GetComponent<Collider>());
+        guardBubble.name = "guardBubble";
+        guardBubble.transform.SetParent(ship.transform, false);
+        guardBubble.transform.localScale = Vector3.one * 5.2f;
+        var guardMat = new Material(Shader.Find("Legacy Shaders/Particles/Additive"));
+        guardMat.mainTexture = NVAssets.GlowTex;
+        guardMat.SetColor("_TintColor", new Color(0.3f, 0.7f, 1f, 0.35f));
+        guardBubble.GetComponent<MeshRenderer>().sharedMaterial = guardMat;
+        guardBubble.SetActive(false);
+
         var engineLight = new GameObject("engineLight").AddComponent<Light>();
         engineLight.transform.SetParent(ship.transform, false);
         engineLight.transform.localPosition = new Vector3(0f, -0.2f, -1.8f);

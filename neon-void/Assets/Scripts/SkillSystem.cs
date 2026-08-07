@@ -163,20 +163,30 @@ public class SkillSystem : MonoBehaviour
         }
     }
 
+    bool Guarding()
+    {
+        var sc = GetComponent<ShipController>();
+        return sc != null && sc.guarding;
+    }
+
     void Update()
     {
         if (!GameManager.I.Running || GameManager.I.Paused) return;
-        foreach (var ow in weapons)
+        bool guarding = Guarding();   // guard mode: no attacking, weapons hold
+        if (!guarding)
         {
-            ow.cooldown -= Time.deltaTime;
-            if (ow.cooldown > 0f) continue;
-            if (Fire(ow))
-                ow.cooldown = ow.def.cd * ow.cdMult * CooldownMult;
-            else
-                ow.cooldown = 0.25f;   // nothing in range, retry soon
+            foreach (var ow in weapons)
+            {
+                ow.cooldown -= Time.deltaTime;
+                if (ow.cooldown > 0f) continue;
+                if (Fire(ow))
+                    ow.cooldown = ow.def.cd * ow.cdMult * CooldownMult;
+                else
+                    ow.cooldown = 0.25f;   // nothing in range, retry soon
+            }
         }
-        TickDrakes();
-        TickAura();
+        TickDrakes(guarding);
+        TickAura(guarding);
     }
 
     // ---------- firing ----------
@@ -381,7 +391,7 @@ public class SkillSystem : MonoBehaviour
         }
     }
 
-    void TickDrakes()
+    void TickDrakes(bool guarding = false)
     {
         var ow = GetWeapon("fox");
         if (ow == null || _drakes.Count == 0) return;
@@ -397,9 +407,10 @@ public class SkillSystem : MonoBehaviour
             Vector3 pos = transform.position + offset;
             _drakes[i].transform.position = pos;
             _drakes[i].transform.rotation = Quaternion.LookRotation(Vector3.Cross(offset.normalized, transform.up) + transform.forward * 0.3f);
-            foreach (var h in AllHostiles())
-                if (Vector3.Distance(pos, h.transform.position) < (h.isPlayer ? 0f : 4.5f))
-                    h.TakeDamage(dmg * Time.deltaTime * 3f);
+            if (!guarding)
+                foreach (var h in AllHostiles())
+                    if (Vector3.Distance(pos, h.transform.position) < 4.5f)
+                        h.TakeDamage(dmg * Time.deltaTime * 3f);
         }
     }
 
@@ -424,12 +435,13 @@ public class SkillSystem : MonoBehaviour
 
     float AuraRadius(OwnedWeapon ow) => 13f * ow.areaMult * AreaMult;
 
-    void TickAura()
+    void TickAura(bool guarding = false)
     {
         var ow = GetWeapon("void");
         if (ow == null) return;
         if (_auraRing != null)
             _auraRing.transform.rotation = Quaternion.Euler(90f, Time.time * 30f, 0f);
+        if (guarding) return;
         _auraTick -= Time.deltaTime;
         if (_auraTick > 0f) return;
         _auraTick = ow.def.cd * CooldownMult;

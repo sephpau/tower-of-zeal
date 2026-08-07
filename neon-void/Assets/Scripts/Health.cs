@@ -32,6 +32,11 @@ public class Health : MonoBehaviour
     public void TakeDamage(float amount)
     {
         if (_dead) return;
+        if (isPlayer)
+        {
+            var sc = GetComponent<ShipController>();
+            if (sc != null && sc.guarding) amount *= 0.5f;   // guard mode halves damage
+        }
         _sinceHit = 0f;
         float toShield = Mathf.Min(shield, amount);
         shield -= toShield;

@@ -35,9 +35,9 @@ public class ChaseCamera : MonoBehaviour
             _shake = Mathf.Max(0f, _shake - Time.deltaTime * 2.2f);
         }
 
-        // FOV kick with speed + boost
-        float speedK = _ship != null ? Mathf.InverseLerp(0f, 65f, _ship.currentSpeed) : 0f;
-        float targetFov = 62f + speedK * 16f + (_ship != null && _ship.boosting ? 4f : 0f);
+        // FOV kick with speed (dash bursts spike it naturally)
+        float speedK = _ship != null ? Mathf.InverseLerp(0f, 80f, _ship.currentSpeed) : 0f;
+        float targetFov = 62f + speedK * 18f;
         _cam.fieldOfView = Mathf.Lerp(_cam.fieldOfView, targetFov, 1f - Mathf.Exp(-Time.deltaTime * 4f));
     }
 }
