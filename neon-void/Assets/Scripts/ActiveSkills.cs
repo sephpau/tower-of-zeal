@@ -115,12 +115,18 @@ public class ActiveSkills : MonoBehaviour
 
             case "doubloon":
             {
+                // X formation: two shallow diagonals crossing at the center
                 float dmg = _weapon.damage * 3f;
                 Vector3 fwd = transform.forward;
-                for (int i = 0; i < 25; i++)
+                Vector3 origin = transform.position + fwd * 3f;
+                for (int i = 0; i <= 12; i++)
                 {
-                    Vector3 pos = transform.position + fwd * 3f + transform.right * (i - 12) * 1.4f;
-                    Projectile.Spawn(pos, fwd * 200f, dmg, new Color(1f, 0.85f, 0.25f), gameObject, true);
+                    float t = (i - 6) / 6f;   // -1 .. 1 along each stroke
+                    Vector3 across = transform.right * t * 17f;
+                    Vector3 rise = transform.up * t * 5f;
+                    Projectile.Spawn(origin + across + rise, fwd * 200f, dmg, new Color(1f, 0.85f, 0.25f), gameObject, true);
+                    if (i != 6)   // don't double the shared center bolt
+                        Projectile.Spawn(origin + across - rise, fwd * 200f, dmg, new Color(1f, 0.85f, 0.25f), gameObject, true);
                 }
                 GameManager.I.PlaySfx(SfxSynth.Laser, 0.8f);
                 ChaseCamera.Shake(0.2f);
