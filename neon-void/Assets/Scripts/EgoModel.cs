@@ -4,8 +4,8 @@ using UnityEngine;
 // from Blender out of the Ego Run assets) and places him in the world.
 public static class EgoModel
 {
-    // model's forward after FBX import — tune here if he faces the wrong way
-    public const float YawFix = 0f;
+    // per-model facing fix — the two FBXs carry opposite yaw conventions
+    static float YawFix(string resource) => resource == "ego" ? 0f : 180f;
 
     // per-model posture trim: (pitch, roll) degrees — ego's sculpt leans
     // sideways a little
@@ -24,7 +24,7 @@ public static class EgoModel
         // compose yaw + posture trim with the importer's axis-correction
         // rotation — overwriting it lays Z-up models flat on their backs
         Vector2 trim = PostureTrim(resource);
-        ego.transform.localRotation = Quaternion.Euler(trim.x, YawFix, trim.y) * ego.transform.localRotation;
+        ego.transform.localRotation = Quaternion.Euler(trim.x, YawFix(resource), trim.y) * ego.transform.localRotation;
         ego.transform.localScale = Vector3.one;
 
         var renderers = ego.GetComponentsInChildren<Renderer>();
