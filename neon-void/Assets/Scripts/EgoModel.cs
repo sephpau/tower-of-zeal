@@ -44,6 +44,9 @@ public class EgoShowcase : MonoBehaviour
 {
     public float spin = 18f;
     float _t;
+    Vector3 _anchor;
+    float _seed;
+    float _yaw;
 
     public static void Create(Camera cam)
     {
@@ -70,11 +73,30 @@ public class EgoShowcase : MonoBehaviour
         l.color = new Color(1f, 0.9f, 0.85f);
     }
 
+    void Start()
+    {
+        _anchor = transform.position;
+        _seed = Random.value * 100f;
+        _yaw = Random.value * 360f;
+    }
+
     void Update()
     {
         _t += Time.deltaTime;
-        transform.Rotate(0f, spin * Time.deltaTime, 0f, Space.World);
-        transform.position += Vector3.up * Mathf.Sin(_t * 1.1f) * 0.0016f;
+
+        // slow noise-driven drift around the anchor — weightless wandering
+        Vector3 wander = new Vector3(
+            (Mathf.PerlinNoise(_seed, _t * 0.06f) - 0.5f) * 2f * 2.6f,
+            (Mathf.PerlinNoise(_seed + 17f, _t * 0.08f) - 0.5f) * 2f * 1.6f,
+            (Mathf.PerlinNoise(_seed + 41f, _t * 0.045f) - 0.5f) * 2f * 1.8f);
+        transform.position = _anchor + wander;
+
+        // steady spin with a gentle zero-g rock
+        _yaw += spin * Time.deltaTime;
+        float rockX = Mathf.Sin(_t * 0.5f + _seed) * 7f;
+        float rockZ = Mathf.Sin(_t * 0.37f + _seed * 2f) * 8f;
+        transform.rotation = Quaternion.Euler(rockX, _yaw, rockZ);
+
         if (GameManager.I != null && GameManager.I.Running)
             Destroy(gameObject);
     }
