@@ -9,7 +9,7 @@ public static class EgoModel
 
     // per-model posture trim (degrees of forward pitch) — ego's sculpt
     // naturally leans back a little
-    static float PitchTrim(string resource) => resource == "ego" ? -14f : 0f;
+    static float PitchTrim(string resource) => resource == "ego" ? -22f : 0f;
 
     // `size` is the desired world height — the model is measured after
     // instantiation and normalized, so FBX unit-scale differences between
