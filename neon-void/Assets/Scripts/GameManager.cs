@@ -69,6 +69,8 @@ public class GameManager : MonoBehaviour
         xpLevel = 1;
         xp = 0;
         _elapsed = 0f;
+        _draftQueue.Clear();
+        _draftOpen = false;
         if (TournamentMode.Active)
         {
             Random.InitState(unchecked((int)TournamentMode.Seed));
@@ -90,6 +92,11 @@ public class GameManager : MonoBehaviour
             : _skills.pilot.name.ToUpperInvariant() + " — " + _skills.pilot.title.ToUpperInvariant());
     }
 
+    // every level-up gets its own draft, even when one orb jumps several
+    // levels at once — drafts queue instead of overwriting each other
+    readonly System.Collections.Generic.Queue<int> _draftQueue = new System.Collections.Generic.Queue<int>();
+    bool _draftOpen;
+
     public void GainXp(int amount)
     {
         if (!Running) return;
@@ -102,27 +109,44 @@ public class GameManager : MonoBehaviour
         {
             xp -= ZealData.XpToNext(xpLevel);
             xpLevel++;
-            OpenLevelUp();
+            _draftQueue.Enqueue(xpLevel);
         }
+        TryOpenDraft();
     }
 
-    void OpenLevelUp()
+    void TryOpenDraft()
     {
+        if (_draftOpen || _draftQueue.Count == 0 || !Running) return;
+        int lvl = _draftQueue.Dequeue();
         var acts = _playerHealth.GetComponent<ActiveSkills>();
-        var choices = LevelUpChoices.Generate(xpLevel, _skills, acts, TournamentMode.Active ? TournamentMode.DraftRng(xpLevel) : null);
-        if (choices.Count == 0) { score += 300; return; }
+        var choices = LevelUpChoices.Generate(lvl, _skills, acts, TournamentMode.Active ? TournamentMode.DraftRng(lvl) : null);
+        if (choices.Count == 0) { score += 300; TryOpenDraft(); return; }
+        _draftOpen = true;
+        PlaySfx(SfxSynth.WaveUp, 0.6f);
+
+        if (CoopSync.Active)
+        {
+            // co-op never pauses: compact side panel, J/K/L picks
+            _hud.ShowLevelUpSide(lvl, choices, choice =>
+            {
+                choice.Apply(_skills);
+                _draftOpen = false;
+                TryOpenDraft();
+            });
+            return;
+        }
+
         Paused = true;
-        if (CoopSync.Active && CoopSync.I != null) CoopSync.I.SetLocalPause(true);   // both ships freeze
-        else Time.timeScale = 0f;
+        Time.timeScale = 0f;
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
-        PlaySfx(SfxSynth.WaveUp, 0.6f);
-        _hud.ShowLevelUp(xpLevel, choices, choice =>
+        _hud.ShowLevelUp(lvl, choices, choice =>
         {
             choice.Apply(_skills);
+            _draftOpen = false;
+            if (_draftQueue.Count > 0) { TryOpenDraft(); return; }   // stay paused, chain the next draft
             Paused = false;
-            if (CoopSync.Active && CoopSync.I != null) CoopSync.I.SetLocalPause(false);
-            else Time.timeScale = 1f;
+            Time.timeScale = 1f;
             if (Running)
             {
                 Cursor.visible = false;
@@ -355,10 +379,12 @@ public class GameManager : MonoBehaviour
     public void Banner(string msg) => _hud.WaveBanner(msg);
 
     // co-op: both pilots down (or the guest lost its host) — end the run
+    // and set the session up to meet back in the lobby after the reload
     public void CoopGameOver()
     {
         if (!Running) return;
         Running = false;
+        if (CoopSync.I != null) CoopSync.I.ResetToLobby();
         _music.Stop();
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;

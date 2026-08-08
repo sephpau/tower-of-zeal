@@ -71,6 +71,8 @@ public static class EnemyFactory
         glow.transform.SetParent(go.transform, false);
         glow.transform.localPosition = new Vector3(0f, -0.2f, -1.3f) * scale;
         glow.AddComponent<Billboard>();
+
+        NVOutline.Add(go, NVOutline.Hostile);
     }
 
     public static GameObject BuildInterceptor(Vector3 pos, int wave)
@@ -211,11 +213,12 @@ public static class EnemyFactory
         rb.angularDamping = 3f;
 
         var h = go.AddComponent<Health>();
-        h.Configure(400f, 1400f);
-        h.shieldRegenPerSec = 10f;
+        h.Configure(1500f, 8000f);
+        h.shieldRegenPerSec = 22f;
 
         var boss = go.AddComponent<BossAI>();
         boss.turretMuzzles = turretMuzzles;
+        NVOutline.Add(go, NVOutline.Hostile);
         return go;
     }
 
@@ -288,6 +291,8 @@ public static class EnemyFactory
         rb.mass = 60f;
         var boss = go.AddComponent<MinibossAI>();
         boss.Configure(def);
+        if (def.id != "smuggler")   // the cloaking boss keeps its vanishing act
+            NVOutline.Add(go, NVOutline.Hostile);
         return go;
     }
 
@@ -324,6 +329,35 @@ public static class EnemyFactory
 public class BurstConfig : MonoBehaviour
 {
     public int burstSize = 3;
+}
+
+// Team-color rims: clones each mesh with the inverted-hull outline shader.
+// Red marks hostiles, blue marks allies.
+public static class NVOutline
+{
+    public static readonly Color Hostile = new Color(1f, 0.15f, 0.15f);
+    public static readonly Color Ally = new Color(0.25f, 0.6f, 1f);
+
+    static Shader _shader;
+
+    public static void Add(GameObject root, Color color, float width = 0.035f)
+    {
+        if (_shader == null) _shader = Resources.Load<Shader>("NVOutline");
+        if (_shader == null) return;
+        var mat = new Material(_shader);
+        mat.SetColor("_Color", color);
+        mat.SetFloat("_Width", width);
+        foreach (var mf in root.GetComponentsInChildren<MeshFilter>())
+        {
+            if (mf.sharedMesh == null || mf.name == "outline" || mf.name == "guardBubble") continue;
+            if (mf.GetComponent<MeshRenderer>() == null) continue;
+            if (mf.GetComponent<Billboard>() != null) continue;   // glow quads stay clean
+            var o = new GameObject("outline");
+            o.transform.SetParent(mf.transform, false);
+            o.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
+            o.AddComponent<MeshRenderer>().sharedMaterial = mat;
+        }
+    }
 }
 
 // tags the elite so its death pays out v1-style rewards

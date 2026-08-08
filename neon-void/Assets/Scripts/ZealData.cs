@@ -166,13 +166,13 @@ public static class ZealData
 
     public static readonly BossDef[] Bosses = {
         new BossDef { id = "smuggler", name = "The Shadow Smuggler", wave = 3,
-            behavior = "blink", hp = 480f, dmg = 12f, score = 1500, xp = 20,
+            behavior = "blink", hp = 3000f, dmg = 18f, score = 1500, xp = 20,
             taunt = "Your loot is MY loot now!", tint = new Color(0.55f, 0.3f, 0.9f) },
         new BossDef { id = "gruyere", name = "Gruyere the Ringmaster", wave = 6,
-            behavior = "summon", hp = 900f, dmg = 16f, score = 4000, xp = 40,
+            behavior = "summon", hp = 5600f, dmg = 24f, score = 4000, xp = 40,
             taunt = "Step right up... and DIE!", tint = new Color(1f, 0.72f, 0.2f) },
         new BossDef { id = "garrison", name = "Garrison, Void Warden", wave = 9,
-            behavior = "gravity", hp = 1400f, dmg = 22f, score = 10000, xp = 80,
+            behavior = "gravity", hp = 9000f, dmg = 33f, score = 10000, xp = 80,
             taunt = "The void hungers, little zealot.", tint = new Color(0.7f, 0.15f, 0.4f) },
     };
 }

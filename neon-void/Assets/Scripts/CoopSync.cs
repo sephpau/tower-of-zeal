@@ -22,7 +22,23 @@ public class CoopSync : MonoBehaviour
     public static Vector3 RemoteVelocity;
 
     public Action<string> onStatus;   // lobby status line
-    public Action onStarted;          // hide the co-op panel, the run begins
+    public Action onStarted;          // hide lobby UI, the run begins
+    public Action onLobby;            // connection made — show the lobby panel
+    public Action onLobbyChanged;     // pilots/ready marks changed — refresh labels
+    public Action<int> onCountdown;   // 3, 2, 1, then 0 = launch
+
+    // lobby state
+    public bool InLobby { get; private set; }
+    public string PartnerName => _partnerName;
+    public bool PartnerHere => _partnerHere;
+    public int partnerLobbyPilot = -1;
+    public bool partnerReady;
+    public int MyPilot => _myLobbyPilot;
+    public bool MyReady => _myReady;
+    public string Room => _room;
+
+    int _myLobbyPilot;
+    bool _myReady, _counting, _partnerHere;
 
     const float SnapEvery = 0.1f;
     const float PoseEvery = 1f / 12f;
@@ -30,7 +46,6 @@ public class CoopSync : MonoBehaviour
     CoopNet _net;
     string _room = "";
     string _myName = "PILOT";
-    int _myPilot;
     string _partnerName = "PARTNER";
     int _partnerPilot;
     bool _sentHi, _gotHi, _running;
@@ -63,15 +78,94 @@ public class CoopSync : MonoBehaviour
     {
         if (I != null) Destroy(I.gameObject);
         var go = new GameObject("CoopSession");
+        DontDestroyOnLoad(go);   // the session outlives scene reloads — back to the lobby together
         I = go.AddComponent<CoopSync>();
         Active = true;
         IsHost = host;
         I._room = string.IsNullOrEmpty(room) ? "VOID" : room.Trim().ToUpperInvariant();
         I._myName = string.IsNullOrEmpty(name) ? "PILOT" : name.Trim();
-        I._myPilot = Mathf.Clamp(pilot, 0, ZealData.Pilots.Length - 1);
+        I._myLobbyPilot = Mathf.Clamp(pilot, 0, ZealData.Pilots.Length - 1);
         I._net = go.AddComponent<CoopNet>();
         I._net.Connect(host, I._room, I.OnMessage, I.OnNetState);
         return I;
+    }
+
+    // ---------- lobby ----------
+    public void SetLobbyPilot(int idx)
+    {
+        if (_myReady || _counting) return;
+        _myLobbyPilot = Mathf.Clamp(idx, 0, ZealData.Pilots.Length - 1);
+        SendLobbyState();
+        onLobbyChanged?.Invoke();
+    }
+
+    public void SetReady(bool ready)
+    {
+        if (_counting) return;
+        _myReady = ready;
+        SendLobbyState();
+        onLobbyChanged?.Invoke();
+        MaybeCountdown();
+    }
+
+    void SendLobbyState() => Send("LOB|" + _myLobbyPilot + "|" + (_myReady ? 1 : 0));
+
+    void MaybeCountdown()
+    {
+        if (IsHost && !_counting && _myReady && partnerReady && _partnerHere)
+        {
+            Send("CNT");
+            BeginCountdown();
+        }
+    }
+
+    void BeginCountdown()
+    {
+        if (_counting || _running) return;
+        _counting = true;
+        StartCoroutine(CountdownCo());
+    }
+
+    IEnumerator CountdownCo()
+    {
+        for (int n = 3; n >= 1; n--)
+        {
+            onCountdown?.Invoke(n);
+            yield return new WaitForSecondsRealtime(1f);
+        }
+        onCountdown?.Invoke(0);
+        InLobby = false;
+        _counting = false;
+        StartCoopRun();
+    }
+
+    // the run ended — meet your partner back in the lobby (called before the scene reloads)
+    public void ResetToLobby()
+    {
+        _running = false;
+        InLobby = true;
+        _counting = false;
+        _myReady = false;
+        partnerReady = false;
+        _localDead = _partnerDead = false;
+        _localPause = _remotePause = false;
+        Time.timeScale = 1f;
+        _hostiles.Clear();
+        _puppets.Clear();
+        _dmgClaims.Clear();
+        _events.Clear();
+        _enemyBolts.Length = 0;
+        _myBolts.Length = 0;
+        _nextId = 1;
+        _lastWave = -1;
+        if (_ghost != null) Destroy(_ghost);
+        _ghost = null;
+        _ghostBubble = null;
+        _ghostHasPose = false;
+        RemoteShip = null;
+        _waves = null;
+        _localHealth = null;
+        SendLobbyState();
     }
 
     public static void Cancel()
@@ -97,19 +191,14 @@ public class CoopSync : MonoBehaviour
             Debug.Log("[coop] channel open, room " + _room + " as " + (IsHost ? "host" : "guest"));
             _micOn = true;
             CoopNet.SetVoiceVolume(GameSettings.VoiceVolume);
-            onStatus?.Invoke("CONNECTED — SYNCING…");
-            if (!_sentHi) { _sentHi = true; Send("HI|" + _myName + "|" + _myPilot); }
-            TryLaunch();
+            onStatus?.Invoke("CONNECTED!");
+            if (!_sentHi) { _sentHi = true; Send("HI|" + _myName); }
+            InLobby = true;
+            onLobby?.Invoke();
+            SendLobbyState();
         }
         else if (state == 2) HandleDisconnect();
         else if (state == -1) onStatus?.Invoke("NO PARTNER FOUND — CHECK THE ROOM CODE AND TRY AGAIN");
-    }
-
-    void TryLaunch()
-    {
-        if (_running || !_gotHi || !_sentHi || !_net.Open) return;
-        if (IsHost) Send("GO");
-        StartCoopRun();
     }
 
     void StartCoopRun()
@@ -122,7 +211,7 @@ public class CoopSync : MonoBehaviour
         _localHealth = ship != null ? ship.GetComponent<Health>() : null;
         BuildGhost();
         onStarted?.Invoke();
-        GameManager.I.StartRun(_myPilot);
+        GameManager.I.StartRun(_myLobbyPilot);
         GameManager.I.Banner("CO-OP // " + _room + " // WITH " + _partnerName.ToUpperInvariant());
     }
 
@@ -141,6 +230,7 @@ public class CoopSync : MonoBehaviour
         var tint = _ghost.GetComponent<ShipTint>();
         if (tint != null) tint.Apply(ZealData.Pilots[Mathf.Clamp(_partnerPilot, 0, ZealData.Pilots.Length - 1)].accent);
         _ghostBubble = FindDeep(_ghost.transform, "guardBubble");
+        NVOutline.Add(_ghost, NVOutline.Ally, 0.03f);   // blue rim = friend, don't shoot
         _ghostPos = _ghost.transform.position;
         RemoteShip = _ghost.transform;
     }
@@ -342,17 +432,25 @@ public class CoopSync : MonoBehaviour
         switch (p[0])
         {
             case "HI":
+                if (p.Length >= 2) _partnerName = p[1];
+                _gotHi = true;
+                _partnerHere = true;
+                if (!_sentHi) { _sentHi = true; Send("HI|" + _myName); }
+                onLobbyChanged?.Invoke();
+                break;
+            case "LOB":
                 if (p.Length >= 3)
                 {
-                    _partnerName = p[1];
-                    int.TryParse(p[2], out _partnerPilot);
+                    int.TryParse(p[1], out partnerLobbyPilot);
+                    partnerReady = p[2] == "1";
+                    _partnerPilot = Mathf.Clamp(partnerLobbyPilot, 0, ZealData.Pilots.Length - 1);
+                    _partnerHere = true;
                 }
-                _gotHi = true;
-                if (!_sentHi) { _sentHi = true; Send("HI|" + _myName + "|" + _myPilot); }
-                if (IsHost) TryLaunch();
+                onLobbyChanged?.Invoke();
+                MaybeCountdown();
                 break;
-            case "GO":
-                if (!IsHost) StartCoopRun();
+            case "CNT":
+                BeginCountdown();
                 break;
             case "P":
                 if (p.Length >= 12 && _ghost != null)
@@ -572,7 +670,11 @@ public class CoopSync : MonoBehaviour
     {
         if (!_running)
         {
-            onStatus?.Invoke("CONNECTION LOST — TRY AGAIN");
+            _partnerHere = false;
+            partnerReady = false;
+            _counting = false;
+            onStatus?.Invoke("PARTNER DISCONNECTED — LEAVE AND HOST A NEW ROOM");
+            onLobbyChanged?.Invoke();
             return;
         }
         _remotePause = false;

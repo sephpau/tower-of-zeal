@@ -36,11 +36,15 @@ public class HudController : MonoBehaviour
     readonly List<Button> _tourneyPilotButtons = new List<Button>();
     readonly List<GameObject> _levelUpCards = new List<GameObject>();
 
-    GameObject _coopPanel;
+    GameObject _coopPanel, _lobbyPanel, _sideLevelPanel;
     InputField _coopRoomInput, _coopNameInput;
-    Text _coopStatus;
-    int _coopPilotChoice;
-    readonly List<Button> _coopPilotButtons = new List<Button>();
+    Text _coopStatus, _lobbyRoom, _lobbyMyName, _lobbyPartnerName, _lobbyPartnerState, _lobbyCountdown, _lobbyStatus;
+    readonly List<Button> _lobbyPilotButtons = new List<Button>();
+    Button _readyBtn;
+    Text _overPulse;
+    List<LevelUpChoices> _sideChoices;
+    System.Action<LevelUpChoices> _sidePick;
+    readonly List<GameObject> _sideCards = new List<GameObject>();
 
     Font _titleFont;
 
@@ -237,6 +241,8 @@ public class HudController : MonoBehaviour
         BuildLevelUpPanel();
         BuildTournamentPanels();
         BuildCoopPanel();
+        BuildLobbyPanel();
+        BuildSideLevelPanel();
         BuildSettingsPanel();
         _gameHud.SetActive(false);
     }
@@ -618,6 +624,14 @@ public class HudController : MonoBehaviour
 
     void Update()
     {
+        // co-op level-up hotkeys
+        if (_sidePick != null)
+        {
+            if (Input.GetKeyDown(KeyCode.J)) PickSideChoice(0);
+            else if (Input.GetKeyDown(KeyCode.K)) PickSideChoice(1);
+            else if (Input.GetKeyDown(KeyCode.L)) PickSideChoice(2);
+        }
+
         // sensitivity test pad: the dot moves like your in-game aim would
         if (_sensDot != null && _settingsPanel != null && _settingsPanel.activeSelf)
         {
@@ -798,7 +812,7 @@ public class HudController : MonoBehaviour
         t.color = new Color(0.4f, 1f, 0.75f);
         t.fontStyle = FontStyle.BoldAndItalic;
         t.font = _titleFont;
-        var sub = NewText(_coopPanel.transform, "sub", "2 PILOTS VS THE WAVES — LIVE · AGREE ON A ROOM CODE, ONE HOSTS, ONE JOINS\nVOICE CHAT ON (ALLOW YOUR MIC · N MUTES) · SHARED SCORE · DOWNED PILOTS RESPAWN IN 15s", 20, TextAnchor.MiddleCenter,
+        var sub = NewText(_coopPanel.transform, "sub", "2 PILOTS VS THE WAVES — LIVE · AGREE ON A ROOM CODE, ONE HOSTS, ONE JOINS\nVOICE CHAT ON (ALLOW YOUR MIC · N MUTES) · PICK YOUR PILOT TOGETHER IN THE LOBBY", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.705f), new Vector2(0.5f, 0.705f), Vector2.zero, new Vector2(1400, 60));
         sub.color = new Color(0.8f, 0.9f, 1f, 0.8f);
 
@@ -811,21 +825,8 @@ public class HudController : MonoBehaviour
             .color = new Color(1f, 0.85f, 0.4f);
         _coopNameInput = MakeInput(_coopPanel.transform, new Vector2(0.5f, 0.425f), "YOUR CALLSIGN");
 
-        _coopPilotButtons.Clear();
-        _coopPilotChoice = 0;
-        for (int i = 0; i < ZealData.Pilots.Length; i++)
-        {
-            int choice = i;
-            var pb = MakeButton(_coopPanel.transform, ZealData.Pilots[i].name.ToUpperInvariant(),
-                new Vector2(0.32f + i * 0.12f, 0.345f), new Vector2(170, 44),
-                ZealData.Pilots[i].accent, () => { _coopPilotChoice = choice; RefreshCoopPilotButtons(); });
-            pb.GetComponentInChildren<Text>().fontSize = 18;
-            _coopPilotButtons.Add(pb);
-        }
-        RefreshCoopPilotButtons();
-
         _coopStatus = NewText(_coopPanel.transform, "status", "", 22, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.27f), new Vector2(0.5f, 0.27f), Vector2.zero, new Vector2(1100, 34));
+            new Vector2(0.5f, 0.3f), new Vector2(0.5f, 0.3f), Vector2.zero, new Vector2(1100, 34));
         _coopStatus.color = new Color(0.4f, 1f, 0.75f);
 
         MakeButton(_coopPanel.transform, "HOST GAME", new Vector2(0.34f, 0.185f), new Vector2(280, 56),
@@ -842,28 +843,127 @@ public class HudController : MonoBehaviour
         _coopPanel.SetActive(false);
     }
 
-    void RefreshCoopPilotButtons()
-    {
-        for (int i = 0; i < _coopPilotButtons.Count; i++)
-        {
-            bool selected = i == _coopPilotChoice;
-            var bg = _coopPilotButtons[i].GetComponent<Image>();
-            bg.color = selected ? new Color(0.22f, 0.18f, 0.42f, 0.95f) : new Color(0.09f, 0.07f, 0.2f, 0.72f);
-            var border = _coopPilotButtons[i].transform.Find("border").GetComponent<Image>();
-            border.color = new Color(border.color.r, border.color.g, border.color.b, selected ? 1f : 0.25f);
-        }
-    }
-
     void StartCoop(bool host)
     {
         string room = _coopRoomInput.text;
         if (string.IsNullOrWhiteSpace(room)) { _coopStatus.text = "ENTER A ROOM CODE FIRST"; return; }
-        var session = CoopSync.Begin(host, room, _coopNameInput.text, _coopPilotChoice);
-        session.onStatus = s => { if (_coopStatus != null) _coopStatus.text = s; };
-        session.onStarted = () => { _coopPanel.SetActive(false); };
+        var session = CoopSync.Begin(host, room, _coopNameInput.text, 0);
+        BindCoopSession(session);
         _coopStatus.text = host
             ? "ROOM " + room.Trim().ToUpperInvariant() + " — WAITING FOR YOUR PARTNER…"
             : "LOOKING FOR THE HOST OF " + room.Trim().ToUpperInvariant() + "…";
+    }
+
+    // wire a co-op session's callbacks into this HUD (a fresh HUD exists
+    // after every scene reload, so the surviving session re-binds here)
+    void BindCoopSession(CoopSync s)
+    {
+        s.onStatus = msg => {
+            if (_coopStatus != null) _coopStatus.text = msg;
+            if (_lobbyStatus != null) _lobbyStatus.text = msg;
+        };
+        s.onLobby = () => {
+            _coopPanel.SetActive(false);
+            _homePanel.SetActive(false);
+            _lobbyPanel.SetActive(true);
+            _lobbyCountdown.text = "";
+            RefreshLobby();
+        };
+        s.onLobbyChanged = RefreshLobby;
+        s.onCountdown = n => {
+            _lobbyCountdown.text = n > 0 ? n.ToString() : "GO!";
+            if (GameManager.I != null) GameManager.I.PlaySfx(n > 0 ? SfxSynth.Pickup : SfxSynth.WaveUp, 0.8f);
+        };
+        s.onStarted = () => { _lobbyPanel.SetActive(false); _coopPanel.SetActive(false); };
+    }
+
+    void BuildLobbyPanel()
+    {
+        _lobbyPanel = Panel("LobbyPanel");
+        var t = NewText(_lobbyPanel.transform, "title", "CO-OP LOBBY", 60, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.86f), new Vector2(0.5f, 0.86f), Vector2.zero, new Vector2(1200, 84));
+        t.color = new Color(0.4f, 1f, 0.75f);
+        t.font = _titleFont;
+        _lobbyRoom = NewText(_lobbyPanel.transform, "room", "", 26, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.78f), new Vector2(0.5f, 0.78f), Vector2.zero, new Vector2(900, 36));
+        _lobbyRoom.color = new Color(1f, 0.85f, 0.4f);
+
+        // my side
+        _lobbyMyName = NewText(_lobbyPanel.transform, "myname", "YOU", 30, TextAnchor.MiddleCenter,
+            new Vector2(0.3f, 0.66f), new Vector2(0.3f, 0.66f), Vector2.zero, new Vector2(500, 44));
+        _lobbyMyName.color = new Color(0.5f, 0.98f, 1f);
+        _lobbyMyName.font = _titleFont;
+        _lobbyPilotButtons.Clear();
+        for (int i = 0; i < ZealData.Pilots.Length; i++)
+        {
+            int idx = i;
+            var pb = MakeButton(_lobbyPanel.transform, ZealData.Pilots[i].name.ToUpperInvariant(),
+                new Vector2(0.165f + i * 0.09f, 0.55f), new Vector2(150, 46),
+                ZealData.Pilots[i].accent, () => { if (CoopSync.I != null) CoopSync.I.SetLobbyPilot(idx); });
+            pb.GetComponentInChildren<Text>().fontSize = 16;
+            _lobbyPilotButtons.Add(pb);
+        }
+        _readyBtn = MakeButton(_lobbyPanel.transform, "READY!", new Vector2(0.3f, 0.42f), new Vector2(280, 62),
+            new Color(0.5f, 1f, 0.6f), () => { if (CoopSync.I != null) CoopSync.I.SetReady(!CoopSync.I.MyReady); });
+
+        // partner side
+        _lobbyPartnerName = NewText(_lobbyPanel.transform, "pname", "…", 30, TextAnchor.MiddleCenter,
+            new Vector2(0.7f, 0.66f), new Vector2(0.7f, 0.66f), Vector2.zero, new Vector2(500, 44));
+        _lobbyPartnerName.color = new Color(1f, 0.55f, 0.9f);
+        _lobbyPartnerName.font = _titleFont;
+        _lobbyPartnerState = NewText(_lobbyPanel.transform, "pstate", "", 24, TextAnchor.MiddleCenter,
+            new Vector2(0.7f, 0.52f), new Vector2(0.7f, 0.52f), Vector2.zero, new Vector2(500, 70));
+        _lobbyPartnerState.color = new Color(0.85f, 0.9f, 1f);
+
+        _lobbyCountdown = NewText(_lobbyPanel.transform, "count", "", 150, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.45f), new Vector2(0.5f, 0.45f), Vector2.zero, new Vector2(600, 190));
+        _lobbyCountdown.color = new Color(1f, 0.85f, 0.4f);
+        _lobbyCountdown.font = _titleFont;
+
+        _lobbyStatus = NewText(_lobbyPanel.transform, "status", "", 20, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.24f), new Vector2(0.5f, 0.24f), Vector2.zero, new Vector2(1200, 32));
+        _lobbyStatus.color = new Color(0.4f, 1f, 0.75f, 0.9f);
+
+        MakeButton(_lobbyPanel.transform, "LEAVE", new Vector2(0.5f, 0.13f), new Vector2(280, 54),
+            new Color(1f, 0.5f, 0.5f), () => {
+                CoopSync.Cancel();
+                _lobbyPanel.SetActive(false);
+                _homePanel.SetActive(true);
+            });
+        _lobbyPanel.SetActive(false);
+    }
+
+    void RefreshLobby()
+    {
+        var s = CoopSync.I;
+        if (s == null || _lobbyPanel == null) return;
+        _lobbyRoom.text = "ROOM  " + s.Room + (CoopSync.IsHost ? "   ·   YOU ARE HOSTING" : "");
+        _lobbyMyName.text = "YOU";
+        for (int i = 0; i < _lobbyPilotButtons.Count; i++)
+        {
+            bool sel = i == s.MyPilot;
+            _lobbyPilotButtons[i].GetComponent<Image>().color =
+                sel ? new Color(0.22f, 0.18f, 0.42f, 0.95f) : new Color(0.09f, 0.07f, 0.2f, 0.72f);
+            var border = _lobbyPilotButtons[i].transform.Find("border").GetComponent<Image>();
+            border.color = new Color(border.color.r, border.color.g, border.color.b, sel ? 1f : 0.25f);
+        }
+        var readyLabel = _readyBtn.GetComponentInChildren<Text>();
+        readyLabel.text = s.MyReady ? "UNREADY" : "READY!";
+        readyLabel.color = s.MyReady ? new Color(1f, 0.85f, 0.4f) : new Color(0.5f, 1f, 0.6f);
+
+        if (!s.PartnerHere)
+        {
+            _lobbyPartnerName.text = "…";
+            _lobbyPartnerState.text = "WAITING FOR A PARTNER TO JOIN…";
+        }
+        else
+        {
+            _lobbyPartnerName.text = s.PartnerName.ToUpperInvariant();
+            string pilot = s.partnerLobbyPilot >= 0 && s.partnerLobbyPilot < ZealData.Pilots.Length
+                ? ZealData.Pilots[s.partnerLobbyPilot].name.ToUpperInvariant() : "PICKING…";
+            _lobbyPartnerState.text = pilot + "\n" + (s.partnerReady ? "READY ✓" : "NOT READY");
+            _lobbyPartnerState.color = s.partnerReady ? new Color(0.5f, 1f, 0.6f) : new Color(0.85f, 0.9f, 1f);
+        }
     }
 
     void RefreshPilotButtons()
@@ -948,6 +1048,86 @@ public class HudController : MonoBehaviour
         return field;
     }
 
+    // co-op level-ups: no pause — a compact card stack on the right, J/K/L to pick
+    void BuildSideLevelPanel()
+    {
+        _sideLevelPanel = new GameObject("SideLevelPanel");
+        _sideLevelPanel.transform.SetParent(_canvas.transform, false);
+        var rt = _sideLevelPanel.AddComponent<RectTransform>();
+        rt.anchorMin = rt.anchorMax = new Vector2(1f, 0.5f);
+        rt.anchoredPosition = new Vector2(-180, 0);
+        rt.sizeDelta = new Vector2(330, 560);
+        _sideLevelPanel.SetActive(false);
+    }
+
+    public void ShowLevelUpSide(int level, List<LevelUpChoices> choices, System.Action<LevelUpChoices> onPick)
+    {
+        foreach (var c in _sideCards) Destroy(c);
+        _sideCards.Clear();
+        _sideChoices = choices;
+        _sidePick = onPick;
+        _sideLevelPanel.SetActive(true);
+
+        var title = NewText(_sideLevelPanel.transform, "title", "LEVEL " + level + " — PICK!", 26, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -20), new Vector2(330, 40));
+        title.color = new Color(0.4f, 0.95f, 1f);
+        title.font = _titleFont;
+        _sideCards.Add(title.gameObject);
+
+        string[] keys = { "J", "K", "L" };
+        for (int i = 0; i < choices.Count && i < 3; i++)
+        {
+            var choice = choices[i];
+            var card = new GameObject("side" + i);
+            card.transform.SetParent(_sideLevelPanel.transform, false);
+            var img = card.AddComponent<Image>();
+            img.sprite = _roundedFill;
+            img.type = Image.Type.Sliced;
+            img.color = new Color(0.07f, 0.05f, 0.16f, 0.82f);
+            var crt = img.rectTransform;
+            crt.anchorMin = crt.anchorMax = new Vector2(0.5f, 1f);
+            crt.anchoredPosition = new Vector2(0, -110 - i * 150);
+            crt.sizeDelta = new Vector2(320, 140);
+            var glow = NewImage(card.transform, "border", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            glow.sprite = _roundedOutline;
+            glow.type = Image.Type.Sliced;
+            glow.color = new Color(1f, 0.85f, 0.4f, 0.7f);
+
+            var key = NewText(card.transform, "key", "[" + keys[i] + "]", 30, TextAnchor.MiddleCenter,
+                new Vector2(0.12f, 0.5f), new Vector2(0.12f, 0.5f), Vector2.zero, new Vector2(60, 44));
+            key.color = new Color(0.4f, 1f, 0.75f);
+            key.fontStyle = FontStyle.Bold;
+
+            if (choice.sprite != null)
+            {
+                var icon = NewImage(card.transform, "icon", new Vector2(0.32f, 0.5f), new Vector2(0.32f, 0.5f), Vector2.zero, new Vector2(60, 60));
+                icon.sprite = choice.sprite;
+                icon.preserveAspect = true;
+            }
+            var nm = NewText(card.transform, "name", choice.title, 19, TextAnchor.MiddleLeft,
+                new Vector2(0.45f, 0.72f), new Vector2(0.45f, 0.72f), new Vector2(80, 0), new Vector2(190, 44));
+            nm.color = new Color(1f, 0.85f, 0.4f);
+            nm.fontStyle = FontStyle.Bold;
+            var ds = NewText(card.transform, "desc", choice.desc, 14, TextAnchor.MiddleLeft,
+                new Vector2(0.45f, 0.32f), new Vector2(0.45f, 0.32f), new Vector2(80, 0), new Vector2(190, 70));
+            ds.color = new Color(0.85f, 0.9f, 1f, 0.9f);
+            _sideCards.Add(card);
+        }
+    }
+
+    void PickSideChoice(int i)
+    {
+        if (_sideChoices == null || i >= _sideChoices.Count) return;
+        var choice = _sideChoices[i];
+        var cb = _sidePick;
+        _sideChoices = null;
+        _sidePick = null;
+        foreach (var c in _sideCards) Destroy(c);
+        _sideCards.Clear();
+        _sideLevelPanel.SetActive(false);
+        cb?.Invoke(choice);
+    }
+
     void BuildLevelUpPanel()
     {
         _levelUpPanel = Panel("LevelUpPanel");
@@ -977,10 +1157,10 @@ public class HudController : MonoBehaviour
         _overStats = NewText(_overPanel.transform, "stats", "", 24, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.31f), new Vector2(0.5f, 0.31f), Vector2.zero, new Vector2(1200, 40));
         _overStats.color = new Color(0.8f, 0.9f, 1f, 0.8f);
-        var p = NewText(_overPanel.transform, "pulse", "CLICK TO RELAUNCH", 34, TextAnchor.MiddleCenter,
+        _overPulse = NewText(_overPanel.transform, "pulse", "CLICK TO RELAUNCH", 34, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.18f), new Vector2(0.5f, 0.18f), Vector2.zero, new Vector2(800, 60));
-        p.color = new Color(1f, 0.85f, 0.4f);
-        p.fontStyle = FontStyle.Bold;
+        _overPulse.color = new Color(1f, 0.85f, 0.4f);
+        _overPulse.fontStyle = FontStyle.Bold;
         _overPanel.SetActive(false);
     }
 
@@ -1012,6 +1192,16 @@ public class HudController : MonoBehaviour
     // ---------- public API ----------
     public void ShowStart()
     {
+        // a co-op session that survived the scene reload goes straight back to its lobby
+        if (CoopSync.Active && CoopSync.I != null && CoopSync.I.InLobby)
+        {
+            BindCoopSession(CoopSync.I);
+            _lobbyPanel.SetActive(true);
+            _lobbyCountdown.text = "";
+            RefreshLobby();
+            WantsStart = true;
+            return;
+        }
         _homePanel.SetActive(true);
         _bestHomeText.text = GameManager.I != null && GameManager.I.best > 0 ? "BEST  " + GameManager.I.best.ToString("N0") : "";
         WantsStart = true;
@@ -1021,7 +1211,9 @@ public class HudController : MonoBehaviour
     public void ShowGameOver(int score, int best, bool newBest, int wave)
     {
         _gameHud.SetActive(false);
+        if (_sideLevelPanel != null) _sideLevelPanel.SetActive(false);
         _overPanel.SetActive(true);
+        _overPulse.text = CoopSync.Active ? "CLICK TO RETURN TO LOBBY" : "CLICK TO RELAUNCH";
         _warnBorder.color = new Color(1, 1, 1, 0);
         _overScore.text = score.ToString("N0");
         _overBest.text = newBest ? "NEW BEST!" : "BEST  " + best.ToString("N0");

@@ -17,7 +17,7 @@ public class BossAI : MonoBehaviour
     int _orbitSign = 1;
 
     const float BoltSpeed = 80f;
-    const float BoltDamage = 14f;
+    const float BoltDamage = 22f;
     static readonly Color BoltColor = new Color(1f, 0.2f, 0.3f);
 
     void Awake()
