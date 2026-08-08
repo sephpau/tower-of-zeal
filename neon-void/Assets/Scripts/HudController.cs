@@ -552,7 +552,7 @@ public class HudController : MonoBehaviour
 
         // mic test: press START, speak, watch the meter
         var micLbl = NewText(_settingsPanel.transform, "miclbl", "MIC TEST", 26, TextAnchor.MiddleRight,
-            new Vector2(0.5f, 0.19f), new Vector2(0.5f, 0.19f), new Vector2(-150, 0), new Vector2(420, 40));
+            new Vector2(0.5f, 0.19f), new Vector2(0.5f, 0.19f), new Vector2(-250, 0), new Vector2(420, 40));
         micLbl.color = new Color(0.9f, 0.95f, 1f);
         var micBar = NewImage(_settingsPanel.transform, "micbar", new Vector2(0.5f, 0.19f), new Vector2(0.5f, 0.19f),
             new Vector2(120, 0), new Vector2(280, 20));
@@ -624,11 +624,11 @@ public class HudController : MonoBehaviour
     void MakeVolumeRow(string label, float anchorY, float initial, System.Action<float> onChange)
     {
         var lbl = NewText(_settingsPanel.transform, "lbl-" + label, label, 26, TextAnchor.MiddleRight,
-            new Vector2(0.5f, anchorY), new Vector2(0.5f, anchorY), new Vector2(-150, 0), new Vector2(420, 40));
+            new Vector2(0.5f, anchorY), new Vector2(0.5f, anchorY), new Vector2(-250, 0), new Vector2(420, 40));
         lbl.color = new Color(0.9f, 0.95f, 1f);
 
         var pct = NewText(_settingsPanel.transform, "pct-" + label, Mathf.RoundToInt(initial * 100) + "%", 22, TextAnchor.MiddleLeft,
-            new Vector2(0.5f, anchorY), new Vector2(0.5f, anchorY), new Vector2(290, 0), new Vector2(90, 40));
+            new Vector2(0.5f, anchorY), new Vector2(0.5f, anchorY), new Vector2(330, 0), new Vector2(90, 40));
         pct.color = new Color(1f, 0.85f, 0.4f);
 
         // slider: rounded track, gold fill, circle handle
