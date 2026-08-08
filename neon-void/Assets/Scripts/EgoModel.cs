@@ -5,7 +5,7 @@ using UnityEngine;
 public static class EgoModel
 {
     // model's forward after FBX import — tune here if he faces the wrong way
-    public const float YawFix = 180f;
+    public const float YawFix = 0f;
 
     // per-model posture trim: (pitch, roll) degrees — ego's sculpt leans
     // sideways a little
