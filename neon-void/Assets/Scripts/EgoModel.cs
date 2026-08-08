@@ -55,6 +55,12 @@ public class EgoShowcase : MonoBehaviour
     Vector2 _pos, _vel;
     float _halfSize;
 
+    // all live showpieces, so they can bump off each other
+    static readonly System.Collections.Generic.List<EgoShowcase> All = new System.Collections.Generic.List<EgoShowcase>();
+
+    void OnEnable() => All.Add(this);
+    void OnDestroy() => All.Remove(this);
+
     public static void Create(Camera cam)
     {
         CreateOne(cam, "ego", 2.6f, +3.2f);
@@ -99,6 +105,30 @@ public class EgoShowcase : MonoBehaviour
         if (_pos.x < -halfW) { _pos.x = -halfW; _vel.x = Mathf.Abs(_vel.x); }
         if (_pos.y > halfH) { _pos.y = halfH; _vel.y = -Mathf.Abs(_vel.y); }
         if (_pos.y < -halfH) { _pos.y = -halfH; _vel.y = Mathf.Abs(_vel.y); }
+
+        // bump off the other floater instead of overlapping — equal-mass
+        // elastic circles, each pair resolved once per frame
+        int myIndex = All.IndexOf(this);
+        foreach (var other in All)
+        {
+            if (other == this || All.IndexOf(other) >= myIndex) continue;
+            Vector2 diff = _pos - other._pos;
+            float minDist = (_halfSize + other._halfSize) * 0.85f;
+            float d = diff.magnitude;
+            if (d >= minDist || d < 0.0001f) continue;
+            Vector2 n = diff / d;
+            float push = (minDist - d) * 0.5f;
+            _pos += n * push;
+            other._pos -= n * push;
+            float closing = Vector2.Dot(_vel - other._vel, n);
+            if (closing < 0f)
+            {
+                Vector2 impulse = n * closing;
+                _vel -= impulse;
+                other._vel += impulse;
+            }
+            other.Place();
+        }
         Place();
 
         if (GameManager.I != null && GameManager.I.Running)
