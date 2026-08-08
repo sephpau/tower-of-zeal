@@ -50,6 +50,7 @@ public class GameManager : MonoBehaviour
     }
 
     float _elapsed;
+    public float ElapsedSeconds => _elapsed;
     int _sigilIdx;
     bool _overtimeAnnounced;
     float _eliteTimer;
@@ -69,7 +70,10 @@ public class GameManager : MonoBehaviour
         xp = 0;
         _elapsed = 0f;
         if (TournamentMode.Active)
+        {
             Random.InitState(unchecked((int)TournamentMode.Seed));
+            TournamentNet.Begin(gameObject);
+        }
         _skills = _playerHealth.GetComponent<SkillSystem>();
         _skills.InitPilot(ZealData.Pilots[Mathf.Clamp(pilotIndex, 0, ZealData.Pilots.Length - 1)]);
         var tint = _playerHealth.GetComponent<ShipTint>();
@@ -205,8 +209,32 @@ public class GameManager : MonoBehaviour
         int t = Mathf.RoundToInt(Mathf.Min(_elapsed, TournamentMode.Duration));
         string verify = TournamentMode.VerifyCode(score, t);
         TournamentMode.RecordResult(score, t);
-        var standings = TournamentMode.LoadStandings();
-        _hud.ShowTournamentResults(reason, score, verify, TournamentMode.MatchCode, standings);
+        StartCoroutine(FinishTournament(reason, score, t, verify));
+    }
+
+    System.Collections.IEnumerator FinishTournament(string reason, int finalScore, int t, string verify)
+    {
+        // push the final score and pull the shared standings before showing results
+        var net = TournamentNet.I;
+        if (net != null)
+        {
+            bool finished = false;
+            StartCoroutine(net.Sync(finalScore, t, () => finished = true));
+            float wait = 0f;
+            while (!finished && wait < 7f) { wait += Time.unscaledDeltaTime; yield return null; }
+        }
+
+        var standings = new System.Collections.Generic.List<TournamentMode.Entry>();
+        if (net != null && net.online && net.latest.Length > 0)
+        {
+            foreach (var e in net.latest)
+                standings.Add(new TournamentMode.Entry { name = e.name, pilot = e.pilot, score = e.score, time = e.time, verify = e.verify });
+        }
+        else
+            standings = TournamentMode.LoadStandings();   // offline fallback
+
+        _hud.ShowTournamentResults(reason, finalScore, verify, TournamentMode.MatchCode,
+            standings, net != null && net.online);
         TournamentMode.Disarm();
     }
 

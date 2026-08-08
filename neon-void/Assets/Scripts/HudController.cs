@@ -20,7 +20,7 @@ public class HudController : MonoBehaviour
     float _bannerTimer, _vignetteAlpha;
     WaveDirector _wavesRef;
 
-    Text _xpLevelText, _timerText, _skillCdText, _skillLabel;
+    Text _xpLevelText, _timerText, _skillCdText, _skillLabel, _liveBoardText;
     Image _xpBar, _skillFill, _skillIconImg;
     string _skillIconFor;
     readonly List<Image> _dirPool = new List<Image>();
@@ -101,6 +101,10 @@ public class HudController : MonoBehaviour
         _hostilesText = NewText(_gameHud.transform, "hostiles", "", 22, TextAnchor.UpperRight,
             new Vector2(1, 1), new Vector2(1, 1), new Vector2(-30, -66), new Vector2(400, 34));
         _hostilesText.color = new Color(1f, 0.4f, 0.5f);
+
+        _liveBoardText = NewText(_gameHud.transform, "liveboard", "", 19, TextAnchor.UpperRight,
+            new Vector2(1, 1), new Vector2(1, 1), new Vector2(-30, -108), new Vector2(360, 240));
+        _liveBoardText.color = new Color(0.75f, 0.9f, 1f, 0.9f);
 
         _throttleText = NewText(_gameHud.transform, "throttle", "", 20, TextAnchor.LowerLeft,
             new Vector2(0, 0), new Vector2(0, 0), new Vector2(30, 22), new Vector2(400, 30));
@@ -298,7 +302,7 @@ public class HudController : MonoBehaviour
         _timerText.color = overtime ? new Color(1f, 0.35f, 0.5f) : new Color(1f, 0.85f, 0.4f);
     }
 
-    public void ShowTournamentResults(string reason, int score, string verify, string matchCode, List<TournamentMode.Entry> standings)
+    public void ShowTournamentResults(string reason, int score, string verify, string matchCode, List<TournamentMode.Entry> standings, bool online = false)
     {
         _gameHud.SetActive(false);
         _levelUpPanel.SetActive(false);
@@ -891,6 +895,24 @@ public class HudController : MonoBehaviour
         // XP progress
         _xpBar.fillAmount = Mathf.Clamp01(GameManager.I.xp / (float)ZealData.XpToNext(GameManager.I.xpLevel));
         _xpLevelText.text = "LV " + GameManager.I.xpLevel;
+
+        // live tournament standings sidebar
+        if (TournamentMode.Active && TournamentNet.I != null && TournamentNet.I.online && TournamentNet.I.latest.Length > 0)
+        {
+            var sb = new System.Text.StringBuilder("LIVE — " + TournamentMode.MatchCode + "
+");
+            int shown = 0;
+            foreach (var e in TournamentNet.I.latest)
+            {
+                shown++;
+                bool me = e.name == TournamentMode.PlayerName;
+                sb.AppendLine((me ? "> " : "") + shown + ". " + e.name + "  " + e.score.ToString("N0"));
+                if (shown >= 5) break;
+            }
+            _liveBoardText.text = sb.ToString();
+        }
+        else
+            _liveBoardText.text = "";
 
         UpdateIndicators(player);
 
