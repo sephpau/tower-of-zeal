@@ -6,7 +6,9 @@ public static class SfxSynth
 {
     const int SR = 44100;
     public static AudioClip Laser, Boom, BigBoom, Hit, Pickup, WaveUp, Music;
+    public static AudioClip MusicBoss;              // v1 intensity-3 layer: drums join
     public static AudioClip HitPulse, HitSpecial;   // hit-confirm cues
+    public static AudioClip Dash;                   // dash whoosh
 
     static bool _built;
 
@@ -26,6 +28,15 @@ public static class SfxSynth
             float f = Mathf.Lerp(190f, 55f, t / d);
             return Saw(f, t) * 0.7f * Decay(t, d, 3f);
         });
+        // dash: rising airy whoosh
+        Dash = Render("dash", 0.32f, (t, d) =>
+        {
+            float k = t / d;
+            float env = Mathf.Sin(k * Mathf.PI);
+            float noise = (Mathf.Sin(t * 6100f) + Mathf.Sin(t * 9700f) + Mathf.Sin(t * 15400f)) / 3f;
+            float sweep = Tri(Mathf.Lerp(160f, 900f, k), t) * 0.4f;
+            return (noise * 0.45f + sweep) * env * 0.6f;
+        });
         // bright tick when a pulse shot connects
         HitPulse = Render("hitpulse", 0.07f, (t, d) =>
         {
@@ -40,7 +51,8 @@ public static class SfxSynth
         });
         Pickup = RenderArp("pickup", new[] { 523.3f, 659.3f, 784f, 1046.5f }, 0.07f);
         WaveUp = RenderArp("waveup", new[] { 220f, 277.2f, 329.6f, 440f, 554.4f }, 0.09f);
-        Music = RenderMusic();
+        Music = RenderZealMusic(2, "music");        // bass + pad + arp + melody
+        MusicBoss = RenderZealMusic(3, "musicBoss"); // + kick and hats
     }
 
     delegate float Osc(float t, float dur);
@@ -104,32 +116,91 @@ public static class SfxSynth
         return clip;
     }
 
-    // 16-step synthwave loop: A-minor bass line, off-beat arps, hat ticks
-    static AudioClip RenderMusic()
+    // ---- Zeal Survivors v1 soundtrack, ported note-for-note ----
+    // Dark-carnival chiptune in A minor: 112 BPM, 32-step loop.
+    // Layers by intensity: bass+pad / +arp / +melody / +drums (boss).
+    static readonly int[] V1Bass = { 57,57,57,57, 53,53,53,53, 55,55,55,55, 52,52,52,52,
+                                     57,57,57,57, 53,53,53,53, 55,55,55,55, 59,59,60,60 };
+    static readonly int[] V1Arp  = { 69,72,76,72, 65,69,72,69, 67,71,74,71, 64,67,71,67,
+                                     69,72,76,72, 65,69,72,69, 67,71,74,71, 71,74,72,76 };
+    static readonly int[] V1Mel  = { 81,0,79,0, 77,0,76,0, 79,0,77,0, 76,0,74,0,
+                                     81,0,84,0, 83,0,81,0, 79,0,77,0, 83,0,84,0 };
+
+    static float MidiToFreq(int m) => 440f * Mathf.Pow(2f, (m - 69) / 12f);
+
+    static AudioClip RenderZealMusic(int intensity, string name)
     {
-        float step = 0.21f;
-        float[] bass = { 55f, 55f, 65.4f, 55f, 82.4f, 55f, 73.4f, 65.4f,
-                         55f, 55f, 65.4f, 55f, 87.3f, 82.4f, 73.4f, 65.4f };
-        float[] arp = { 220f, 261.6f, 329.6f, 440f, 329.6f, 261.6f, 440f, 523.3f,
-                        220f, 261.6f, 329.6f, 440f, 349.2f, 277.2f, 440f, 523.3f };
-        int n = (int)(SR * step * bass.Length);
-        var data = new float[n];
-        var rng = new System.Random(99);
-        for (int s = 0; s < bass.Length; s++)
+        const float BPM = 112f;
+        float step = 60f / BPM / 2f;   // 8th notes, exactly v1
+        int total = (int)(SR * step * 32);
+        var data = new float[total];
+
+        // additive note writer with v1's envelope (10ms attack, exp decay);
+        // wraps past the loop end so the seam is seamless
+        void Note(int startStep, int midi, float dur, System.Func<float, float, float> osc, float vol)
         {
-            int s0 = (int)(s * step * SR);
-            int len = (int)(step * SR);
-            for (int i = 0; i < len && s0 + i < n; i++)
+            if (midi <= 0) return;
+            float f = MidiToFreq(midi);
+            int s0 = (int)(startStep * step * SR);
+            int len = (int)(dur * SR);
+            for (int i = 0; i < len; i++)
             {
                 float t = i / (float)SR;
-                float env = Mathf.Exp(-t * 6f);
-                float v = Saw(bass[s], t) * 0.30f * env;
-                if (s % 2 == 1) v += Square(arp[s], t) * 0.055f * Mathf.Exp(-t * 9f);
-                if (s % 2 == 0 && t < 0.03f) v += (float)(rng.NextDouble() * 2 - 1) * 0.10f * (1f - t / 0.03f);
-                data[s0 + i] += v;
+                float env = t < 0.01f
+                    ? vol * (t / 0.01f)
+                    : vol * Mathf.Pow(0.001f, (t - 0.01f) / Mathf.Max(0.01f, dur - 0.01f));
+                data[(s0 + i) % total] += osc(f, t) * env;
             }
         }
-        var clip = AudioClip.Create("music", n, 1, SR, false);
+
+        float SineOsc(float f, float t) => Mathf.Sin(2f * Mathf.PI * f * t);
+        float TriOsc(float f, float t) => Tri(f, t);
+        float SquareOsc(float f, float t) => Mathf.Sign(Mathf.Sin(2f * Mathf.PI * f * t));
+        float SawOsc(float f, float t) => Saw(f, t);
+
+        var rng = new System.Random(7);
+        for (int s = 0; s < 32; s++)
+        {
+            Note(s, V1Bass[s] - 12, step * 1.8f, TriOsc, 0.16f);
+            if (s % 8 == 0)
+            {
+                Note(s, V1Bass[s], step * 7f, SineOsc, 0.05f);
+                Note(s, V1Bass[s] + 3, step * 7f, SineOsc, 0.04f);
+                Note(s, V1Bass[s] + 7, step * 7f, SineOsc, 0.04f);
+            }
+            if (intensity >= 1) Note(s, V1Arp[s], step * 0.9f, SquareOsc, 0.035f);
+            if (intensity >= 2) Note(s, V1Mel[s], step * 1.6f, SawOsc, 0.04f);
+            if (intensity >= 3)
+            {
+                int s0 = (int)(s * step * SR);
+                if (s % 4 == 0)   // kick: sine sweep 150 -> 45
+                {
+                    int len = (int)(0.13f * SR);
+                    float phase = 0f;
+                    for (int i = 0; i < len; i++)
+                    {
+                        float t = i / (float)SR;
+                        float freq = 150f * Mathf.Pow(45f / 150f, t / 0.12f);
+                        phase += 2f * Mathf.PI * freq / SR;
+                        data[(s0 + i) % total] += Mathf.Sin(phase) * 0.25f * Mathf.Pow(0.001f, t / 0.13f);
+                    }
+                }
+                if (s % 2 == 1)   // hat: highpassed noise tick
+                {
+                    int len = (int)(0.045f * SR);
+                    float prev = 0f;
+                    for (int i = 0; i < len; i++)
+                    {
+                        float n = (float)(rng.NextDouble() * 2 - 1);
+                        float hp = n - prev; prev = n;   // crude first-order highpass
+                        data[(s0 + i) % total] += hp * 0.05f * (1f - i / (float)len);
+                    }
+                }
+            }
+        }
+
+        for (int i = 0; i < total; i++) data[i] = Mathf.Clamp(data[i], -1f, 1f);
+        var clip = AudioClip.Create(name, total, 1, SR, false);
         clip.SetData(data, 0);
         return clip;
     }

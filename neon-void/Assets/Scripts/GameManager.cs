@@ -143,6 +143,13 @@ public class GameManager : MonoBehaviour
             if (_comboTimer <= 0f) { combo = 0; _hud.SetCombo(0); }
         }
 
+        // boss waves bring in the v1 drum layer
+        if (_music != null)
+        {
+            var want = _waves.bossHealth != null ? SfxSynth.MusicBoss : SfxSynth.Music;
+            if (_music.clip != want) { _music.clip = want; _music.Play(); }
+        }
+
         _elapsed += Time.deltaTime;
 
         // Zeal Sigil grows on the run clock
@@ -287,6 +294,11 @@ public class GameManager : MonoBehaviour
     }
 
     public void FlashDamage() => _hud.FlashDamage();
+
+    public void ShowDamage(float amount, Vector3 worldPos)
+    {
+        if (Running && _hud != null) _hud.DamagePopup(Mathf.Max(1, Mathf.RoundToInt(amount)), worldPos);
+    }
 
     public void PlaySfx(AudioClip clip, float vol = 1f)
     {

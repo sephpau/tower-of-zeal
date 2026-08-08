@@ -69,7 +69,7 @@ public class ShipController : MonoBehaviour
             Vector3 dashDir = AimRotation() * input;
             if (dashDir.sqrMagnitude < 0.01f) dashDir = transform.forward;
             _vel += dashDir.normalized * dashPower;
-            GameManager.I.PlaySfx(SfxSynth.Laser, 0.35f);
+            GameManager.I.PlaySfx(SfxSynth.Dash, 0.85f);
             ChaseCamera.Shake(0.15f);
 
             // per-direction acrobatics on the visual model

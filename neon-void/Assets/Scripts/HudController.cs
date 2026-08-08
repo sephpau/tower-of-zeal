@@ -895,6 +895,19 @@ public class HudController : MonoBehaviour
     public void FlashDamage() { _vignetteAlpha = 1f; }
     public void PulseShield() { }
 
+    public void DamagePopup(int amount, Vector3 worldPos)
+    {
+        if (Camera.main == null) return;
+        Vector3 sp = Camera.main.WorldToScreenPoint(worldPos + Random.insideUnitSphere * 1.5f);
+        if (sp.z < 0) return;
+        var t = NewText(_canvas.transform, "dmg", amount.ToString(), 21, TextAnchor.MiddleCenter,
+            Vector2.zero, Vector2.zero, Vector2.zero, new Vector2(160, 34));
+        t.color = new Color(1f, 1f, 0.85f);
+        t.fontStyle = FontStyle.Bold;
+        t.rectTransform.position = sp + new Vector3(Random.Range(-18f, 18f), Random.Range(-6f, 14f), 0f);
+        t.gameObject.AddComponent<ScorePopupAnim>();
+    }
+
     public void ScorePopup(int amount, Vector3 worldPos)
     {
         if (Camera.main == null) return;
