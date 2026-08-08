@@ -155,7 +155,13 @@ mergeInto(LibraryManager.library, {
       src.connect(m.an);
       m.buf = new Uint8Array(m.an.fftSize);
       m.level = 0;
-    }).catch(function () { m.level = -1; });
+    }).catch(function (e) {
+      var name = e && e.name ? e.name : '';
+      m.level = (name === 'NotFoundError' || name === 'DevicesNotFoundError' || name === 'OverconstrainedError') ? -3
+              : (name === 'NotReadableError' || name === 'TrackStartError') ? -4
+              : -1;   // NotAllowedError and everything else: blocked by browser or OS
+      console.warn('nvmic', name, e);
+    });
   },
 
   NVMicLevel: function () {

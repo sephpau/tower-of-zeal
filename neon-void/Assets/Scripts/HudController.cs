@@ -599,7 +599,17 @@ public class HudController : MonoBehaviour
         int lvl = CoopNet.MicTestLevel();
         if (lvl == -1)
         {
-            _micStatus.text = "MIC BLOCKED — ALLOW THE MICROPHONE IN YOUR BROWSER";
+            _micStatus.text = "MIC BLOCKED — CHECK BROWSER *AND* WINDOWS PRIVACY (SETTINGS > PRIVACY > MICROPHONE)";
+            _micLevelFill.fillAmount = 0f;
+        }
+        else if (lvl == -3)
+        {
+            _micStatus.text = "NO MICROPHONE FOUND — PLUG IN A HEADSET AND PRESS START AGAIN";
+            _micLevelFill.fillAmount = 0f;
+        }
+        else if (lvl == -4)
+        {
+            _micStatus.text = "MIC IS BUSY IN ANOTHER APP — CLOSE IT AND PRESS START AGAIN";
             _micLevelFill.fillAmount = 0f;
         }
         else if (lvl == -2)
