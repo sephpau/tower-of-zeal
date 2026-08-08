@@ -7,7 +7,10 @@ public static class EgoModel
     // model's forward after FBX import — tune here if he faces the wrong way
     public const float YawFix = 180f;
 
-    public static GameObject Spawn(Transform parent, Vector3 localPos, float scale, string resource = "ego")
+    // `size` is the desired world height — the model is measured after
+    // instantiation and normalized, so FBX unit-scale differences between
+    // exports (ego vs captain) can never make one invisible.
+    public static GameObject Spawn(Transform parent, Vector3 localPos, float size, string resource = "ego")
     {
         var prefab = Resources.Load<GameObject>(resource);
         if (prefab == null) return null;   // model not imported — game still works
@@ -15,7 +18,18 @@ public static class EgoModel
         ego.name = resource + "Model";
         ego.transform.localPosition = localPos;
         ego.transform.localRotation = Quaternion.Euler(0f, YawFix, 0f);
-        ego.transform.localScale = Vector3.one * scale;
+        ego.transform.localScale = Vector3.one;
+
+        var renderers = ego.GetComponentsInChildren<Renderer>();
+        if (renderers.Length > 0)
+        {
+            var bounds = renderers[0].bounds;
+            foreach (var r in renderers) bounds.Encapsulate(r.bounds);
+            float h = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
+            if (h > 0.0001f)
+                ego.transform.localScale = Vector3.one * (size / h);
+        }
+
         foreach (var col in ego.GetComponentsInChildren<Collider>())
             Object.Destroy(col);
         return ego;
