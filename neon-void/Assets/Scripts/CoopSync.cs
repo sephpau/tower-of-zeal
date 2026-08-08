@@ -21,6 +21,10 @@ public class CoopSync : MonoBehaviour
     public static Transform RemoteShip;
     public static Vector3 RemoteVelocity;
 
+    // partner vitals for the floating teammate bar
+    public float partnerShield, partnerHull;
+    public float partnerMaxShield = 1f, partnerMaxHull = 1f;
+
     public Action<string> onStatus;   // lobby status line
     public Action onStarted;          // hide lobby UI, the run begins
     public Action onLobby;            // connection made — show the lobby panel
@@ -316,7 +320,9 @@ public class CoopSync : MonoBehaviour
         int guard = sc != null && sc.guarding ? 1 : 0;
         Send("P|" + F(t.position.x) + "|" + F(t.position.y) + "|" + F(t.position.z)
             + "|" + F(t.rotation.x) + "|" + F(t.rotation.y) + "|" + F(t.rotation.z) + "|" + F(t.rotation.w)
-            + "|" + F(v.x) + "|" + F(v.y) + "|" + F(v.z) + "|" + guard);
+            + "|" + F(v.x) + "|" + F(v.y) + "|" + F(v.z) + "|" + guard
+            + "|" + F(_localHealth.shield) + "|" + F(_localHealth.hull)
+            + "|" + F(_localHealth.maxShield) + "|" + F(_localHealth.maxHull));
     }
 
     void FlushBolts(System.Text.StringBuilder sb, string prefix)
@@ -460,6 +466,13 @@ public class CoopSync : MonoBehaviour
                     _ghostRot = new Quaternion(PF(p[4]), PF(p[5]), PF(p[6]), PF(p[7]));
                     RemoteVelocity = new Vector3(PF(p[8]), PF(p[9]), PF(p[10]));
                     if (_ghostBubble != null) _ghostBubble.SetActive(p[11] == "1");
+                    if (p.Length >= 16)
+                    {
+                        partnerShield = PF(p[12]);
+                        partnerHull = PF(p[13]);
+                        partnerMaxShield = Mathf.Max(1f, PF(p[14]));
+                        partnerMaxHull = Mathf.Max(1f, PF(p[15]));
+                    }
                     _ghostHasPose = true;
                 }
                 break;

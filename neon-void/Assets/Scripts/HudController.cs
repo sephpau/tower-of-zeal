@@ -234,6 +234,36 @@ public class HudController : MonoBehaviour
             _dirPool.Add(ind);
         }
 
+        // pooled floating health bars: shield row over hull row, placed above
+        // enemies (and the co-op partner) each frame
+        var fillSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));
+        for (int i = 0; i < 24; i++)
+        {
+            var bg = NewImage(_gameHud.transform, "hpbar" + i, Vector2.zero, Vector2.zero, Vector2.zero, new Vector2(58, 11));
+            bg.color = new Color(0.02f, 0.02f, 0.08f, 0.7f);
+            var sh = NewImage(bg.transform, "sh", new Vector2(0f, 0.55f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
+            sh.rectTransform.offsetMin = new Vector2(1, 0);
+            sh.rectTransform.offsetMax = new Vector2(-1, -1);
+            sh.sprite = fillSprite;
+            sh.type = Image.Type.Filled;
+            sh.fillMethod = Image.FillMethod.Horizontal;
+            var hu = NewImage(bg.transform, "hu", new Vector2(0f, 0f), new Vector2(1f, 0.45f), Vector2.zero, Vector2.zero);
+            hu.rectTransform.offsetMin = new Vector2(1, 1);
+            hu.rectTransform.offsetMax = new Vector2(-1, 0);
+            hu.sprite = fillSprite;
+            hu.type = Image.Type.Filled;
+            hu.fillMethod = Image.FillMethod.Horizontal;
+            bg.gameObject.SetActive(false);
+            _hpBarBgs.Add(bg);
+            _hpBarShields.Add(sh);
+            _hpBarHulls.Add(hu);
+        }
+        _partnerTag = NewText(_gameHud.transform, "partnertag", "", 15, TextAnchor.MiddleCenter,
+            Vector2.zero, Vector2.zero, Vector2.zero, new Vector2(180, 22));
+        _partnerTag.color = new Color(0.4f, 1f, 0.75f);
+        _partnerTag.fontStyle = FontStyle.Bold;
+        _partnerTag.gameObject.SetActive(false);
+
         BuildHomePanel();
         BuildStartPanel();
         BuildOverPanel();
@@ -245,6 +275,69 @@ public class HudController : MonoBehaviour
         BuildSideLevelPanel();
         BuildSettingsPanel();
         _gameHud.SetActive(false);
+    }
+
+    // ---------- floating health bars ----------
+    readonly List<Image> _hpBarBgs = new List<Image>();
+    readonly List<Image> _hpBarShields = new List<Image>();
+    readonly List<Image> _hpBarHulls = new List<Image>();
+    Text _partnerTag;
+
+    void UpdateWorldBars(Health player)
+    {
+        var cam = Camera.main;
+        int used = 0;
+        if (cam != null)
+        {
+            // teammate first — bar plus name tag
+            if (CoopSync.RemoteShip != null && CoopSync.I != null && used < _hpBarBgs.Count)
+            {
+                Vector3 sp = cam.WorldToScreenPoint(CoopSync.RemoteShip.position + Vector3.up * 5f);
+                if (sp.z > 0f)
+                {
+                    PlaceBar(used++, sp,
+                        CoopSync.I.partnerShield / CoopSync.I.partnerMaxShield,
+                        CoopSync.I.partnerHull / CoopSync.I.partnerMaxHull,
+                        true, new Color(0.4f, 1f, 0.75f));
+                    _partnerTag.gameObject.SetActive(true);
+                    _partnerTag.text = CoopSync.I.PartnerName.ToUpperInvariant();
+                    _partnerTag.rectTransform.position = sp + new Vector3(0f, 20f, 0f);
+                }
+                else _partnerTag.gameObject.SetActive(false);
+            }
+            else if (_partnerTag.gameObject.activeSelf) _partnerTag.gameObject.SetActive(false);
+
+            foreach (var h in SkillSystem.AllHostiles())
+            {
+                if (used >= _hpBarBgs.Count) break;
+                if (h == null || !h.gameObject.activeInHierarchy || h.gameObject.name == "missile") continue;
+                float dist = Vector3.Distance(cam.transform.position, h.transform.position);
+                if (dist > 300f) continue;
+                float topOff = 4.5f;
+                var sc = h.GetComponent<SphereCollider>();
+                if (sc != null) topOff = sc.radius * 1.6f + 1.5f;
+                else if (h.GetComponent<BoxCollider>() != null) topOff = 9f;
+                Vector3 sp = cam.WorldToScreenPoint(h.transform.position + Vector3.up * topOff);
+                if (sp.z <= 0f || sp.x < -40 || sp.x > Screen.width + 40 || sp.y < -20 || sp.y > Screen.height + 20) continue;
+                PlaceBar(used++, sp,
+                    h.maxShield > 0f ? h.shield / h.maxShield : 0f,
+                    h.hull / h.maxHull,
+                    h.maxShield > 0f, new Color(1f, 0.45f, 0.35f));
+            }
+        }
+        for (int i = used; i < _hpBarBgs.Count; i++)
+            if (_hpBarBgs[i].gameObject.activeSelf) _hpBarBgs[i].gameObject.SetActive(false);
+    }
+
+    void PlaceBar(int idx, Vector3 screenPos, float shieldFrac, float hullFrac, bool hasShield, Color hullColor)
+    {
+        var bg = _hpBarBgs[idx];
+        bg.gameObject.SetActive(true);
+        bg.rectTransform.position = screenPos;
+        _hpBarShields[idx].fillAmount = Mathf.Clamp01(shieldFrac);
+        _hpBarShields[idx].color = hasShield ? new Color(0.35f, 0.8f, 1f, 0.95f) : new Color(0, 0, 0, 0);
+        _hpBarHulls[idx].fillAmount = Mathf.Clamp01(hullFrac);
+        _hpBarHulls[idx].color = hullColor;
     }
 
     // ---------- direction indicators ----------
@@ -1306,6 +1399,7 @@ public class HudController : MonoBehaviour
             _liveBoardText.text = "";
 
         UpdateIndicators(player);
+        UpdateWorldBars(player);
 
         // active skill slots
         var acts = player.GetComponent<ActiveSkills>();
