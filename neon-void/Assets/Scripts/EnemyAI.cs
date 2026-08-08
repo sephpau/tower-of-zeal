@@ -46,7 +46,14 @@ public class EnemyAI : MonoBehaviour
         ExplosionFactory.Explode(transform.position, new Color(1f, 0.4f, 0.85f), 1.4f, true);
         GameManager.I.PlaySfxAt(SfxSynth.Boom, transform.position, 0.9f);
         GameManager.I.EnemyKilled(scoreValue, transform.position);
-        Powerup.TryDrop(transform.position, 0.25f);
+        if (GetComponent<EliteMark>() != null)
+        {
+            XpOrb.Drop(transform.position, 30);          // v1 eliteXp
+            Powerup.TryDrop(transform.position, 1f);     // guaranteed hoard
+            Powerup.TryDrop(transform.position + Random.insideUnitSphere * 4f, 1f);
+        }
+        else
+            Powerup.TryDrop(transform.position, 0.25f);
         Destroy(gameObject);
     }
 

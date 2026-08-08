@@ -116,6 +116,32 @@ public static class EnemyFactory
         return go;
     }
 
+    // Elite Hunter: v1's elite ported — a huge angry blue monster that
+    // roams in every 90 seconds. Tanky, hits hard, drops a hoard.
+    public static GameObject BuildElite(Vector3 pos, int wave)
+    {
+        var go = new GameObject("elite");
+        go.transform.position = pos;
+
+        RoundMonster(go,
+            new Color(0.16f, 0.42f, 0.95f),   // deep blue body
+            new Color(0.08f, 0.22f, 0.6f),
+            new Color(0.55f, 0.95f, 1f),      // icy glowing pupils
+            1.9f, 2.6f, 46f, angry: true);
+
+        Rig(go, 3.4f, (26f + wave * 4f) * 10f);
+        Armament(go, 0.15f, 78f, Mathf.Min(26f, (8f + wave) * 1.6f), new Color(0.45f, 0.8f, 1f), new Vector3(0f, 0f, 4.2f), 4);
+
+        var ai = go.AddComponent<EnemyAI>();
+        ai.speed = 23f;
+        ai.turnDegPerSec = 70f;
+        ai.orbitDistance = 60f;
+        ai.fireRange = 150f;
+        ai.scoreValue = 500 + wave * 40;
+        go.AddComponent<EliteMark>();
+        return go;
+    }
+
     public static GameObject BuildDreadnought(Vector3 pos)
     {
         var go = new GameObject("dreadnought");
@@ -299,6 +325,9 @@ public class BurstConfig : MonoBehaviour
 {
     public int burstSize = 3;
 }
+
+// tags the elite so its death pays out v1-style rewards
+public class EliteMark : MonoBehaviour { }
 
 // Wing flapping + body bob for the round monster mobs.
 // Each instance gets its own phase so a swarm doesn't flap in unison.

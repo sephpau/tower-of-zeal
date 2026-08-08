@@ -52,11 +52,14 @@ public class GameManager : MonoBehaviour
     float _elapsed;
     int _sigilIdx;
     bool _overtimeAnnounced;
+    float _eliteTimer;
+    const float EliteEvery = 90f;   // v1 elite cadence
 
     public void StartRun(int pilotIndex)
     {
         _sigilIdx = 0;
         _overtimeAnnounced = false;
+        _eliteTimer = EliteEvery;
         var actsReset = _playerHealth.GetComponent<ActiveSkills>();
         if (actsReset != null) actsReset.ResetAll();
         Running = true;
@@ -162,6 +165,18 @@ public class GameManager : MonoBehaviour
             if (weapon != null) weapon.sigilLevel = 1 + _sigilIdx;
             _hud.WaveBanner("ZEAL SIGIL LV " + (1 + _sigilIdx));
             PlaySfx(SfxSynth.Pickup, 0.9f);
+        }
+
+        // elite hunter roams in every 90 seconds, independent of waves
+        _eliteTimer -= Time.deltaTime;
+        if (_eliteTimer <= 0f)
+        {
+            _eliteTimer = EliteEvery;
+            Vector3 dir = Random.onUnitSphere;
+            dir.y *= 0.5f;
+            EnemyFactory.BuildElite(_playerHealth.transform.position + dir.normalized * Random.Range(130f, 170f), CurrentWave());
+            _hud.WaveBanner("!! ELITE HUNTER !!");
+            PlaySfx(SfxSynth.BigBoom, 0.5f);
         }
 
         if (TournamentMode.Active)
