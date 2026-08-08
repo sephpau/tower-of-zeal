@@ -43,31 +43,39 @@ public static class EgoModel
     }
 }
 
-// Start-screen showpieces: Ego and Captain Ego drifting and spinning
-// on either side of the camera.
+// Start-screen showpieces: Ego and Captain Ego facing the camera,
+// gliding across the whole screen and bouncing off the edges —
+// classic idle-DVD-logo style.
 public class EgoShowcase : MonoBehaviour
 {
-    public float spin = 18f;
-    float _t;
-    Vector3 _anchor;
-    float _seed;
-    float _yaw;
+    const float Depth = 6.5f;   // distance in front of the camera
+
+    Camera _cam;
+    Vector2 _pos, _vel;
+    float _halfSize;
 
     public static void Create(Camera cam)
     {
-        CreateOne(cam, "ego", 2.6f, +2.6f, 18f);
-        CreateOne(cam, "captain", 2.75f, -2.6f, -18f);
+        CreateOne(cam, "ego", 2.6f, +3.2f);
+        CreateOne(cam, "captain", 2.75f, -3.2f);
     }
 
-    static void CreateOne(Camera cam, string resource, float scale, float side, float spin)
+    static void CreateOne(Camera cam, string resource, float size, float startX)
     {
         var holder = new GameObject(resource + "Showcase");
-        var model = EgoModel.Spawn(holder.transform, Vector3.zero, scale, resource);
+        var model = EgoModel.Spawn(holder.transform, Vector3.zero, size, resource);
         if (model == null) { Object.Destroy(holder); Debug.LogWarning("Showcase: Resources/" + resource + " not found"); return; }
-        holder.transform.position = cam.transform.position + cam.transform.forward * 5f
-            + cam.transform.right * side - cam.transform.up * 1.2f;
+
         var sc = holder.AddComponent<EgoShowcase>();
-        sc.spin = spin;
+        sc._cam = cam;
+        sc._halfSize = size * 0.55f;
+        sc._pos = new Vector2(startX, Random.Range(-1f, 1f));
+        // diagonal launch, DVD style — never purely horizontal or vertical
+        float angle = Random.Range(25f, 65f) * Mathf.Deg2Rad;
+        float speed = Random.Range(0.9f, 1.3f);
+        sc._vel = new Vector2(Mathf.Cos(angle) * (Random.value < 0.5f ? -1f : 1f),
+                              Mathf.Sin(angle) * (Random.value < 0.5f ? -1f : 1f)) * speed;
+        sc.Place();
 
         var l = new GameObject(resource + "Light").AddComponent<Light>();
         l.transform.SetParent(holder.transform, false);
@@ -78,31 +86,31 @@ public class EgoShowcase : MonoBehaviour
         l.color = new Color(1f, 0.9f, 0.85f);
     }
 
-    void Start()
-    {
-        _anchor = transform.position;
-        _seed = Random.value * 100f;
-        _yaw = Random.value * 360f;
-    }
-
     void Update()
     {
-        _t += Time.deltaTime;
+        if (_cam == null) return;
+        _pos += _vel * Time.deltaTime;
 
-        // slow noise-driven drift around the anchor — weightless wandering
-        Vector3 wander = new Vector3(
-            (Mathf.PerlinNoise(_seed, _t * 0.06f) - 0.5f) * 2f * 1.3f,
-            (Mathf.PerlinNoise(_seed + 17f, _t * 0.08f) - 0.5f) * 2f * 1.0f,
-            (Mathf.PerlinNoise(_seed + 41f, _t * 0.045f) - 0.5f) * 2f * 1.2f);
-        transform.position = _anchor + wander;
-
-        // steady spin with a gentle zero-g rock
-        _yaw += spin * Time.deltaTime;
-        float rockX = Mathf.Sin(_t * 0.5f + _seed) * 3f;
-        float rockZ = Mathf.Sin(_t * 0.37f + _seed * 2f) * 3.5f;
-        transform.rotation = Quaternion.Euler(rockX, _yaw, rockZ);
+        // bounce inside the camera frustum at our depth
+        float halfH = Mathf.Tan(_cam.fieldOfView * 0.5f * Mathf.Deg2Rad) * Depth - _halfSize;
+        float halfW = halfH_WithAspect(halfH);
+        if (_pos.x > halfW) { _pos.x = halfW; _vel.x = -Mathf.Abs(_vel.x); }
+        if (_pos.x < -halfW) { _pos.x = -halfW; _vel.x = Mathf.Abs(_vel.x); }
+        if (_pos.y > halfH) { _pos.y = halfH; _vel.y = -Mathf.Abs(_vel.y); }
+        if (_pos.y < -halfH) { _pos.y = -halfH; _vel.y = Mathf.Abs(_vel.y); }
+        Place();
 
         if (GameManager.I != null && GameManager.I.Running)
             Destroy(gameObject);
+    }
+
+    float halfH_WithAspect(float halfH) =>
+        (halfH + _halfSize) * _cam.aspect - _halfSize;
+
+    void Place()
+    {
+        var t = _cam.transform;
+        transform.position = t.position + t.forward * Depth + t.right * _pos.x + t.up * _pos.y;
+        transform.rotation = Quaternion.LookRotation(t.forward, t.up) * Quaternion.identity;
     }
 }
