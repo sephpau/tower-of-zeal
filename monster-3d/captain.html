@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Captain Ego — Paint Editor</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #1a0a2e; }
+  canvas { display: block; }
+  #title {
+    position: fixed; top: 16px; left: 20px;
+    font-family: 'Segoe UI', system-ui, sans-serif; color: #fff;
+    pointer-events: none; user-select: none;
+  }
+  #title .t {
+    font-size: 26px; font-weight: 900; font-style: italic;
+    background: linear-gradient(180deg, #ffe97a 0%, #ffb02e 45%, #ff5e7a 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  #title .s { font-size: 12px; opacity: 0.6; letter-spacing: 0.15em; text-transform: uppercase; margin-top: 2px; }
+
+  #panel {
+    position: fixed; top: 16px; right: 16px; width: 290px;
+    background: rgba(34, 14, 58, 0.92); border: 1px solid #4b2a7a; border-radius: 12px;
+    font-family: 'Segoe UI', system-ui, sans-serif; color: #fff;
+    padding: 14px 16px; font-size: 13px;
+    max-height: calc(100vh - 32px); overflow-y: auto;
+  }
+  #panel h3 { font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #ffe97a; margin: 10px 0 6px; }
+  #panel h3:first-child { margin-top: 0; }
+  .row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .row label { flex: 0 0 88px; opacity: 0.85; }
+  .row input[type=range] { flex: 1; accent-color: #ff5e7a; }
+  .row .val { flex: 0 0 46px; text-align: right; font-variant-numeric: tabular-nums; color: #9ad6ff; }
+  .row input[type=checkbox] { accent-color: #ff5e7a; width: 15px; height: 15px; }
+  .row select { flex: 1; background: #2a1045; color: #fff; border: 1px solid #4b2a7a; border-radius: 6px; padding: 4px; font-family: inherit; }
+  #stats { font-size: 11px; opacity: 0.7; line-height: 1.7; margin-top: 6px; white-space: pre; font-family: Consolas, monospace; }
+  button {
+    width: 100%; margin-top: 10px; padding: 9px 0;
+    font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
+    color: #fff; background: linear-gradient(180deg, #ff5e7a, #c0306a);
+    border: none; border-radius: 8px; cursor: pointer;
+  }
+  button:hover { filter: brightness(1.15); }
+</style>
+</head>
+<body>
+<div id="title">
+  <div class="t">CAPTAIN EGO — PAINT EDITOR</div>
+  <div class="s">drag to orbit &middot; scroll to zoom &middot; pick a tool to paint</div>
+</div>
+
+<div id="panel">
+  <h3>Texture Paint</h3>
+  <div class="row"><label>tool</label>
+    <select id="tool">
+      <option value="orbit">orbit (no paint)</option>
+      <option value="brush">paint brush</option>
+      <option value="fill">fill bucket</option>
+      <option value="pick">copy color (eyedropper)</option>
+    </select>
+  </div>
+  <div class="row"><label>paint color</label><input type="color" id="paintColor" value="#ff5e7a"><span style="flex:1"></span></div>
+  <div class="row"><label>brush size</label><input type="range" id="brushSize" min="1" max="60" step="1" value="10"><span class="val" id="brushSizeV">10</span></div>
+  <div class="row"><label>fill range</label><input type="range" id="fillTol" min="4" max="120" step="1" value="40"><span class="val" id="fillTolV">40</span></div>
+  <div class="row" style="gap:6px">
+    <button id="undoBtn" style="margin-top:0;padding:7px 0">undo</button>
+    <button id="exportBtn" style="margin-top:0;padding:7px 0">save GLB</button>
+  </div>
+  <div class="row" style="gap:6px">
+    <button id="texBtn" style="margin-top:0;padding:7px 0">save texture PNG</button>
+  </div>
+
+  <h3>Preview</h3>
+  <div class="row"><label>spin</label><input type="checkbox" id="spin" checked><span style="flex:1"></span></div>
+
+  <div id="stats">loading model…</div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/",
+  "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.7.6/build/index.module.js"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
+
+// fast raycasts on the 280k-tri mesh
+THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
+THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
+THREE.Mesh.prototype.raycast = acceleratedRaycast;
+
+// ---------- scene ----------
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a0a2e);
+scene.fog = new THREE.Fog(0x1a0a2e, 14, 30);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(2.2, 2.0, 5.2);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.2, 0);
+controls.enableDamping = true;
+
+scene.add(new THREE.AmbientLight(0x8877bb, 0.85));
+const key = new THREE.DirectionalLight(0xfff2dd, 1.6);
+key.position.set(4, 7, 5);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -5; key.shadow.camera.right = 5;
+key.shadow.camera.top = 5; key.shadow.camera.bottom = -5;
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xff5e7a, 0.9);
+rim.position.set(-5, 3, -4);
+scene.add(rim);
+
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(20, 48),
+  new THREE.MeshStandardMaterial({ color: 0x241040, roughness: 0.95 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+const grid = new THREE.GridHelper(40, 40, 0x6a3aaa, 0x3a1a66);
+grid.position.y = 0.01;
+grid.material.transparent = true;
+grid.material.opacity = 0.35;
+scene.add(grid);
+
+// ---------- model ----------
+const holder = new THREE.Group();
+scene.add(holder);
+const stats = document.getElementById('stats');
+let originalScene = null;
+
+new GLTFLoader().load('captain.glb', (gltf) => {
+  const root = gltf.scene;
+  originalScene = root;
+  let tris = 0;
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = true; o.receiveShadow = true;
+    o.material.side = THREE.DoubleSide;
+    o.geometry.computeBoundsTree();
+    tris += o.geometry.index ? o.geometry.index.count / 3 : o.geometry.attributes.position.count / 3;
+    preparePaint(o.material);
+  });
+  // stand him on the ground, scaled to a nice size
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3());
+  const s = 2.4 / size.y;
+  root.scale.setScalar(s);
+  const box2 = new THREE.Box3().setFromObject(root);
+  root.position.set(-(box2.min.x + box2.max.x) / 2, -box2.min.y, -(box2.min.z + box2.max.z) / 2);
+  holder.add(root);
+  stats.textContent = `${Math.round(tris).toLocaleString()} triangles\npaint works on textured surfaces`;
+}, undefined, (err) => { stats.textContent = 'failed to load captain.glb: ' + err; });
+
+// ---------- texture painting (same approach as the ego limb editor) ----------
+const paintTargets = new Map();
+function preparePaint(mat) {
+  if (!mat.map || paintTargets.has(mat.uuid)) return paintTargets.get(mat.uuid);
+  const img = mat.map.image;
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width; canvas.height = img.height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.flipY = mat.map.flipY;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = mat.map.wrapS; tex.wrapT = mat.map.wrapT;
+  mat.map = tex;
+  mat.needsUpdate = true;
+  const entry = { canvas, ctx, tex };
+  paintTargets.set(mat.uuid, entry);
+  return entry;
+}
+
+const toolSel = document.getElementById('tool');
+const paintColorEl = document.getElementById('paintColor');
+const brushSizeEl = document.getElementById('brushSize');
+const fillTolEl = document.getElementById('fillTol');
+const spinBox = document.getElementById('spin');
+brushSizeEl.addEventListener('input', () => document.getElementById('brushSizeV').textContent = brushSizeEl.value);
+fillTolEl.addEventListener('input', () => document.getElementById('fillTolV').textContent = fillTolEl.value);
+toolSel.addEventListener('change', () => {
+  const painting = toolSel.value !== 'orbit';
+  controls.enabled = !painting;
+  if (painting) spinBox.checked = false;   // hold still while painting
+});
+
+const raycaster = new THREE.Raycaster();
+raycaster.firstHitOnly = true;
+function raycastAt(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  const ndc = new THREE.Vector2(
+    ((e.clientX - r.left) / r.width) * 2 - 1,
+    -((e.clientY - r.top) / r.height) * 2 + 1
+  );
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObjects(holder.children, true);
+  for (const h of hits) {
+    if (!h.uv || !h.object.isMesh) continue;
+    const t = preparePaint(h.object.material);
+    if (!t) continue;   // untextured (white caps) — not paintable
+    return { uv: h.uv, target: t };
+  }
+  return null;
+}
+
+window.__paintTargets = paintTargets;   // debug/verification hook
+
+const undoStack = [];
+function pushUndo(t) {
+  undoStack.push({ target: t, data: t.ctx.getImageData(0, 0, t.canvas.width, t.canvas.height) });
+  if (undoStack.length > 12) undoStack.shift();
+}
+document.getElementById('undoBtn').addEventListener('click', () => {
+  const u = undoStack.pop();
+  if (!u) return;
+  u.target.ctx.putImageData(u.data, 0, 0);
+  u.target.tex.needsUpdate = true;
+});
+
+function stamp(hit) {
+  const { uv, target } = hit;
+  const x = uv.x * target.canvas.width, y = uv.y * target.canvas.height;
+  target.ctx.fillStyle = paintColorEl.value;
+  target.ctx.beginPath();
+  target.ctx.arc(x, y, parseFloat(brushSizeEl.value), 0, Math.PI * 2);
+  target.ctx.fill();
+  target.tex.needsUpdate = true;
+}
+
+function floodFill(hit) {
+  const { uv, target } = hit;
+  const { canvas, ctx } = target;
+  const w = canvas.width, h = canvas.height;
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  const sx = Math.floor(uv.x * w), sy = Math.floor(uv.y * h);
+  const si = (sy * w + sx) * 4;
+  const sr = d[si], sg = d[si+1], sb = d[si+2];
+  const col = paintColorEl.value;
+  const fr = parseInt(col.slice(1, 3), 16), fg = parseInt(col.slice(3, 5), 16), fb = parseInt(col.slice(5, 7), 16);
+  const tol = parseFloat(fillTolEl.value);
+  if (Math.abs(sr - fr) + Math.abs(sg - fg) + Math.abs(sb - fb) === 0) return;
+  const match = (i) => Math.abs(d[i] - sr) + Math.abs(d[i+1] - sg) + Math.abs(d[i+2] - sb) <= tol * 3;
+  const seen = new Uint8Array(w * h);
+  const stack = [sy * w + sx];
+  while (stack.length) {
+    const p = stack.pop();
+    if (seen[p]) continue;
+    seen[p] = 1;
+    const i = p * 4;
+    if (!match(i)) continue;
+    d[i] = fr; d[i+1] = fg; d[i+2] = fb;
+    const px = p % w, py = (p / w) | 0;
+    if (px > 0) stack.push(p - 1);
+    if (px < w - 1) stack.push(p + 1);
+    if (py > 0) stack.push(p - w);
+    if (py < h - 1) stack.push(p + w);
+  }
+  ctx.putImageData(img, 0, 0);
+  target.tex.needsUpdate = true;
+}
+
+function pickColor(hit) {
+  const { uv, target } = hit;
+  const x = Math.floor(uv.x * target.canvas.width), y = Math.floor(uv.y * target.canvas.height);
+  const p = target.ctx.getImageData(x, y, 1, 1).data;
+  paintColorEl.value = '#' + [p[0], p[1], p[2]].map(v => v.toString(16).padStart(2, '0')).join('');
+  toolSel.value = 'brush';
+}
+
+let strokeActive = false;
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (toolSel.value === 'orbit' || e.button !== 0) return;
+  const hit = raycastAt(e);
+  if (!hit) return;
+  if (toolSel.value === 'pick') { pickColor(hit); return; }
+  pushUndo(hit.target);
+  if (toolSel.value === 'fill') { floodFill(hit); return; }
+  strokeActive = true;
+  stamp(hit);
+});
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (!strokeActive || toolSel.value !== 'brush') return;
+  const hit = raycastAt(e);
+  if (hit) stamp(hit);
+});
+addEventListener('pointerup', () => { strokeActive = false; });
+
+// ---------- exports ----------
+document.getElementById('exportBtn').addEventListener('click', () => {
+  if (!originalScene) return;
+  new GLTFExporter().parse(originalScene, (buf) => {
+    const blob = new Blob([buf], { type: 'model/gltf-binary' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'captain-painted.glb';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }, (err) => { stats.textContent = 'export failed: ' + err; }, { binary: true });
+});
+document.getElementById('texBtn').addEventListener('click', () => {
+  const t = [...paintTargets.values()][0];
+  if (!t) return;
+  const a = document.createElement('a');
+  a.href = t.canvas.toDataURL('image/png');
+  a.download = 'captain-texture.png';
+  a.click();
+});
+
+// ---------- loop ----------
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  if (spinBox.checked) holder.rotation.y += clock.getDelta() * 0.5;
+  else clock.getDelta();
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
