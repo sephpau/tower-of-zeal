@@ -4,8 +4,9 @@ using UnityEngine;
 // from Blender out of the Ego Run assets) and places him in the world.
 public static class EgoModel
 {
-    // facing fix — both FBXs need a half-turn to look at the camera
-    static float YawFix(string resource) => 180f;
+    // facing fix — the two FBXs carry different forward conventions:
+    // ego is a quarter-turn off, captain a half-turn (verified via ShowcaseShot)
+    static float YawFix(string resource) => resource == "ego" ? 270f : 180f;
 
     // per-model posture trim: (pitch, roll) degrees — ego's sculpt leans
     // sideways a little

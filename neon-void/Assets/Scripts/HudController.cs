@@ -543,12 +543,72 @@ public class HudController : MonoBehaviour
         });
 
         // volume sliders
-        MakeVolumeRow("MUSIC VOLUME", 0.4f, GameSettings.MusicVolume, v => GameSettings.MusicVolume = v);
-        MakeVolumeRow("SFX VOLUME", 0.31f, GameSettings.SfxVolume, v => GameSettings.SfxVolume = v);
+        MakeVolumeRow("MUSIC VOLUME", 0.41f, GameSettings.MusicVolume, v => GameSettings.MusicVolume = v);
+        MakeVolumeRow("SFX VOLUME", 0.34f, GameSettings.SfxVolume, v => GameSettings.SfxVolume = v);
+        MakeVolumeRow("VOICE VOLUME", 0.27f, GameSettings.VoiceVolume, v => {
+            GameSettings.VoiceVolume = v;
+            CoopNet.SetVoiceVolume(v);   // live-adjust an active co-op call
+        });
 
-        MakeButton(_settingsPanel.transform, "BACK", new Vector2(0.5f, 0.17f), new Vector2(300, 56),
-            new Color(0.8f, 0.9f, 1f), () => { _settingsPanel.SetActive(false); _homePanel.SetActive(true); });
+        // mic test: press START, speak, watch the meter
+        var micLbl = NewText(_settingsPanel.transform, "miclbl", "MIC TEST", 26, TextAnchor.MiddleRight,
+            new Vector2(0.5f, 0.19f), new Vector2(0.5f, 0.19f), new Vector2(-150, 0), new Vector2(420, 40));
+        micLbl.color = new Color(0.9f, 0.95f, 1f);
+        var micBar = NewImage(_settingsPanel.transform, "micbar", new Vector2(0.5f, 0.19f), new Vector2(0.5f, 0.19f),
+            new Vector2(120, 0), new Vector2(280, 20));
+        micBar.sprite = _roundedFill;
+        micBar.type = Image.Type.Sliced;
+        micBar.color = new Color(0.05f, 0.04f, 0.14f, 0.9f);
+        _micLevelFill = NewImage(micBar.transform, "fill", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        _micLevelFill.color = new Color(0.4f, 1f, 0.75f, 0.95f);
+        _micLevelFill.type = Image.Type.Filled;
+        _micLevelFill.fillMethod = Image.FillMethod.Horizontal;
+        _micLevelFill.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));
+        _micLevelFill.fillAmount = 0f;
+        Text micBtnLabel = null;
+        var micBtn = MakeButton(_settingsPanel.transform, "START", new Vector2(0.5f, 0.19f), new Vector2(140, 44),
+            new Color(0.4f, 1f, 0.75f), () => { });
+        micBtn.transform.localPosition += new Vector3(350, 0, 0);
+        micBtnLabel = micBtn.GetComponentInChildren<Text>();
+        micBtn.onClick.AddListener(() => {
+            _micTesting = !_micTesting;
+            micBtnLabel.text = _micTesting ? "STOP" : "START";
+            if (_micTesting) { CoopNet.MicTestStart(); _micStatus.text = "REQUESTING MIC…"; }
+            else { CoopNet.MicTestStop(); _micStatus.text = ""; _micLevelFill.fillAmount = 0f; }
+        });
+        _micStatus = NewText(_settingsPanel.transform, "micstatus", "", 18, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.135f), new Vector2(0.5f, 0.135f), Vector2.zero, new Vector2(900, 28));
+        _micStatus.color = new Color(0.4f, 1f, 0.75f, 0.9f);
+
+        MakeButton(_settingsPanel.transform, "BACK", new Vector2(0.5f, 0.08f), new Vector2(300, 56),
+            new Color(0.8f, 0.9f, 1f), () => {
+                if (_micTesting) { _micTesting = false; CoopNet.MicTestStop(); micBtnLabel.text = "START"; _micStatus.text = ""; _micLevelFill.fillAmount = 0f; }
+                _settingsPanel.SetActive(false);
+                _homePanel.SetActive(true);
+            });
         _settingsPanel.SetActive(false);
+    }
+
+    Image _micLevelFill;
+    Text _micStatus;
+    bool _micTesting;
+
+    void Update()
+    {
+        if (!_micTesting || _micLevelFill == null) return;
+        int lvl = CoopNet.MicTestLevel();
+        if (lvl == -1)
+        {
+            _micStatus.text = "MIC BLOCKED — ALLOW THE MICROPHONE IN YOUR BROWSER";
+            _micLevelFill.fillAmount = 0f;
+        }
+        else if (lvl == -2)
+            _micStatus.text = "REQUESTING MIC…";
+        else
+        {
+            _micLevelFill.fillAmount = Mathf.Max(Mathf.Lerp(_micLevelFill.fillAmount, lvl / 100f, 0.4f), lvl / 100f);
+            _micStatus.text = lvl > 6 ? "MIC OK — WE HEAR YOU LOUD AND CLEAR!" : "SPEAK INTO YOUR MIC…";
+        }
     }
 
     void MakeVolumeRow(string label, float anchorY, float initial, System.Action<float> onChange)
@@ -693,7 +753,7 @@ public class HudController : MonoBehaviour
         t.color = new Color(0.4f, 1f, 0.75f);
         t.fontStyle = FontStyle.BoldAndItalic;
         t.font = _titleFont;
-        var sub = NewText(_coopPanel.transform, "sub", "2 PILOTS VS THE WAVES — LIVE · AGREE ON A ROOM CODE, ONE HOSTS, ONE JOINS\nSHARED SCORE · DOWNED PILOTS RESPAWN IN 15s IF THEIR PARTNER SURVIVES", 20, TextAnchor.MiddleCenter,
+        var sub = NewText(_coopPanel.transform, "sub", "2 PILOTS VS THE WAVES — LIVE · AGREE ON A ROOM CODE, ONE HOSTS, ONE JOINS\nVOICE CHAT ON (ALLOW YOUR MIC · N MUTES) · SHARED SCORE · DOWNED PILOTS RESPAWN IN 15s", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.705f), new Vector2(0.5f, 0.705f), Vector2.zero, new Vector2(1400, 60));
         sub.color = new Color(0.8f, 0.9f, 1f, 0.8f);
 

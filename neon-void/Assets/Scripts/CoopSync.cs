@@ -95,6 +95,8 @@ public class CoopSync : MonoBehaviour
         if (state == 1)
         {
             Debug.Log("[coop] channel open, room " + _room + " as " + (IsHost ? "host" : "guest"));
+            _micOn = true;
+            CoopNet.SetVoiceVolume(GameSettings.VoiceVolume);
             onStatus?.Invoke("CONNECTED — SYNCING…");
             if (!_sentHi) { _sentHi = true; Send("HI|" + _myName + "|" + _myPilot); }
             TryLaunch();
@@ -153,10 +155,20 @@ public class CoopSync : MonoBehaviour
     void Send(string msg) => _net.Send(msg);
     void Queue(string msg) => _events.Add(msg);
 
+    bool _micOn = true;
+
     // ---------- outgoing ----------
     void Update()
     {
         if (_net == null) return;
+
+        // N toggles the open mic
+        if (_running && Input.GetKeyDown(KeyCode.N))
+        {
+            _micOn = !_micOn;
+            CoopNet.SetMic(_micOn);
+            GameManager.I.Banner(_micOn ? "MIC LIVE" : "MIC MUTED");
+        }
 
         // one-off events go out every frame
         if (_net.Open && _events.Count > 0)

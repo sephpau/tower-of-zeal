@@ -14,24 +14,41 @@ public class CoopNet : MonoBehaviour
     const string Api = "https://www.markofthezeal.com/api/survive2/rtc";
 
 #if UNITY_WEBGL && !UNITY_EDITOR
-    [DllImport("__Internal")] static extern void NVNetInit(int isHost);
+    [DllImport("__Internal")] static extern void NVNetInit(int isHost, int wantMic);
     [DllImport("__Internal")] static extern void NVNetSignal(string json);
     [DllImport("__Internal")] static extern IntPtr NVNetPollSignal();
     [DllImport("__Internal")] static extern void NVNetSend(string msg);
     [DllImport("__Internal")] static extern IntPtr NVNetPoll();
     [DllImport("__Internal")] static extern int NVNetState();
+    [DllImport("__Internal")] static extern void NVNetMicOn(int on);
+    [DllImport("__Internal")] static extern void NVNetVoiceVolume(float v);
     [DllImport("__Internal")] static extern void NVNetClose();
     [DllImport("__Internal")] static extern void NVNetFree(IntPtr p);
+    [DllImport("__Internal")] static extern void NVMicStart();
+    [DllImport("__Internal")] static extern int NVMicLevel();
+    [DllImport("__Internal")] static extern void NVMicStop();
 #else
-    static void NVNetInit(int isHost) { }
+    static void NVNetInit(int isHost, int wantMic) { }
     static void NVNetSignal(string json) { }
     static IntPtr NVNetPollSignal() => IntPtr.Zero;
     static void NVNetSend(string msg) { }
     static IntPtr NVNetPoll() => IntPtr.Zero;
     static int NVNetState() => 0;
+    static void NVNetMicOn(int on) { }
+    static void NVNetVoiceVolume(float v) { }
     static void NVNetClose() { }
     static void NVNetFree(IntPtr p) { }
+    static void NVMicStart() { }
+    static int NVMicLevel() => -1;
+    static void NVMicStop() { }
 #endif
+
+    // voice controls (safe to call any time; no-ops without a session)
+    public static void SetMic(bool on) => NVNetMicOn(on ? 1 : 0);
+    public static void SetVoiceVolume(float v) => NVNetVoiceVolume(Mathf.Clamp01(v));
+    public static void MicTestStart() => NVMicStart();
+    public static int MicTestLevel() => NVMicLevel();
+    public static void MicTestStop() => NVMicStop();
 
     static string TakeString(IntPtr p)
     {
@@ -58,7 +75,7 @@ public class CoopNet : MonoBehaviour
         _role = host ? "host" : "guest";
         _onMsg = onMsg;
         _onState = onState;
-        NVNetInit(host ? 1 : 0);
+        NVNetInit(host ? 1 : 0, 1);   // mic joins the same negotiation; denied mic = silent link
         StartCoroutine(SignalLoop());
     }
 

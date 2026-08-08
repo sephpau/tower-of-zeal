@@ -23,4 +23,11 @@ public static class GameSettings
         get => PlayerPrefs.GetFloat("zsv2-sfxvol", 1f);
         set { PlayerPrefs.SetFloat("zsv2-sfxvol", Mathf.Clamp01(value)); PlayerPrefs.Save(); }
     }
+
+    // co-op partner voice loudness
+    public static float VoiceVolume
+    {
+        get => PlayerPrefs.GetFloat("zsv2-voicevol", 1f);
+        set { PlayerPrefs.SetFloat("zsv2-voicevol", Mathf.Clamp01(value)); PlayerPrefs.Save(); }
+    }
 }
