@@ -219,7 +219,7 @@ public class GameManager : MonoBehaviour
                 _hud.WaveBanner("!! OVERTIME !!");
                 PlaySfx(SfxSynth.WaveUp, 1f);
             }
-            if (left <= 0f) EndTournament("TIME!");
+            if (left <= 0f && !CoopSync.IsGuest) EndTournament("TIME!");   // duo: the host owns the clock
         }
 
         _hud.Tick(_playerHealth, _waves, score);
@@ -235,7 +235,29 @@ public class GameManager : MonoBehaviour
         int t = Mathf.RoundToInt(Mathf.Min(_elapsed, TournamentMode.Duration));
         string verify = TournamentMode.VerifyCode(score, t);
         TournamentMode.RecordResult(score, t);
+        if (CoopSync.Active && CoopSync.I != null && CoopSync.IsHost)
+        {
+            CoopSync.I.SendTournamentEnd(reason, score, t);   // guest mirrors this result
+            CoopSync.I.ResetToLobby();
+        }
         StartCoroutine(FinishTournament(reason, score, t, verify));
+    }
+
+    public void EndCoopTournament(string reason) => EndTournament(reason);
+
+    // blitz duo, guest side: the host declared the match over — mirror it
+    public void CoopEndTournament(string reason, int finalScore, int t)
+    {
+        if (!Running) return;
+        Running = false;
+        score = finalScore;
+        _music.Stop();
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+        string verify = TournamentMode.VerifyCode(finalScore, t);
+        TournamentMode.RecordResult(finalScore, t);
+        if (CoopSync.I != null) CoopSync.I.ResetToLobby();
+        StartCoroutine(FinishTournament(reason, finalScore, t, verify));
     }
 
     System.Collections.IEnumerator FinishTournament(string reason, int finalScore, int t, string verify)

@@ -44,6 +44,30 @@ public class CoopSync : MonoBehaviour
     int _myLobbyPilot;
     bool _myReady, _counting, _partnerHere;
 
+    // blitz duo: the room code doubles as the match code, the pair is one entrant
+    public bool blitzDuo;
+    public string TeamName => IsHost ? _myName + " + " + _partnerName : _partnerName + " + " + _myName;
+    public string DuoPilots
+    {
+        get
+        {
+            string mine = ZealData.Pilots[Mathf.Clamp(_myLobbyPilot, 0, ZealData.Pilots.Length - 1)].name;
+            string theirs = ZealData.Pilots[Mathf.Clamp(_partnerPilot, 0, ZealData.Pilots.Length - 1)].name;
+            return IsHost ? mine + "+" + theirs : theirs + "+" + mine;
+        }
+    }
+
+    public void SetBlitzDuo(bool on)
+    {
+        if (!IsHost || _counting) return;   // the host picks the mode
+        blitzDuo = on;
+        SendLobbyState();
+        onLobbyChanged?.Invoke();
+    }
+
+    public void SendTournamentEnd(string reason, int score, int time) =>
+        Send("TEND|" + reason + "|" + score + "|" + time);
+
     const float SnapEvery = 0.1f;
     const float PoseEvery = 1f / 12f;
 
@@ -112,7 +136,7 @@ public class CoopSync : MonoBehaviour
         MaybeCountdown();
     }
 
-    void SendLobbyState() => Send("LOB|" + _myLobbyPilot + "|" + (_myReady ? 1 : 0));
+    void SendLobbyState() => Send("LOB|" + _myLobbyPilot + "|" + (_myReady ? 1 : 0) + "|" + (blitzDuo ? 1 : 0));
 
     void MaybeCountdown()
     {
@@ -140,6 +164,10 @@ public class CoopSync : MonoBehaviour
         onCountdown?.Invoke(0);
         InLobby = false;
         _counting = false;
+        if (blitzDuo)
+            TournamentMode.Arm(_room, TeamName, -1);   // -1: legacy hash → identical verify on both clients
+        else
+            TournamentMode.Disarm();
         StartCoopRun();
     }
 
@@ -216,7 +244,7 @@ public class CoopSync : MonoBehaviour
         BuildGhost();
         onStarted?.Invoke();
         GameManager.I.StartRun(_myLobbyPilot);
-        GameManager.I.Banner("CO-OP // " + _room + " // WITH " + _partnerName.ToUpperInvariant());
+        GameManager.I.Banner((blitzDuo ? "BLITZ DUO" : "CO-OP") + " // " + _room + " // WITH " + _partnerName.ToUpperInvariant());
     }
 
     void BuildGhost()
@@ -452,9 +480,14 @@ public class CoopSync : MonoBehaviour
                     partnerReady = p[2] == "1";
                     _partnerPilot = Mathf.Clamp(partnerLobbyPilot, 0, ZealData.Pilots.Length - 1);
                     _partnerHere = true;
+                    if (p.Length >= 4 && !IsHost) blitzDuo = p[3] == "1";   // mode follows the host
                 }
                 onLobbyChanged?.Invoke();
                 MaybeCountdown();
+                break;
+            case "TEND":
+                if (!IsHost && p.Length >= 4 && int.TryParse(p[2], out int ts) && int.TryParse(p[3], out int tt))
+                    GameManager.I.CoopEndTournament(p[1], ts, tt);
                 break;
             case "CNT":
                 BeginCountdown();
@@ -684,9 +717,15 @@ public class CoopSync : MonoBehaviour
 
     void EndBoth(bool broadcast)
     {
-        if (broadcast) Send("OVER");
         _localPause = _remotePause = false;
         ApplyPause();
+        if (TournamentMode.Active)
+        {
+            // blitz duo: the host ends the match and relays the final result
+            if (IsHost) GameManager.I.EndCoopTournament("BOTH SHIPS DOWN");
+            return;
+        }
+        if (broadcast) Send("OVER");
         GameManager.I.CoopGameOver();
     }
 

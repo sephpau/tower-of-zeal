@@ -40,7 +40,7 @@ public class HudController : MonoBehaviour
     InputField _coopRoomInput, _coopNameInput;
     Text _coopStatus, _lobbyRoom, _lobbyMyName, _lobbyPartnerName, _lobbyPartnerState, _lobbyCountdown, _lobbyStatus;
     readonly List<Button> _lobbyPilotButtons = new List<Button>();
-    Button _readyBtn;
+    Button _readyBtn, _blitzBtn;
     Text _overPulse;
     List<LevelUpChoices> _sideChoices;
     System.Action<LevelUpChoices> _sidePick;
@@ -1013,6 +1013,14 @@ public class HudController : MonoBehaviour
         _lobbyCountdown.color = new Color(1f, 0.85f, 0.4f);
         _lobbyCountdown.font = _titleFont;
 
+        _blitzBtn = MakeButton(_lobbyPanel.transform, "MODE: CAMPAIGN CO-OP", new Vector2(0.5f, 0.32f), new Vector2(560, 50),
+            new Color(1f, 0.55f, 0.9f), () => {
+                if (CoopSync.I == null) return;
+                if (!CoopSync.IsHost) { _lobbyStatus.text = "THE HOST PICKS THE MODE"; return; }
+                CoopSync.I.SetBlitzDuo(!CoopSync.I.blitzDuo);
+            });
+        _blitzBtn.GetComponentInChildren<Text>().fontSize = 19;
+
         _lobbyStatus = NewText(_lobbyPanel.transform, "status", "", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.24f), new Vector2(0.5f, 0.24f), Vector2.zero, new Vector2(1200, 32));
         _lobbyStatus.color = new Color(0.4f, 1f, 0.75f, 0.9f);
@@ -1043,6 +1051,12 @@ public class HudController : MonoBehaviour
         var readyLabel = _readyBtn.GetComponentInChildren<Text>();
         readyLabel.text = s.MyReady ? "UNREADY" : "READY!";
         readyLabel.color = s.MyReady ? new Color(1f, 0.85f, 0.4f) : new Color(0.5f, 1f, 0.6f);
+
+        var modeLabel = _blitzBtn.GetComponentInChildren<Text>();
+        modeLabel.text = s.blitzDuo
+            ? "MODE: BLITZ DUO — 5:00 + OT · SEEDED · TEAM SCORE"
+            : "MODE: CAMPAIGN CO-OP — ENDLESS WAVES";
+        modeLabel.color = s.blitzDuo ? new Color(1f, 0.55f, 0.9f) : new Color(0.5f, 0.98f, 1f);
 
         if (!s.PartnerHere)
         {

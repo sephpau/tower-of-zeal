@@ -50,8 +50,10 @@ public class TournamentNet : MonoBehaviour
         var body = new PostBody
         {
             match = TournamentMode.MatchCode,
-            name = TournamentMode.PlayerName,
-            pilot = ZealData.Pilots[TournamentMode.PilotIndex].name,
+            name = TournamentMode.PlayerName,   // blitz duo: the team name
+            pilot = CoopSync.Active && CoopSync.I != null
+                ? CoopSync.I.DuoPilots
+                : ZealData.Pilots[TournamentMode.PilotIndex].name,
             verify = TournamentMode.VerifyCode(score, time),
             score = score,
             time = time,
