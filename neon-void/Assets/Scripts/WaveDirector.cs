@@ -44,7 +44,7 @@ public class WaveDirector : MonoBehaviour
         if (wave >= FinalWave)
         {
             GameManager.I.OnBossWave("!! VOID DREADNOUGHT !!");
-            var boss = EnemyFactory.BuildDreadnought(center + RandomShellDir() * 260f);
+            var boss = EnemyFactory.BuildDreadnought(center + RandomShellDir() * 210f);
             SetBoss(boss.GetComponent<Health>(), "VOID DREADNOUGHT");
             bossHealth.OnDeath += _ => { ClearBoss(); HostileDown(); };
             hostilesAlive = 1;
@@ -53,7 +53,7 @@ public class WaveDirector : MonoBehaviour
         else if (miniboss != null)
         {
             GameManager.I.OnBossWave("!! " + miniboss.name.ToUpperInvariant() + " !!", miniboss.taunt);
-            var boss = EnemyFactory.BuildMiniboss(center + RandomShellDir() * 200f, miniboss);
+            var boss = EnemyFactory.BuildMiniboss(center + RandomShellDir() * 165f, miniboss);
             SetBoss(boss.GetComponent<Health>(), miniboss.name.ToUpperInvariant());
             hostilesAlive = 1;   // MinibossAI reports death via GameManager.BossDown
             for (int i = 0; i < 2; i++) SpawnOne(center, true, false);
@@ -72,7 +72,7 @@ public class WaveDirector : MonoBehaviour
 
     void SpawnOne(Vector3 center, bool interceptor, bool gunship)
     {
-        Vector3 pos = center + RandomShellDir() * Random.Range(160f, 240f);
+        Vector3 pos = center + RandomShellDir() * Random.Range(110f, 170f);
         GameObject go = gunship ? EnemyFactory.BuildGunship(pos, wave) : EnemyFactory.BuildInterceptor(pos, wave);
         go.GetComponent<Health>().OnDeath += _ => HostileDown();
         hostilesAlive++;
