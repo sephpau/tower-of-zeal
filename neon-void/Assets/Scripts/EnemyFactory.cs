@@ -4,46 +4,58 @@ using UnityEngine;
 // (heavy, wave 4+), and the wave-10 boss: the Void Dreadnought.
 public static class EnemyFactory
 {
-    public static GameObject BuildInterceptor(Vector3 pos, int wave)
+
+    // Shared cute-monster builder: round body, glowing pupils, fangs,
+    // flapping wings. Angry variant gets brows and back spikes.
+    static void RoundMonster(GameObject go, Color bodyCol, Color wingCol, Color pupilCol,
+        float scale, float flapHz, float flapDeg, bool angry)
     {
-        var go = new GameObject("interceptor");
-        go.transform.position = pos;
-
-        // cute round purple monster with flapping wings
-        var bodyMat = NVAssets.Standard(new Color(0.5f, 0.32f, 0.85f), 0.25f, 0.55f);
+        var bodyMat = NVAssets.Standard(bodyCol, 0.25f, 0.55f);
         bodyMat.EnableKeyword("_EMISSION");
-        bodyMat.SetColor("_EmissionColor", new Color(0.16f, 0.06f, 0.32f));
-        var wingMat = NVAssets.Standard(new Color(0.32f, 0.18f, 0.6f), 0.3f, 0.5f);
+        bodyMat.SetColor("_EmissionColor", bodyCol * 0.35f);
+        var wingMat = NVAssets.Standard(wingCol, 0.3f, 0.5f);
         wingMat.EnableKeyword("_EMISSION");
-        wingMat.SetColor("_EmissionColor", new Color(0.1f, 0.04f, 0.24f));
+        wingMat.SetColor("_EmissionColor", wingCol * 0.35f);
         var whiteMat = NVAssets.Standard(new Color(0.95f, 0.93f, 0.88f), 0.05f, 0.5f);
-        var pink = NVAssets.PinkEmissive;
+        var pupilMat = NVAssets.Emissive(pupilCol, 3.2f);
+        var darkMat = NVAssets.Standard(bodyCol * 0.35f, 0.2f, 0.6f);
 
-        // round body
-        NVMeshes.SpherePart(go, bodyMat, Vector3.zero, new Vector3(2.2f, 2.0f, 2.1f));
+        NVMeshes.SpherePart(go, bodyMat, Vector3.zero, new Vector3(2.2f, 2.0f, 2.1f) * scale);
 
-        // big eyes with glowing pupils — reads hostile at range
         foreach (float side in new[] { -1f, 1f })
         {
-            NVMeshes.SpherePart(go, whiteMat, new Vector3(side * 0.45f, 0.35f, 0.92f), Vector3.one * 0.5f);
-            NVMeshes.SpherePart(go, pink, new Vector3(side * 0.42f, 0.35f, 1.16f), Vector3.one * 0.22f);
-            // fangs
-            var fang = NVMeshes.Part(go, NVMeshes.Wing(0.28f, 0.22f, 0.05f, 0.02f, 0.1f), whiteMat,
-                new Vector3(side * 0.32f, -0.42f, 0.95f), new Vector3(90f, 0f, side > 0 ? -80f : -100f), Vector3.one);
+            NVMeshes.SpherePart(go, whiteMat, new Vector3(side * 0.45f, 0.35f, 0.92f) * scale, Vector3.one * 0.5f * scale);
+            NVMeshes.SpherePart(go, pupilMat, new Vector3(side * 0.42f, 0.35f, 1.16f) * scale, Vector3.one * 0.22f * scale);
+            var fang = NVMeshes.Part(go, NVMeshes.Wing(0.28f * scale, 0.22f * scale, 0.05f, 0.02f, 0.1f), whiteMat,
+                new Vector3(side * 0.32f, -0.42f, 0.95f) * scale, new Vector3(90f, 0f, side > 0 ? -80f : -100f), Vector3.one);
             fang.name = "fang";
-            // tiny horn nubs
-            NVMeshes.SpherePart(go, wingMat, new Vector3(side * 0.5f, 0.95f, 0.1f), new Vector3(0.22f, 0.4f, 0.22f));
+            if (angry)
+            {
+                // slanted brow over each eye
+                var brow = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Object.Destroy(brow.GetComponent<Collider>());
+                brow.transform.SetParent(go.transform, false);
+                brow.transform.localPosition = new Vector3(side * 0.45f, 0.62f, 0.98f) * scale;
+                brow.transform.localRotation = Quaternion.Euler(0f, 0f, side * -22f);
+                brow.transform.localScale = new Vector3(0.55f, 0.12f, 0.18f) * scale;
+                brow.GetComponent<MeshRenderer>().sharedMaterial = darkMat;
+            }
+            else
+                NVMeshes.SpherePart(go, wingMat, new Vector3(side * 0.5f, 0.95f, 0.1f) * scale, new Vector3(0.22f, 0.4f, 0.22f) * scale);
         }
+        if (angry)
+            for (int i = 0; i < 3; i++)   // back spikes
+                NVMeshes.SpherePart(go, darkMat,
+                    new Vector3((i - 1) * 0.4f, 0.9f, -0.35f) * scale, new Vector3(0.2f, 0.55f, 0.2f) * scale);
 
-        // flapping wings: pivot object at the shoulder, mesh extends outward
-        var wingMesh = NVMeshes.Wing(1.9f, 1.1f, 0.35f, 0.7f, 0.1f);
+        var wingMesh = NVMeshes.Wing(1.9f * scale, 1.1f * scale, 0.35f * scale, 0.7f * scale, 0.1f);
         var flapWings = new Transform[2];
         for (int i = 0; i < 2; i++)
         {
             float side = i == 0 ? -1f : 1f;
             var pivot = new GameObject(i == 0 ? "wing_L" : "wing_R");
             pivot.transform.SetParent(go.transform, false);
-            pivot.transform.localPosition = new Vector3(side * 0.95f, 0.25f, -0.1f);
+            pivot.transform.localPosition = new Vector3(side * 0.95f, 0.25f, -0.1f) * scale;
             NVMeshes.Part(pivot, wingMesh, wingMat, Vector3.zero,
                 new Vector3(0f, 0f, side > 0 ? 0f : 180f), Vector3.one);
             flapWings[i] = pivot.transform;
@@ -52,11 +64,25 @@ public static class EnemyFactory
         flap.wingL = flapWings[0];
         flap.wingR = flapWings[1];
         flap.body = go.transform.GetChild(0);
+        flap.flapHz = flapHz;
+        flap.flapDeg = flapDeg;
 
-        var glow = NVAssets.Quad(NVAssets.AdditiveTinted(new Color(1f, 0.4f, 0.85f)), 1.3f);
+        var glow = NVAssets.Quad(NVAssets.AdditiveTinted(pupilCol), 1.3f * scale);
         glow.transform.SetParent(go.transform, false);
-        glow.transform.localPosition = new Vector3(0f, -0.2f, -1.3f);
+        glow.transform.localPosition = new Vector3(0f, -0.2f, -1.3f) * scale;
         glow.AddComponent<Billboard>();
+    }
+
+    public static GameObject BuildInterceptor(Vector3 pos, int wave)
+    {
+        var go = new GameObject("interceptor");
+        go.transform.position = pos;
+
+        RoundMonster(go,
+            new Color(0.5f, 0.32f, 0.85f),    // purple body
+            new Color(0.32f, 0.18f, 0.6f),
+            new Color(1f, 0.3f, 0.8f),        // pink pupils
+            1f, 5f, 38f, angry: false);
 
         Rig(go, 1.7f, 26f + wave * 4f);
         Armament(go, 0.14f, 70f, Mathf.Min(16f, 8f + wave), new Color(1f, 0.35f, 0.8f), new Vector3(0f, 0f, 2.4f), 3);
@@ -72,46 +98,11 @@ public static class EnemyFactory
         var go = new GameObject("gunship");
         go.transform.position = pos;
 
-        // burnt orange with an ember glow
-        var hull = NVAssets.Standard(new Color(0.55f, 0.24f, 0.06f), 0.7f, 0.35f);
-        hull.EnableKeyword("_EMISSION");
-        hull.SetColor("_EmissionColor", new Color(0.3f, 0.1f, 0.02f));
-        var orange = NVAssets.Emissive(new Color(1f, 0.55f, 0.15f), 3f);
-
-        Vector2[] body = {
-            new Vector2(0.001f,  2.6f),
-            new Vector2(0.5f,    1.6f),
-            new Vector2(0.75f,   0.2f),
-            new Vector2(0.7f,   -1.2f),
-            new Vector2(0.45f,  -2.0f),
-            new Vector2(0.001f, -2.0f),
-        };
-        NVMeshes.Part(go, NVMeshes.Lathe(body, 20), hull, Vector3.zero, Vector3.zero, Vector3.one);
-        NVMeshes.SpherePart(go, orange, new Vector3(0f, 0.3f, 1.1f), new Vector3(0.5f, 0.35f, 0.8f));
-
-        // side weapon pods
-        Vector2[] pod = {
-            new Vector2(0.001f,  1.0f),
-            new Vector2(0.28f,   0.5f),
-            new Vector2(0.32f,  -0.5f),
-            new Vector2(0.2f,   -0.9f),
-            new Vector2(0.001f, -0.9f),
-        };
-        foreach (float side in new[] { -1f, 1f })
-        {
-            NVMeshes.Part(go, NVMeshes.Lathe(pod, 14), hull, new Vector3(side * 1.25f, -0.1f, 0.2f), Vector3.zero, Vector3.one);
-            var stripe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            Object.Destroy(stripe.GetComponent<Collider>());
-            stripe.transform.SetParent(go.transform, false);
-            stripe.transform.localPosition = new Vector3(side * 1.25f, 0.25f, 0.2f);
-            stripe.transform.localScale = new Vector3(0.08f, 0.08f, 1.6f);
-            stripe.GetComponent<MeshRenderer>().sharedMaterial = orange;
-        }
-
-        var glow = NVAssets.Quad(NVAssets.AdditiveTinted(new Color(1f, 0.6f, 0.2f)), 2f);
-        glow.transform.SetParent(go.transform, false);
-        glow.transform.localPosition = new Vector3(0f, 0f, -2.3f);
-        glow.AddComponent<Billboard>();
+        RoundMonster(go,
+            new Color(0.82f, 0.14f, 0.12f),   // red body
+            new Color(0.5f, 0.08f, 0.08f),
+            new Color(1f, 0.72f, 0.15f),      // burning amber pupils
+            1.45f, 3.2f, 30f, angry: true);
 
         Rig(go, 2.4f, 90f + wave * 10f);
         Armament(go, 0.16f, 60f, Mathf.Min(20f, 12f + wave), new Color(1f, 0.6f, 0.2f), new Vector3(0f, -0.1f, 3f), 5);
