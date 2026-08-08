@@ -1,5 +1,105 @@
 using UnityEngine;
 
+// Boss ordnance: a homing missile the player can NULLIFY — it has its own
+// small health pool, so shooting it down detonates it harmlessly (and pays
+// a little score + xp). Reaching its target hurts.
+public class EnemyMissile : MonoBehaviour
+{
+    public const float Damage = 32f;
+    const float Speed = 46f;
+    const float TurnDegPerSec = 105f;
+    const float FuseRadius = 4.5f;
+
+    Transform _target;
+    float _life = 10f;
+    bool _done;
+
+    public static GameObject Launch(Vector3 pos, Vector3 initialDir, Color tint)
+    {
+        var go = new GameObject("missile");
+        go.transform.position = pos;
+        go.transform.rotation = Quaternion.LookRotation(initialDir.sqrMagnitude > 0.001f ? initialDir : Vector3.forward);
+
+        var warheadMat = NVAssets.Emissive(tint, 2.6f);
+        NVMeshes.SpherePart(go, warheadMat, Vector3.zero, new Vector3(0.55f, 0.55f, 1.8f));
+        NVMeshes.SpherePart(go, NVAssets.Emissive(new Color(1f, 0.8f, 0.3f), 3f), new Vector3(0f, 0f, 0.9f), Vector3.one * 0.4f);
+        var glow = NVAssets.Quad(NVAssets.AdditiveTinted(tint), 2.4f);
+        glow.transform.SetParent(go.transform, false);
+        glow.transform.localPosition = new Vector3(0f, 0f, -1.1f);
+        glow.AddComponent<Billboard>();
+        var trail = go.AddComponent<TrailRenderer>();
+        trail.time = 0.45f;
+        trail.startWidth = 0.5f;
+        trail.endWidth = 0.03f;
+        trail.material = NVAssets.Additive;
+        trail.startColor = tint;
+        trail.endColor = new Color(tint.r, tint.g, tint.b, 0f);
+        trail.minVertexDistance = 0.4f;
+
+        var col = go.AddComponent<SphereCollider>();
+        col.radius = 1.2f;
+        var h = go.AddComponent<Health>();
+        h.Configure(0f, 30f);
+        var m = go.AddComponent<EnemyMissile>();
+        h.OnDeath += _ => {                       // shot down: harmless boom + a small bounty
+            GameManager.I.EnemyKilled(40, m.transform.position);
+            m.Detonate(false);
+        };
+        NVOutline.Add(go, NVOutline.Hostile, 0.06f);
+        GameManager.I.PlaySfxAt(SfxSynth.Laser, pos, 0.55f);
+        return go;
+    }
+
+    void Start() => AcquireTarget();
+
+    void AcquireTarget()
+    {
+        var ship = FindAnyObjectByType<ShipController>();
+        Transform t = ship != null && ship.gameObject.activeInHierarchy ? ship.transform : null;
+        var remote = CoopSync.RemoteShip;
+        if (remote != null && (t == null ||
+            (remote.position - transform.position).sqrMagnitude < (t.position - transform.position).sqrMagnitude))
+            t = remote;
+        _target = t;
+    }
+
+    void Update()
+    {
+        if (GameManager.I == null || !GameManager.I.Running) { Destroy(gameObject); return; }
+        _life -= Time.deltaTime;
+        if (_life <= 0f) { Detonate(false); return; }
+        if (_target == null || !_target.gameObject.activeInHierarchy)
+        {
+            AcquireTarget();
+            if (_target == null) return;
+        }
+        Vector3 to = _target.position - transform.position;
+        transform.rotation = Quaternion.RotateTowards(transform.rotation,
+            Quaternion.LookRotation(to.normalized), TurnDegPerSec * Time.deltaTime);
+        transform.position += transform.forward * Speed * ActiveSkills.EnemySlow * Time.deltaTime;
+        if (to.magnitude < FuseRadius) Detonate(true);
+    }
+
+    void Detonate(bool reached)
+    {
+        if (_done) return;
+        _done = true;
+        ExplosionFactory.Explode(transform.position, new Color(1f, 0.5f, 0.2f), 1.7f, true);
+        GameManager.I.PlaySfxAt(SfxSynth.Boom, transform.position, 0.85f);
+        if (reached && _target != null)
+        {
+            var h = _target.GetComponent<Health>();
+            if (h != null && h.isPlayer)
+            {
+                h.TakeDamage(Damage);
+                GameManager.I.FlashDamage();
+                ChaseCamera.Shake(0.5f);
+            }
+        }
+        Destroy(gameObject);
+    }
+}
+
 // Homing missile: steers toward its target, dies after 6s, hits hard.
 public class Missile : MonoBehaviour
 {

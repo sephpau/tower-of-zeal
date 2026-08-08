@@ -14,7 +14,7 @@ public class MinibossAI : MonoBehaviour
     Rigidbody _rb;
     Transform _player;
     Rigidbody _playerRb;
-    float _actTimer = 3f, _fireTimer = 1.5f;
+    float _actTimer = 3f, _fireTimer = 1.5f, _missileTimer = 6f;
     Renderer[] _renderers;
     float _cloak;   // smuggler: 0 visible .. 1 cloaked
 
@@ -59,6 +59,20 @@ public class MinibossAI : MonoBehaviour
             case "blink": TickSmuggler(toPlayer, dist); break;
             case "summon": TickGruyere(toPlayer, dist); break;
             default: TickGarrison(toPlayer, dist); break;
+        }
+
+        // shared mechanic: homing missile volley — shoot them down before they land
+        _missileTimer -= Time.fixedDeltaTime;
+        if (_missileTimer <= 0f && dist < 260f)
+        {
+            _missileTimer = 9f;
+            int volley = 1 + def.wave / 3;   // smuggler 2, gruyere 3, garrison 4
+            for (int i = 0; i < volley; i++)
+            {
+                Vector3 dir = (toPlayer.normalized + Random.insideUnitSphere * 0.5f).normalized;
+                EnemyMissile.Launch(transform.position + dir * 8f, dir, def.tint);
+            }
+            GameManager.I.PlaySfxAt(SfxSynth.WaveUp, transform.position, 0.5f);
         }
     }
 

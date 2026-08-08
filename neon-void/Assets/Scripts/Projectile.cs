@@ -13,11 +13,12 @@ public class Projectile : MonoBehaviour
     float _damage, _life;
     GameObject _owner;
     bool _fromPlayer;
+    bool _ghostFire;   // co-op partner's replica bolt: only players take its (reduced) damage
     int _pierce;
     TrailRenderer _trail;
     MeshRenderer _core;
 
-    public static void Spawn(Vector3 pos, Vector3 velocity, float damage, Color color, GameObject owner, bool fromPlayer, int pierce = 0)
+    public static void Spawn(Vector3 pos, Vector3 velocity, float damage, Color color, GameObject owner, bool fromPlayer, int pierce = 0, bool ghostFire = false)
     {
         Projectile p = Pool.Count > 0 ? Pool.Dequeue() : Build();
         p.gameObject.SetActive(true);
@@ -27,6 +28,7 @@ public class Projectile : MonoBehaviour
         p._damage = damage;
         p._owner = owner;
         p._fromPlayer = fromPlayer;
+        p._ghostFire = ghostFire;
         p._pierce = pierce;
         p._life = 3f;
         if (!fromPlayer) EnemyBolts.Add(p);
@@ -75,6 +77,14 @@ public class Projectile : MonoBehaviour
                     // no friendly fire between enemies
                     if (_fromPlayer || h.isPlayer)
                     {
+                        // partner replicas spark off enemies without damaging them
+                        // (the partner's own game already dealt that damage)
+                        if (_ghostFire && !h.isPlayer)
+                        {
+                            ExplosionFactory.Sparks(hit.point, new Color(0.4f, 0.9f, 1f));
+                            Release();
+                            return;
+                        }
                         h.TakeDamage(_damage);
                         if (_fromPlayer && !h.isPlayer)
                             GameManager.I.PlaySfx(SfxSynth.HitPulse, 0.35f);

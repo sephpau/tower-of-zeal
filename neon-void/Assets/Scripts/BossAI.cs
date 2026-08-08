@@ -14,6 +14,7 @@ public class BossAI : MonoBehaviour
     Rigidbody _playerRb;
     float _turretTimer = 2f;
     float _ringTimer = 8f;
+    float _missileTimer = 6f;
     int _orbitSign = 1;
 
     const float BoltSpeed = 80f;
@@ -80,6 +81,19 @@ public class BossAI : MonoBehaviour
                 Projectile.Spawn(m.position, dir * BoltSpeed, BoltDamage, BoltColor, gameObject, false);
             }
             GameManager.I.PlaySfxAt(SfxSynth.Laser, transform.position, 0.5f);
+        }
+
+        // homing missile spread from the turrets — nullify them with fire
+        _missileTimer -= Time.fixedDeltaTime;
+        if (_missileTimer <= 0f && dist < 320f)
+        {
+            _missileTimer = 8f;
+            foreach (var m in turretMuzzles)
+            {
+                Vector3 dir = ((_player.position - m.position).normalized + Random.insideUnitSphere * 0.35f).normalized;
+                EnemyMissile.Launch(m.position + dir * 3f, dir, BoltColor);
+            }
+            GameManager.I.PlaySfxAt(SfxSynth.WaveUp, transform.position, 0.6f);
         }
 
         // radial bolt ring, aimed roughly at the player's plane

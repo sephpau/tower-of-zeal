@@ -345,6 +345,7 @@ public class CoopSync : MonoBehaviour
         if (goName.StartsWith("gunship")) return "gunship";
         if (goName.StartsWith("elite")) return "elite";
         if (goName.StartsWith("dreadnought")) return "dreadnought";
+        if (goName.StartsWith("missile")) return "missile";
         if (goName.StartsWith("boss-")) return goName;
         return null;
     }
@@ -399,7 +400,7 @@ public class CoopSync : MonoBehaviour
                 I.AppendBolt(I._enemyBolts, pos, vel, dmg);
         }
         else if (owner != null && I._localHealth != null && owner == I._localHealth.gameObject)
-            I.AppendBolt(I._myBolts, pos, vel, 0f);
+            I.AppendBolt(I._myBolts, pos, vel, dmg);   // real damage rides along for friendly fire
     }
 
     void AppendBolt(System.Text.StringBuilder sb, Vector3 pos, Vector3 vel, float dmg)
@@ -515,7 +516,8 @@ public class CoopSync : MonoBehaviour
             Vector3 pos = new Vector3(PF(c[0]), PF(c[1]), PF(c[2]));
             Vector3 vel = new Vector3(PF(c[3]), PF(c[4]), PF(c[5]));
             if (partner)
-                Projectile.Spawn(pos, vel, 0f, partnerCol, _ghost, true);       // partner fire is cosmetic here
+                // partner bolts carry 10% friendly fire — stay out of your wingmate's lane!
+                Projectile.Spawn(pos, vel, PF(c[6]) * 0.1f, partnerCol, _ghost, true, 0, ghostFire: true);
             else
                 Projectile.Spawn(pos, vel, PF(c[6]), enemyCol, null, false);    // enemy fire is live — dodge it
         }
@@ -584,6 +586,7 @@ public class CoopSync : MonoBehaviour
         else if (type == "gunship") go = EnemyFactory.BuildGunship(pos, wave);
         else if (type == "elite") go = EnemyFactory.BuildElite(pos, wave);
         else if (type == "dreadnought") go = EnemyFactory.BuildDreadnought(pos);
+        else if (type == "missile") go = EnemyMissile.Launch(pos, Vector3.forward, new Color(1f, 0.5f, 0.2f));
         else if (type.StartsWith("boss-"))
         {
             var def = System.Array.Find(ZealData.Bosses, b => "boss-" + b.id == type);
@@ -594,7 +597,7 @@ public class CoopSync : MonoBehaviour
         foreach (var c in new MonoBehaviour[] {
             go.GetComponent<EnemyAI>(), go.GetComponent<BossAI>(),
             go.GetComponent<MinibossAI>(), go.GetComponent<Weapon>(),
-            go.GetComponent<BurstConfig>() })
+            go.GetComponent<BurstConfig>(), go.GetComponent<EnemyMissile>() })
             if (c != null) { c.enabled = false; Destroy(c); }
         var rb = go.GetComponent<Rigidbody>();
         if (rb != null) rb.isKinematic = true;
@@ -612,6 +615,14 @@ public class CoopSync : MonoBehaviour
         GameManager.I.PlaySfxAt(SfxSynth.Boom, pos, 0.9f);
         if (_puppets.TryGetValue(id, out var h))
         {
+            // a missile detonating on top of me hurts ME — the host can't do it for me
+            if (h != null && h.gameObject.name == "missile" && _localHealth != null && !_localDead
+                && (pos - _localHealth.transform.position).sqrMagnitude < 49f)
+            {
+                _localHealth.TakeDamage(EnemyMissile.Damage);
+                GameManager.I.FlashDamage();
+                ChaseCamera.Shake(0.5f);
+            }
             if (h != null) Destroy(h.gameObject);
             _puppets.Remove(id);
         }
