@@ -524,15 +524,15 @@ public class HudController : MonoBehaviour
         t.font = _titleFont;
 
         var lbl = NewText(_settingsPanel.transform, "warnlbl", "INCOMING HIT WARNING", 28, TextAnchor.MiddleRight,
-            new Vector2(0.5f, 0.55f), new Vector2(0.5f, 0.55f), new Vector2(-110, 0), new Vector2(520, 44));
+            new Vector2(0.5f, 0.6f), new Vector2(0.5f, 0.6f), new Vector2(-110, 0), new Vector2(520, 44));
         lbl.color = new Color(0.9f, 0.95f, 1f);
         var desc = NewText(_settingsPanel.transform, "warndesc", "Flashes a red screen border when enemy fire will hit you within 1 second", 18, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.48f), new Vector2(0.5f, 0.48f), Vector2.zero, new Vector2(900, 32));
+            new Vector2(0.5f, 0.545f), new Vector2(0.5f, 0.545f), Vector2.zero, new Vector2(900, 32));
         desc.color = new Color(0.7f, 0.8f, 1f, 0.7f);
 
         Text toggleLabel = null;
         var btn = MakeButton(_settingsPanel.transform, GameSettings.HitWarning ? "ON" : "OFF",
-            new Vector2(0.5f, 0.55f), new Vector2(140, 48),
+            new Vector2(0.5f, 0.6f), new Vector2(140, 48),
             GameSettings.HitWarning ? new Color(0.5f, 1f, 0.6f) : new Color(1f, 0.5f, 0.5f), () => { });
         btn.transform.localPosition += new Vector3(220, 0, 0);
         toggleLabel = btn.GetComponentInChildren<Text>();
@@ -542,10 +542,32 @@ public class HudController : MonoBehaviour
             toggleLabel.color = GameSettings.HitWarning ? new Color(0.5f, 1f, 0.6f) : new Color(1f, 0.5f, 0.5f);
         });
 
+        // mouse sensitivity: try it live on the test pad to the right
+        MakeVolumeRow("MOUSE SENSITIVITY", 0.46f, GameSettings.MouseSensitivity,
+            v => GameSettings.MouseSensitivity = v, 0.2f, 3f);
+        var pad = NewImage(_settingsPanel.transform, "senspad", new Vector2(0.84f, 0.42f), new Vector2(0.84f, 0.42f), Vector2.zero, new Vector2(260, 260));
+        pad.sprite = _roundedFill;
+        pad.type = Image.Type.Sliced;
+        pad.color = new Color(0.05f, 0.04f, 0.14f, 0.85f);
+        var padBorder = NewImage(pad.transform, "border", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        padBorder.sprite = _roundedOutline;
+        padBorder.type = Image.Type.Sliced;
+        padBorder.color = new Color(0.4f, 1f, 0.75f, 0.5f);
+        var padTitle = NewText(_settingsPanel.transform, "padtitle", "MOUSE TEST PAD", 22, TextAnchor.MiddleCenter,
+            new Vector2(0.84f, 0.58f), new Vector2(0.84f, 0.58f), Vector2.zero, new Vector2(320, 32));
+        padTitle.color = new Color(0.4f, 1f, 0.75f);
+        padTitle.font = _titleFont;
+        var padHint = NewText(_settingsPanel.transform, "padhint", "MOVE YOUR MOUSE — THE DOT\nMATCHES YOUR IN-GAME AIM SPEED", 15, TextAnchor.MiddleCenter,
+            new Vector2(0.84f, 0.25f), new Vector2(0.84f, 0.25f), Vector2.zero, new Vector2(320, 44));
+        padHint.color = new Color(0.8f, 0.9f, 1f, 0.7f);
+        _sensDot = NewImage(pad.transform, "dot", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(16, 16));
+        _sensDot.sprite = CircleSprite();
+        _sensDot.color = new Color(0.4f, 1f, 0.75f);
+
         // volume sliders
-        MakeVolumeRow("MUSIC VOLUME", 0.41f, GameSettings.MusicVolume, v => GameSettings.MusicVolume = v);
-        MakeVolumeRow("SFX VOLUME", 0.34f, GameSettings.SfxVolume, v => GameSettings.SfxVolume = v);
-        MakeVolumeRow("VOICE VOLUME", 0.27f, GameSettings.VoiceVolume, v => {
+        MakeVolumeRow("MUSIC VOLUME", 0.39f, GameSettings.MusicVolume, v => GameSettings.MusicVolume = v);
+        MakeVolumeRow("SFX VOLUME", 0.32f, GameSettings.SfxVolume, v => GameSettings.SfxVolume = v);
+        MakeVolumeRow("VOICE VOLUME", 0.25f, GameSettings.VoiceVolume, v => {
             GameSettings.VoiceVolume = v;
             CoopNet.SetVoiceVolume(v);   // live-adjust an active co-op call
         });
@@ -592,9 +614,22 @@ public class HudController : MonoBehaviour
     Image _micLevelFill;
     Text _micStatus;
     bool _micTesting;
+    Image _sensDot;
 
     void Update()
     {
+        // sensitivity test pad: the dot moves like your in-game aim would
+        if (_sensDot != null && _settingsPanel != null && _settingsPanel.activeSelf)
+        {
+            Vector2 p = _sensDot.rectTransform.anchoredPosition
+                + new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"))
+                  * GameSettings.MouseSensitivity * 14f;
+            p = Vector2.Lerp(p, Vector2.zero, Time.deltaTime * 1.6f);   // drift home
+            p.x = Mathf.Clamp(p.x, -116f, 116f);
+            p.y = Mathf.Clamp(p.y, -116f, 116f);
+            _sensDot.rectTransform.anchoredPosition = p;
+        }
+
         if (!_micTesting || _micLevelFill == null) return;
         int lvl = CoopNet.MicTestLevel();
         if (lvl == -1)
@@ -621,7 +656,7 @@ public class HudController : MonoBehaviour
         }
     }
 
-    void MakeVolumeRow(string label, float anchorY, float initial, System.Action<float> onChange)
+    void MakeVolumeRow(string label, float anchorY, float initial, System.Action<float> onChange, float min = 0f, float max = 1f)
     {
         var lbl = NewText(_settingsPanel.transform, "lbl-" + label, label, 26, TextAnchor.MiddleRight,
             new Vector2(0.5f, anchorY), new Vector2(0.5f, anchorY), new Vector2(-250, 0), new Vector2(420, 40));
@@ -663,8 +698,8 @@ public class HudController : MonoBehaviour
         handle.raycastTarget = true;
 
         var slider = track.AddComponent<Slider>();
-        slider.minValue = 0f;
-        slider.maxValue = 1f;
+        slider.minValue = min;
+        slider.maxValue = max;
         slider.fillRect = fill.rectTransform;
         slider.handleRect = handle.rectTransform;
         slider.targetGraphic = handle;

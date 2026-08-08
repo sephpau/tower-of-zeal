@@ -24,6 +24,13 @@ public static class GameSettings
         set { PlayerPrefs.SetFloat("zsv2-sfxvol", Mathf.Clamp01(value)); PlayerPrefs.Save(); }
     }
 
+    // mouse look speed multiplier (1 = the classic feel)
+    public static float MouseSensitivity
+    {
+        get => PlayerPrefs.GetFloat("zsv2-mousesens", 1f);
+        set { PlayerPrefs.SetFloat("zsv2-mousesens", Mathf.Clamp(value, 0.2f, 3f)); PlayerPrefs.Save(); }
+    }
+
     // co-op partner voice loudness
     public static float VoiceVolume
     {

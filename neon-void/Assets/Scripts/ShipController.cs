@@ -39,8 +39,9 @@ public class ShipController : MonoBehaviour
     {
         if (!GameManager.I.Running || GameManager.I.Paused) return;
 
-        _yaw += Input.GetAxis("Mouse X") * mouseSens;
-        _pitch = Mathf.Clamp(_pitch - Input.GetAxis("Mouse Y") * mouseSens, -85f, 85f);
+        float sens = mouseSens * GameSettings.MouseSensitivity;
+        _yaw += Input.GetAxis("Mouse X") * sens;
+        _pitch = Mathf.Clamp(_pitch - Input.GetAxis("Mouse Y") * sens, -85f, 85f);
 
         dashCooldown = Mathf.Max(0f, dashCooldown - Time.deltaTime);
         guardCooldown = Mathf.Max(0f, guardCooldown - Time.deltaTime);
