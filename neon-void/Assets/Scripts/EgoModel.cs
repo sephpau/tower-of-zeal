@@ -36,6 +36,12 @@ public static class EgoModel
             float h = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
             if (h > 0.0001f)
                 ego.transform.localScale = Vector3.one * (size / h);
+
+            // FBX pivots sit at the feet — anchor the VISUAL CENTER on the
+            // spawn point instead, so bounce bounds hold on all four edges
+            var centered = renderers[0].bounds;
+            foreach (var r in renderers) centered.Encapsulate(r.bounds);
+            ego.transform.position += parent.TransformPoint(localPos) - centered.center;
         }
 
         foreach (var col in ego.GetComponentsInChildren<Collider>())
