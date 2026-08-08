@@ -19,3 +19,7 @@ MemoryCaptures/
 # OS
 Thumbs.db
 .DS_Store
+
+# Blender working files (too big for GitHub)
+*.blend
+*.blend1
