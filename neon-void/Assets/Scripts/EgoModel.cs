@@ -9,7 +9,7 @@ public static class EgoModel
 
     // per-model posture trim: (pitch, roll) degrees — ego's sculpt leans
     // sideways a little
-    static Vector2 PostureTrim(string resource) => resource == "ego" ? new Vector2(0f, -12f) : Vector2.zero;
+    static Vector2 PostureTrim(string resource) => resource == "ego" ? new Vector2(0f, 12f) : Vector2.zero;
 
     // `size` is the desired world height — the model is measured after
     // instantiation and normalized, so FBX unit-scale differences between
@@ -91,15 +91,15 @@ public class EgoShowcase : MonoBehaviour
 
         // slow noise-driven drift around the anchor — weightless wandering
         Vector3 wander = new Vector3(
-            (Mathf.PerlinNoise(_seed, _t * 0.06f) - 0.5f) * 2f * 2.6f,
-            (Mathf.PerlinNoise(_seed + 17f, _t * 0.08f) - 0.5f) * 2f * 1.6f,
-            (Mathf.PerlinNoise(_seed + 41f, _t * 0.045f) - 0.5f) * 2f * 1.8f);
+            (Mathf.PerlinNoise(_seed, _t * 0.06f) - 0.5f) * 2f * 1.3f,
+            (Mathf.PerlinNoise(_seed + 17f, _t * 0.08f) - 0.5f) * 2f * 1.0f,
+            (Mathf.PerlinNoise(_seed + 41f, _t * 0.045f) - 0.5f) * 2f * 1.2f);
         transform.position = _anchor + wander;
 
         // steady spin with a gentle zero-g rock
         _yaw += spin * Time.deltaTime;
-        float rockX = Mathf.Sin(_t * 0.5f + _seed) * 7f;
-        float rockZ = Mathf.Sin(_t * 0.37f + _seed * 2f) * 8f;
+        float rockX = Mathf.Sin(_t * 0.5f + _seed) * 3f;
+        float rockZ = Mathf.Sin(_t * 0.37f + _seed * 2f) * 3.5f;
         transform.rotation = Quaternion.Euler(rockX, _yaw, rockZ);
 
         if (GameManager.I != null && GameManager.I.Running)
