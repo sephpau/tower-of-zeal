@@ -112,7 +112,8 @@ public class GameManager : MonoBehaviour
         var choices = LevelUpChoices.Generate(xpLevel, _skills, acts, TournamentMode.Active ? TournamentMode.DraftRng(xpLevel) : null);
         if (choices.Count == 0) { score += 300; return; }
         Paused = true;
-        Time.timeScale = 0f;
+        if (CoopSync.Active && CoopSync.I != null) CoopSync.I.SetLocalPause(true);   // both ships freeze
+        else Time.timeScale = 0f;
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
         PlaySfx(SfxSynth.WaveUp, 0.6f);
@@ -120,7 +121,8 @@ public class GameManager : MonoBehaviour
         {
             choice.Apply(_skills);
             Paused = false;
-            Time.timeScale = 1f;
+            if (CoopSync.Active && CoopSync.I != null) CoopSync.I.SetLocalPause(false);
+            else Time.timeScale = 1f;
             if (Running)
             {
                 Cursor.visible = false;
@@ -173,7 +175,7 @@ public class GameManager : MonoBehaviour
 
         // elite hunter roams in every 90 seconds, independent of waves
         _eliteTimer -= Time.deltaTime;
-        if (_eliteTimer <= 0f)
+        if (_eliteTimer <= 0f && !CoopSync.IsGuest)
         {
             _eliteTimer = EliteEvery;
             Vector3 dir = Random.onUnitSphere;
@@ -333,12 +335,33 @@ public class GameManager : MonoBehaviour
         ExplosionFactory.Explode(h.transform.position, new Color(0.4f, 0.9f, 1f), 2.5f, true);
         PlaySfx(SfxSynth.BigBoom);
         h.gameObject.SetActive(false);
+        if (CoopSync.Active && CoopSync.I != null) { CoopSync.I.OnLocalDeath(); return; }   // partner may still save the run
         if (TournamentMode.Active) { EndTournament("SHIP DESTROYED"); return; }
         Running = false;
         _music.Stop();
         Cursor.visible = true;
         Cursor.lockState = CursorLockMode.None;
 
+        bool newBest = score > best;
+        if (newBest)
+        {
+            best = score;
+            PlayerPrefs.SetInt(BestKey, best);
+            PlayerPrefs.Save();
+        }
+        _hud.ShowGameOver(score, best, newBest, _waves.wave);
+    }
+
+    public void Banner(string msg) => _hud.WaveBanner(msg);
+
+    // co-op: both pilots down (or the guest lost its host) — end the run
+    public void CoopGameOver()
+    {
+        if (!Running) return;
+        Running = false;
+        _music.Stop();
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
         bool newBest = score > best;
         if (newBest)
         {

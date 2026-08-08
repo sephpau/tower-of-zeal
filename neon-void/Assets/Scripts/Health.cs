@@ -12,6 +12,9 @@ public class Health : MonoBehaviour
     public event Action<Health> OnDeath;
     public event Action<Health, float> OnDamaged;
 
+    // co-op guest replica: damage is claimed back to the host, never applied here
+    public bool netPuppet;
+
     // Pocket Drake: absorbs damage before shield/hull; fires when it breaks
     public float absorb;
     public event Action OnAbsorbBroken;
@@ -48,6 +51,7 @@ public class Health : MonoBehaviour
     public void TakeDamage(float amount)
     {
         if (_dead) return;
+        if (netPuppet) { CoopSync.ForwardHit(this, amount); return; }
         if (isPlayer)
         {
             var sc = GetComponent<ShipController>();
@@ -77,5 +81,14 @@ public class Health : MonoBehaviour
             if (!isPlayer) FlushDamagePopup();   // show the killing blow
             OnDeath?.Invoke(this);
         }
+    }
+
+    // co-op respawn
+    public void Revive(float fraction)
+    {
+        _dead = false;
+        _sinceHit = 99f;
+        hull = maxHull * fraction;
+        shield = maxShield * fraction;
     }
 }

@@ -34,6 +34,7 @@ public class Projectile : MonoBehaviour
         p._trail.startColor = color;
         p._trail.endColor = new Color(color.r, color.g, color.b, 0f);
         p._trail.Clear();
+        CoopSync.OnBoltSpawned(pos, velocity, damage, fromPlayer, owner);
     }
 
     static Projectile Build()

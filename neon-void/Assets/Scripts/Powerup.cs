@@ -19,6 +19,12 @@ public class Powerup : MonoBehaviour
     {
         if (Random.value > chance) return;
         PowerupType t = Random.value < 0.45f ? PowerupType.Rapid : PowerupType.ShieldCell;
+        DropExact(pos, t);
+    }
+
+    public static void DropExact(Vector3 pos, PowerupType t)
+    {
+        if (CoopSync.HostActive) CoopSync.I.QueuePowerup(pos, t);   // partner gets their own copy
 
         var go = new GameObject("powerup-" + t);
         go.transform.position = pos;

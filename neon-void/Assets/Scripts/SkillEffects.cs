@@ -211,6 +211,7 @@ public class XpOrb : MonoBehaviour
 
     public static void Drop(Vector3 pos, int xp)
     {
+        if (CoopSync.HostActive) CoopSync.I.QueueOrb(pos, xp);   // mirror to the co-op partner
         var go = new GameObject("xp");
         go.transform.position = pos + Random.insideUnitSphere * 2f;
         var o = go.AddComponent<XpOrb>();

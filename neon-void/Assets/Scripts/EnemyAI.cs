@@ -57,11 +57,32 @@ public class EnemyAI : MonoBehaviour
         Destroy(gameObject);
     }
 
+    Transform _target;
+    Vector3 _targetVel;
+
+    // pick the nearer of the two co-op pilots; a dead ship is skipped
+    void PickTarget()
+    {
+        _target = _player;
+        _targetVel = _playerRb != null ? _playerRb.linearVelocity : Vector3.zero;
+        bool localAlive = _player != null && _player.gameObject.activeInHierarchy;
+        var remote = CoopSync.RemoteShip;
+        if (remote == null) return;
+        if (!localAlive ||
+            (remote.position - transform.position).sqrMagnitude <
+            (_player.position - transform.position).sqrMagnitude)
+        {
+            _target = remote;
+            _targetVel = CoopSync.RemoteVelocity;
+        }
+    }
+
     void FixedUpdate()
     {
         if (_player == null || !GameManager.I.Running) return;
+        PickTarget();
 
-        Vector3 toPlayer = _player.position - transform.position;
+        Vector3 toPlayer = _target.position - transform.position;
         float dist = toPlayer.magnitude;
 
         // steer: far -> pursue; near -> orbit strafe; too near -> break away
@@ -100,13 +121,10 @@ public class EnemyAI : MonoBehaviour
 
     void FireLead()
     {
-        if (_weapon == null || _player == null) return;
-        Vector3 targetPos = _player.position;
-        if (_playerRb != null)
-        {
-            float travel = Vector3.Distance(transform.position, targetPos) / _weapon.projectileSpeed;
-            targetPos += _playerRb.linearVelocity * travel * 0.85f;
-        }
+        if (_weapon == null || _target == null) return;
+        Vector3 targetPos = _target.position;
+        float travel = Vector3.Distance(transform.position, targetPos) / _weapon.projectileSpeed;
+        targetPos += _targetVel * travel * 0.85f;
         _weapon.FireToward(targetPos - transform.position);
     }
 }

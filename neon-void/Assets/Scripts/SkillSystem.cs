@@ -228,6 +228,12 @@ public class SkillSystem : MonoBehaviour
         foreach (var mb in Object.FindObjectsByType<MinibossAI>()) { var h = mb.GetComponent<Health>(); if (h != null) list.Add(h); }
         var boss = Object.FindAnyObjectByType<BossAI>();
         if (boss != null) { var h = boss.GetComponent<Health>(); if (h != null) list.Add(h); }
+        if (CoopSync.IsGuest)   // guest enemies are AI-less puppets, found by their net tag
+            foreach (var tag in Object.FindObjectsByType<NetTag>(FindObjectsSortMode.None))
+            {
+                var h = tag.GetComponent<Health>();
+                if (h != null && !list.Contains(h)) list.Add(h);
+            }
         return list;
     }
 
