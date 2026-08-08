@@ -7,9 +7,9 @@ public static class EgoModel
     // model's forward after FBX import — tune here if he faces the wrong way
     public const float YawFix = 180f;
 
-    // per-model posture trim (degrees of forward pitch) — ego's sculpt
-    // naturally leans back a little
-    static float PitchTrim(string resource) => resource == "ego" ? -22f : 0f;
+    // per-model posture trim: (pitch, roll) degrees — ego's sculpt leans
+    // sideways a little
+    static Vector2 PostureTrim(string resource) => resource == "ego" ? new Vector2(0f, -12f) : Vector2.zero;
 
     // `size` is the desired world height — the model is measured after
     // instantiation and normalized, so FBX unit-scale differences between
@@ -23,7 +23,8 @@ public static class EgoModel
         ego.transform.localPosition = localPos;
         // compose yaw + posture trim with the importer's axis-correction
         // rotation — overwriting it lays Z-up models flat on their backs
-        ego.transform.localRotation = Quaternion.Euler(PitchTrim(resource), YawFix, 0f) * ego.transform.localRotation;
+        Vector2 trim = PostureTrim(resource);
+        ego.transform.localRotation = Quaternion.Euler(trim.x, YawFix, trim.y) * ego.transform.localRotation;
         ego.transform.localScale = Vector3.one;
 
         var renderers = ego.GetComponentsInChildren<Renderer>();
