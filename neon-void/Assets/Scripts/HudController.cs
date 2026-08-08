@@ -311,7 +311,8 @@ public class HudController : MonoBehaviour
         _resultsTitle.text = reason;
         _resultsScore.text = score.ToString("N0");
         _resultsVerify.text = "MATCH " + matchCode + "   ·   VERIFY CODE  " + verify;
-        var sb = new System.Text.StringBuilder("— LOCAL STANDINGS —\n");
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine(online ? "— LIVE MATCH STANDINGS —" : "— LOCAL STANDINGS (offline) —");
         int rank = 1;
         foreach (var e in standings)
         {
@@ -899,8 +900,8 @@ public class HudController : MonoBehaviour
         // live tournament standings sidebar
         if (TournamentMode.Active && TournamentNet.I != null && TournamentNet.I.online && TournamentNet.I.latest.Length > 0)
         {
-            var sb = new System.Text.StringBuilder("LIVE — " + TournamentMode.MatchCode + "
-");
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("LIVE — " + TournamentMode.MatchCode);
             int shown = 0;
             foreach (var e in TournamentNet.I.latest)
             {
