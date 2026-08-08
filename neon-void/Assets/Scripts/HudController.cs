@@ -520,9 +520,69 @@ public class HudController : MonoBehaviour
             toggleLabel.color = GameSettings.HitWarning ? new Color(0.5f, 1f, 0.6f) : new Color(1f, 0.5f, 0.5f);
         });
 
-        MakeButton(_settingsPanel.transform, "BACK", new Vector2(0.5f, 0.2f), new Vector2(300, 56),
+        // volume sliders
+        MakeVolumeRow("MUSIC VOLUME", 0.4f, GameSettings.MusicVolume, v => GameSettings.MusicVolume = v);
+        MakeVolumeRow("SFX VOLUME", 0.31f, GameSettings.SfxVolume, v => GameSettings.SfxVolume = v);
+
+        MakeButton(_settingsPanel.transform, "BACK", new Vector2(0.5f, 0.17f), new Vector2(300, 56),
             new Color(0.8f, 0.9f, 1f), () => { _settingsPanel.SetActive(false); _homePanel.SetActive(true); });
         _settingsPanel.SetActive(false);
+    }
+
+    void MakeVolumeRow(string label, float anchorY, float initial, System.Action<float> onChange)
+    {
+        var lbl = NewText(_settingsPanel.transform, "lbl-" + label, label, 26, TextAnchor.MiddleRight,
+            new Vector2(0.5f, anchorY), new Vector2(0.5f, anchorY), new Vector2(-150, 0), new Vector2(420, 40));
+        lbl.color = new Color(0.9f, 0.95f, 1f);
+
+        var pct = NewText(_settingsPanel.transform, "pct-" + label, Mathf.RoundToInt(initial * 100) + "%", 22, TextAnchor.MiddleLeft,
+            new Vector2(0.5f, anchorY), new Vector2(0.5f, anchorY), new Vector2(290, 0), new Vector2(90, 40));
+        pct.color = new Color(1f, 0.85f, 0.4f);
+
+        // slider: rounded track, gold fill, circle handle
+        var track = new GameObject("slider-" + label);
+        track.transform.SetParent(_settingsPanel.transform, false);
+        var trackImg = track.AddComponent<Image>();
+        trackImg.sprite = _roundedFill;
+        trackImg.type = Image.Type.Sliced;
+        trackImg.color = new Color(0.05f, 0.04f, 0.14f, 0.9f);
+        var trt = trackImg.rectTransform;
+        trt.anchorMin = trt.anchorMax = new Vector2(0.5f, anchorY);
+        trt.anchoredPosition = new Vector2(120, 0);
+        trt.sizeDelta = new Vector2(280, 20);
+
+        var fillArea = new GameObject("fillArea").AddComponent<RectTransform>();
+        fillArea.transform.SetParent(track.transform, false);
+        fillArea.anchorMin = Vector2.zero; fillArea.anchorMax = Vector2.one;
+        fillArea.offsetMin = new Vector2(4, 4); fillArea.offsetMax = new Vector2(-4, -4);
+        var fill = NewImage(fillArea.transform, "fill", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        fill.sprite = _roundedFill;
+        fill.type = Image.Type.Sliced;
+        fill.color = new Color(1f, 0.75f, 0.3f, 0.95f);
+        fill.raycastTarget = false;
+
+        var handleArea = new GameObject("handleArea").AddComponent<RectTransform>();
+        handleArea.transform.SetParent(track.transform, false);
+        handleArea.anchorMin = Vector2.zero; handleArea.anchorMax = Vector2.one;
+        handleArea.offsetMin = new Vector2(10, 0); handleArea.offsetMax = new Vector2(-10, 0);
+        var handle = NewImage(handleArea.transform, "handle", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(26, 26));
+        handle.sprite = CircleSprite();
+        handle.color = new Color(1f, 0.92f, 0.7f);
+        handle.raycastTarget = true;
+
+        var slider = track.AddComponent<Slider>();
+        slider.minValue = 0f;
+        slider.maxValue = 1f;
+        slider.fillRect = fill.rectTransform;
+        slider.handleRect = handle.rectTransform;
+        slider.targetGraphic = handle;
+        slider.value = initial;
+        slider.onValueChanged.AddListener(v => {
+            onChange(v);
+            pct.text = Mathf.RoundToInt(v * 100) + "%";
+            if (label.StartsWith("SFX") && Time.unscaledTime > 1f)
+                GameManager.I.PlaySfx(SfxSynth.HitPulse, 0.6f);   // audible preview
+        });
     }
 
     void BuildTournamentPanels()
@@ -762,7 +822,9 @@ public class HudController : MonoBehaviour
         _warnBorder.color = new Color(1, 1, 1, 0);
         _overScore.text = score.ToString("N0");
         _overBest.text = newBest ? "NEW BEST!" : "BEST  " + best.ToString("N0");
-        _overStats.text = "Reached wave " + wave + " / " + WaveDirector.FinalWave;
+        _overStats.text = wave > WaveDirector.FinalWave
+            ? "Survived to wave " + wave + " — sector cleared"
+            : "Reached wave " + wave + " / " + WaveDirector.FinalWave;
         Invoke(nameof(EnableRestart), 1.2f);
     }
     void EnableRestart() { WantsRestart = true; }
@@ -781,7 +843,9 @@ public class HudController : MonoBehaviour
     {
         _wavesRef = waves;
         _scoreText.text = score.ToString("N0");
-        _waveText.text = "WAVE " + Mathf.Max(1, waves.wave) + " / " + WaveDirector.FinalWave;
+        _waveText.text = waves.wave > WaveDirector.FinalWave
+            ? "SURVIVAL " + waves.wave
+            : "WAVE " + Mathf.Max(1, waves.wave) + " / " + WaveDirector.FinalWave;
         _hostilesText.text = waves.hostilesAlive > 0 ? waves.hostilesAlive + " HOSTILE" + (waves.hostilesAlive > 1 ? "S" : "") : "";
         _shieldBar.fillAmount = player.maxShield > 0 ? player.shield / player.maxShield : 0f;
         _hullBar.fillAmount = player.hull / player.maxHull;

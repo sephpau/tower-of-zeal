@@ -11,4 +11,16 @@ public static class GameSettings
         get => PlayerPrefs.GetInt(HitWarnKey, 0) == 1;
         set { PlayerPrefs.SetInt(HitWarnKey, value ? 1 : 0); PlayerPrefs.Save(); }
     }
+
+    public static float MusicVolume
+    {
+        get => PlayerPrefs.GetFloat("zsv2-musicvol", 0.7f);
+        set { PlayerPrefs.SetFloat("zsv2-musicvol", Mathf.Clamp01(value)); PlayerPrefs.Save(); }
+    }
+
+    public static float SfxVolume
+    {
+        get => PlayerPrefs.GetFloat("zsv2-sfxvol", 1f);
+        set { PlayerPrefs.SetFloat("zsv2-sfxvol", Mathf.Clamp01(value)); PlayerPrefs.Save(); }
+    }
 }

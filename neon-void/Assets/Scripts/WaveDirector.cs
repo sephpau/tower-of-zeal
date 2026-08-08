@@ -14,6 +14,7 @@ public class WaveDirector : MonoBehaviour
     float _intermission;
     bool _spawning;
     bool _finished;
+    public bool endless;   // campaign survival mode after the Dreadnought falls
 
     public void Begin()
     {
@@ -21,6 +22,7 @@ public class WaveDirector : MonoBehaviour
         hostilesAlive = 0;
         bossHealth = null;
         _finished = false;
+        endless = false;
         _intermission = 3f;
     }
 
@@ -41,7 +43,7 @@ public class WaveDirector : MonoBehaviour
         Vector3 center = player != null ? player.transform.position : Vector3.zero;
 
         var miniboss = System.Array.Find(ZealData.Bosses, b => b.wave == wave);
-        if (wave >= FinalWave)
+        if (wave == FinalWave)
         {
             GameManager.I.OnBossWave("!! VOID DREADNOUGHT !!");
             var boss = EnemyFactory.BuildDreadnought(center + RandomShellDir() * 210f);
@@ -61,8 +63,9 @@ public class WaveDirector : MonoBehaviour
         else
         {
             GameManager.I.OnWaveStarted(wave);
-            int interceptors = Mathf.Min(3 + wave, 9);
-            int gunships = wave >= 4 ? Mathf.Min((wave - 2) / 2, 3) : 0;
+            int over = Mathf.Max(0, wave - FinalWave);   // survival waves grow ever larger
+            int interceptors = Mathf.Min(Mathf.Min(3 + wave, 9) + over, 18);
+            int gunships = wave >= 4 ? Mathf.Min(Mathf.Min((wave - 2) / 2, 3) + over / 2, 8) : 0;
             for (int i = 0; i < interceptors; i++) SpawnOne(center, true, false);
             for (int i = 0; i < gunships; i++) SpawnOne(center, false, true);
         }
@@ -99,10 +102,18 @@ public class WaveDirector : MonoBehaviour
         hostilesAlive = Mathf.Max(0, hostilesAlive - 1);
         if (hostilesAlive == 0)
         {
-            if (wave >= FinalWave)
+            if (wave == FinalWave && !endless)
             {
-                _finished = true;
-                GameManager.I.Victory();
+                if (TournamentMode.Active)
+                {
+                    _finished = true;
+                    GameManager.I.Victory();
+                }
+                else
+                {
+                    endless = true;   // campaign: the fight never ends
+                    GameManager.I.OnSurvivalStart();
+                }
             }
             else
                 GameManager.I.OnWaveCleared(wave);

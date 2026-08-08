@@ -127,6 +127,8 @@ public class GameManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.M))
             AudioListener.volume = AudioListener.volume > 0f ? 0f : 1f;
 
+        if (_music != null) _music.volume = 0.34f * GameSettings.MusicVolume;
+
         if (!Running)
         {
             if ((Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space)) && _hud != null && _hud.WantsRestart)
@@ -208,8 +210,19 @@ public class GameManager : MonoBehaviour
 
     public void OnWaveStarted(int wave)
     {
-        _hud.WaveBanner("WAVE " + wave + " / " + WaveDirector.FinalWave);
+        _hud.WaveBanner(wave > WaveDirector.FinalWave
+            ? "SURVIVAL WAVE " + wave
+            : "WAVE " + wave + " / " + WaveDirector.FinalWave);
         PlaySfx(SfxSynth.WaveUp, 0.8f);
+    }
+
+    // campaign only: the Dreadnought falls and the endless horde begins
+    public void OnSurvivalStart()
+    {
+        score += 2500;
+        _hud.WaveBanner("SECTOR CLEARED — SURVIVAL MODE!");
+        PlaySfx(SfxSynth.WaveUp, 1f);
+        PlaySfx(SfxSynth.Pickup, 0.8f);
     }
 
     public void OnBossWave(string banner, string taunt = null)
@@ -302,12 +315,12 @@ public class GameManager : MonoBehaviour
 
     public void PlaySfx(AudioClip clip, float vol = 1f)
     {
-        if (clip != null && _sfx2d != null) _sfx2d.PlayOneShot(clip, vol);
+        if (clip != null && _sfx2d != null) _sfx2d.PlayOneShot(clip, vol * GameSettings.SfxVolume);
     }
 
     public void PlaySfxAt(AudioClip clip, Vector3 pos, float vol = 1f)
     {
         if (clip == null) return;
-        AudioSource.PlayClipAtPoint(clip, pos, vol);
+        AudioSource.PlayClipAtPoint(clip, pos, vol * GameSettings.SfxVolume);
     }
 }
