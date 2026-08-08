@@ -7,12 +7,12 @@ public static class EgoModel
     // model's forward after FBX import — tune here if he faces the wrong way
     public const float YawFix = 180f;
 
-    public static GameObject Spawn(Transform parent, Vector3 localPos, float scale)
+    public static GameObject Spawn(Transform parent, Vector3 localPos, float scale, string resource = "ego")
     {
-        var prefab = Resources.Load<GameObject>("ego");
+        var prefab = Resources.Load<GameObject>(resource);
         if (prefab == null) return null;   // model not imported — game still works
         var ego = Object.Instantiate(prefab, parent);
-        ego.name = "EgoModel";
+        ego.name = resource + "Model";
         ego.transform.localPosition = localPos;
         ego.transform.localRotation = Quaternion.Euler(0f, YawFix, 0f);
         ego.transform.localScale = Vector3.one * scale;
@@ -22,21 +22,30 @@ public static class EgoModel
     }
 }
 
-// Start-screen showpiece: Ego drifting and spinning in front of the camera.
+// Start-screen showpieces: Ego and Captain Ego drifting and spinning
+// on either side of the camera.
 public class EgoShowcase : MonoBehaviour
 {
+    public float spin = 18f;
     float _t;
 
     public static void Create(Camera cam)
     {
-        var holder = new GameObject("EgoShowcase");
-        var ego = EgoModel.Spawn(holder.transform, Vector3.zero, 2.6f);
-        if (ego == null) { Object.Destroy(holder); Debug.LogWarning("EgoShowcase: Resources/ego not found"); return; }
-        holder.transform.position = cam.transform.position + cam.transform.forward * 5f
-            + cam.transform.right * 2.6f - cam.transform.up * 1.2f;
-        holder.AddComponent<EgoShowcase>();
+        CreateOne(cam, "ego", 2.6f, +2.6f, 18f);
+        CreateOne(cam, "captain", 2.75f, -2.6f, -18f);
+    }
 
-        var l = new GameObject("egoLight").AddComponent<Light>();
+    static void CreateOne(Camera cam, string resource, float scale, float side, float spin)
+    {
+        var holder = new GameObject(resource + "Showcase");
+        var model = EgoModel.Spawn(holder.transform, Vector3.zero, scale, resource);
+        if (model == null) { Object.Destroy(holder); Debug.LogWarning("Showcase: Resources/" + resource + " not found"); return; }
+        holder.transform.position = cam.transform.position + cam.transform.forward * 5f
+            + cam.transform.right * side - cam.transform.up * 1.2f;
+        var sc = holder.AddComponent<EgoShowcase>();
+        sc.spin = spin;
+
+        var l = new GameObject(resource + "Light").AddComponent<Light>();
         l.transform.SetParent(holder.transform, false);
         l.transform.localPosition = new Vector3(1.5f, 2f, -2f);
         l.type = LightType.Point;
@@ -48,7 +57,7 @@ public class EgoShowcase : MonoBehaviour
     void Update()
     {
         _t += Time.deltaTime;
-        transform.Rotate(0f, 18f * Time.deltaTime, 0f, Space.World);
+        transform.Rotate(0f, spin * Time.deltaTime, 0f, Space.World);
         transform.position += Vector3.up * Mathf.Sin(_t * 1.1f) * 0.0016f;
         if (GameManager.I != null && GameManager.I.Running)
             Destroy(gameObject);

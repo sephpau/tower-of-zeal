@@ -15,3 +15,5 @@ src/**/*.js
 
 # raw rock asset archives — only the converted .glb in assets/models is tracked
 ego-run/assets/rock/
+
+neon-void/captain-work.blend
