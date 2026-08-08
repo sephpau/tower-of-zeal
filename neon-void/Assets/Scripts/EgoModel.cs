@@ -17,7 +17,9 @@ public static class EgoModel
         var ego = Object.Instantiate(prefab, parent);
         ego.name = resource + "Model";
         ego.transform.localPosition = localPos;
-        ego.transform.localRotation = Quaternion.Euler(0f, YawFix, 0f);
+        // compose the yaw with the importer's axis-correction rotation —
+        // overwriting it lays Z-up models flat on their backs
+        ego.transform.localRotation = Quaternion.Euler(0f, YawFix, 0f) * ego.transform.localRotation;
         ego.transform.localScale = Vector3.one;
 
         var renderers = ego.GetComponentsInChildren<Renderer>();
