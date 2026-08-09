@@ -70,6 +70,7 @@ public class SpecialAttack : MonoBehaviour
 
         if (_ship != null) _ship.BreakGuard();   // specials are attacks too
         cooldownLeft = _cooldown;
+        Announcer.Say(DisplayName + "!", 0.7f, 1.12f);
         switch (_pilot.id)
         {
             case "ego": _channel = StartCoroutine(ZealBeam()); break;

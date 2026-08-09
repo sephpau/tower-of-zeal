@@ -114,6 +114,7 @@ public class BossAI : MonoBehaviour
                 EnemyMissile.Launch(m.position + dir * 3f, dir, BoltColor);
             }
             GameManager.I.PlaySfxAt(SfxSynth.WaveUp, transform.position, 0.6f);
+            Announcer.Say("Homing missiles, incoming!", 0.58f, 1.05f);
         }
 
         // radial bolt ring, aimed roughly at the player's plane

@@ -94,8 +94,20 @@ public class ActiveSkills : MonoBehaviour
                 Cast(slots[i]);
     }
 
+    static string CastLine(string id) => id switch
+    {
+        "chrono" => "Cooldowns, reset!",
+        "boots" => "Speed up!",
+        "doubloon" => "Doubloon toss!",
+        "cannon" => "Deck cannon!",
+        "drake" => "Pocket drake!",
+        "brazier" => "Void brazier!",
+        _ => null,
+    };
+
     void Cast(Slot s)
     {
+        Announcer.Say(CastLine(s.def.id), 0.7f, 1.12f);
         switch (s.def.id)
         {
             case "chrono":

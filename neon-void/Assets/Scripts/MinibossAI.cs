@@ -95,6 +95,7 @@ public class MinibossAI : MonoBehaviour
                 EnemyMissile.Launch(transform.position + dir * 8f, dir, def.tint);
             }
             GameManager.I.PlaySfxAt(SfxSynth.WaveUp, transform.position, 0.5f);
+            Announcer.Say("Homing missiles, incoming!", 0.58f, 1.05f);
         }
     }
 

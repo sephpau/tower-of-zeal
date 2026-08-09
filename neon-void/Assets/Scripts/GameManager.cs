@@ -50,6 +50,7 @@ public class GameManager : MonoBehaviour
     }
 
     float _elapsed;
+    bool _lowHpSaid;
     public float ElapsedSeconds => _elapsed;
     int _sigilIdx;
     bool _overtimeAnnounced;
@@ -123,6 +124,7 @@ public class GameManager : MonoBehaviour
         if (choices.Count == 0) { score += 300; TryOpenDraft(); return; }
         _draftOpen = true;
         PlaySfx(SfxSynth.WaveUp, 0.6f);
+        Announcer.Say("Level up! Choose a skill to upgrade.", 0.65f, 1.05f);
 
         if (CoopSync.Active || RoyaleSync.Active)
         {
@@ -187,6 +189,16 @@ public class GameManager : MonoBehaviour
 
         _elapsed += Time.deltaTime;
 
+        // announcer: low-health warning, re-armed after recovering
+        float hpFrac = (_playerHealth.shield + _playerHealth.hull)
+            / Mathf.Max(1f, _playerHealth.maxShield + _playerHealth.maxHull);
+        if (hpFrac < 0.3f && !_lowHpSaid && _playerHealth.gameObject.activeInHierarchy)
+        {
+            _lowHpSaid = true;
+            Announcer.Say("Warning! Low health!", 0.55f, 1.05f);
+        }
+        else if (hpFrac > 0.5f) _lowHpSaid = false;
+
         // Zeal Sigil grows on the run clock
         var weapon = _playerHealth.GetComponent<Weapon>();
         while (_sigilIdx < ZealData.SigilTimes.Length && _elapsed >= ZealData.SigilTimes[_sigilIdx])
@@ -207,6 +219,7 @@ public class GameManager : MonoBehaviour
             EnemyFactory.BuildElite(_playerHealth.transform.position + dir.normalized * Random.Range(130f, 170f), CurrentWave());
             _hud.WaveBanner("!! ELITE HUNTER !!");
             PlaySfx(SfxSynth.BigBoom, 0.5f);
+            Announcer.Say("Elite hunter, incoming!", 0.58f, 1f);
         }
 
         // timed duels: the host's clock is the referee
@@ -350,6 +363,9 @@ public class GameManager : MonoBehaviour
             ? "SURVIVAL WAVE " + wave
             : "WAVE " + wave + " / " + WaveDirector.FinalWave);
         PlaySfx(SfxSynth.WaveUp, 0.8f);
+        Announcer.Say(wave <= 1 ? "First wave, incoming!"
+            : wave > WaveDirector.FinalWave ? "Survival wave " + wave + "!"
+            : "Next wave!");
     }
 
     // campaign only: the Dreadnought falls and the endless horde begins
@@ -359,6 +375,7 @@ public class GameManager : MonoBehaviour
         _hud.WaveBanner("SECTOR CLEARED — SURVIVAL MODE!");
         PlaySfx(SfxSynth.WaveUp, 1f);
         PlaySfx(SfxSynth.Pickup, 0.8f);
+        Announcer.Say("Sector cleared! Survival mode, engaged!", 0.58f, 1f);
     }
 
     public void OnBossWave(string banner, string taunt = null)
@@ -366,6 +383,7 @@ public class GameManager : MonoBehaviour
         _hud.WaveBanner(banner);
         PlaySfx(SfxSynth.WaveUp, 1f);
         PlaySfx(SfxSynth.BigBoom, 0.6f);
+        Announcer.Say("Boss wave! " + banner.Replace("!", "").Trim() + "!", 0.55f, 0.95f);
         if (!string.IsNullOrEmpty(taunt)) StartCoroutine(TauntLater(taunt));
     }
 
