@@ -75,19 +75,15 @@ public class Projectile : MonoBehaviour
                 var h = hit.collider.GetComponentInParent<Health>();
                 if (h != null && h.gameObject != _owner)
                 {
-                    // no friendly fire between enemies
-                    if (_fromPlayer || h.isPlayer)
+                    // which side does this bolt fight for? replicas count as enemy fire
+                    bool enemySide = !_fromPlayer || _ghostFire;
+                    // enemy fire hurts players and their ordnance; player fire hurts
+                    // everything else (never the player's own pies/missiles)
+                    bool canDamage = enemySide ? (h.isPlayer || h.playerSide) : !h.playerSide;
+                    if (canDamage)
                     {
-                        // partner replicas spark off enemies without damaging them
-                        // (the partner's own game already dealt that damage)
-                        if (_ghostFire && !h.isPlayer)
-                        {
-                            ExplosionFactory.Sparks(hit.point, new Color(0.4f, 0.9f, 1f));
-                            Release();
-                            return;
-                        }
                         h.TakeDamage(_damage);
-                        if (_fromPlayer && !h.isPlayer)
+                        if (_fromPlayer && !_ghostFire && !h.isPlayer)
                             GameManager.I.PlaySfx(SfxSynth.HitPulse, 0.35f);
                         ExplosionFactory.Sparks(hit.point, _fromPlayer ? new Color(0.4f, 0.9f, 1f) : new Color(1f, 0.4f, 0.8f));
                         if (h.isPlayer)
@@ -106,6 +102,13 @@ public class Projectile : MonoBehaviour
                             Release();
                             return;
                         }
+                    }
+                    else if (_ghostFire)
+                    {
+                        // partner replicas spark off enemies without double-damaging them
+                        ExplosionFactory.Sparks(hit.point, new Color(0.4f, 0.9f, 1f));
+                        Release();
+                        return;
                     }
                 }
                 else if (h == null)

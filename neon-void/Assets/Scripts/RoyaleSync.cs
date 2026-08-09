@@ -19,9 +19,11 @@ public class RoyaleSync : MonoBehaviour
     public class PlayerInfo
     {
         public int slot;
-        public string peerId = "";       // host bookkeeping only
+        public string peerId = "";       // network id — carried in the roster for audio edges
         public string name = "PILOT";
         public int pilot;
+        public int team;                 // 0 = solo/FFA, 1-4 = squads A-D
+        public int lives = 3;
         public bool alive = true;
         public GameObject ghost;
         public Vector3 targetPos, vel;
@@ -54,6 +56,7 @@ public class RoyaleSync : MonoBehaviour
     CoopNet _net;
     string _room = "", _myName = "PILOT";
     int _myPilot;
+    int _myLives = 3;
     bool _isSpectator, _localDead, _started, _counting;
     int _myPlacement;
     Health _localHealth;
@@ -89,12 +92,13 @@ public class RoyaleSync : MonoBehaviour
         I._myPilot = Mathf.Clamp(pilot, 0, ZealData.Pilots.Length - 1);
         I._isSpectator = spectator && !host;   // the host always flies
         I._net = go.AddComponent<CoopNet>();
+        I._net.keepSignalingOpen = true;   // audio edges handshake peer-to-peer
         I._net.onPeerJoined = I.OnPeerJoined;
         I._net.onPeerLeft = I.OnPeerLeft;
         I._net.Connect(host, I._room, I.OnMessage, I.OnNetState);
         if (host)
         {
-            var me = new PlayerInfo { slot = 0, name = I._myName, pilot = I._myPilot };
+            var me = new PlayerInfo { slot = 0, peerId = "host", name = I._myName, pilot = I._myPilot };
             I.players.Add(me);
             I.mySlot = 0;
             I.InLobby = true;
@@ -116,7 +120,8 @@ public class RoyaleSync : MonoBehaviour
         }
     }
 
-    PlayerInfo Me => players.Find(p => p.slot == mySlot);
+    public PlayerInfo MyInfo => players.Find(p => p.slot == mySlot);
+    PlayerInfo Me => MyInfo;
     PlayerInfo BySlot(int slot) => players.Find(p => p.slot == slot);
 
     void Relay(string exceptPeer, string msg)
@@ -184,6 +189,21 @@ public class RoyaleSync : MonoBehaviour
     }
 
     public int MyPilot => _myPilot;
+    public int MyLives => _myLives;
+
+    // squads: 0 = solo/FFA, 1-4 = teams A-D. Two duos = your 2v2.
+    public void SetTeam(int team)
+    {
+        if (_counting || _started) return;
+        team = Mathf.Clamp(team, 0, 4);
+        var me = Me;
+        if (me != null) me.team = team;
+        if (IsHostRole) { BroadcastRoster(); onRosterChanged?.Invoke(); }
+        else _net.Send("host", "TEAM|" + team);
+    }
+
+    public bool SameTeam(PlayerInfo a, PlayerInfo b) =>
+        a != null && b != null && a.team > 0 && a.team == b.team;
 
     // host shows a pilot the airlock — lobby removal, mid-match elimination
     public void HostKick(int slot)
@@ -237,7 +257,8 @@ public class RoyaleSync : MonoBehaviour
         var sb = new System.Text.StringBuilder("ROSTER|");
         foreach (var p in players)
             sb.Append(p.slot).Append(',').Append(p.name).Append(',').Append(p.pilot)
-              .Append(',').Append(p.alive ? 1 : 0).Append(';');
+              .Append(',').Append(p.alive ? 1 : 0).Append(',').Append(p.team)
+              .Append(',').Append(p.lives).Append(',').Append(p.peerId).Append(';');
         sb.Append('|').Append(_spectators.Count);
         _net.Broadcast(sb.ToString());
         spectatorCount = _spectators.Count;
@@ -254,7 +275,9 @@ public class RoyaleSync : MonoBehaviour
         Spectating = _isSpectator;
         aliveCount = players.Count;
         _myPlacement = 0;
-        if (IsHostRole) _net.StopSignaling();   // room locks at launch
+        _myLives = 3;
+        foreach (var pl in players) pl.lives = 3;
+        StartCoroutine(StopSignalingLater());   // grace period for audio-edge handshakes
 
         onStarted?.Invoke();
         GameManager.I.StartRun(_myPilot);
@@ -285,8 +308,40 @@ public class RoyaleSync : MonoBehaviour
         _zoneStage = 0;
         BuildZoneSphere();
 
+        ApplyVoiceRouting();
         if (Spectating) SpectateNext(0);
         GameManager.I.Banner("BATTLE ROYALE // " + _room + " // " + aliveCount + " SHIPS");
+    }
+
+    IEnumerator StopSignalingLater()
+    {
+        yield return new WaitForSecondsRealtime(25f);
+        if (_started && _net != null) _net.StopSignaling();
+    }
+
+    // team-scoped comms: squads hear only each other; all-FFA rooms get open
+    // comms; enemies get silence. Each client gates its own OUTGOING audio.
+    void ApplyVoiceRouting()
+    {
+        var me = Me;
+        foreach (var p in players)
+        {
+            if (p.slot == mySlot || string.IsNullOrEmpty(p.peerId)) continue;
+            bool friendly = me != null && ((me.team == 0 && p.team == 0) || SameTeam(me, p));
+            if (IsHostRole || p.peerId == "host")
+                _net.VoiceTo(p.peerId, friendly);                      // gate the existing data link
+            else if (friendly && string.CompareOrdinal(_net.MyId, p.peerId) < 0)
+                _net.DialAudio(p.peerId);                              // lower id dials the audio edge
+            else
+                _net.VoiceTo(p.peerId, friendly);                      // (re)gate any edge from last round
+        }
+    }
+
+    void RestoreLobbyVoice()
+    {
+        foreach (var p in players)
+            if (p.slot != mySlot && !string.IsNullOrEmpty(p.peerId))
+                _net.VoiceTo(p.peerId, true);
     }
 
     static Vector3 SpawnPos(int slot, int count)
@@ -310,7 +365,7 @@ public class RoyaleSync : MonoBehaviour
         if (rb != null) rb.isKinematic = true;
         var tint = g.GetComponent<ShipTint>();
         if (tint != null) tint.Apply(ZealData.Pilots[Mathf.Clamp(p.pilot, 0, ZealData.Pilots.Length - 1)].accent);
-        NVOutline.Add(g, NVOutline.Hostile, 0.03f);
+        NVOutline.Add(g, SameTeam(Me, p) ? NVOutline.Ally : NVOutline.Hostile, 0.03f);
         p.ghost = g;
         p.targetPos = g.transform.position;
         p.hasPose = false;
@@ -362,6 +417,52 @@ public class RoyaleSync : MonoBehaviour
                     BroadcastRoster();
                     onRosterChanged?.Invoke();
                 }
+                break;
+            case "TEAM":
+                if (!IsHostRole) break;
+                var tp = players.Find(x => x.peerId == from);
+                if (tp != null && p.Length >= 2)
+                {
+                    int.TryParse(p[1], out tp.team);
+                    tp.team = Mathf.Clamp(tp.team, 0, 4);
+                    BroadcastRoster();
+                    onRosterChanged?.Invoke();
+                }
+                break;
+            case "DOWN":
+                if (!IsHostRole) break;
+                var dwp = players.Find(x => x.peerId == from);
+                if (dwp != null && p.Length >= 2)
+                {
+                    int.TryParse(p[1], out dwp.lives);
+                    if (dwp.ghost != null) HideGhostWithBoom(dwp);
+                    _net.Broadcast("DOWNB|" + dwp.slot + "|" + dwp.lives);
+                    GameManager.I.Banner(dwp.name.ToUpperInvariant() + " IS DOWN — " + dwp.lives + " LIVES LEFT");
+                }
+                break;
+            case "RESP":
+                if (!IsHostRole) break;
+                var rsp = players.Find(x => x.peerId == from);
+                if (rsp != null)
+                {
+                    if (rsp.ghost != null) rsp.ghost.SetActive(true);
+                    _net.Broadcast("RESPB|" + rsp.slot);
+                }
+                break;
+            case "DOWNB":
+                if (IsHostRole || p.Length < 3 || !int.TryParse(p[1], out int dbs) || dbs == mySlot) break;
+                var dbp = BySlot(dbs);
+                if (dbp != null)
+                {
+                    int.TryParse(p[2], out dbp.lives);
+                    if (dbp.ghost != null) HideGhostWithBoom(dbp);
+                    GameManager.I.Banner(dbp.name.ToUpperInvariant() + " IS DOWN — " + dbp.lives + " LIVES LEFT");
+                }
+                break;
+            case "RESPB":
+                if (IsHostRole || p.Length < 2 || !int.TryParse(p[1], out int rbs) || rbs == mySlot) break;
+                var rbp = BySlot(rbs);
+                if (rbp != null && rbp.ghost != null) rbp.ghost.SetActive(true);
                 break;
             case "P":
                 if (!IsHostRole) break;
@@ -467,6 +568,12 @@ public class RoyaleSync : MonoBehaviour
             pl.name = c[1];
             int.TryParse(c[2], out pl.pilot);
             pl.alive = c[3] == "1";
+            if (c.Length >= 7)
+            {
+                int.TryParse(c[4], out pl.team);
+                int.TryParse(c[5], out pl.lives);
+                pl.peerId = c[6];
+            }
             seen.Add(slot);
         }
         players.RemoveAll(x => !seen.Contains(x.slot));
@@ -504,12 +611,13 @@ public class RoyaleSync : MonoBehaviour
         if (!Playing) return;
         Color col = ZealData.Pilots[Mathf.Clamp(shooter.pilot, 0, ZealData.Pilots.Length - 1)].accent;
         GameObject owner = shooter.ghost;
+        bool friendly = SameTeam(Me, shooter);   // squadmate bolts are all flash, no burn
         foreach (var entry in batch.Split(';'))
         {
             if (entry.Length == 0) continue;
             var c = entry.Split(',');
             if (c.Length < 7) continue;
-            float dmg = Spectating ? 0f : PF(c[6]);   // spectators only watch the light show
+            float dmg = (Spectating || friendly) ? 0f : PF(c[6]);
             Projectile.Spawn(new Vector3(PF(c[0]), PF(c[1]), PF(c[2])),
                 new Vector3(PF(c[3]), PF(c[4]), PF(c[5])), dmg, col, owner, true, 0, ghostFire: true);
         }
@@ -529,12 +637,53 @@ public class RoyaleSync : MonoBehaviour
     public void OnLocalDeath()
     {
         if (_localDead) return;
+        _myLives--;
+        var me = Me;
+        if (me != null) me.lives = _myLives;
+        if (_myLives > 0)
+        {
+            // down but not out — 5 seconds and you're back
+            if (IsHostRole) _net.Broadcast("DOWNB|0|" + _myLives);
+            else _net.Send("host", "DOWN|" + _myLives);
+            StartCoroutine(RespawnCo());
+            return;
+        }
         _localDead = true;
         Spectating = true;
         if (IsHostRole) EliminateSlot(0, "");
         else _net.Send("host", "DIE");
         GameManager.I.Banner("ELIMINATED — SPECTATING (J/K TO SWITCH SHIPS)");
         SpectateNext(0);
+    }
+
+    IEnumerator RespawnCo()
+    {
+        for (int s = 5; s > 0; s--)
+        {
+            if (!Playing || GameManager.I == null || !GameManager.I.Running) yield break;
+            GameManager.I.Banner("RESPAWN IN " + s + " — " + _myLives + (_myLives == 1 ? " LIFE" : " LIVES") + " LEFT");
+            yield return new WaitForSecondsRealtime(1f);
+        }
+        if (!Playing || GameManager.I == null || !GameManager.I.Running || _localHealth == null) yield break;
+        Vector3 dir = UnityEngine.Random.onUnitSphere;
+        dir.y *= 0.4f;
+        Vector3 pos = _zoneCenter + dir.normalized * (_zoneRadius * 0.55f);
+        var sc = _localHealth.GetComponent<ShipController>();
+        _localHealth.gameObject.SetActive(true);
+        if (sc != null) sc.SetPose(pos, UnityEngine.Random.Range(0f, 360f));
+        _localHealth.Revive(1f);
+        if (IsHostRole) _net.Broadcast("RESPB|0");
+        else _net.Send("host", "RESP");
+        GameManager.I.Banner("BACK IN THE FIGHT — " + _myLives + (_myLives == 1 ? " LIFE" : " LIVES") + " LEFT");
+    }
+
+    void HideGhostWithBoom(PlayerInfo p)
+    {
+        if (p.ghost == null) return;
+        ExplosionFactory.Explode(p.ghost.transform.position, new Color(0.4f, 0.9f, 1f), 2f, true);
+        GameManager.I.PlaySfxAt(SfxSynth.Boom, p.ghost.transform.position, 0.8f);
+        p.ghost.SetActive(false);
+        p.hasPose = false;
     }
 
     void EliminateSlot(int slot, string suffix)   // host referee
@@ -560,10 +709,30 @@ public class RoyaleSync : MonoBehaviour
 
     void CheckWin()
     {
-        if (!IsHostRole || !_started || aliveCount > 1) return;
-        var winner = players.Find(x => x.alive);
-        int wslot = winner != null ? winner.slot : -1;
-        string wname = winner != null ? winner.name : "NOBODY";
+        if (!IsHostRole || !_started) return;
+        var aliveP = players.FindAll(x => x.alive);
+        aliveCount = aliveP.Count;
+        var groups = new HashSet<string>();
+        foreach (var a in aliveP) groups.Add(a.team > 0 ? "T" + a.team : "S" + a.slot);
+        if (groups.Count > 1) return;   // still a fight
+
+        int wslot = -1;
+        string wname = "NOBODY";
+        if (aliveP.Count > 0)
+        {
+            if (aliveP[0].team > 0)
+            {
+                wslot = -10 - aliveP[0].team;   // team victory marker
+                var names = new List<string>();
+                foreach (var a in aliveP) names.Add(a.name);
+                wname = "TEAM " + (char)('A' + aliveP[0].team - 1) + " (" + string.Join(" + ", names) + ")";
+            }
+            else
+            {
+                wslot = aliveP[0].slot;
+                wname = aliveP[0].name;
+            }
+        }
         _net.Broadcast("WIN|" + wslot + "|" + wname);
         EndMatch(wslot, wname);
     }
@@ -586,12 +755,16 @@ public class RoyaleSync : MonoBehaviour
         }
         if (_zoneSphere != null) Destroy(_zoneSphere);
         _fire.Length = 0;
-        if (IsHostRole)
-        {
-            _net.ResumeSignaling();
-            BroadcastRoster();
-        }
-        GameManager.I.RoyaleEnd(winnerSlot == mySlot && !_isSpectator, winnerName, _myPlacement, _isSpectator);
+        _net.ResumeSignaling();   // everyone reopens the mailbox for the next round
+        RestoreLobbyVoice();
+        if (IsHostRole) BroadcastRoster();
+
+        bool teamWin = winnerSlot <= -10;
+        int winTeam = teamWin ? -winnerSlot - 10 : 0;
+        var meNow = Me;
+        bool iWon = !_isSpectator &&
+            (winnerSlot == mySlot || (teamWin && meNow != null && meNow.team == winTeam));
+        GameManager.I.RoyaleEnd(iWon, winnerName, _myPlacement, _isSpectator);
     }
 
     // ---------- per-frame ----------

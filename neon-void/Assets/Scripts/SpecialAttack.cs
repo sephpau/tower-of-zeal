@@ -201,7 +201,7 @@ public class SpecialAttack : MonoBehaviour
             foreach (var hit in Physics.SphereCastAll(origin, 3.2f, transform.forward, BeamRange))
             {
                 var h = hit.collider.GetComponentInParent<Health>();
-                if (h != null && !h.isPlayer)
+                if (h != null && !h.isPlayer && !h.playerSide)
                 {
                     h.TakeDamage(BeamDps * Might * Time.deltaTime);
                     if (Random.value < 6f * Time.deltaTime)
@@ -315,6 +315,18 @@ public class HomingPie : MonoBehaviour
         trail.material = NVAssets.Additive;
         trail.startColor = tint;
         trail.endColor = new Color(tint.r, tint.g, tint.b, 0f);
+
+        // the pie is ordnance: enemy fire can shoot it out of the sky
+        var col = gameObject.AddComponent<SphereCollider>();
+        col.radius = 1.2f;
+        var hp = gameObject.AddComponent<Health>();
+        hp.Configure(0f, 24f);
+        hp.playerSide = true;
+        hp.OnDeath += _ => {
+            ExplosionFactory.Explode(transform.position, _tint, 0.9f);
+            GameManager.I.PlaySfxAt(SfxSynth.Boom, transform.position, 0.5f);
+            Destroy(gameObject);
+        };
     }
 
     void Update()
@@ -332,8 +344,9 @@ public class HomingPie : MonoBehaviour
         Vector3 step = _velocity * Time.deltaTime;
         if (Physics.Raycast(transform.position, step.normalized, out RaycastHit hit, step.magnitude + 0.5f))
         {
+            if (hit.collider.GetComponentInParent<HomingPie>() == this) { transform.position += step; return; }
             var h = hit.collider.GetComponentInParent<Health>();
-            if (h != null && !h.isPlayer)
+            if (h != null && !h.isPlayer && !h.playerSide)
             {
                 h.TakeDamage(_dmg);
                 GameManager.I.PlaySfx(SfxSynth.HitSpecial, 0.6f);
@@ -388,7 +401,7 @@ public class StormMarkBolt : MonoBehaviour
             if (hit.collider.attachedRigidbody == null || hit.collider.attachedRigidbody.gameObject != _owner)
             {
                 var direct = hit.collider.GetComponentInParent<Health>();
-                if (direct != null && !direct.isPlayer)
+                if (direct != null && !direct.isPlayer && !direct.playerSide)
                 {
                     direct.TakeDamage(_dmg);
                     GameManager.I.PlaySfx(SfxSynth.HitSpecial, 0.7f);

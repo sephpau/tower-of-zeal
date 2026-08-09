@@ -43,7 +43,7 @@ public class HudController : MonoBehaviour
     readonly List<Button> _brPilotButtons = new List<Button>();
     readonly List<Text> _brRowTexts = new List<Text>();
     readonly List<Button> _brRowKicks = new List<Button>();
-    Button _brStartBtn;
+    Button _brStartBtn, _brTeamBtn;
     int _brPilotChoice;
     readonly List<Text> _tagPool = new List<Text>();
     InputField _coopRoomInput, _coopNameInput;
@@ -333,17 +333,20 @@ public class HudController : MonoBehaviour
             int tagUsed = 0;
             if (RoyaleSync.Active && RoyaleSync.I != null)
             {
+                var myInfo = RoyaleSync.I.MyInfo;
                 foreach (var p in RoyaleSync.I.players)
                 {
                     if (used >= _hpBarBgs.Count || tagUsed >= _tagPool.Count) break;
                     if (p.ghost == null || !p.ghost.activeSelf || !p.hasPose) continue;
                     Vector3 sp = cam.WorldToScreenPoint(p.ghost.transform.position + Vector3.up * 5f);
                     if (sp.z <= 0f) continue;
-                    Color side = new Color(1f, 0.4f, 0.4f);
+                    Color side = RoyaleSync.I.SameTeam(myInfo, p)
+                        ? new Color(0.3f, 1f, 0.8f)      // squadmate
+                        : new Color(1f, 0.4f, 0.4f);     // target
                     PlaceBar(used++, sp, p.shield / p.maxShield, p.hull / p.maxHull, true, side);
                     var tag = _tagPool[tagUsed++];
                     tag.gameObject.SetActive(true);
-                    tag.text = p.name.ToUpperInvariant();
+                    tag.text = p.name.ToUpperInvariant() + "  " + new string('♥', Mathf.Clamp(p.lives, 0, 3));
                     tag.color = side;
                     tag.rectTransform.position = sp + new Vector3(0f, 20f, 0f);
                 }
@@ -1273,8 +1276,18 @@ public class HudController : MonoBehaviour
             new Vector2(0.5f, 0.79f), new Vector2(0.5f, 0.79f), Vector2.zero, new Vector2(900, 36));
         _brLobbyRoom.color = new Color(1f, 0.85f, 0.4f);
         _brRoster = NewText(_brLobbyPanel.transform, "roster", "", 22, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.31f), new Vector2(0.5f, 0.31f), Vector2.zero, new Vector2(800, 34));
+            new Vector2(0.5f, 0.335f), new Vector2(0.5f, 0.335f), Vector2.zero, new Vector2(800, 34));
         _brRoster.color = new Color(0.85f, 0.9f, 1f);
+
+        // squad picker: FFA, or teams A-D (two duos = 2v2; comms are team-only)
+        _brTeamBtn = MakeButton(_brLobbyPanel.transform, "TEAM: FFA (EVERY SHIP FOR ITSELF)", new Vector2(0.5f, 0.275f), new Vector2(520, 46),
+            new Color(0.4f, 1f, 0.75f), () => {
+                var s = RoyaleSync.I;
+                if (s == null || s.MyInfo == null) return;
+                s.SetTeam((s.MyInfo.team + 1) % 5);
+                RefreshRoyaleLobby();
+            });
+        _brTeamBtn.GetComponentInChildren<Text>().fontSize = 18;
 
         // one row per possible pilot: name text + a host-only KICK button
         _brRowTexts.Clear();
@@ -1303,11 +1316,11 @@ public class HudController : MonoBehaviour
         _brCountdown.color = new Color(1f, 0.85f, 0.4f);
         _brCountdown.font = _titleFont;
         _brLobbyStatus = NewText(_brLobbyPanel.transform, "status", "", 20, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.28f), new Vector2(0.5f, 0.28f), Vector2.zero, new Vector2(1200, 32));
+            new Vector2(0.5f, 0.222f), new Vector2(0.5f, 0.222f), Vector2.zero, new Vector2(1200, 32));
         _brLobbyStatus.color = new Color(1f, 0.55f, 0.5f);
-        _brStartBtn = MakeButton(_brLobbyPanel.transform, "LAUNCH MATCH", new Vector2(0.38f, 0.17f), new Vector2(300, 58),
+        _brStartBtn = MakeButton(_brLobbyPanel.transform, "LAUNCH MATCH", new Vector2(0.38f, 0.15f), new Vector2(300, 58),
             new Color(0.5f, 1f, 0.6f), () => { if (RoyaleSync.I != null) RoyaleSync.I.HostStartMatch(); });
-        MakeButton(_brLobbyPanel.transform, "LEAVE", new Vector2(0.62f, 0.17f), new Vector2(300, 58),
+        MakeButton(_brLobbyPanel.transform, "LEAVE", new Vector2(0.62f, 0.15f), new Vector2(300, 58),
             new Color(1f, 0.5f, 0.5f), () => {
                 RoyaleSync.Cancel();
                 _brLobbyPanel.SetActive(false);
@@ -1385,10 +1398,20 @@ public class HudController : MonoBehaviour
             if (!has) { _brRowKicks[i].gameObject.SetActive(false); continue; }
             var p = s.players[i];
             string pilot = ZealData.Pilots[Mathf.Clamp(p.pilot, 0, ZealData.Pilots.Length - 1)].name.ToUpperInvariant();
-            _brRowTexts[i].text = (p.slot == s.mySlot ? "> " : "") + p.name.ToUpperInvariant() + "  —  " + pilot + (p.slot == 0 ? "  (HOST)" : "");
+            string team = p.team > 0 ? "  [" + (char)('A' + p.team - 1) + "]" : "";
+            _brRowTexts[i].text = (p.slot == s.mySlot ? "> " : "") + p.name.ToUpperInvariant() + "  —  " + pilot + team + (p.slot == 0 ? "  (HOST)" : "");
             _brRowTexts[i].color = p.slot == s.mySlot ? new Color(0.5f, 0.98f, 1f) : new Color(0.85f, 0.9f, 1f);
             _brRowKicks[i].gameObject.SetActive(s.IsHostRole && p.slot != 0);
         }
+        if (s.MyInfo != null)
+        {
+            var teamLabel = _brTeamBtn.GetComponentInChildren<Text>();
+            teamLabel.text = s.MyInfo.team > 0
+                ? "TEAM: " + (char)('A' + s.MyInfo.team - 1) + " — SQUAD COMMS ONLY"
+                : "TEAM: FFA (EVERY SHIP FOR ITSELF)";
+            _brTeamBtn.gameObject.SetActive(s.mySlot >= 0);
+        }
+        else _brTeamBtn.gameObject.SetActive(false);
         _brRoster.text = s.players.Count + " / 8 PILOTS"
             + (s.spectatorCount > 0 ? "   ·   " + s.spectatorCount + " WATCHING" : "")
             + (s.mySlot < 0 ? "   ·   YOU ARE SPECTATING" : "");

@@ -15,6 +15,10 @@ public class Health : MonoBehaviour
     // co-op guest replica: damage is claimed back to the host, never applied here
     public bool netPuppet;
 
+    // player-owned destructible ordnance (pies, deck-cannon missiles):
+    // enemy fire can shoot it down, the player's own fire passes through
+    public bool playerSide;
+
     // Pocket Drake: absorbs damage before shield/hull; fires when it breaks
     public float absorb;
     public event Action OnAbsorbBroken;

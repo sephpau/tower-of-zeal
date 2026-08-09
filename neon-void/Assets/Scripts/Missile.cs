@@ -155,6 +155,18 @@ public class Missile : MonoBehaviour
         trail.startColor = Tint;
         trail.endColor = new Color(Tint.r, Tint.g, Tint.b, 0f);
         trail.minVertexDistance = 0.4f;
+
+        // deck-cannon rounds are ordnance too: shootable before they land
+        var col = go.AddComponent<SphereCollider>();
+        col.radius = 0.9f;
+        var hp = go.AddComponent<Health>();
+        hp.Configure(0f, 20f);
+        hp.playerSide = true;
+        hp.OnDeath += _ => {
+            ExplosionFactory.Explode(go.transform.position, Tint, 0.8f);
+            GameManager.I.PlaySfxAt(SfxSynth.Boom, go.transform.position, 0.5f);
+            Destroy(go);
+        };
     }
 
     void Update()
@@ -176,7 +188,8 @@ public class Missile : MonoBehaviour
         Vector3 step = _velocity * Time.deltaTime;
         if (Physics.Raycast(transform.position, step.normalized, out RaycastHit hit, step.magnitude + 0.3f))
         {
-            if (hit.collider.attachedRigidbody == null || hit.collider.attachedRigidbody.gameObject != _owner)
+            if (hit.collider.GetComponentInParent<Missile>() != this &&
+                (hit.collider.attachedRigidbody == null || hit.collider.attachedRigidbody.gameObject != _owner))
             {
                 Detonate(hit.point, hit.collider.GetComponentInParent<Health>());
                 return;
@@ -187,7 +200,7 @@ public class Missile : MonoBehaviour
 
     void Detonate(Vector3 at, Health direct)
     {
-        if (direct != null && !direct.isPlayer) direct.TakeDamage(_damage);
+        if (direct != null && !direct.isPlayer && !direct.playerSide) direct.TakeDamage(_damage);
         ExplosionFactory.Explode(at, Tint, 0.8f);
         GameManager.I.PlaySfxAt(SfxSynth.Boom, at, 0.5f);
         Destroy(gameObject);

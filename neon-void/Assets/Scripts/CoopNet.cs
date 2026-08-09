@@ -23,6 +23,8 @@ public class CoopNet : MonoBehaviour
     [DllImport("__Internal")] static extern IntPtr NVNetPoll();
     [DllImport("__Internal")] static extern IntPtr NVNetPeers();
     [DllImport("__Internal")] static extern int NVNetState();
+    [DllImport("__Internal")] static extern void NVNetDial(string id);
+    [DllImport("__Internal")] static extern void NVNetVoiceTo(string id, int on);
     [DllImport("__Internal")] static extern void NVNetKick(string id);
     [DllImport("__Internal")] static extern void NVNetMicOn(int on);
     [DllImport("__Internal")] static extern void NVNetVoiceVolume(float v);
@@ -40,6 +42,8 @@ public class CoopNet : MonoBehaviour
     static IntPtr NVNetPoll() => IntPtr.Zero;
     static IntPtr NVNetPeers() => IntPtr.Zero;
     static int NVNetState() => 0;
+    static void NVNetDial(string id) { }
+    static void NVNetVoiceTo(string id, int on) { }
     static void NVNetKick(string id) { }
     static void NVNetMicOn(int on) { }
     static void NVNetVoiceVolume(float v) { }
@@ -112,6 +116,11 @@ public class CoopNet : MonoBehaviour
     public void Send(string to, string msg) => NVNetSend(to, msg);
     public void Broadcast(string msg) => NVNetSend("*", msg);
     public void Kick(string id) => NVNetKick(id);
+    public void DialAudio(string id) => NVNetDial(id);           // audio-only edge to a peer
+    public void VoiceTo(string id, bool on) => NVNetVoiceTo(id, on ? 1 : 0);   // gate my audio per link
+
+    // royale joiners keep their mailbox open so audio edges can handshake
+    public bool keepSignalingOpen;
     // two-peer compatibility: joiners talk to the host, the host to everyone
     public void SendPeer(string msg)
     {
@@ -160,11 +169,11 @@ public class CoopNet : MonoBehaviour
     IEnumerator SignalLoop()
     {
         float elapsed = 0f;
-        // joiners give up after 2 minutes; the host serves the room for up to 15
-        float budget = IsHost ? 900f : 120f;
+        // plain joiners give up after 2 minutes; hosts and royale peers serve the room longer
+        float budget = (IsHost || keepSignalingOpen) ? 900f : 120f;
         while (_sigRunning && elapsed < budget)
         {
-            if (!IsHost && NVNetState() != 0) break;   // joiner is connected — done
+            if (!IsHost && !keepSignalingOpen && NVNetState() != 0) break;   // plain joiner is connected — done
 
             string s;
             while ((s = TakeString(NVNetPollSignal())) != null)

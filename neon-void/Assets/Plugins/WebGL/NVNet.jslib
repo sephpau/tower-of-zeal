@@ -1,10 +1,9 @@
-// Multi-peer WebRTC star for Zeal Survivors v2 (co-op, duels, battle royale).
-// The host holds one RTCPeerConnection per joiner and relays game state;
-// joiners hold exactly one connection (to "host"). Strings returned to C#
-// are malloc'd and freed via NVNetFree. Envelope format over the poll
-// functions: "<peerId>\u0001<payload>".
-// Voice: every connection carries the local mic (denied mic = silent);
-// audio is hub-and-spoke — peers hear the host, the host hears everyone.
+// Multi-peer WebRTC star + audio edges for Zeal Survivors v2.
+// Data: host holds one connection per joiner and relays; joiners dial "host".
+// Voice: every connection carries the local mic; extra AUDIO-ONLY edges can
+// be dialed between any two peers (teammates, or everyone in open-comms FFA),
+// and NVNetVoiceTo gates outgoing audio per link so enemies hear nothing.
+// Envelope over the poll functions: "<peerId>\u0001<payload>".
 mergeInto(LibraryManager.library, {
 
   NVNetInit: function (isHost, wantMic) {
@@ -18,20 +17,25 @@ mergeInto(LibraryManager.library, {
       n.mic = stream;
       return null;
     }).catch(function () { return null; });
-  },
 
-  NVNetConnect: function () {   // joiner only: dial the host
-    var n = window.__nvnet;
-    if (!n || n.isHost || n.peers['host']) return;
-    var makePeer = function (id) {
-      var p = { pc: new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }), chan: null, open: false, pendingIce: [] };
+    n.makePeer = function (id) {
+      var p = { pc: new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }), chan: null, open: false, pendingIce: [], audioSender: null };
       n.peers[id] = p;
       p.pc.onicecandidate = function (e) {
         if (e.candidate) n.sig.push(id + '\u0001' + JSON.stringify({ t: 'ice', d: JSON.stringify(e.candidate) }));
       };
       p.pc.onconnectionstatechange = function () {
         var s = p.pc.connectionState;
-        if (s === 'failed' || s === 'disconnected' || s === 'closed') { p.open = false; if (!n.isHost) n.state = 2; }
+        if (s === 'failed' || s === 'disconnected' || s === 'closed') {
+          p.open = false;
+          if (!n.isHost && id === 'host') n.state = 2;
+        }
+      };
+      p.pc.ondatachannel = function (e) {
+        p.chan = e.channel;
+        p.chan.onopen = function () { p.open = true; };
+        p.chan.onclose = function () { p.open = false; };
+        p.chan.onmessage = function (ev) { n.recv.push(id + '\u0001' + ev.data); };
       };
       p.pc.ontrack = function (e) {
         var el = document.createElement('audio');
@@ -39,6 +43,7 @@ mergeInto(LibraryManager.library, {
         el.srcObject = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
         el.volume = (typeof window.__nvVoiceVol === 'number') ? window.__nvVoiceVol : 1;
         document.body.appendChild(el);
+        if (n.voiceEls[id]) { try { n.voiceEls[id].remove(); } catch (err) {} }
         n.voiceEls[id] = el;
         var pr = el.play();
         if (pr && pr.catch) pr.catch(function () {
@@ -46,23 +51,41 @@ mergeInto(LibraryManager.library, {
           document.addEventListener('click', once);
         });
       };
+      p.addMic = function () {
+        if (n.mic && !p.audioSender) {
+          var t = n.mic.getAudioTracks()[0];
+          if (t) p.audioSender = p.pc.addTrack(t, n.mic);
+        }
+      };
+      p.dialOffer = function () {
+        n.micReady.then(function () {
+          p.addMic();
+          return p.pc.createOffer();
+        }).then(function (o) { return p.pc.setLocalDescription(o); }).then(function () {
+          n.sig.push(id + '\u0001' + JSON.stringify({ t: 'sdp', d: JSON.stringify(p.pc.localDescription) }));
+        }).catch(function (e) { console.warn('nvnet offer', e); });
+      };
       return p;
     };
-    window.__nvMakePeer = window.__nvMakePeer || makePeer;
-    var p = makePeer('host');
-    var hook = function (ch) {
-      p.chan = ch;
-      ch.onopen = function () { p.open = true; if (!n.isHost) n.state = 1; };
-      ch.onclose = function () { p.open = false; if (!n.isHost) n.state = 2; };
-      ch.onmessage = function (e) { n.recv.push('host\u0001' + e.data); };
-    };
-    hook(p.pc.createDataChannel('game'));
-    n.micReady.then(function () {
-      if (n.mic) n.mic.getTracks().forEach(function (t) { p.pc.addTrack(t, n.mic); });
-      return p.pc.createOffer();
-    }).then(function (o) { return p.pc.setLocalDescription(o); }).then(function () {
-      n.sig.push('host\u0001' + JSON.stringify({ t: 'sdp', d: JSON.stringify(p.pc.localDescription) }));
-    }).catch(function (e) { console.warn('nvnet offer', e); });
+  },
+
+  NVNetConnect: function () {   // joiner: dial the host with a data channel
+    var n = window.__nvnet;
+    if (!n || n.isHost || n.peers['host']) return;
+    var p = n.makePeer('host');
+    p.chan = p.pc.createDataChannel('game');
+    p.chan.onopen = function () { p.open = true; if (!n.isHost) n.state = 1; };
+    p.chan.onclose = function () { p.open = false; if (!n.isHost) n.state = 2; };
+    p.chan.onmessage = function (e) { n.recv.push('host\u0001' + e.data); };
+    p.dialOffer();
+  },
+
+  NVNetDial: function (idPtr) {   // audio-only edge to another peer
+    var n = window.__nvnet;
+    if (!n) return;
+    var id = UTF8ToString(idPtr);
+    if (n.peers[id]) return;   // already linked — gate with NVNetVoiceTo instead
+    n.makePeer(id).dialOffer();
   },
 
   NVNetSignal: function (fromPtr, msgPtr) {
@@ -71,44 +94,11 @@ mergeInto(LibraryManager.library, {
     var from = UTF8ToString(fromPtr);
     try {
       var m = JSON.parse(UTF8ToString(msgPtr));
-      var p = n.peers[from];
-      if (!p && n.isHost) {
-        // a new joiner is dialing in — build a connection for them
-        p = { pc: new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }), chan: null, open: false, pendingIce: [] };
-        n.peers[from] = p;
-        p.pc.onicecandidate = function (e) {
-          if (e.candidate) n.sig.push(from + '\u0001' + JSON.stringify({ t: 'ice', d: JSON.stringify(e.candidate) }));
-        };
-        p.pc.onconnectionstatechange = function () {
-          var s = p.pc.connectionState;
-          if (s === 'failed' || s === 'disconnected' || s === 'closed') p.open = false;
-        };
-        p.pc.ondatachannel = function (e) {
-          p.chan = e.channel;
-          p.chan.onopen = function () { p.open = true; };
-          p.chan.onclose = function () { p.open = false; };
-          p.chan.onmessage = function (ev) { n.recv.push(from + '\u0001' + ev.data); };
-        };
-        p.pc.ontrack = function (e) {
-          var el = document.createElement('audio');
-          el.autoplay = true;
-          el.srcObject = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
-          el.volume = (typeof window.__nvVoiceVol === 'number') ? window.__nvVoiceVol : 1;
-          document.body.appendChild(el);
-          n.voiceEls[from] = el;
-          var pr = el.play();
-          if (pr && pr.catch) pr.catch(function () {
-            var once = function () { el.play(); document.removeEventListener('click', once); };
-            document.addEventListener('click', once);
-          });
-        };
-      }
-      if (!p) return;
+      var p = n.peers[from] || n.makePeer(from);   // unknown dialer: data joiner (host) or audio edge (anyone)
       if (m.t === 'sdp') {
         var desc = JSON.parse(m.d);
         n.micReady.then(function () {
-          if (desc.type === 'offer' && n.mic)
-            n.mic.getTracks().forEach(function (t) { try { p.pc.addTrack(t, n.mic); } catch (e) {} });
+          if (desc.type === 'offer') p.addMic();
           return p.pc.setRemoteDescription(desc);
         }).then(function () {
           while (p.pendingIce.length) p.pc.addIceCandidate(p.pendingIce.shift()).catch(function () {});
@@ -163,7 +153,7 @@ mergeInto(LibraryManager.library, {
     }
   },
 
-  NVNetPeers: function () {
+  NVNetPeers: function () {   // only DATA peers (audio edges stay invisible)
     var n = window.__nvnet;
     var ids = [];
     if (n) for (var id in n.peers) if (n.peers[id].open) ids.push(id);
@@ -179,7 +169,17 @@ mergeInto(LibraryManager.library, {
     return n ? n.state : 0;
   },
 
-  NVNetKick: function (idPtr) {   // host: drop one peer's connection
+  NVNetVoiceTo: function (idPtr, on) {   // gate MY outgoing audio on one link
+    var n = window.__nvnet;
+    if (!n) return;
+    var p = n.peers[UTF8ToString(idPtr)];
+    if (p && p.audioSender) {
+      var t = (on && n.mic) ? n.mic.getAudioTracks()[0] : null;
+      try { p.audioSender.replaceTrack(t || null); } catch (e) {}
+    }
+  },
+
+  NVNetKick: function (idPtr) {
     var n = window.__nvnet;
     if (!n) return;
     var id = UTF8ToString(idPtr);
@@ -219,7 +219,7 @@ mergeInto(LibraryManager.library, {
 
   NVNetFree: function (ptr) { _free(ptr); },
 
-  // ---- settings mic test: level meter without any connection ----
+  // ---- settings mic test ----
   NVMicStart: function () {
     var m = window.__nvmic = { level: -2 };
     navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {

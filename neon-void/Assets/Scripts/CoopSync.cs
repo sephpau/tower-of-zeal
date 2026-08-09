@@ -409,7 +409,7 @@ public class CoopSync : MonoBehaviour
         // adopt any enemy that doesn't carry a net id yet
         foreach (var h in FindObjectsByType<Health>(FindObjectsSortMode.None))
         {
-            if (h.isPlayer || h.GetComponent<NetTag>() != null) continue;
+            if (h.isPlayer || h.playerSide || h.GetComponent<NetTag>() != null) continue;
             string type = Classify(h.gameObject.name);
             if (type == null) continue;   // asteroids and other scenery stay local
             var tag = h.gameObject.AddComponent<NetTag>();
