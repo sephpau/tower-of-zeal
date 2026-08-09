@@ -48,8 +48,38 @@ public class CoopSync : MonoBehaviour
     public int lobbyMode;
     public bool blitzDuo => lobbyMode == 1;
 
-    // duel state: partner is the ENEMY — full damage, no waves, first kill wins
+    // duel state: partner is the ENEMY — full damage, no waves
     public static bool DuelActive;
+    public static float DuelDuration;   // seconds; 0 = fight until someone runs out of lives
+
+    // duel config (host sets, LOB syncs) + live tallies
+    public int duelLives = 1;           // 1-3 lives each
+    public int duelTime = 120;          // 60/120/180, or 0 = unlimited
+    public int hitsTaken;               // times the enemy tagged ME (their score)
+    public int partnerHitsTaken;        // times I tagged THEM (my score, from their pose reports)
+    int _duelLivesLeft;
+    bool _duelEnded;
+
+    public void SetDuelLives(int lives)
+    {
+        if (!IsHost || _counting) return;
+        duelLives = Mathf.Clamp(lives, 1, 3);
+        SendLobbyState();
+        onLobbyChanged?.Invoke();
+    }
+
+    public void SetDuelTime(int seconds)
+    {
+        if (!IsHost || _counting) return;
+        duelTime = seconds;
+        SendLobbyState();
+        onLobbyChanged?.Invoke();
+    }
+
+    public static void NoteDuelHit()
+    {
+        if (I != null && DuelActive) I.hitsTaken++;
+    }
     public string TeamName => IsHost ? _myName + " + " + _partnerName : _partnerName + " + " + _myName;
     public string DuoPilots
     {
@@ -163,7 +193,8 @@ public class CoopSync : MonoBehaviour
         MaybeCountdown();
     }
 
-    void SendLobbyState() => Send("LOB|" + _myLobbyPilot + "|" + (_myReady ? 1 : 0) + "|" + lobbyMode);
+    void SendLobbyState() => Send("LOB|" + _myLobbyPilot + "|" + (_myReady ? 1 : 0) + "|" + lobbyMode
+        + "|" + duelLives + "|" + duelTime);
 
     void MaybeCountdown()
     {
@@ -192,6 +223,11 @@ public class CoopSync : MonoBehaviour
         InLobby = false;
         _counting = false;
         DuelActive = lobbyMode == 2;
+        DuelDuration = DuelActive ? duelTime : 0f;
+        _duelLivesLeft = Mathf.Clamp(duelLives, 1, 3);
+        _duelEnded = false;
+        hitsTaken = 0;
+        partnerHitsTaken = 0;
         if (blitzDuo)
             TournamentMode.Arm(_room, TeamName, -1);   // -1: legacy hash → identical verify on both clients
         else
@@ -206,6 +242,8 @@ public class CoopSync : MonoBehaviour
         InLobby = true;
         _counting = false;
         DuelActive = false;
+        DuelDuration = 0f;
+        _duelEnded = false;
         _myReady = false;
         partnerReady = false;
         _localDead = _partnerDead = false;
@@ -383,7 +421,7 @@ public class CoopSync : MonoBehaviour
 
     void SendPose()
     {
-        if (_localDead || _localHealth == null) return;
+        if (_localDead || _localHealth == null || !_localHealth.gameObject.activeInHierarchy) return;
         var t = _localHealth.transform;
         var rb = _localHealth.GetComponent<Rigidbody>();
         Vector3 v = rb != null ? rb.linearVelocity : Vector3.zero;
@@ -393,7 +431,8 @@ public class CoopSync : MonoBehaviour
             + "|" + F(t.rotation.x) + "|" + F(t.rotation.y) + "|" + F(t.rotation.z) + "|" + F(t.rotation.w)
             + "|" + F(v.x) + "|" + F(v.y) + "|" + F(v.z) + "|" + guard
             + "|" + F(_localHealth.shield) + "|" + F(_localHealth.hull)
-            + "|" + F(_localHealth.maxShield) + "|" + F(_localHealth.maxHull));
+            + "|" + F(_localHealth.maxShield) + "|" + F(_localHealth.maxHull)
+            + "|" + hitsTaken);
     }
 
     void FlushBolts(System.Text.StringBuilder sb, string prefix)
@@ -528,6 +567,11 @@ public class CoopSync : MonoBehaviour
                     _partnerPilot = Mathf.Clamp(partnerLobbyPilot, 0, ZealData.Pilots.Length - 1);
                     _partnerHere = true;
                     if (p.Length >= 4 && !IsHost) int.TryParse(p[3], out lobbyMode);   // mode follows the host
+                    if (p.Length >= 6 && !IsHost)
+                    {
+                        int.TryParse(p[4], out duelLives);
+                        int.TryParse(p[5], out duelTime);
+                    }
                 }
                 onLobbyChanged?.Invoke();
                 MaybeCountdown();
@@ -553,6 +597,7 @@ public class CoopSync : MonoBehaviour
                         partnerMaxShield = Mathf.Max(1f, PF(p[14]));
                         partnerMaxHull = Mathf.Max(1f, PF(p[15]));
                     }
+                    if (p.Length >= 17) int.TryParse(p[16], out partnerHitsTaken);
                     _ghostHasPose = true;
                 }
                 break;
@@ -582,20 +627,39 @@ public class CoopSync : MonoBehaviour
                 if (_remotePause) GameManager.I.Banner(_partnerName.ToUpperInvariant() + " IS CHOOSING AN UPGRADE…");
                 break;
             case "DIE":
-                _partnerDead = true;
-                if (_ghost != null) _ghost.SetActive(false);
-                RemoteShip = null;
                 if (DuelActive)
                 {
-                    // their ship down = my win (unless we traded — then it already ended)
-                    if (!_localDead && GameManager.I.Running)
+                    int theirLives = 0;
+                    if (p.Length >= 2) int.TryParse(p[1], out theirLives);
+                    if (_ghost != null) _ghost.SetActive(false);
+                    RemoteShip = null;
+                    if (theirLives > 0)
+                        GameManager.I.Banner("ENEMY DOWN — " + theirLives + (theirLives == 1 ? " LIFE" : " LIVES") + " LEFT");
+                    else if (!_duelEnded && GameManager.I.Running)
                     {
+                        _duelEnded = true;
                         GameManager.I.DuelEnd(true, _partnerName);
                         ResetToLobby();
                     }
+                    break;
                 }
-                else if (_localDead) EndBoth(true);
+                _partnerDead = true;
+                if (_ghost != null) _ghost.SetActive(false);
+                RemoteShip = null;
+                if (_localDead) EndBoth(true);
                 else GameManager.I.Banner("!! " + _partnerName.ToUpperInvariant() + " IS DOWN !!");
+                break;
+            case "DEND":
+                if (!IsHost && p.Length >= 4 && !_duelEnded)
+                {
+                    _duelEnded = true;
+                    int.TryParse(p[1], out int oc);          // 0 host won, 1 guest won, 2 draw
+                    int.TryParse(p[2], out int hostScore);
+                    int.TryParse(p[3], out int guestScore);
+                    // flip to my (guest) perspective: my hits vs theirs
+                    GameManager.I.DuelTimedEnd(oc == 1 ? 0 : oc == 0 ? 1 : 2, guestScore, hostScore, _partnerName);
+                    ResetToLobby();
+                }
                 break;
             case "RES":
                 _partnerDead = false;
@@ -757,13 +821,58 @@ public class CoopSync : MonoBehaviour
         Send("DIE");
         if (DuelActive)
         {
-            // my ship down = their win; no respawns in a duel
-            GameManager.I.DuelEnd(false, _partnerName);
-            ResetToLobby();
+            _duelLivesLeft--;
+            Send("DIE|" + _duelLivesLeft);
+            if (_duelLivesLeft > 0)
+            {
+                _localDead = false;   // down, not out
+                StartCoroutine(DuelRespawnCo());
+                return;
+            }
+            if (!_duelEnded)
+            {
+                _duelEnded = true;
+                GameManager.I.DuelEnd(false, _partnerName);
+                ResetToLobby();
+            }
             return;
         }
         if (alreadyOver) { EndBoth(true); return; }
         StartCoroutine(RespawnLater());
+    }
+
+    IEnumerator DuelRespawnCo()
+    {
+        for (int s = 4; s > 0; s--)
+        {
+            if (_duelEnded || GameManager.I == null || !GameManager.I.Running) yield break;
+            GameManager.I.Banner("RESPAWN IN " + s + " — " + _duelLivesLeft + (_duelLivesLeft == 1 ? " LIFE" : " LIVES") + " LEFT");
+            yield return new WaitForSecondsRealtime(1f);
+        }
+        if (_duelEnded || GameManager.I == null || !GameManager.I.Running || _localHealth == null) yield break;
+        Vector3 basePos = RemoteShip != null ? RemoteShip.position : Vector3.zero;
+        Vector3 dir = UnityEngine.Random.onUnitSphere;
+        dir.y *= 0.3f;
+        Vector3 pos = basePos + dir.normalized * 220f;
+        var sc = _localHealth.GetComponent<ShipController>();
+        _localHealth.gameObject.SetActive(true);
+        if (sc != null) sc.SetPose(pos, Quaternion.LookRotation(-dir.normalized).eulerAngles.y);
+        _localHealth.Revive(1f);
+        Send("RES");
+        GameManager.I.Banner("ROUND " + (duelLives - _duelLivesLeft + 1) + " — FIGHT!");
+    }
+
+    // host referee: the clock ran out — most landed hits takes it
+    public void DuelTimeUp()
+    {
+        if (!IsHost || _duelEnded || GameManager.I == null || !GameManager.I.Running) return;
+        _duelEnded = true;
+        int hostScore = partnerHitsTaken;   // times the host tagged the guest (guest reported)
+        int guestScore = hitsTaken;         // times the guest tagged the host (local truth)
+        int outcome = hostScore > guestScore ? 0 : guestScore > hostScore ? 1 : 2;   // 0 host wins, 1 guest wins, 2 draw
+        Send("DEND|" + outcome + "|" + hostScore + "|" + guestScore);
+        GameManager.I.DuelTimedEnd(outcome == 0 ? 0 : outcome == 1 ? 1 : 2, hostScore, guestScore, _partnerName);
+        ResetToLobby();
     }
 
     IEnumerator RespawnLater()

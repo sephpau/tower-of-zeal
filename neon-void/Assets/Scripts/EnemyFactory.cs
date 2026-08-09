@@ -141,6 +141,7 @@ public static class EnemyFactory
         ai.fireRange = 150f;
         ai.scoreValue = 500 + wave * 40;
         go.AddComponent<EliteMark>();
+        go.AddComponent<EliteJuke>();   // takes enough hits, dashes out of your aim
         return go;
     }
 
@@ -362,6 +363,39 @@ public static class NVOutline
 
 // tags the elite so its death pays out v1-style rewards
 public class EliteMark : MonoBehaviour { }
+
+// the elite's signature move: rack up hits on it and it snap-dashes
+// sideways out of your aim with a spark flash and a whoosh
+public class EliteJuke : MonoBehaviour
+{
+    EnemyAI _ai;
+    float _cooldown;
+    int _hits;
+
+    void Awake()
+    {
+        _ai = GetComponent<EnemyAI>();
+        var h = GetComponent<Health>();
+        if (h != null) h.OnDamaged += OnHit;
+    }
+
+    void Update() => _cooldown -= Time.deltaTime;
+
+    void OnHit(Health h, float amount)
+    {
+        if (_ai == null || _cooldown > 0f) return;
+        if (++_hits < 4) return;   // the fourth hit in a window triggers the juke
+        _hits = 0;
+        _cooldown = 2.2f;
+        Vector3 side = Vector3.Cross(transform.forward, Vector3.up).normalized;
+        if (side.sqrMagnitude < 0.01f) side = transform.right;
+        side *= UnityEngine.Random.value < 0.5f ? -1f : 1f;
+        _ai.jukeVelocity = side * 85f + transform.forward * 10f;
+        _ai.jukeTimer = 0.35f;
+        ExplosionFactory.Sparks(transform.position, new Color(0.55f, 0.95f, 1f));
+        GameManager.I.PlaySfxAt(SfxSynth.Dash, transform.position, 0.9f);
+    }
+}
 
 // Wing flapping + body bob for the round monster mobs.
 // Each instance gets its own phase so a swarm doesn't flap in unison.

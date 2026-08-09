@@ -24,6 +24,8 @@ public class RoyaleSync : MonoBehaviour
         public int pilot;
         public int team;                 // 0 = solo/FFA, 1-4 = squads A-D
         public int lives = 3;
+        public int kills;
+        public int[] taken = new int[8];   // host bookkeeping: damage this player took, by shooter
         public bool alive = true;
         public GameObject ghost;
         public Vector3 targetPos, vel;
@@ -70,9 +72,34 @@ public class RoyaleSync : MonoBehaviour
     GameObject _zoneSphere;
     float _zoneBroadcastTimer;
 
-    float _poseTimer;
+    float _poseTimer, _statTimer;
     readonly System.Text.StringBuilder _fire = new System.Text.StringBuilder();
     int _spectateIdx;
+
+    // per-player match stats: who's carrying, who's cargo
+    readonly int[] _dmgFrom = new int[8];   // damage I took, by shooter slot
+    int _lastHitBy = -1;
+    float _lastHitTime;
+    public readonly List<string> lastMatchStats = new List<string>();
+
+    public static void NoteHitOnMe(GameObject owner, float dmg)
+    {
+        if (I == null || !Playing || owner == null) return;
+        var shooter = I.players.Find(x => x.ghost == owner);
+        if (shooter == null || shooter.slot < 0 || shooter.slot >= 8) return;
+        I._dmgFrom[shooter.slot] += Mathf.Max(1, Mathf.RoundToInt(dmg));
+        I._lastHitBy = shooter.slot;
+        I._lastHitTime = Time.unscaledTime;
+    }
+
+    int RecentKiller() => _lastHitBy >= 0 && Time.unscaledTime - _lastHitTime < 6f ? _lastHitBy : -1;
+
+    string TakenBlob()
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < 8; i++) { if (i > 0) sb.Append(','); sb.Append(_dmgFrom[i]); }
+        return sb.ToString();
+    }
 
     static string F(float v) => v.ToString("0.##", CultureInfo.InvariantCulture);
     static float PF(string s) => float.Parse(s, CultureInfo.InvariantCulture);
@@ -276,7 +303,15 @@ public class RoyaleSync : MonoBehaviour
         aliveCount = players.Count;
         _myPlacement = 0;
         _myLives = 3;
-        foreach (var pl in players) pl.lives = 3;
+        System.Array.Clear(_dmgFrom, 0, 8);
+        _lastHitBy = -1;
+        lastMatchStats.Clear();
+        foreach (var pl in players)
+        {
+            pl.lives = 3;
+            pl.kills = 0;
+            System.Array.Clear(pl.taken, 0, 8);
+        }
         StartCoroutine(StopSignalingLater());   // grace period for audio-edge handshakes
 
         onStarted?.Invoke();
@@ -429,12 +464,26 @@ public class RoyaleSync : MonoBehaviour
                     onRosterChanged?.Invoke();
                 }
                 break;
+            case "TK":
+                if (!IsHostRole || p.Length < 2) break;
+                var tkp = players.Find(x => x.peerId == from);
+                if (tkp != null)
+                {
+                    var cells = p[1].Split(',');
+                    for (int i = 0; i < 8 && i < cells.Length; i++) int.TryParse(cells[i], out tkp.taken[i]);
+                }
+                break;
             case "DOWN":
                 if (!IsHostRole) break;
                 var dwp = players.Find(x => x.peerId == from);
                 if (dwp != null && p.Length >= 2)
                 {
                     int.TryParse(p[1], out dwp.lives);
+                    if (p.Length >= 3 && int.TryParse(p[2], out int downBy) && downBy >= 0)
+                    {
+                        var killer = BySlot(downBy);
+                        if (killer != null) killer.kills++;
+                    }
                     if (dwp.ghost != null) HideGhostWithBoom(dwp);
                     _net.Broadcast("DOWNB|" + dwp.slot + "|" + dwp.lives);
                     GameManager.I.Banner(dwp.name.ToUpperInvariant() + " IS DOWN — " + dwp.lives + " LIVES LEFT");
@@ -481,7 +530,11 @@ public class RoyaleSync : MonoBehaviour
             case "DIE":
                 if (!IsHostRole) break;
                 var dp = players.Find(x => x.peerId == from);
-                if (dp != null && dp.alive) EliminateSlot(dp.slot, "");
+                if (dp != null && dp.alive)
+                {
+                    if (p.Length >= 2 && int.TryParse(p[1], out int dieBy)) CreditKill(dieBy);
+                    EliminateSlot(dp.slot, "");
+                }
                 break;
 
             // ----- joiner side -----
@@ -543,7 +596,7 @@ public class RoyaleSync : MonoBehaviour
                 break;
             case "WIN":
                 if (p.Length < 3 || !int.TryParse(p[1], out int wslot)) break;
-                EndMatch(wslot, p[2]);
+                EndMatch(wslot, p[2], p.Length >= 4 ? p[3] : "");
                 break;
             case "KICKED":
                 onStatus?.Invoke("KICKED BY THE HOST");
@@ -640,20 +693,35 @@ public class RoyaleSync : MonoBehaviour
         _myLives--;
         var me = Me;
         if (me != null) me.lives = _myLives;
+        int killer = RecentKiller();
         if (_myLives > 0)
         {
             // down but not out — 5 seconds and you're back
-            if (IsHostRole) _net.Broadcast("DOWNB|0|" + _myLives);
-            else _net.Send("host", "DOWN|" + _myLives);
+            if (IsHostRole)
+            {
+                CreditKill(killer);
+                _net.Broadcast("DOWNB|0|" + _myLives);
+            }
+            else _net.Send("host", "DOWN|" + _myLives + "|" + killer);
             StartCoroutine(RespawnCo());
             return;
         }
         _localDead = true;
         Spectating = true;
-        if (IsHostRole) EliminateSlot(0, "");
-        else _net.Send("host", "DIE");
+        if (IsHostRole)
+        {
+            CreditKill(killer);
+            EliminateSlot(0, "");
+        }
+        else _net.Send("host", "DIE|" + killer);
         GameManager.I.Banner("ELIMINATED — SPECTATING (J/K TO SWITCH SHIPS)");
         SpectateNext(0);
+    }
+
+    void CreditKill(int slot)
+    {
+        var killer = slot >= 0 ? BySlot(slot) : null;
+        if (killer != null) killer.kills++;
     }
 
     IEnumerator RespawnCo()
@@ -733,13 +801,45 @@ public class RoyaleSync : MonoBehaviour
                 wname = aliveP[0].name;
             }
         }
-        _net.Broadcast("WIN|" + wslot + "|" + wname);
-        EndMatch(wslot, wname);
+        // final stats: kills from the referee ledger, damage from everyone's
+        // taken-tables (dealt[s] = what the whole room took from s)
+        var meHost = Me;
+        if (meHost != null) System.Array.Copy(_dmgFrom, meHost.taken, 8);
+        var stats = new System.Text.StringBuilder();
+        foreach (var pl in players)
+        {
+            int dealt = 0;
+            foreach (var victim in players) dealt += victim.taken[Mathf.Clamp(pl.slot, 0, 7)];
+            stats.Append(pl.slot).Append(',').Append(pl.kills).Append(',').Append(dealt).Append(';');
+        }
+        _net.Broadcast("WIN|" + wslot + "|" + wname + "|" + stats);
+        EndMatch(wslot, wname, stats.ToString());
     }
 
-    void EndMatch(int winnerSlot, string winnerName)
+    void EndMatch(int winnerSlot, string winnerName, string statsBlob = "")
     {
         if (!_started) return;
+        // format the scoreboard while the roster still has everyone's names
+        lastMatchStats.Clear();
+        if (!string.IsNullOrEmpty(statsBlob))
+        {
+            var rows = new List<(string name, int kills, int dealt)>();
+            foreach (var entry in statsBlob.Split(';'))
+            {
+                if (entry.Length == 0) continue;
+                var c = entry.Split(',');
+                if (c.Length < 3 || !int.TryParse(c[0], out int slot)) continue;
+                var pl = BySlot(slot);
+                int.TryParse(c[1], out int k);
+                int.TryParse(c[2], out int d);
+                rows.Add((pl != null ? pl.name.ToUpperInvariant() : "PILOT " + slot, k, d));
+            }
+            rows.Sort((a, b) => b.dealt.CompareTo(a.dealt));
+            for (int i = 0; i < rows.Count; i++)
+                lastMatchStats.Add((i == 0 ? "★ " : "   ") + rows[i].name + " — "
+                    + rows[i].kills + (rows[i].kills == 1 ? " KILL · " : " KILLS · ")
+                    + rows[i].dealt.ToString("N0") + " DMG");
+        }
         Playing = false;
         // back-to-lobby state survives the scene reload
         _started = false;
@@ -786,6 +886,13 @@ public class RoyaleSync : MonoBehaviour
             {
                 _poseTimer = PoseEvery;
                 SendPoseAndFire();
+            }
+            _statTimer -= Time.unscaledDeltaTime;
+            if (_statTimer <= 0f && Playing)
+            {
+                _statTimer = 1f;
+                if (IsHostRole) { var me = Me; if (me != null) System.Array.Copy(_dmgFrom, me.taken, 8); }
+                else _net.Send("host", "TK|" + TakenBlob());
             }
         }
 

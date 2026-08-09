@@ -209,6 +209,15 @@ public class GameManager : MonoBehaviour
             PlaySfx(SfxSynth.BigBoom, 0.5f);
         }
 
+        // timed duels: the host's clock is the referee
+        if (CoopSync.DuelActive && CoopSync.DuelDuration > 0f)
+        {
+            float duelLeft = CoopSync.DuelDuration - _elapsed;
+            _hud.SetTimer(duelLeft);
+            if (duelLeft <= 0f && CoopSync.IsHost && CoopSync.I != null)
+                CoopSync.I.DuelTimeUp();
+        }
+
         if (TournamentMode.Active)
         {
             float left = TournamentMode.Duration - _elapsed;
@@ -267,6 +276,18 @@ public class GameManager : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         PlaySfx(won ? SfxSynth.WaveUp : SfxSynth.BigBoom, 1f);
         _hud.ShowDuelEnd(won, partnerName);
+    }
+
+    // timed duel verdict: 0 = I won on hits, 1 = lost on hits, 2 = draw
+    public void DuelTimedEnd(int outcome, int myHits, int theirHits, string partnerName)
+    {
+        if (!Running) return;
+        Running = false;
+        _music.Stop();
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+        PlaySfx(outcome == 0 ? SfxSynth.WaveUp : SfxSynth.BigBoom, 1f);
+        _hud.ShowDuelTimedEnd(outcome, myHits, theirHits, partnerName);
     }
 
     // blitz duo, guest side: the host declared the match over — mirror it

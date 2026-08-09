@@ -60,6 +60,10 @@ public class EnemyAI : MonoBehaviour
     Transform _target;
     Vector3 _targetVel;
 
+    // evasive burst (EliteJuke sets these): overrides steering briefly
+    [HideInInspector] public Vector3 jukeVelocity;
+    [HideInInspector] public float jukeTimer;
+
     // pick the nearer of the two co-op pilots; a dead ship is skipped
     void PickTarget()
     {
@@ -80,6 +84,12 @@ public class EnemyAI : MonoBehaviour
     void FixedUpdate()
     {
         if (_player == null || !GameManager.I.Running) return;
+        if (jukeTimer > 0f)
+        {
+            jukeTimer -= Time.fixedDeltaTime;
+            _rb.linearVelocity = jukeVelocity * ActiveSkills.EnemySlow;
+            return;   // pure evasive burst — no steering, no firing
+        }
         PickTarget();
 
         Vector3 toPlayer = _target.position - transform.position;

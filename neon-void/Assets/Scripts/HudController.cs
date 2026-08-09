@@ -49,7 +49,7 @@ public class HudController : MonoBehaviour
     InputField _coopRoomInput, _coopNameInput;
     Text _coopStatus, _lobbyRoom, _lobbyMyName, _lobbyPartnerName, _lobbyPartnerState, _lobbyCountdown, _lobbyStatus;
     readonly List<Button> _lobbyPilotButtons = new List<Button>();
-    Button _readyBtn, _blitzBtn;
+    Button _readyBtn, _blitzBtn, _duelLivesBtn, _duelTimeBtn;
     GameObject _lobbySpin, _brSpin;
     Image _lobbySpinFill, _brSpinFill;
     Text _overPulse;
@@ -1111,6 +1111,24 @@ public class HudController : MonoBehaviour
             });
         _blitzBtn.GetComponentInChildren<Text>().fontSize = 19;
 
+        // duel options (host only, shown in VOID DUEL mode)
+        _duelLivesBtn = MakeButton(_lobbyPanel.transform, "LIVES: 1", new Vector2(0.38f, 0.265f), new Vector2(250, 44),
+            new Color(1f, 0.35f, 0.35f), () => {
+                var s = CoopSync.I;
+                if (s == null) return;
+                if (!CoopSync.IsHost) { _lobbyStatus.text = "THE HOST SETS THE RULES"; return; }
+                s.SetDuelLives(s.duelLives % 3 + 1);
+            });
+        _duelLivesBtn.GetComponentInChildren<Text>().fontSize = 18;
+        _duelTimeBtn = MakeButton(_lobbyPanel.transform, "TIME: 2:00", new Vector2(0.62f, 0.265f), new Vector2(250, 44),
+            new Color(1f, 0.35f, 0.35f), () => {
+                var s = CoopSync.I;
+                if (s == null) return;
+                if (!CoopSync.IsHost) { _lobbyStatus.text = "THE HOST SETS THE RULES"; return; }
+                s.SetDuelTime(s.duelTime == 60 ? 120 : s.duelTime == 120 ? 180 : s.duelTime == 180 ? 0 : 60);
+            });
+        _duelTimeBtn.GetComponentInChildren<Text>().fontSize = 18;
+
         _lobbyStatus = NewText(_lobbyPanel.transform, "status", "", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.24f), new Vector2(0.5f, 0.24f), Vector2.zero, new Vector2(1200, 32));
         _lobbyStatus.color = new Color(0.4f, 1f, 0.75f, 0.9f);
@@ -1144,11 +1162,23 @@ public class HudController : MonoBehaviour
 
         var modeLabel = _blitzBtn.GetComponentInChildren<Text>();
         modeLabel.text = s.lobbyMode == 1 ? "MODE: BLITZ DUO — 5:00 + OT · SEEDED · TEAM SCORE"
-            : s.lobbyMode == 2 ? "MODE: VOID DUEL — 1V1 · FIRST KILL WINS"
+            : s.lobbyMode == 2 ? "MODE: VOID DUEL — 1V1 PVP"
             : "MODE: CAMPAIGN CO-OP — ENDLESS WAVES";
         modeLabel.color = s.lobbyMode == 1 ? new Color(1f, 0.55f, 0.9f)
             : s.lobbyMode == 2 ? new Color(1f, 0.35f, 0.35f)
             : new Color(0.5f, 0.98f, 1f);
+
+        bool duelMode = s.lobbyMode == 2;
+        _duelLivesBtn.gameObject.SetActive(duelMode);
+        _duelTimeBtn.gameObject.SetActive(duelMode);
+        if (duelMode)
+        {
+            _duelLivesBtn.GetComponentInChildren<Text>().text =
+                "LIVES: " + s.duelLives + (s.duelLives == 1 ? " (SUDDEN DEATH)" : "");
+            _duelTimeBtn.GetComponentInChildren<Text>().text = s.duelTime == 0
+                ? "TIME: UNLIMITED"
+                : "TIME: " + (s.duelTime / 60) + ":00 (HITS TIEBREAK)";
+        }
 
         if (!s.PartnerHere)
         {
@@ -1478,13 +1508,16 @@ public class HudController : MonoBehaviour
         if (_sideLevelPanel != null) _sideLevelPanel.SetActive(false);
         _warnBorder.color = new Color(1, 1, 1, 0);
         string winner = winnerName.ToUpperInvariant();
+        string board = "";
+        if (RoyaleSync.I != null && RoyaleSync.I.lastMatchStats.Count > 0)
+            board = "\n" + string.Join("\n", RoyaleSync.I.lastMatchStats);   // ★ = match MVP
         if (won)
         {
             _winPanel.SetActive(true);
             _winTitle.text = "LAST SHIP FLYING!";
             _winSub.text = "THE VOID IS YOURS";
             _winScore.text = "";
-            _winBest.text = "";
+            _winBest.text = board.TrimStart('\n');
         }
         else
         {
@@ -1492,7 +1525,35 @@ public class HudController : MonoBehaviour
             _overTitle.text = spectator ? "MATCH OVER" : "ELIMINATED";
             _overScore.text = "";
             _overBest.text = "WINNER:  " + winner;
-            _overStats.text = spectator ? "" : (placement > 0 ? "YOU PLACED #" + placement : "");
+            _overStats.text = (spectator ? "" : (placement > 0 ? "YOU PLACED #" + placement : "")) + board;
+            _overPulse.text = "CLICK TO RETURN TO LOBBY";
+        }
+        Invoke(nameof(EnableRestart), 1.2f);
+    }
+
+    // timed duel: 0 = won on hits, 1 = lost on hits, 2 = draw
+    public void ShowDuelTimedEnd(int outcome, int myHits, int theirHits, string partnerName)
+    {
+        _gameHud.SetActive(false);
+        if (_sideLevelPanel != null) _sideLevelPanel.SetActive(false);
+        _warnBorder.color = new Color(1, 1, 1, 0);
+        string partner = partnerName.ToUpperInvariant();
+        string hits = "HITS — YOU " + myHits + "  /  " + partner + " " + theirHits;
+        if (outcome == 0)
+        {
+            _winPanel.SetActive(true);
+            _winTitle.text = "DUEL WON ON HITS!";
+            _winSub.text = hits;
+            _winScore.text = "";
+            _winBest.text = "";
+        }
+        else
+        {
+            _overPanel.SetActive(true);
+            _overTitle.text = outcome == 2 ? "DRAW" : "DUEL LOST ON HITS";
+            _overScore.text = "";
+            _overBest.text = "";
+            _overStats.text = hits;
             _overPulse.text = "CLICK TO RETURN TO LOBBY";
         }
         Invoke(nameof(EnableRestart), 1.2f);
@@ -1606,9 +1667,10 @@ public class HudController : MonoBehaviour
         _overBest = NewText(_overPanel.transform, "best", "", 30, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.38f), new Vector2(0.5f, 0.38f), Vector2.zero, new Vector2(1200, 50));
         _overBest.color = new Color(1f, 0.85f, 0.4f);
-        _overStats = NewText(_overPanel.transform, "stats", "", 24, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.31f), new Vector2(0.5f, 0.31f), Vector2.zero, new Vector2(1200, 40));
+        _overStats = NewText(_overPanel.transform, "stats", "", 24, TextAnchor.UpperCenter,
+            new Vector2(0.5f, 0.33f), new Vector2(0.5f, 0.33f), Vector2.zero, new Vector2(1200, 40));
         _overStats.color = new Color(0.8f, 0.9f, 1f, 0.8f);
+        _overStats.verticalOverflow = VerticalWrapMode.Overflow;   // scoreboards run long
         _overPulse = NewText(_overPanel.transform, "pulse", "CLICK TO RELAUNCH", 34, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.18f), new Vector2(0.5f, 0.18f), Vector2.zero, new Vector2(800, 60));
         _overPulse.color = new Color(1f, 0.85f, 0.4f);
@@ -1631,9 +1693,10 @@ public class HudController : MonoBehaviour
             new Vector2(0.5f, 0.47f), new Vector2(0.5f, 0.47f), Vector2.zero, new Vector2(1200, 120));
         _winScore.color = new Color(0.5f, 0.95f, 1f);
         _winScore.fontStyle = FontStyle.Bold;
-        _winBest = NewText(_winPanel.transform, "best", "", 30, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.36f), new Vector2(0.5f, 0.36f), Vector2.zero, new Vector2(1200, 50));
+        _winBest = NewText(_winPanel.transform, "best", "", 30, TextAnchor.UpperCenter,
+            new Vector2(0.5f, 0.38f), new Vector2(0.5f, 0.38f), Vector2.zero, new Vector2(1200, 50));
         _winBest.color = new Color(1f, 0.85f, 0.4f);
+        _winBest.verticalOverflow = VerticalWrapMode.Overflow;
         var p = NewText(_winPanel.transform, "pulse", "CLICK TO FLY AGAIN", 34, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.2f), new Vector2(0.5f, 0.2f), Vector2.zero, new Vector2(800, 60));
         p.color = new Color(1f, 0.85f, 0.4f);
@@ -1811,6 +1874,13 @@ public class HudController : MonoBehaviour
                 sb.AppendLine("DAMAGE DEALT");
                 sb.AppendLine((meLead ? "★ " : "   ") + "YOU  " + Mathf.RoundToInt(cs.myDamage).ToString("N0"));
                 sb.AppendLine((meLead ? "   " : "★ ") + cs.PartnerName.ToUpperInvariant() + "  " + Mathf.RoundToInt(cs.partnerDamage).ToString("N0"));
+            }
+            else if (CoopSync.DuelActive && CoopSync.I != null)
+            {
+                var cs = CoopSync.I;
+                sb.AppendLine("HITS LANDED");
+                sb.AppendLine("YOU  " + cs.partnerHitsTaken);
+                sb.AppendLine(cs.PartnerName.ToUpperInvariant() + "  " + cs.hitsTaken);
             }
             _liveBoardText.text = sb.ToString();
         }
