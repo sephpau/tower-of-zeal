@@ -118,7 +118,9 @@ public class CoopSync : MonoBehaviour
         I._myName = string.IsNullOrEmpty(name) ? "PILOT" : name.Trim();
         I._myLobbyPilot = Mathf.Clamp(pilot, 0, ZealData.Pilots.Length - 1);
         I._net = go.AddComponent<CoopNet>();
-        I._net.Connect(host, I._room, I.OnMessage, I.OnNetState);
+        I._net.onPeerJoined = _ => I.OnLinkUp();         // host side: a partner arrived
+        I._net.onPeerLeft = _ => I.HandleDisconnect();   // host side: partner gone
+        I._net.Connect(host, I._room, (from, msg) => I.OnMessage(msg), I.OnNetState);
         return I;
     }
 
@@ -225,19 +227,21 @@ public class CoopSync : MonoBehaviour
 
     void OnNetState(int state)
     {
-        if (state == 1)
-        {
-            Debug.Log("[coop] channel open, room " + _room + " as " + (IsHost ? "host" : "guest"));
-            _micOn = true;
-            CoopNet.SetVoiceVolume(GameSettings.VoiceVolume);
-            onStatus?.Invoke("CONNECTED!");
-            if (!_sentHi) { _sentHi = true; Send("HI|" + _myName); }
-            InLobby = true;
-            onLobby?.Invoke();
-            SendLobbyState();
-        }
+        if (state == 1) OnLinkUp();
         else if (state == 2) HandleDisconnect();
         else if (state == -1) onStatus?.Invoke("NO PARTNER FOUND — CHECK THE ROOM CODE AND TRY AGAIN");
+    }
+
+    void OnLinkUp()
+    {
+        Debug.Log("[coop] channel open, room " + _room + " as " + (IsHost ? "host" : "guest"));
+        _micOn = true;
+        CoopNet.SetVoiceVolume(GameSettings.VoiceVolume);
+        onStatus?.Invoke("CONNECTED!");
+        if (!_sentHi) { _sentHi = true; Send("HI|" + _myName); }
+        InLobby = true;
+        onLobby?.Invoke();
+        SendLobbyState();
     }
 
     void StartCoopRun()
@@ -290,7 +294,7 @@ public class CoopSync : MonoBehaviour
         return null;
     }
 
-    void Send(string msg) => _net.Send(msg);
+    void Send(string msg) => _net.SendPeer(msg);
     void Queue(string msg) => _events.Add(msg);
 
     bool _micOn = true;

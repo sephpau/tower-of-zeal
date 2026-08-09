@@ -1,24 +1,27 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Networking;
 
-// WebRTC transport for co-op. The browser does the heavy lifting
-// (NVNet.jslib); this side pumps signaling through the markofthezeal.com
-// mailbox until the peer-to-peer channel opens, then just sends/receives
-// game strings. In the editor the externs are stubs — co-op is
-// WebGL-only, tested in the browser.
+// Multi-peer WebRTC transport (star topology). The host owns one
+// connection per joiner and can broadcast; joiners talk to "host" only.
+// Signaling flows through the markofthezeal.com mailbox until channels
+// open. Editor externs are stubs — networking is WebGL-only.
 public class CoopNet : MonoBehaviour
 {
     const string Api = "https://www.markofthezeal.com/api/survive2/rtc";
+    const char Sep = '\u0001';
 
 #if UNITY_WEBGL && !UNITY_EDITOR
     [DllImport("__Internal")] static extern void NVNetInit(int isHost, int wantMic);
-    [DllImport("__Internal")] static extern void NVNetSignal(string json);
+    [DllImport("__Internal")] static extern void NVNetConnect();
+    [DllImport("__Internal")] static extern void NVNetSignal(string from, string json);
     [DllImport("__Internal")] static extern IntPtr NVNetPollSignal();
-    [DllImport("__Internal")] static extern void NVNetSend(string msg);
+    [DllImport("__Internal")] static extern void NVNetSend(string to, string msg);
     [DllImport("__Internal")] static extern IntPtr NVNetPoll();
+    [DllImport("__Internal")] static extern IntPtr NVNetPeers();
     [DllImport("__Internal")] static extern int NVNetState();
     [DllImport("__Internal")] static extern void NVNetMicOn(int on);
     [DllImport("__Internal")] static extern void NVNetVoiceVolume(float v);
@@ -29,10 +32,12 @@ public class CoopNet : MonoBehaviour
     [DllImport("__Internal")] static extern void NVMicStop();
 #else
     static void NVNetInit(int isHost, int wantMic) { }
-    static void NVNetSignal(string json) { }
+    static void NVNetConnect() { }
+    static void NVNetSignal(string from, string json) { }
     static IntPtr NVNetPollSignal() => IntPtr.Zero;
-    static void NVNetSend(string msg) { }
+    static void NVNetSend(string to, string msg) { }
     static IntPtr NVNetPoll() => IntPtr.Zero;
+    static IntPtr NVNetPeers() => IntPtr.Zero;
     static int NVNetState() => 0;
     static void NVNetMicOn(int on) { }
     static void NVNetVoiceVolume(float v) { }
@@ -43,7 +48,7 @@ public class CoopNet : MonoBehaviour
     static void NVMicStop() { }
 #endif
 
-    // voice controls (safe to call any time; no-ops without a session)
+    // voice controls (safe to call any time)
     public static void SetMic(bool on) => NVNetMicOn(on ? 1 : 0);
     public static void SetVoiceVolume(float v) => NVNetVoiceVolume(Mathf.Clamp01(v));
     public static void MicTestStart() => NVMicStart();
@@ -58,30 +63,57 @@ public class CoopNet : MonoBehaviour
         return s;
     }
 
-    [Serializable] class SigPost { public string room, from, msg; }
-    [Serializable] class SigResp { public string[] msgs; public int next; }
+    [Serializable] class SigPost { public string room, from, to, msg; }
+    [Serializable] class SigEnvelope { public string from, msg; }
+    [Serializable] class SigResp { public SigEnvelope[] msgs; public int next; }
 
-    public bool Open { get; private set; }
+    public bool IsHost { get; private set; }
+    public string MyId { get; private set; }
+    public bool Open => IsHost ? _peers.Count > 0 : _lastState == 1;
+    public int PeerCount => _peers.Count;
+    public IEnumerable<string> Peers => _peers;
 
-    Action<string> _onMsg;
-    Action<int> _onState;
-    string _room, _role;
+    public Action<string, string> onMsgFrom;   // (peerId, payload)
+    public Action<int> onState;                // joiner link: 1 open, 2 lost, -1 signaling timeout
+    public Action<string> onPeerJoined;        // host only
+    public Action<string> onPeerLeft;          // host only
+
+    readonly HashSet<string> _peers = new HashSet<string>();
+    readonly HashSet<string> _peersScratch = new HashSet<string>();
+    string _room;
     int _cursor;
     int _lastState;
+    bool _sigRunning;
 
-    public void Connect(bool host, string room, Action<string> onMsg, Action<int> onState)
+    public void Connect(bool host, string room, Action<string, string> onMsg, Action<int> onStateCb)
     {
+        IsHost = host;
         _room = room;
-        _role = host ? "host" : "guest";
-        _onMsg = onMsg;
-        _onState = onState;
-        NVNetInit(host ? 1 : 0, 1);   // mic joins the same negotiation; denied mic = silent link
+        MyId = host ? "host" : "p" + UnityEngine.Random.Range(100000, 999999).ToString();
+        onMsgFrom = onMsg;
+        onState = onStateCb;
+        NVNetInit(host ? 1 : 0, 1);
+        if (!host) NVNetConnect();
+        ResumeSignaling();
+    }
+
+    // the host keeps its mailbox open for late joiners while a lobby is up
+    public void ResumeSignaling()
+    {
+        if (_sigRunning) return;
+        _sigRunning = true;
         StartCoroutine(SignalLoop());
     }
 
-    public void Send(string msg)
+    public void StopSignaling() => _sigRunning = false;
+
+    public void Send(string to, string msg) => NVNetSend(to, msg);
+    public void Broadcast(string msg) => NVNetSend("*", msg);
+    // two-peer compatibility: joiners talk to the host, the host to everyone
+    public void SendPeer(string msg)
     {
-        if (Open) NVNetSend(msg);
+        if (IsHost) Broadcast(msg);
+        else Send("host", msg);
     }
 
     void Update()
@@ -90,29 +122,53 @@ public class CoopNet : MonoBehaviour
         if (state != _lastState)
         {
             _lastState = state;
-            Open = state == 1;
-            _onState?.Invoke(state);
+            if (!IsHost) onState?.Invoke(state);
         }
-        if (!Open) return;
-        // drain everything the channel received this frame
-        for (int i = 0; i < 200; i++)
+
+        // roster of open channels → join/leave events (host cares, all track)
+        string csv = TakeString(NVNetPeers());
+        _peersScratch.Clear();
+        if (!string.IsNullOrEmpty(csv))
+            foreach (var id in csv.Split(','))
+                if (id.Length > 0) _peersScratch.Add(id);
+        foreach (var id in _peersScratch)
+            if (_peers.Add(id)) onPeerJoined?.Invoke(id);
+        Scratch.Clear();
+        foreach (var id in _peers)
+            if (!_peersScratch.Contains(id)) Scratch.Add(id);
+        foreach (var id in Scratch)
+        {
+            _peers.Remove(id);
+            onPeerLeft?.Invoke(id);
+        }
+
+        // drain received game messages
+        for (int i = 0; i < 400; i++)
         {
             string m = TakeString(NVNetPoll());
             if (m == null) break;
-            _onMsg?.Invoke(m);
+            int cut = m.IndexOf(Sep);
+            if (cut > 0) onMsgFrom?.Invoke(m.Substring(0, cut), m.Substring(cut + 1));
         }
     }
+
+    static readonly List<string> Scratch = new List<string>();
 
     IEnumerator SignalLoop()
     {
         float elapsed = 0f;
-        while (elapsed < 120f && NVNetState() == 0)
+        // joiners give up after 2 minutes; the host serves the room for up to 15
+        float budget = IsHost ? 900f : 120f;
+        while (_sigRunning && elapsed < budget)
         {
-            // outgoing: push our SDP/ICE to the room mailbox
+            if (!IsHost && NVNetState() != 0) break;   // joiner is connected — done
+
             string s;
             while ((s = TakeString(NVNetPollSignal())) != null)
             {
-                var body = JsonUtility.ToJson(new SigPost { room = _room, from = _role, msg = s });
+                int cut = s.IndexOf(Sep);
+                if (cut <= 0) continue;
+                var body = JsonUtility.ToJson(new SigPost { room = _room, from = MyId, to = s.Substring(0, cut), msg = s.Substring(cut + 1) });
                 using (var post = new UnityWebRequest(Api, "POST"))
                 {
                     post.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(body));
@@ -123,8 +179,7 @@ public class CoopNet : MonoBehaviour
                 }
             }
 
-            // incoming: pull the other side's SDP/ICE
-            using (var get = UnityWebRequest.Get(Api + "?room=" + UnityWebRequest.EscapeURL(_room) + "&for=" + _role + "&after=" + _cursor))
+            using (var get = UnityWebRequest.Get(Api + "?room=" + UnityWebRequest.EscapeURL(_room) + "&for=" + MyId + "&after=" + _cursor))
             {
                 get.timeout = 6;
                 yield return get.SendWebRequest();
@@ -134,7 +189,8 @@ public class CoopNet : MonoBehaviour
                     try { resp = JsonUtility.FromJson<SigResp>(get.downloadHandler.text); } catch { }
                     if (resp != null && resp.msgs != null)
                     {
-                        foreach (var m in resp.msgs) NVNetSignal(m);
+                        foreach (var env in resp.msgs)
+                            if (env != null && !string.IsNullOrEmpty(env.msg)) NVNetSignal(env.from, env.msg);
                         _cursor = resp.next;
                     }
                 }
@@ -143,7 +199,9 @@ public class CoopNet : MonoBehaviour
             yield return new WaitForSecondsRealtime(1f);
             elapsed += 1f;
         }
-        if (NVNetState() == 0) _onState?.Invoke(-1);   // signaling timed out
+        bool timedOut = _sigRunning && !IsHost && NVNetState() == 0;
+        _sigRunning = false;
+        if (timedOut) onState?.Invoke(-1);
     }
 
     void OnDestroy() => NVNetClose();

@@ -31,6 +31,7 @@ public class WaveDirector : MonoBehaviour
         if (!GameManager.I.Running || _finished) return;
         if (CoopSync.IsGuest) return;      // co-op guest mirrors the host's waves
         if (CoopSync.DuelActive) return;   // duels are pilot vs pilot — no waves
+        if (RoyaleSync.Active) return;     // battle royale: the zone is the only director
         if (hostilesAlive > 0 || _spawning) return;
 
         _intermission -= Time.deltaTime;

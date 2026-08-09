@@ -124,9 +124,9 @@ public class GameManager : MonoBehaviour
         _draftOpen = true;
         PlaySfx(SfxSynth.WaveUp, 0.6f);
 
-        if (CoopSync.Active)
+        if (CoopSync.Active || RoyaleSync.Active)
         {
-            // co-op never pauses: compact side panel, J/K/L picks
+            // multiplayer never pauses: compact side panel, J/K/L picks
             _hud.ShowLevelUpSide(lvl, choices, choice =>
             {
                 choice.Apply(_skills);
@@ -199,7 +199,7 @@ public class GameManager : MonoBehaviour
 
         // elite hunter roams in every 90 seconds, independent of waves
         _eliteTimer -= Time.deltaTime;
-        if (_eliteTimer <= 0f && !CoopSync.IsGuest && !CoopSync.DuelActive)
+        if (_eliteTimer <= 0f && !CoopSync.IsGuest && !CoopSync.DuelActive && !RoyaleSync.Active)
         {
             _eliteTimer = EliteEvery;
             Vector3 dir = Random.onUnitSphere;
@@ -244,6 +244,18 @@ public class GameManager : MonoBehaviour
     }
 
     public void EndCoopTournament(string reason) => EndTournament(reason);
+
+    // battle royale: the match is decided — show the placement
+    public void RoyaleEnd(bool won, string winnerName, int placement, bool spectator)
+    {
+        if (!Running) return;
+        Running = false;
+        _music.Stop();
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+        PlaySfx(won ? SfxSynth.WaveUp : SfxSynth.BigBoom, 1f);
+        _hud.ShowRoyaleEnd(won, winnerName, placement, spectator);
+    }
 
     // void duel: one ship is dust — show the verdict
     public void DuelEnd(bool won, string partnerName)
@@ -393,6 +405,7 @@ public class GameManager : MonoBehaviour
         ExplosionFactory.Explode(h.transform.position, new Color(0.4f, 0.9f, 1f), 2.5f, true);
         PlaySfx(SfxSynth.BigBoom);
         h.gameObject.SetActive(false);
+        if (RoyaleSync.Active && RoyaleSync.I != null) { RoyaleSync.I.OnLocalDeath(); return; }   // eliminated → spectate
         if (CoopSync.Active && CoopSync.I != null) { CoopSync.I.OnLocalDeath(); return; }   // partner may still save the run
         if (TournamentMode.Active) { EndTournament("SHIP DESTROYED"); return; }
         Running = false;

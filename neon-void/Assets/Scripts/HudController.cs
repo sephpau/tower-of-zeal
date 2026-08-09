@@ -37,6 +37,13 @@ public class HudController : MonoBehaviour
     readonly List<GameObject> _levelUpCards = new List<GameObject>();
 
     GameObject _coopPanel, _lobbyPanel, _sideLevelPanel;
+    GameObject _brPanel, _brLobbyPanel;
+    InputField _brRoomInput, _brNameInput;
+    Text _brStatus, _brLobbyRoom, _brRoster, _brLobbyStatus, _brCountdown;
+    readonly List<Button> _brPilotButtons = new List<Button>();
+    Button _brStartBtn;
+    int _brPilotChoice;
+    readonly List<Text> _tagPool = new List<Text>();
     InputField _coopRoomInput, _coopNameInput;
     Text _coopStatus, _lobbyRoom, _lobbyMyName, _lobbyPartnerName, _lobbyPartnerState, _lobbyCountdown, _lobbyStatus;
     readonly List<Button> _lobbyPilotButtons = new List<Button>();
@@ -264,6 +271,16 @@ public class HudController : MonoBehaviour
         _partnerTag.fontStyle = FontStyle.Bold;
         _partnerTag.gameObject.SetActive(false);
 
+        // battle royale name tags — one per possible rival
+        for (int i = 0; i < 8; i++)
+        {
+            var tag = NewText(_gameHud.transform, "brtag" + i, "", 15, TextAnchor.MiddleCenter,
+                Vector2.zero, Vector2.zero, Vector2.zero, new Vector2(180, 22));
+            tag.fontStyle = FontStyle.Bold;
+            tag.gameObject.SetActive(false);
+            _tagPool.Add(tag);
+        }
+
         BuildHomePanel();
         BuildStartPanel();
         BuildOverPanel();
@@ -272,6 +289,7 @@ public class HudController : MonoBehaviour
         BuildTournamentPanels();
         BuildCoopPanel();
         BuildLobbyPanel();
+        BuildRoyalePanels();
         BuildSideLevelPanel();
         BuildSettingsPanel();
         _gameHud.SetActive(false);
@@ -308,6 +326,28 @@ public class HudController : MonoBehaviour
                 else _partnerTag.gameObject.SetActive(false);
             }
             else if (_partnerTag.gameObject.activeSelf) _partnerTag.gameObject.SetActive(false);
+
+            // battle royale rivals: red bar + callsign over every live ship
+            int tagUsed = 0;
+            if (RoyaleSync.Active && RoyaleSync.I != null)
+            {
+                foreach (var p in RoyaleSync.I.players)
+                {
+                    if (used >= _hpBarBgs.Count || tagUsed >= _tagPool.Count) break;
+                    if (p.ghost == null || !p.ghost.activeSelf || !p.hasPose) continue;
+                    Vector3 sp = cam.WorldToScreenPoint(p.ghost.transform.position + Vector3.up * 5f);
+                    if (sp.z <= 0f) continue;
+                    Color side = new Color(1f, 0.4f, 0.4f);
+                    PlaceBar(used++, sp, p.shield / p.maxShield, p.hull / p.maxHull, true, side);
+                    var tag = _tagPool[tagUsed++];
+                    tag.gameObject.SetActive(true);
+                    tag.text = p.name.ToUpperInvariant();
+                    tag.color = side;
+                    tag.rectTransform.position = sp + new Vector3(0f, 20f, 0f);
+                }
+            }
+            for (int i = tagUsed; i < _tagPool.Count; i++)
+                if (_tagPool[i].gameObject.activeSelf) _tagPool[i].gameObject.SetActive(false);
 
             foreach (var h in SkillSystem.AllHostiles())
             {
@@ -533,13 +573,15 @@ public class HudController : MonoBehaviour
             new Color(1f, 0.85f, 0.4f), () => { _homePanel.SetActive(false); _startPanel.SetActive(true); });
         MakeButton(_homePanel.transform, "BLITZ TOURNAMENT", new Vector2(0.5f, 0.36f), new Vector2(360, 56),
             new Color(1f, 0.55f, 0.9f), () => { _homePanel.SetActive(false); _tourneySetupPanel.SetActive(true); });
-        MakeButton(_homePanel.transform, "CO-OP (2P)", new Vector2(0.5f, 0.275f), new Vector2(360, 56),
+        MakeButton(_homePanel.transform, "CO-OP (2P)", new Vector2(0.5f, 0.285f), new Vector2(360, 56),
             new Color(0.4f, 1f, 0.75f), () => { _homePanel.SetActive(false); _coopPanel.SetActive(true); });
-        MakeButton(_homePanel.transform, "SETTINGS", new Vector2(0.5f, 0.19f), new Vector2(360, 56),
+        MakeButton(_homePanel.transform, "BATTLE ROYALE", new Vector2(0.5f, 0.21f), new Vector2(360, 56),
+            new Color(1f, 0.35f, 0.35f), () => { _homePanel.SetActive(false); _brPanel.SetActive(true); });
+        MakeButton(_homePanel.transform, "SETTINGS", new Vector2(0.5f, 0.135f), new Vector2(360, 56),
             new Color(0.6f, 0.9f, 1f), () => { _homePanel.SetActive(false); _settingsPanel.SetActive(true); });
 
-        var ctl = NewText(_homePanel.transform, "controls", "MOUSE aim · WASD move · SHIFT up / CTRL down · SPACE dash (spins!) · G guard (½ dmg, attack drops it, 5s CD) · LMB fire · RMB special · V 1st/3rd person · M mute\nCollect XP shards — choose upgrades on level up", 20, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.085f), new Vector2(0.5f, 0.085f), Vector2.zero, new Vector2(1500, 80));
+        var ctl = NewText(_homePanel.transform, "controls", "MOUSE aim · WASD move · SHIFT up / CTRL down · SPACE dash (spins!) · G guard (½ dmg, attack drops it, 5s CD) · LMB fire · RMB special · V 1st/3rd person · M mute\nCollect XP shards — choose upgrades on level up", 18, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.05f), new Vector2(0.5f, 0.05f), Vector2.zero, new Vector2(1500, 70));
         ctl.color = new Color(0.8f, 0.9f, 1f, 0.7f);
         _homePanel.SetActive(false);
     }
@@ -1160,6 +1202,191 @@ public class HudController : MonoBehaviour
         return field;
     }
 
+    // ---------- battle royale panels ----------
+    void BuildRoyalePanels()
+    {
+        // setup: room / callsign / pilot / host-join-watch
+        _brPanel = Panel("RoyalePanel");
+        var t = NewText(_brPanel.transform, "title", "BATTLE ROYALE", 64, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.8f), new Vector2(0.5f, 0.8f), Vector2.zero, new Vector2(1400, 90));
+        t.color = new Color(1f, 0.35f, 0.35f);
+        t.fontStyle = FontStyle.BoldAndItalic;
+        t.font = _titleFont;
+        var sub = NewText(_brPanel.transform, "sub", "UP TO 8 PILOTS · SHRINKING VOID ZONE · LAST SHIP FLYING WINS\nONE HOSTS, EVERYONE ELSE JOINS — OR PRESS WATCH TO SPECTATE", 20, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.705f), new Vector2(0.5f, 0.705f), Vector2.zero, new Vector2(1400, 60));
+        sub.color = new Color(0.8f, 0.9f, 1f, 0.8f);
+
+        NewText(_brPanel.transform, "lbl1", "ROOM CODE", 20, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.625f), new Vector2(0.5f, 0.625f), Vector2.zero, new Vector2(400, 30))
+            .color = new Color(1f, 0.85f, 0.4f);
+        _brRoomInput = MakeInput(_brPanel.transform, new Vector2(0.5f, 0.565f), "ROYALE-NIGHT");
+        NewText(_brPanel.transform, "lbl2", "PILOT NAME", 20, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.485f), new Vector2(0.5f, 0.485f), Vector2.zero, new Vector2(400, 30))
+            .color = new Color(1f, 0.85f, 0.4f);
+        _brNameInput = MakeInput(_brPanel.transform, new Vector2(0.5f, 0.425f), "YOUR CALLSIGN");
+
+        _brPilotButtons.Clear();
+        _brPilotChoice = 0;
+        for (int i = 0; i < ZealData.Pilots.Length; i++)
+        {
+            int idx = i;
+            var pb = MakeButton(_brPanel.transform, ZealData.Pilots[i].name.ToUpperInvariant(),
+                new Vector2(0.32f + i * 0.12f, 0.345f), new Vector2(170, 44),
+                ZealData.Pilots[i].accent, () => {
+                    _brPilotChoice = idx;
+                    if (RoyaleSync.I != null) RoyaleSync.I.SetLobbyPilot(idx);
+                    RefreshBrPilotButtons();
+                });
+            pb.GetComponentInChildren<Text>().fontSize = 18;
+            _brPilotButtons.Add(pb);
+        }
+        RefreshBrPilotButtons();
+
+        _brStatus = NewText(_brPanel.transform, "status", "", 22, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.275f), new Vector2(0.5f, 0.275f), Vector2.zero, new Vector2(1100, 34));
+        _brStatus.color = new Color(1f, 0.55f, 0.5f);
+
+        MakeButton(_brPanel.transform, "HOST GAME", new Vector2(0.29f, 0.185f), new Vector2(250, 56),
+            new Color(0.5f, 1f, 0.6f), () => StartRoyale(true, false));
+        MakeButton(_brPanel.transform, "JOIN GAME", new Vector2(0.43f, 0.185f), new Vector2(250, 56),
+            new Color(1f, 0.85f, 0.4f), () => StartRoyale(false, false));
+        MakeButton(_brPanel.transform, "WATCH", new Vector2(0.57f, 0.185f), new Vector2(250, 56),
+            new Color(0.6f, 0.9f, 1f), () => StartRoyale(false, true));
+        MakeButton(_brPanel.transform, "BACK", new Vector2(0.71f, 0.185f), new Vector2(250, 56),
+            new Color(0.8f, 0.9f, 1f), () => {
+                RoyaleSync.Cancel();
+                _brStatus.text = "";
+                _brPanel.SetActive(false);
+                _homePanel.SetActive(true);
+            });
+        _brPanel.SetActive(false);
+
+        // lobby: roster + start
+        _brLobbyPanel = Panel("RoyaleLobby");
+        var lt = NewText(_brLobbyPanel.transform, "title", "ROYALE LOBBY", 60, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.87f), new Vector2(0.5f, 0.87f), Vector2.zero, new Vector2(1200, 84));
+        lt.color = new Color(1f, 0.35f, 0.35f);
+        lt.font = _titleFont;
+        _brLobbyRoom = NewText(_brLobbyPanel.transform, "room", "", 26, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.79f), new Vector2(0.5f, 0.79f), Vector2.zero, new Vector2(900, 36));
+        _brLobbyRoom.color = new Color(1f, 0.85f, 0.4f);
+        _brRoster = NewText(_brLobbyPanel.transform, "roster", "", 24, TextAnchor.UpperCenter,
+            new Vector2(0.5f, 0.72f), new Vector2(0.5f, 0.72f), Vector2.zero, new Vector2(800, 300));
+        _brRoster.color = new Color(0.85f, 0.9f, 1f);
+        _brCountdown = NewText(_brLobbyPanel.transform, "count", "", 150, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.45f), new Vector2(0.5f, 0.45f), Vector2.zero, new Vector2(600, 190));
+        _brCountdown.color = new Color(1f, 0.85f, 0.4f);
+        _brCountdown.font = _titleFont;
+        _brLobbyStatus = NewText(_brLobbyPanel.transform, "status", "", 20, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.28f), new Vector2(0.5f, 0.28f), Vector2.zero, new Vector2(1200, 32));
+        _brLobbyStatus.color = new Color(1f, 0.55f, 0.5f);
+        _brStartBtn = MakeButton(_brLobbyPanel.transform, "LAUNCH MATCH", new Vector2(0.38f, 0.17f), new Vector2(300, 58),
+            new Color(0.5f, 1f, 0.6f), () => { if (RoyaleSync.I != null) RoyaleSync.I.HostStartMatch(); });
+        MakeButton(_brLobbyPanel.transform, "LEAVE", new Vector2(0.62f, 0.17f), new Vector2(300, 58),
+            new Color(1f, 0.5f, 0.5f), () => {
+                RoyaleSync.Cancel();
+                _brLobbyPanel.SetActive(false);
+                _homePanel.SetActive(true);
+            });
+        _brLobbyPanel.SetActive(false);
+    }
+
+    void RefreshBrPilotButtons()
+    {
+        for (int i = 0; i < _brPilotButtons.Count; i++)
+        {
+            bool sel = i == _brPilotChoice;
+            _brPilotButtons[i].GetComponent<Image>().color =
+                sel ? new Color(0.22f, 0.18f, 0.42f, 0.95f) : new Color(0.09f, 0.07f, 0.2f, 0.72f);
+            var border = _brPilotButtons[i].transform.Find("border").GetComponent<Image>();
+            border.color = new Color(border.color.r, border.color.g, border.color.b, sel ? 1f : 0.25f);
+        }
+    }
+
+    void StartRoyale(bool host, bool spectate)
+    {
+        string room = _brRoomInput.text;
+        if (string.IsNullOrWhiteSpace(room)) { _brStatus.text = "ENTER A ROOM CODE FIRST"; return; }
+        var s = RoyaleSync.Begin(host, room, _brNameInput.text, _brPilotChoice, spectate);
+        BindRoyaleSession(s);
+        if (host)
+        {
+            _brPanel.SetActive(false);
+            _brLobbyPanel.SetActive(true);
+            _brCountdown.text = "";
+            RefreshRoyaleLobby();
+        }
+        else
+            _brStatus.text = spectate
+                ? "FINDING " + room.Trim().ToUpperInvariant() + " TO WATCH…"
+                : "JOINING " + room.Trim().ToUpperInvariant() + "…";
+    }
+
+    void BindRoyaleSession(RoyaleSync s)
+    {
+        s.onStatus = msg => {
+            if (_brStatus != null) _brStatus.text = msg;
+            if (_brLobbyStatus != null) _brLobbyStatus.text = msg;
+        };
+        s.onLobby = () => {
+            _brPanel.SetActive(false);
+            _homePanel.SetActive(false);
+            _brLobbyPanel.SetActive(true);
+            _brCountdown.text = "";
+            RefreshRoyaleLobby();
+        };
+        s.onRosterChanged = RefreshRoyaleLobby;
+        s.onCountdown = n => {
+            _brCountdown.text = n > 0 ? n.ToString() : "FIGHT!";
+            if (GameManager.I != null) GameManager.I.PlaySfx(n > 0 ? SfxSynth.Pickup : SfxSynth.WaveUp, 0.8f);
+        };
+        s.onStarted = () => { _brLobbyPanel.SetActive(false); _brPanel.SetActive(false); };
+    }
+
+    void RefreshRoyaleLobby()
+    {
+        var s = RoyaleSync.I;
+        if (s == null || _brLobbyPanel == null) return;
+        _brLobbyRoom.text = "ROOM  " + s.Room + (s.IsHostRole ? "   ·   YOU ARE HOSTING" : "");
+        var sb = new System.Text.StringBuilder();
+        foreach (var p in s.players)
+        {
+            string pilot = ZealData.Pilots[Mathf.Clamp(p.pilot, 0, ZealData.Pilots.Length - 1)].name.ToUpperInvariant();
+            sb.AppendLine((p.slot == s.mySlot ? "> " : "") + p.name.ToUpperInvariant() + "  —  " + pilot + (p.slot == 0 ? "  (HOST)" : ""));
+        }
+        sb.AppendLine("");
+        sb.AppendLine(s.players.Count + " / 8 PILOTS" + (s.spectatorCount > 0 ? "   ·   " + s.spectatorCount + " WATCHING" : ""));
+        if (s.mySlot < 0) sb.AppendLine("YOU ARE SPECTATING");
+        _brRoster.text = sb.ToString();
+        _brStartBtn.gameObject.SetActive(s.IsHostRole);
+    }
+
+    public void ShowRoyaleEnd(bool won, string winnerName, int placement, bool spectator)
+    {
+        _gameHud.SetActive(false);
+        if (_sideLevelPanel != null) _sideLevelPanel.SetActive(false);
+        _warnBorder.color = new Color(1, 1, 1, 0);
+        string winner = winnerName.ToUpperInvariant();
+        if (won)
+        {
+            _winPanel.SetActive(true);
+            _winTitle.text = "LAST SHIP FLYING!";
+            _winSub.text = "THE VOID IS YOURS";
+            _winScore.text = "";
+            _winBest.text = "";
+        }
+        else
+        {
+            _overPanel.SetActive(true);
+            _overTitle.text = spectator ? "MATCH OVER" : "ELIMINATED";
+            _overScore.text = "";
+            _overBest.text = "WINNER:  " + winner;
+            _overStats.text = spectator ? "" : (placement > 0 ? "YOU PLACED #" + placement : "");
+            _overPulse.text = "CLICK TO RETURN TO LOBBY";
+        }
+        Invoke(nameof(EnableRestart), 1.2f);
+    }
+
     // co-op level-ups: no pause — a compact card stack on the right, J/K/L to pick
     void BuildSideLevelPanel()
     {
@@ -1306,6 +1533,16 @@ public class HudController : MonoBehaviour
     // ---------- public API ----------
     public void ShowStart()
     {
+        // a royale session that survived the scene reload goes straight back to its lobby
+        if (RoyaleSync.Active && RoyaleSync.I != null && RoyaleSync.I.InLobby)
+        {
+            BindRoyaleSession(RoyaleSync.I);
+            _brLobbyPanel.SetActive(true);
+            _brCountdown.text = "";
+            RefreshRoyaleLobby();
+            WantsStart = true;
+            return;
+        }
         // a co-op session that survived the scene reload goes straight back to its lobby
         if (CoopSync.Active && CoopSync.I != null && CoopSync.I.InLobby)
         {
@@ -1385,6 +1622,15 @@ public class HudController : MonoBehaviour
             ? "SURVIVAL " + waves.wave
             : "WAVE " + Mathf.Max(1, waves.wave) + " / " + WaveDirector.FinalWave;
         _hostilesText.text = waves.hostilesAlive > 0 ? waves.hostilesAlive + " HOSTILE" + (waves.hostilesAlive > 1 ? "S" : "") : "";
+
+        // battle royale readouts: ships left + zone countdown
+        if (RoyaleSync.Active && RoyaleSync.Playing && RoyaleSync.I != null)
+        {
+            _hostilesText.text = RoyaleSync.I.aliveCount + " SHIPS LEFT";
+            _waveText.text = "BATTLE ROYALE";
+            _timerText.text = "ZONE " + Mathf.CeilToInt(RoyaleSync.I.ZoneShrinkIn) + "s";
+            _timerText.color = new Color(1f, 0.4f, 0.4f);
+        }
         _shieldBar.fillAmount = player.maxShield > 0 ? player.shield / player.maxShield : 0f;
         _hullBar.fillAmount = player.hull / player.maxHull;
 
