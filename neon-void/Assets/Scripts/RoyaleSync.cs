@@ -35,6 +35,7 @@ public class RoyaleSync : MonoBehaviour
     public Action onRosterChanged;
     public Action<int> onCountdown;
     public Action onStarted;
+    public Action onKicked;   // we were shown the airlock
 
     public bool InLobby { get; private set; }
     public string Room => _room;
@@ -183,6 +184,31 @@ public class RoyaleSync : MonoBehaviour
     }
 
     public int MyPilot => _myPilot;
+
+    // host shows a pilot the airlock — lobby removal, mid-match elimination
+    public void HostKick(int slot)
+    {
+        if (!IsHostRole || slot == 0) return;
+        var p = BySlot(slot);
+        if (p == null || string.IsNullOrEmpty(p.peerId)) return;
+        _net.Send(p.peerId, "KICKED");
+        StartCoroutine(KickLater(p.peerId, slot));
+    }
+
+    IEnumerator KickLater(string peerId, int slot)
+    {
+        yield return new WaitForSecondsRealtime(0.5f);   // let KICKED flush first
+        _net.Kick(peerId);
+        _byPeer.Remove(peerId);
+        var p = BySlot(slot);
+        if (p != null)
+        {
+            if (_started && p.alive) EliminateSlot(slot, " (KICKED)");
+            else players.Remove(p);
+        }
+        BroadcastRoster();
+        onRosterChanged?.Invoke();
+    }
 
     public void HostStartMatch()
     {
@@ -417,6 +443,13 @@ public class RoyaleSync : MonoBehaviour
             case "WIN":
                 if (p.Length < 3 || !int.TryParse(p[1], out int wslot)) break;
                 EndMatch(wslot, p[2]);
+                break;
+            case "KICKED":
+                onStatus?.Invoke("KICKED BY THE HOST");
+                onKicked?.Invoke();
+                if (Playing && GameManager.I != null && GameManager.I.Running)
+                    GameManager.I.CoopGameOver();
+                Cancel();
                 break;
         }
     }

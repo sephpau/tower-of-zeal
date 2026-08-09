@@ -179,6 +179,19 @@ mergeInto(LibraryManager.library, {
     return n ? n.state : 0;
   },
 
+  NVNetKick: function (idPtr) {   // host: drop one peer's connection
+    var n = window.__nvnet;
+    if (!n) return;
+    var id = UTF8ToString(idPtr);
+    var p = n.peers[id];
+    if (p) {
+      try { if (p.chan) p.chan.close(); } catch (e) {}
+      try { p.pc.close(); } catch (e) {}
+      delete n.peers[id];
+    }
+    if (n.voiceEls[id]) { try { n.voiceEls[id].remove(); } catch (e) {} delete n.voiceEls[id]; }
+  },
+
   NVNetMicOn: function (on) {
     var n = window.__nvnet;
     if (n && n.mic) n.mic.getTracks().forEach(function (t) { t.enabled = !!on; });

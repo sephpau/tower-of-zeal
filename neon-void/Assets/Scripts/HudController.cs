@@ -41,6 +41,8 @@ public class HudController : MonoBehaviour
     InputField _brRoomInput, _brNameInput;
     Text _brStatus, _brLobbyRoom, _brRoster, _brLobbyStatus, _brCountdown;
     readonly List<Button> _brPilotButtons = new List<Button>();
+    readonly List<Text> _brRowTexts = new List<Text>();
+    readonly List<Button> _brRowKicks = new List<Button>();
     Button _brStartBtn;
     int _brPilotChoice;
     readonly List<Text> _tagPool = new List<Text>();
@@ -1270,9 +1272,32 @@ public class HudController : MonoBehaviour
         _brLobbyRoom = NewText(_brLobbyPanel.transform, "room", "", 26, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.79f), new Vector2(0.5f, 0.79f), Vector2.zero, new Vector2(900, 36));
         _brLobbyRoom.color = new Color(1f, 0.85f, 0.4f);
-        _brRoster = NewText(_brLobbyPanel.transform, "roster", "", 24, TextAnchor.UpperCenter,
-            new Vector2(0.5f, 0.72f), new Vector2(0.5f, 0.72f), Vector2.zero, new Vector2(800, 300));
+        _brRoster = NewText(_brLobbyPanel.transform, "roster", "", 22, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.31f), new Vector2(0.5f, 0.31f), Vector2.zero, new Vector2(800, 34));
         _brRoster.color = new Color(0.85f, 0.9f, 1f);
+
+        // one row per possible pilot: name text + a host-only KICK button
+        _brRowTexts.Clear();
+        _brRowKicks.Clear();
+        for (int i = 0; i < 8; i++)
+        {
+            float y = 0.72f - i * 0.048f;
+            var rowText = NewText(_brLobbyPanel.transform, "brrow" + i, "", 24, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, y), new Vector2(0.5f, y), Vector2.zero, new Vector2(640, 34));
+            rowText.color = new Color(0.85f, 0.9f, 1f);
+            int rowIdx = i;
+            var kick = MakeButton(_brLobbyPanel.transform, "KICK", new Vector2(0.5f, y), new Vector2(90, 34),
+                new Color(1f, 0.4f, 0.4f), () => {
+                    if (RoyaleSync.I != null && rowIdx < RoyaleSync.I.players.Count)
+                        RoyaleSync.I.HostKick(RoyaleSync.I.players[rowIdx].slot);
+                });
+            kick.transform.localPosition += new Vector3(400f, 0f, 0f);
+            kick.GetComponentInChildren<Text>().fontSize = 16;
+            kick.gameObject.SetActive(false);
+            rowText.gameObject.SetActive(false);
+            _brRowTexts.Add(rowText);
+            _brRowKicks.Add(kick);
+        }
         _brCountdown = NewText(_brLobbyPanel.transform, "count", "", 150, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.45f), new Vector2(0.5f, 0.45f), Vector2.zero, new Vector2(600, 190));
         _brCountdown.color = new Color(1f, 0.85f, 0.4f);
@@ -1341,6 +1366,11 @@ public class HudController : MonoBehaviour
             if (GameManager.I != null) GameManager.I.PlaySfx(n > 0 ? SfxSynth.Pickup : SfxSynth.WaveUp, 0.8f);
         };
         s.onStarted = () => { _brLobbyPanel.SetActive(false); _brPanel.SetActive(false); };
+        s.onKicked = () => {
+            _brLobbyPanel.SetActive(false);
+            _brPanel.SetActive(true);
+            _brStatus.text = "KICKED BY THE HOST";
+        };
     }
 
     void RefreshRoyaleLobby()
@@ -1348,16 +1378,20 @@ public class HudController : MonoBehaviour
         var s = RoyaleSync.I;
         if (s == null || _brLobbyPanel == null) return;
         _brLobbyRoom.text = "ROOM  " + s.Room + (s.IsHostRole ? "   ·   YOU ARE HOSTING" : "");
-        var sb = new System.Text.StringBuilder();
-        foreach (var p in s.players)
+        for (int i = 0; i < _brRowTexts.Count; i++)
         {
+            bool has = i < s.players.Count;
+            _brRowTexts[i].gameObject.SetActive(has);
+            if (!has) { _brRowKicks[i].gameObject.SetActive(false); continue; }
+            var p = s.players[i];
             string pilot = ZealData.Pilots[Mathf.Clamp(p.pilot, 0, ZealData.Pilots.Length - 1)].name.ToUpperInvariant();
-            sb.AppendLine((p.slot == s.mySlot ? "> " : "") + p.name.ToUpperInvariant() + "  —  " + pilot + (p.slot == 0 ? "  (HOST)" : ""));
+            _brRowTexts[i].text = (p.slot == s.mySlot ? "> " : "") + p.name.ToUpperInvariant() + "  —  " + pilot + (p.slot == 0 ? "  (HOST)" : "");
+            _brRowTexts[i].color = p.slot == s.mySlot ? new Color(0.5f, 0.98f, 1f) : new Color(0.85f, 0.9f, 1f);
+            _brRowKicks[i].gameObject.SetActive(s.IsHostRole && p.slot != 0);
         }
-        sb.AppendLine("");
-        sb.AppendLine(s.players.Count + " / 8 PILOTS" + (s.spectatorCount > 0 ? "   ·   " + s.spectatorCount + " WATCHING" : ""));
-        if (s.mySlot < 0) sb.AppendLine("YOU ARE SPECTATING");
-        _brRoster.text = sb.ToString();
+        _brRoster.text = s.players.Count + " / 8 PILOTS"
+            + (s.spectatorCount > 0 ? "   ·   " + s.spectatorCount + " WATCHING" : "")
+            + (s.mySlot < 0 ? "   ·   YOU ARE SPECTATING" : "");
         _brStartBtn.gameObject.SetActive(s.IsHostRole);
     }
 

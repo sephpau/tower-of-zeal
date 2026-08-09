@@ -23,6 +23,7 @@ public class CoopNet : MonoBehaviour
     [DllImport("__Internal")] static extern IntPtr NVNetPoll();
     [DllImport("__Internal")] static extern IntPtr NVNetPeers();
     [DllImport("__Internal")] static extern int NVNetState();
+    [DllImport("__Internal")] static extern void NVNetKick(string id);
     [DllImport("__Internal")] static extern void NVNetMicOn(int on);
     [DllImport("__Internal")] static extern void NVNetVoiceVolume(float v);
     [DllImport("__Internal")] static extern void NVNetClose();
@@ -39,6 +40,7 @@ public class CoopNet : MonoBehaviour
     static IntPtr NVNetPoll() => IntPtr.Zero;
     static IntPtr NVNetPeers() => IntPtr.Zero;
     static int NVNetState() => 0;
+    static void NVNetKick(string id) { }
     static void NVNetMicOn(int on) { }
     static void NVNetVoiceVolume(float v) { }
     static void NVNetClose() { }
@@ -109,6 +111,7 @@ public class CoopNet : MonoBehaviour
 
     public void Send(string to, string msg) => NVNetSend(to, msg);
     public void Broadcast(string msg) => NVNetSend("*", msg);
+    public void Kick(string id) => NVNetKick(id);
     // two-peer compatibility: joiners talk to the host, the host to everyone
     public void SendPeer(string msg)
     {
