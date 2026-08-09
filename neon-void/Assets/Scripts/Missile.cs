@@ -39,7 +39,7 @@ public class EnemyMissile : MonoBehaviour
         var col = go.AddComponent<SphereCollider>();
         col.radius = 1.6f;
         var h = go.AddComponent<Health>();
-        h.Configure(0f, 10f);   // one clean pulse hit pops it
+        h.Configure(0f, 60f);   // ~5 base pulse hits to shoot one down
         var m = go.AddComponent<EnemyMissile>();
         h.OnDeath += _ => {                       // shot down: harmless boom + a small bounty
             GameManager.I.EnemyKilled(40, m.transform.position);

@@ -9,7 +9,7 @@ mergeInto(LibraryManager.library, {
   NVNetInit: function (isHost, wantMic) {
     var n = window.__nvnet = {
       isHost: !!isHost, peers: {}, sig: [], recv: [],
-      mic: null, voiceEls: {}, state: isHost ? 1 : 0
+      mic: null, voiceEls: {}, voiceGains: {}, actx: null, state: isHost ? 1 : 0
     };
     n.micReady = (wantMic ? navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
@@ -38,18 +38,42 @@ mergeInto(LibraryManager.library, {
         p.chan.onmessage = function (ev) { n.recv.push(id + '\u0001' + ev.data); };
       };
       p.pc.ontrack = function (e) {
-        var el = document.createElement('audio');
-        el.autoplay = true;
-        el.srcObject = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
-        el.volume = (typeof window.__nvVoiceVol === 'number') ? window.__nvVoiceVol : 1;
-        document.body.appendChild(el);
-        if (n.voiceEls[id]) { try { n.voiceEls[id].remove(); } catch (err) {} }
-        n.voiceEls[id] = el;
-        var pr = el.play();
-        if (pr && pr.catch) pr.catch(function () {
-          var once = function () { el.play(); document.removeEventListener('click', once); };
-          document.addEventListener('click', once);
-        });
+        var stream = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
+        // Play the voice through WebAudio, NOT an <audio> element: element
+        // playback of WebRTC audio is tagged "communications", which makes
+        // Windows duck the game audio by 80% whenever anyone talks. A muted
+        // element stays attached only as a sink (Chrome needs one for the
+        // stream to flow); the audible path is the media-classified graph.
+        var sink = document.createElement('audio');
+        sink.muted = true;
+        sink.srcObject = stream;
+        document.body.appendChild(sink);
+        if (n.voiceEls[id]) {
+          try { n.voiceEls[id].remove(); } catch (err) {}
+          try { if (n.voiceGains[id]) n.voiceGains[id].disconnect(); } catch (err) {}
+        }
+        n.voiceEls[id] = sink;
+        try {
+          var Ctx = window.AudioContext || window.webkitAudioContext;
+          if (!n.actx) n.actx = new Ctx();
+          if (n.actx.state === 'suspended') {
+            n.actx.resume().catch(function () {});
+            var once = function () { n.actx.resume(); document.removeEventListener('click', once); };
+            document.addEventListener('click', once);
+          }
+          var src = n.actx.createMediaStreamSource(stream);
+          var gain = n.actx.createGain();
+          gain.gain.value = (typeof window.__nvVoiceVol === 'number') ? window.__nvVoiceVol : 1;
+          src.connect(gain);
+          gain.connect(n.actx.destination);
+          n.voiceGains[id] = gain;
+        } catch (err) {
+          // no WebAudio? fall back to plain element playback
+          sink.muted = false;
+          sink.autoplay = true;
+          var pr = sink.play();
+          if (pr && pr.catch) pr.catch(function () {});
+        }
       };
       p.addMic = function () {
         if (n.mic && !p.audioSender) {
@@ -190,6 +214,7 @@ mergeInto(LibraryManager.library, {
       delete n.peers[id];
     }
     if (n.voiceEls[id]) { try { n.voiceEls[id].remove(); } catch (e) {} delete n.voiceEls[id]; }
+    if (n.voiceGains[id]) { try { n.voiceGains[id].disconnect(); } catch (e) {} delete n.voiceGains[id]; }
   },
 
   NVNetMicOn: function (on) {
@@ -200,7 +225,7 @@ mergeInto(LibraryManager.library, {
   NVNetVoiceVolume: function (v) {
     window.__nvVoiceVol = v;
     var n = window.__nvnet;
-    if (n) for (var id in n.voiceEls) n.voiceEls[id].volume = v;
+    if (n) for (var id in n.voiceGains) { try { n.voiceGains[id].gain.value = v; } catch (e) {} }
   },
 
   NVNetClose: function () {
