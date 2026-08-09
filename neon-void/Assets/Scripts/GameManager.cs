@@ -199,7 +199,7 @@ public class GameManager : MonoBehaviour
 
         // elite hunter roams in every 90 seconds, independent of waves
         _eliteTimer -= Time.deltaTime;
-        if (_eliteTimer <= 0f && !CoopSync.IsGuest)
+        if (_eliteTimer <= 0f && !CoopSync.IsGuest && !CoopSync.DuelActive)
         {
             _eliteTimer = EliteEvery;
             Vector3 dir = Random.onUnitSphere;
@@ -244,6 +244,18 @@ public class GameManager : MonoBehaviour
     }
 
     public void EndCoopTournament(string reason) => EndTournament(reason);
+
+    // void duel: one ship is dust — show the verdict
+    public void DuelEnd(bool won, string partnerName)
+    {
+        if (!Running) return;
+        Running = false;
+        _music.Stop();
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+        PlaySfx(won ? SfxSynth.WaveUp : SfxSynth.BigBoom, 1f);
+        _hud.ShowDuelEnd(won, partnerName);
+    }
 
     // blitz duo, guest side: the host declared the match over — mirror it
     public void CoopEndTournament(string reason, int finalScore, int t)

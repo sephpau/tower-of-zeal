@@ -44,8 +44,12 @@ public class CoopSync : MonoBehaviour
     int _myLobbyPilot;
     bool _myReady, _counting, _partnerHere;
 
-    // blitz duo: the room code doubles as the match code, the pair is one entrant
-    public bool blitzDuo;
+    // lobby mode: 0 = campaign co-op, 1 = blitz duo, 2 = void duel (1v1 PvP)
+    public int lobbyMode;
+    public bool blitzDuo => lobbyMode == 1;
+
+    // duel state: partner is the ENEMY — full damage, no waves, first kill wins
+    public static bool DuelActive;
     public string TeamName => IsHost ? _myName + " + " + _partnerName : _partnerName + " + " + _myName;
     public string DuoPilots
     {
@@ -57,10 +61,10 @@ public class CoopSync : MonoBehaviour
         }
     }
 
-    public void SetBlitzDuo(bool on)
+    public void SetLobbyMode(int mode)
     {
         if (!IsHost || _counting) return;   // the host picks the mode
-        blitzDuo = on;
+        lobbyMode = Mathf.Clamp(mode, 0, 2);
         SendLobbyState();
         onLobbyChanged?.Invoke();
     }
@@ -136,7 +140,7 @@ public class CoopSync : MonoBehaviour
         MaybeCountdown();
     }
 
-    void SendLobbyState() => Send("LOB|" + _myLobbyPilot + "|" + (_myReady ? 1 : 0) + "|" + (blitzDuo ? 1 : 0));
+    void SendLobbyState() => Send("LOB|" + _myLobbyPilot + "|" + (_myReady ? 1 : 0) + "|" + lobbyMode);
 
     void MaybeCountdown()
     {
@@ -164,6 +168,7 @@ public class CoopSync : MonoBehaviour
         onCountdown?.Invoke(0);
         InLobby = false;
         _counting = false;
+        DuelActive = lobbyMode == 2;
         if (blitzDuo)
             TournamentMode.Arm(_room, TeamName, -1);   // -1: legacy hash → identical verify on both clients
         else
@@ -177,6 +182,7 @@ public class CoopSync : MonoBehaviour
         _running = false;
         InLobby = true;
         _counting = false;
+        DuelActive = false;
         _myReady = false;
         partnerReady = false;
         _localDead = _partnerDead = false;
@@ -212,6 +218,7 @@ public class CoopSync : MonoBehaviour
             I = null;
             Active = false;
             IsHost = false;
+            DuelActive = false;
             RemoteShip = null;
         }
     }
@@ -244,7 +251,15 @@ public class CoopSync : MonoBehaviour
         BuildGhost();
         onStarted?.Invoke();
         GameManager.I.StartRun(_myLobbyPilot);
-        GameManager.I.Banner((blitzDuo ? "BLITZ DUO" : "CO-OP") + " // " + _room + " // WITH " + _partnerName.ToUpperInvariant());
+        if (DuelActive)
+        {
+            // duelists face off 260 units apart, noses pointed at each other
+            var sc = _localHealth != null ? _localHealth.GetComponent<ShipController>() : null;
+            if (sc != null) sc.SetPose(IsHost ? Vector3.zero : new Vector3(0f, 0f, 260f), IsHost ? 0f : 180f);
+            GameManager.I.Banner("VOID DUEL // " + _room + " // VS " + _partnerName.ToUpperInvariant());
+        }
+        else
+            GameManager.I.Banner((blitzDuo ? "BLITZ DUO" : "CO-OP") + " // " + _room + " // WITH " + _partnerName.ToUpperInvariant());
     }
 
     void BuildGhost()
@@ -262,7 +277,8 @@ public class CoopSync : MonoBehaviour
         var tint = _ghost.GetComponent<ShipTint>();
         if (tint != null) tint.Apply(ZealData.Pilots[Mathf.Clamp(_partnerPilot, 0, ZealData.Pilots.Length - 1)].accent);
         _ghostBubble = FindDeep(_ghost.transform, "guardBubble");
-        NVOutline.Add(_ghost, NVOutline.Ally, 0.03f);   // blue rim = friend, don't shoot
+        // blue rim = friend; in a duel the other saucer is very much not a friend
+        NVOutline.Add(_ghost, DuelActive ? NVOutline.Hostile : NVOutline.Ally, 0.03f);
         _ghostPos = _ghost.transform.position;
         RemoteShip = _ghost.transform;
     }
@@ -480,7 +496,7 @@ public class CoopSync : MonoBehaviour
                     partnerReady = p[2] == "1";
                     _partnerPilot = Mathf.Clamp(partnerLobbyPilot, 0, ZealData.Pilots.Length - 1);
                     _partnerHere = true;
-                    if (p.Length >= 4 && !IsHost) blitzDuo = p[3] == "1";   // mode follows the host
+                    if (p.Length >= 4 && !IsHost) int.TryParse(p[3], out lobbyMode);   // mode follows the host
                 }
                 onLobbyChanged?.Invoke();
                 MaybeCountdown();
@@ -535,7 +551,16 @@ public class CoopSync : MonoBehaviour
                 _partnerDead = true;
                 if (_ghost != null) _ghost.SetActive(false);
                 RemoteShip = null;
-                if (_localDead) EndBoth(true);
+                if (DuelActive)
+                {
+                    // their ship down = my win (unless we traded — then it already ended)
+                    if (!_localDead && GameManager.I.Running)
+                    {
+                        GameManager.I.DuelEnd(true, _partnerName);
+                        ResetToLobby();
+                    }
+                }
+                else if (_localDead) EndBoth(true);
                 else GameManager.I.Banner("!! " + _partnerName.ToUpperInvariant() + " IS DOWN !!");
                 break;
             case "RES":
@@ -562,8 +587,8 @@ public class CoopSync : MonoBehaviour
             Vector3 pos = new Vector3(PF(c[0]), PF(c[1]), PF(c[2]));
             Vector3 vel = new Vector3(PF(c[3]), PF(c[4]), PF(c[5]));
             if (partner)
-                // partner bolts carry 10% friendly fire — stay out of your wingmate's lane!
-                Projectile.Spawn(pos, vel, PF(c[6]) * 0.1f, partnerCol, _ghost, true, 0, ghostFire: true);
+                // co-op: 10% friendly fire — duel: their bolts hit with everything they've got
+                Projectile.Spawn(pos, vel, PF(c[6]) * (DuelActive ? 1f : 0.1f), partnerCol, _ghost, true, 0, ghostFire: true);
             else
                 Projectile.Spawn(pos, vel, PF(c[6]), enemyCol, null, false);    // enemy fire is live — dodge it
         }
@@ -687,9 +712,17 @@ public class CoopSync : MonoBehaviour
     // ---------- death, respawn, game over ----------
     public void OnLocalDeath()
     {
+        bool alreadyOver = _partnerDead;
         _localDead = true;
         Send("DIE");
-        if (_partnerDead) { EndBoth(true); return; }
+        if (DuelActive)
+        {
+            // my ship down = their win; no respawns in a duel
+            GameManager.I.DuelEnd(false, _partnerName);
+            ResetToLobby();
+            return;
+        }
+        if (alreadyOver) { EndBoth(true); return; }
         StartCoroutine(RespawnLater());
     }
 

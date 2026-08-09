@@ -295,12 +295,14 @@ public class HudController : MonoBehaviour
                 Vector3 sp = cam.WorldToScreenPoint(CoopSync.RemoteShip.position + Vector3.up * 5f);
                 if (sp.z > 0f)
                 {
+                    Color side = CoopSync.DuelActive ? new Color(1f, 0.35f, 0.35f) : new Color(0.4f, 1f, 0.75f);
                     PlaceBar(used++, sp,
                         CoopSync.I.partnerShield / CoopSync.I.partnerMaxShield,
                         CoopSync.I.partnerHull / CoopSync.I.partnerMaxHull,
-                        true, new Color(0.4f, 1f, 0.75f));
+                        true, side);
                     _partnerTag.gameObject.SetActive(true);
                     _partnerTag.text = CoopSync.I.PartnerName.ToUpperInvariant();
+                    _partnerTag.color = side;
                     _partnerTag.rectTransform.position = sp + new Vector3(0f, 20f, 0f);
                 }
                 else _partnerTag.gameObject.SetActive(false);
@@ -357,12 +359,13 @@ public class HudController : MonoBehaviour
                 PlaceEdgeIndicator(_dirPool[used++], vp, new Color(1f, 0.85f, 0.2f, 0.85f), 30f);
             }
 
-            // teal arrow toward the co-op partner when they're offscreen
+            // teal arrow toward the co-op partner (red when they're the duel enemy)
             if (CoopSync.RemoteShip != null && used < _dirPool.Count)
             {
                 Vector3 pvp = cam.WorldToViewportPoint(CoopSync.RemoteShip.position);
                 bool pOn = pvp.z > 0f && pvp.x > 0f && pvp.x < 1f && pvp.y > 0f && pvp.y < 1f;
-                if (!pOn) PlaceEdgeIndicator(_dirPool[used++], pvp, new Color(0.3f, 1f, 0.8f, 0.9f), 36f);
+                if (!pOn) PlaceEdgeIndicator(_dirPool[used++], pvp,
+                    CoopSync.DuelActive ? new Color(1f, 0.35f, 0.35f, 0.95f) : new Color(0.3f, 1f, 0.8f, 0.9f), 36f);
             }
 
             // incoming-fire check: does any bolt hit within ~1 second?
@@ -1017,7 +1020,7 @@ public class HudController : MonoBehaviour
             new Color(1f, 0.55f, 0.9f), () => {
                 if (CoopSync.I == null) return;
                 if (!CoopSync.IsHost) { _lobbyStatus.text = "THE HOST PICKS THE MODE"; return; }
-                CoopSync.I.SetBlitzDuo(!CoopSync.I.blitzDuo);
+                CoopSync.I.SetLobbyMode((CoopSync.I.lobbyMode + 1) % 3);
             });
         _blitzBtn.GetComponentInChildren<Text>().fontSize = 19;
 
@@ -1053,10 +1056,12 @@ public class HudController : MonoBehaviour
         readyLabel.color = s.MyReady ? new Color(1f, 0.85f, 0.4f) : new Color(0.5f, 1f, 0.6f);
 
         var modeLabel = _blitzBtn.GetComponentInChildren<Text>();
-        modeLabel.text = s.blitzDuo
-            ? "MODE: BLITZ DUO — 5:00 + OT · SEEDED · TEAM SCORE"
+        modeLabel.text = s.lobbyMode == 1 ? "MODE: BLITZ DUO — 5:00 + OT · SEEDED · TEAM SCORE"
+            : s.lobbyMode == 2 ? "MODE: VOID DUEL — 1V1 · FIRST KILL WINS"
             : "MODE: CAMPAIGN CO-OP — ENDLESS WAVES";
-        modeLabel.color = s.blitzDuo ? new Color(1f, 0.55f, 0.9f) : new Color(0.5f, 0.98f, 1f);
+        modeLabel.color = s.lobbyMode == 1 ? new Color(1f, 0.55f, 0.9f)
+            : s.lobbyMode == 2 ? new Color(1f, 0.35f, 0.35f)
+            : new Color(0.5f, 0.98f, 1f);
 
         if (!s.PartnerHere)
         {
@@ -1246,14 +1251,16 @@ public class HudController : MonoBehaviour
         _levelUpPanel.SetActive(false);
     }
 
+    Text _overTitle, _winTitle, _winSub;
+
     void BuildOverPanel()
     {
         _overPanel = Panel("OverPanel");
-        var t = NewText(_overPanel.transform, "title", "SHIP DESTROYED", 84, TextAnchor.MiddleCenter,
+        _overTitle = NewText(_overPanel.transform, "title", "SHIP DESTROYED", 84, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(1600, 110));
-        t.color = new Color(1f, 0.35f, 0.5f);
-        t.fontStyle = FontStyle.BoldAndItalic;
-        t.font = _titleFont;
+        _overTitle.color = new Color(1f, 0.35f, 0.5f);
+        _overTitle.fontStyle = FontStyle.BoldAndItalic;
+        _overTitle.font = _titleFont;
         _overScore = NewText(_overPanel.transform, "score", "0", 90, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1200, 120));
         _overScore.color = new Color(0.5f, 0.95f, 1f);
@@ -1274,14 +1281,14 @@ public class HudController : MonoBehaviour
     void BuildWinPanel()
     {
         _winPanel = Panel("WinPanel");
-        var t = NewText(_winPanel.transform, "title", "SECTOR CLEARED", 92, TextAnchor.MiddleCenter,
+        _winTitle = NewText(_winPanel.transform, "title", "SECTOR CLEARED", 92, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(1600, 120));
-        t.color = new Color(0.5f, 1f, 0.6f);
-        t.fontStyle = FontStyle.BoldAndItalic;
-        t.font = _titleFont;
-        var sub = NewText(_winPanel.transform, "sub", "THE VOID DREADNOUGHT IS DUST", 30, TextAnchor.MiddleCenter,
+        _winTitle.color = new Color(0.5f, 1f, 0.6f);
+        _winTitle.fontStyle = FontStyle.BoldAndItalic;
+        _winTitle.font = _titleFont;
+        _winSub = NewText(_winPanel.transform, "sub", "THE VOID DREADNOUGHT IS DUST", 30, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.59f), new Vector2(0.5f, 0.59f), Vector2.zero, new Vector2(1400, 50));
-        sub.color = new Color(1f, 0.55f, 0.9f);
+        _winSub.color = new Color(1f, 0.55f, 0.9f);
         _winScore = NewText(_winPanel.transform, "score", "0", 90, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.47f), new Vector2(0.5f, 0.47f), Vector2.zero, new Vector2(1200, 120));
         _winScore.color = new Color(0.5f, 0.95f, 1f);
@@ -1320,6 +1327,7 @@ public class HudController : MonoBehaviour
         _gameHud.SetActive(false);
         if (_sideLevelPanel != null) _sideLevelPanel.SetActive(false);
         _overPanel.SetActive(true);
+        _overTitle.text = "SHIP DESTROYED";
         _overPulse.text = CoopSync.Active ? "CLICK TO RETURN TO LOBBY" : "CLICK TO RELAUNCH";
         _warnBorder.color = new Color(1, 1, 1, 0);
         _overScore.text = score.ToString("N0");
@@ -1335,10 +1343,38 @@ public class HudController : MonoBehaviour
     {
         _gameHud.SetActive(false);
         _winPanel.SetActive(true);
+        _winTitle.text = "SECTOR CLEARED";
+        _winSub.text = "THE VOID DREADNOUGHT IS DUST";
         _warnBorder.color = new Color(1, 1, 1, 0);
         _winScore.text = score.ToString("N0");
         _winBest.text = newBest ? "NEW BEST!" : "BEST  " + best.ToString("N0");
         Invoke(nameof(EnableRestart), 1.5f);
+    }
+
+    public void ShowDuelEnd(bool won, string partnerName)
+    {
+        _gameHud.SetActive(false);
+        if (_sideLevelPanel != null) _sideLevelPanel.SetActive(false);
+        _warnBorder.color = new Color(1, 1, 1, 0);
+        string partner = partnerName.ToUpperInvariant();
+        if (won)
+        {
+            _winPanel.SetActive(true);
+            _winTitle.text = "DUEL WON!";
+            _winSub.text = partner + " IS SPACE DUST";
+            _winScore.text = "";
+            _winBest.text = "";
+        }
+        else
+        {
+            _overPanel.SetActive(true);
+            _overTitle.text = "DUEL LOST";
+            _overScore.text = "";
+            _overBest.text = "";
+            _overStats.text = partner + " RULES THE VOID... FOR NOW";
+            _overPulse.text = "CLICK TO RETURN TO LOBBY";
+        }
+        Invoke(nameof(EnableRestart), 1.2f);
     }
 
     public void Tick(Health player, WaveDirector waves, int score)

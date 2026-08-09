@@ -35,6 +35,22 @@ public class ShipController : MonoBehaviour
             if (t.name == "guardBubble") { _guardBubble = t.gameObject; break; }
     }
 
+    // teleport + aim reset (duel start positions) — keeps the look angles in sync
+    public void SetPose(Vector3 pos, float yawDeg)
+    {
+        _yaw = yawDeg;
+        _pitch = 0f;
+        transform.position = pos;
+        transform.rotation = Quaternion.Euler(0f, yawDeg, 0f);
+        if (_rb != null)
+        {
+            _rb.position = pos;
+            _rb.rotation = transform.rotation;
+            _rb.linearVelocity = Vector3.zero;
+        }
+        Physics.SyncTransforms();
+    }
+
     void Update()
     {
         if (!GameManager.I.Running || GameManager.I.Paused) return;

@@ -29,7 +29,8 @@ public class WaveDirector : MonoBehaviour
     void Update()
     {
         if (!GameManager.I.Running || _finished) return;
-        if (CoopSync.IsGuest) return;   // co-op guest mirrors the host's waves
+        if (CoopSync.IsGuest) return;      // co-op guest mirrors the host's waves
+        if (CoopSync.DuelActive) return;   // duels are pilot vs pilot — no waves
         if (hostilesAlive > 0 || _spawning) return;
 
         _intermission -= Time.deltaTime;
