@@ -627,6 +627,11 @@ public class CoopSync : MonoBehaviour
                 if (_remotePause) GameManager.I.Banner(_partnerName.ToUpperInvariant() + " IS CHOOSING AN UPGRADE…");
                 break;
             case "DIE":
+                if (_ghost != null && _ghost.activeSelf)   // their ship goes up in a fireball
+                {
+                    ExplosionFactory.Explode(_ghost.transform.position, new Color(0.4f, 0.9f, 1f), 2.4f, true);
+                    GameManager.I.PlaySfxAt(SfxSynth.Crash, _ghost.transform.position, 1f);
+                }
                 if (DuelActive)
                 {
                     int theirLives = 0;
@@ -787,7 +792,7 @@ public class CoopSync : MonoBehaviour
     void OnKill(int id, Vector3 pos)
     {
         ExplosionFactory.Explode(pos, new Color(1f, 0.4f, 0.85f), 1.4f, true);
-        GameManager.I.PlaySfxAt(SfxSynth.Boom, pos, 0.9f);
+        GameManager.I.PlaySfxAt(SfxSynth.Crash, pos, 0.95f);
         if (_puppets.TryGetValue(id, out var h))
         {
             // a missile detonating on top of me hurts ME — the host can't do it for me

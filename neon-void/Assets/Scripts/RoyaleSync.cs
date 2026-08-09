@@ -580,6 +580,7 @@ public class RoyaleSync : MonoBehaviour
                     if (ep.ghost != null)
                     {
                         ExplosionFactory.Explode(ep.ghost.transform.position, new Color(0.4f, 0.9f, 1f), 2.2f, true);
+                        GameManager.I.PlaySfxAt(SfxSynth.Crash, ep.ghost.transform.position, 1f);
                         ep.ghost.SetActive(false);
                     }
                     if (eslot == mySlot) _myPlacement = aliveCount + 1;
@@ -749,7 +750,7 @@ public class RoyaleSync : MonoBehaviour
     {
         if (p.ghost == null) return;
         ExplosionFactory.Explode(p.ghost.transform.position, new Color(0.4f, 0.9f, 1f), 2f, true);
-        GameManager.I.PlaySfxAt(SfxSynth.Boom, p.ghost.transform.position, 0.8f);
+        GameManager.I.PlaySfxAt(SfxSynth.Crash, p.ghost.transform.position, 1f);
         p.ghost.SetActive(false);
         p.hasPose = false;
     }

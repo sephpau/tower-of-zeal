@@ -425,6 +425,7 @@ public class GameManager : MonoBehaviour
     {
         ExplosionFactory.Explode(h.transform.position, new Color(0.4f, 0.9f, 1f), 2.5f, true);
         PlaySfx(SfxSynth.BigBoom);
+        PlaySfx(SfxSynth.Crash, 0.9f);
         h.gameObject.SetActive(false);
         if (RoyaleSync.Active && RoyaleSync.I != null) { RoyaleSync.I.OnLocalDeath(); return; }   // eliminated → spectate
         if (CoopSync.Active && CoopSync.I != null) { CoopSync.I.OnLocalDeath(); return; }   // partner may still save the run

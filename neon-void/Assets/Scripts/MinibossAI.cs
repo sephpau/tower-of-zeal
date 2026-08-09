@@ -39,6 +39,7 @@ public class MinibossAI : MonoBehaviour
     {
         ExplosionFactory.Explode(transform.position, def.tint, 2.2f, true);
         GameManager.I.PlaySfxAt(SfxSynth.BigBoom, transform.position, 1f);
+        GameManager.I.PlaySfxAt(SfxSynth.Crash, transform.position, 1f);
         GameManager.I.EnemyKilled(def.score, transform.position);
         XpOrb.Drop(transform.position, def.xp);
         int drops = def.id == "smuggler" ? 4 : 2;   // the Smuggler's hoard

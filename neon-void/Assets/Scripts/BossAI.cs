@@ -43,6 +43,7 @@ public class BossAI : MonoBehaviour
             ExplosionFactory.Explode(p, new Color(1f, 0.4f, 0.3f), 3f, true);
         }
         GameManager.I.PlaySfxAt(SfxSynth.BigBoom, transform.position, 1f);
+        GameManager.I.PlaySfxAt(SfxSynth.Crash, transform.position, 1f);
         GameManager.I.EnemyKilled(5000, transform.position);
         Powerup.TryDrop(transform.position, 1f);
         Powerup.TryDrop(transform.position + Vector3.right * 6f, 1f);

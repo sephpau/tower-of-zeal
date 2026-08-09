@@ -9,6 +9,7 @@ public static class SfxSynth
     public static AudioClip MusicBoss;              // v1 intensity-3 layer: drums join
     public static AudioClip HitPulse, HitSpecial;   // hit-confirm cues
     public static AudioClip Dash;                   // dash whoosh
+    public static AudioClip Crash;                  // death crunch: blast + debris tail
 
     static bool _built;
 
@@ -48,6 +49,16 @@ public static class SfxSynth
         {
             float f = Mathf.Lerp(620f, 130f, t / d);
             return (Saw(f, t) * 0.55f + Tri(f * 2.7f, t) * 0.3f) * Decay(t, d, 2.6f);
+        });
+        // death crash: falling growl + crunchy blast + late debris ticks
+        Crash = Render("crash", 0.72f, (t, d) =>
+        {
+            float k = t / d;
+            float growl = Saw(Mathf.Lerp(230f, 38f, k), t) * 0.55f * Decay(t, d, 2.2f);
+            float noise = (Mathf.Sin(t * 5173f) + Mathf.Sin(t * 8311f) + Mathf.Sin(t * 12889f)) / 3f;
+            float crunch = noise * Mathf.Exp(-6f * k) * 0.6f;
+            float debris = (Mathf.PingPong(t * 913f, 1f) > 0.93f && k > 0.25f ? 0.45f : 0f) * Mathf.Exp(-3f * k);
+            return (growl + crunch + debris) * 0.95f;
         });
         Pickup = RenderArp("pickup", new[] { 523.3f, 659.3f, 784f, 1046.5f }, 0.07f);
         WaveUp = RenderArp("waveup", new[] { 220f, 277.2f, 329.6f, 440f, 554.4f }, 0.09f);

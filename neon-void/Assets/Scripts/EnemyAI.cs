@@ -44,7 +44,7 @@ public class EnemyAI : MonoBehaviour
     void OnDeath(Health h)
     {
         ExplosionFactory.Explode(transform.position, new Color(1f, 0.4f, 0.85f), 1.4f, true);
-        GameManager.I.PlaySfxAt(SfxSynth.Boom, transform.position, 0.9f);
+        GameManager.I.PlaySfxAt(SfxSynth.Crash, transform.position, 0.95f);
         GameManager.I.EnemyKilled(scoreValue, transform.position);
         if (GetComponent<EliteMark>() != null)
         {
