@@ -37,9 +37,9 @@ public class EnemyMissile : MonoBehaviour
         trail.minVertexDistance = 0.4f;
 
         var col = go.AddComponent<SphereCollider>();
-        col.radius = 1.2f;
+        col.radius = 1.6f;
         var h = go.AddComponent<Health>();
-        h.Configure(0f, 30f);
+        h.Configure(0f, 10f);   // one clean pulse hit pops it
         var m = go.AddComponent<EnemyMissile>();
         h.OnDeath += _ => {                       // shot down: harmless boom + a small bounty
             GameManager.I.EnemyKilled(40, m.transform.position);

@@ -48,10 +48,31 @@ public class MinibossAI : MonoBehaviour
         Destroy(gameObject);
     }
 
+    Transform _target;
+    Vector3 _targetVel;
+
+    // bosses hunt the NEARER of the two co-op pilots, not just the host
+    void PickTarget()
+    {
+        _target = _player;
+        _targetVel = _playerRb != null ? _playerRb.linearVelocity : Vector3.zero;
+        bool localAlive = _player != null && _player.gameObject.activeInHierarchy;
+        var remote = CoopSync.RemoteShip;
+        if (remote == null) return;
+        if (!localAlive ||
+            (remote.position - transform.position).sqrMagnitude <
+            (_player.position - transform.position).sqrMagnitude)
+        {
+            _target = remote;
+            _targetVel = CoopSync.RemoteVelocity;
+        }
+    }
+
     void FixedUpdate()
     {
         if (_player == null || !GameManager.I.Running) return;
-        Vector3 toPlayer = _player.position - transform.position;
+        PickTarget();
+        Vector3 toPlayer = _target.position - transform.position;
         float dist = toPlayer.magnitude;
 
         switch (def.behavior)
@@ -88,10 +109,10 @@ public class MinibossAI : MonoBehaviour
         if (_actTimer <= 0f)
         {
             _actTimer = 3.2f;
-            // cloak-blink: vanish, reappear at a new angle near the player
+            // cloak-blink: vanish, reappear at a new angle near the hunted pilot
             ExplosionFactory.Sparks(transform.position, def.tint);
             Vector3 dir = Random.onUnitSphere; dir.y *= 0.4f;
-            transform.position = _player.position + dir.normalized * Random.Range(45f, 70f);
+            transform.position = _target.position + dir.normalized * Random.Range(45f, 70f);
             ExplosionFactory.Sparks(transform.position, def.tint);
             GameManager.I.PlaySfxAt(SfxSynth.Hit, transform.position, 0.5f);
             // ambush burst right after the blink
@@ -193,10 +214,9 @@ public class MinibossAI : MonoBehaviour
 
     void FireAimed(float spreadDeg, float dmgMult = 1f)
     {
-        if (_player == null) return;
-        Vector3 aim = _player.position;
-        if (_playerRb != null)
-            aim += _playerRb.linearVelocity * (Vector3.Distance(transform.position, aim) / BoltSpeed) * 0.85f;
+        if (_target == null) return;
+        Vector3 aim = _target.position;
+        aim += _targetVel * (Vector3.Distance(transform.position, aim) / BoltSpeed) * 0.85f;
         Vector3 dir = (aim - transform.position).normalized;
         dir = Quaternion.Euler(Random.Range(-spreadDeg, spreadDeg), Random.Range(-spreadDeg, spreadDeg), 0f) * dir;
         Projectile.Spawn(transform.position + dir * 5f, dir * BoltSpeed, def.dmg * dmgMult, def.tint, gameObject, false);

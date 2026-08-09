@@ -121,7 +121,28 @@ public class CoopSync : MonoBehaviour
         I._net.onPeerJoined = _ => I.OnLinkUp();         // host side: a partner arrived
         I._net.onPeerLeft = _ => I.HandleDisconnect();   // host side: partner gone
         I._net.Connect(host, I._room, (from, msg) => I.OnMessage(msg), I.OnNetState);
+        I.InLobby = true;   // straight into the lobby — the partner column shows the wait
         return I;
+    }
+
+    public bool Connected => _net != null && _net.Open;
+
+    // per-pilot damage tally for the MVP readout (host authoritative:
+    // guest damage arrives as claims, everything else is the host's)
+    float _totalDmg, _guestDmg;
+    public float myDamage, partnerDamage;
+
+    public void TallyDamage(float amount)
+    {
+        if (IsHost) _totalDmg += amount;
+    }
+
+    public string MvpLine()
+    {
+        string partner = _partnerName.ToUpperInvariant();
+        string lead = myDamage >= partnerDamage ? "YOU" : partner;
+        return "MVP: " + lead + "   ·   DAMAGE — YOU " + Mathf.RoundToInt(myDamage).ToString("N0")
+            + "  /  " + partner + " " + Mathf.RoundToInt(partnerDamage).ToString("N0");
     }
 
     // ---------- lobby ----------
@@ -248,6 +269,8 @@ public class CoopSync : MonoBehaviour
     {
         if (_running) return;
         _running = true;
+        _totalDmg = _guestDmg = 0f;
+        myDamage = partnerDamage = 0f;
         Debug.Log("[coop] run starting with " + _partnerName + " (pilot " + _partnerPilot + ")");
         _waves = FindAnyObjectByType<WaveDirector>();
         var ship = FindAnyObjectByType<ShipController>();
@@ -441,6 +464,10 @@ public class CoopSync : MonoBehaviour
               .Append(';');
         }
         foreach (var id in Scratch) _hostiles.Remove(id);
+        float hostDmg = Mathf.Max(0f, _totalDmg - _guestDmg);
+        sb.Append('|').Append(F(hostDmg)).Append('|').Append(F(_guestDmg));
+        myDamage = hostDmg;
+        partnerDamage = _guestDmg;
         Send(sb.ToString());
     }
 
@@ -544,7 +571,10 @@ public class CoopSync : MonoBehaviour
             case "D":
                 if (IsHost && p.Length >= 3 && int.TryParse(p[1], out int did)
                     && _hostiles.TryGetValue(did, out var target) && target != null)
+                {
+                    _guestDmg += PF(p[2]);   // partner's contribution, for the MVP tally
                     target.TakeDamage(PF(p[2]));
+                }
                 break;
             case "LV":
                 _remotePause = p.Length >= 2 && p[1] == "1";
@@ -651,6 +681,12 @@ public class CoopSync : MonoBehaviour
 
         if (bossSeen != null) _waves.SetBoss(bossSeen, bossName);
         else if (_waves.bossHealth != null && _waves.bossHealth.netPuppet) _waves.ClearBoss();
+
+        if (p.Length >= 7)   // guest perspective: host's tally arrives flipped
+        {
+            partnerDamage = PF(p[5]);
+            myDamage = PF(p[6]);
+        }
     }
 
     Health BuildPuppet(int id, string type, Vector3 pos)

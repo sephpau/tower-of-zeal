@@ -50,6 +50,8 @@ public class HudController : MonoBehaviour
     Text _coopStatus, _lobbyRoom, _lobbyMyName, _lobbyPartnerName, _lobbyPartnerState, _lobbyCountdown, _lobbyStatus;
     readonly List<Button> _lobbyPilotButtons = new List<Button>();
     Button _readyBtn, _blitzBtn;
+    GameObject _lobbySpin, _brSpin;
+    Image _lobbySpinFill, _brSpinFill;
     Text _overPulse;
     List<LevelUpChoices> _sideChoices;
     System.Action<LevelUpChoices> _sidePick;
@@ -482,6 +484,11 @@ public class HudController : MonoBehaviour
                 + "   " + e.score.ToString("N0") + "   [" + e.verify + "]");
             if (++rank > 8) break;
         }
+        if (CoopSync.Active && CoopSync.I != null)
+        {
+            sb.AppendLine("");
+            sb.AppendLine(CoopSync.I.MvpLine());
+        }
         _resultsStandings.text = sb.ToString();
         Invoke(nameof(EnableRestart), 1.5f);
     }
@@ -767,6 +774,23 @@ public class HudController : MonoBehaviour
 
     void Update()
     {
+        // waiting indicators: sweep bars while a lobby is short on people
+        if (_lobbySpin != null)
+        {
+            bool coopWaiting = _lobbyPanel != null && _lobbyPanel.activeSelf
+                && CoopSync.I != null && !CoopSync.I.PartnerHere;
+            if (_lobbySpin.activeSelf != coopWaiting) _lobbySpin.SetActive(coopWaiting);
+            if (coopWaiting) _lobbySpinFill.fillAmount = Mathf.PingPong(Time.unscaledTime * 0.9f, 1f);
+        }
+        if (_brSpin != null)
+        {
+            var rs = RoyaleSync.I;
+            bool brWaiting = _brLobbyPanel != null && _brLobbyPanel.activeSelf
+                && rs != null && !RoyaleSync.Playing && (rs.players.Count == 0 || (rs.IsHostRole && rs.players.Count < 2));
+            if (_brSpin.activeSelf != brWaiting) _brSpin.SetActive(brWaiting);
+            if (brWaiting) _brSpinFill.fillAmount = Mathf.PingPong(Time.unscaledTime * 0.9f, 1f);
+        }
+
         // co-op level-up hotkeys
         if (_sidePick != null)
         {
@@ -992,9 +1016,12 @@ public class HudController : MonoBehaviour
         if (string.IsNullOrWhiteSpace(room)) { _coopStatus.text = "ENTER A ROOM CODE FIRST"; return; }
         var session = CoopSync.Begin(host, room, _coopNameInput.text, 0);
         BindCoopSession(session);
-        _coopStatus.text = host
-            ? "ROOM " + room.Trim().ToUpperInvariant() + " — WAITING FOR YOUR PARTNER…"
-            : "LOOKING FOR THE HOST OF " + room.Trim().ToUpperInvariant() + "…";
+        // straight into the lobby — the partner column carries the wait state
+        _coopPanel.SetActive(false);
+        _lobbyPanel.SetActive(true);
+        _lobbyCountdown.text = "";
+        _lobbyStatus.text = host ? "SHARE THE ROOM CODE WITH YOUR PARTNER" : "";
+        RefreshLobby();
     }
 
     // wire a co-op session's callbacks into this HUD (a fresh HUD exists
@@ -1063,6 +1090,19 @@ public class HudController : MonoBehaviour
         _lobbyCountdown.color = new Color(1f, 0.85f, 0.4f);
         _lobbyCountdown.font = _titleFont;
 
+        // sweep bar under the partner column while we wait for them
+        var spinBg = NewImage(_lobbyPanel.transform, "spinbg", new Vector2(0.7f, 0.44f), new Vector2(0.7f, 0.44f), Vector2.zero, new Vector2(300, 8));
+        spinBg.sprite = _roundedFill;
+        spinBg.type = Image.Type.Sliced;
+        spinBg.color = new Color(0.05f, 0.04f, 0.14f, 0.9f);
+        _lobbySpinFill = NewImage(spinBg.transform, "fill", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        _lobbySpinFill.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));
+        _lobbySpinFill.type = Image.Type.Filled;
+        _lobbySpinFill.fillMethod = Image.FillMethod.Horizontal;
+        _lobbySpinFill.color = new Color(0.4f, 1f, 0.75f, 0.9f);
+        _lobbySpin = spinBg.gameObject;
+        _lobbySpin.SetActive(false);
+
         _blitzBtn = MakeButton(_lobbyPanel.transform, "MODE: CAMPAIGN CO-OP", new Vector2(0.5f, 0.32f), new Vector2(560, 50),
             new Color(1f, 0.55f, 0.9f), () => {
                 if (CoopSync.I == null) return;
@@ -1113,7 +1153,9 @@ public class HudController : MonoBehaviour
         if (!s.PartnerHere)
         {
             _lobbyPartnerName.text = "…";
-            _lobbyPartnerState.text = "WAITING FOR A PARTNER TO JOIN…";
+            _lobbyPartnerState.text = CoopSync.IsHost
+                ? "WAITING FOR A PARTNER TO JOIN"
+                : (s.Connected ? "SYNCING WITH THE HOST" : "CONNECTING TO THE HOST");
         }
         else
         {
@@ -1318,6 +1360,18 @@ public class HudController : MonoBehaviour
         _brLobbyStatus = NewText(_brLobbyPanel.transform, "status", "", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.222f), new Vector2(0.5f, 0.222f), Vector2.zero, new Vector2(1200, 32));
         _brLobbyStatus.color = new Color(1f, 0.55f, 0.5f);
+
+        var brSpinBg = NewImage(_brLobbyPanel.transform, "spinbg", new Vector2(0.5f, 0.196f), new Vector2(0.5f, 0.196f), Vector2.zero, new Vector2(340, 8));
+        brSpinBg.sprite = _roundedFill;
+        brSpinBg.type = Image.Type.Sliced;
+        brSpinBg.color = new Color(0.05f, 0.04f, 0.14f, 0.9f);
+        _brSpinFill = NewImage(brSpinBg.transform, "fill", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        _brSpinFill.sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));
+        _brSpinFill.type = Image.Type.Filled;
+        _brSpinFill.fillMethod = Image.FillMethod.Horizontal;
+        _brSpinFill.color = new Color(1f, 0.35f, 0.35f, 0.9f);
+        _brSpin = brSpinBg.gameObject;
+        _brSpin.SetActive(false);
         _brStartBtn = MakeButton(_brLobbyPanel.transform, "LAUNCH MATCH", new Vector2(0.38f, 0.15f), new Vector2(300, 58),
             new Color(0.5f, 1f, 0.6f), () => { if (RoyaleSync.I != null) RoyaleSync.I.HostStartMatch(); });
         MakeButton(_brLobbyPanel.transform, "LEAVE", new Vector2(0.62f, 0.15f), new Vector2(300, 58),
@@ -1347,17 +1401,15 @@ public class HudController : MonoBehaviour
         if (string.IsNullOrWhiteSpace(room)) { _brStatus.text = "ENTER A ROOM CODE FIRST"; return; }
         var s = RoyaleSync.Begin(host, room, _brNameInput.text, _brPilotChoice, spectate);
         BindRoyaleSession(s);
-        if (host)
-        {
-            _brPanel.SetActive(false);
-            _brLobbyPanel.SetActive(true);
-            _brCountdown.text = "";
-            RefreshRoyaleLobby();
-        }
-        else
-            _brStatus.text = spectate
-                ? "FINDING " + room.Trim().ToUpperInvariant() + " TO WATCH…"
-                : "JOINING " + room.Trim().ToUpperInvariant() + "…";
+        // everyone lands in the lobby immediately; the sweep bar shows the wait
+        _brPanel.SetActive(false);
+        _brLobbyPanel.SetActive(true);
+        _brCountdown.text = "";
+        _brLobbyStatus.text = host
+            ? "SHARE THE ROOM CODE — WAITING FOR PILOTS"
+            : (spectate ? "CONNECTING TO " + room.Trim().ToUpperInvariant() + " AS A SPECTATOR"
+                        : "CONNECTING TO " + room.Trim().ToUpperInvariant());
+        RefreshRoyaleLobby();
     }
 
     void BindRoyaleSession(RoyaleSync s)
@@ -1412,9 +1464,11 @@ public class HudController : MonoBehaviour
             _brTeamBtn.gameObject.SetActive(s.mySlot >= 0);
         }
         else _brTeamBtn.gameObject.SetActive(false);
-        _brRoster.text = s.players.Count + " / 8 PILOTS"
-            + (s.spectatorCount > 0 ? "   ·   " + s.spectatorCount + " WATCHING" : "")
-            + (s.mySlot < 0 ? "   ·   YOU ARE SPECTATING" : "");
+        _brRoster.text = s.players.Count == 0
+            ? "CONNECTING…"
+            : s.players.Count + " / 8 PILOTS"
+                + (s.spectatorCount > 0 ? "   ·   " + s.spectatorCount + " WATCHING" : "")
+                + (s.mySlot < 0 ? "   ·   YOU ARE SPECTATING" : "");
         _brStartBtn.gameObject.SetActive(s.IsHostRole);
     }
 
@@ -1629,6 +1683,8 @@ public class HudController : MonoBehaviour
         _overStats.text = wave > WaveDirector.FinalWave
             ? "Survived to wave " + wave + " — sector cleared"
             : "Reached wave " + wave + " / " + WaveDirector.FinalWave;
+        if (CoopSync.Active && CoopSync.I != null && !CoopSync.DuelActive)
+            _overStats.text += "\n" + CoopSync.I.MvpLine();
         Invoke(nameof(EnableRestart), 1.2f);
     }
     void EnableRestart() { WantsRestart = true; }
@@ -1733,23 +1789,31 @@ public class HudController : MonoBehaviour
         _xpBar.fillAmount = Mathf.Clamp01(GameManager.I.xp / (float)ZealData.XpToNext(GameManager.I.xpLevel));
         _xpLevelText.text = "LV " + GameManager.I.xpLevel;
 
-        // live tournament standings sidebar
-        if (TournamentMode.Active && TournamentNet.I != null && TournamentNet.I.online && TournamentNet.I.latest.Length > 0)
+        // live sidebar: tournament standings and/or the co-op damage race
         {
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine("LIVE — " + TournamentMode.MatchCode);
-            int shown = 0;
-            foreach (var e in TournamentNet.I.latest)
+            if (TournamentMode.Active && TournamentNet.I != null && TournamentNet.I.online && TournamentNet.I.latest.Length > 0)
             {
-                shown++;
-                bool me = e.name == TournamentMode.PlayerName;
-                sb.AppendLine((me ? "> " : "") + shown + ". " + e.name + "  " + e.score.ToString("N0"));
-                if (shown >= 5) break;
+                sb.AppendLine("LIVE — " + TournamentMode.MatchCode);
+                int shown = 0;
+                foreach (var e in TournamentNet.I.latest)
+                {
+                    shown++;
+                    bool me = e.name == TournamentMode.PlayerName;
+                    sb.AppendLine((me ? "> " : "") + shown + ". " + e.name + "  " + e.score.ToString("N0"));
+                    if (shown >= 5) break;
+                }
+            }
+            if (CoopSync.Active && CoopSync.I != null && !CoopSync.DuelActive)
+            {
+                var cs = CoopSync.I;
+                bool meLead = cs.myDamage >= cs.partnerDamage;
+                sb.AppendLine("DAMAGE DEALT");
+                sb.AppendLine((meLead ? "★ " : "   ") + "YOU  " + Mathf.RoundToInt(cs.myDamage).ToString("N0"));
+                sb.AppendLine((meLead ? "   " : "★ ") + cs.PartnerName.ToUpperInvariant() + "  " + Mathf.RoundToInt(cs.partnerDamage).ToString("N0"));
             }
             _liveBoardText.text = sb.ToString();
         }
-        else
-            _liveBoardText.text = "";
 
         UpdateIndicators(player);
         UpdateWorldBars(player);

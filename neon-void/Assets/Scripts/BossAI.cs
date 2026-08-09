@@ -50,11 +50,31 @@ public class BossAI : MonoBehaviour
         Destroy(gameObject);
     }
 
+    Transform _target;
+    Vector3 _targetVel;
+
+    void PickTarget()
+    {
+        _target = _player;
+        _targetVel = _playerRb != null ? _playerRb.linearVelocity : Vector3.zero;
+        bool localAlive = _player != null && _player.gameObject.activeInHierarchy;
+        var remote = CoopSync.RemoteShip;
+        if (remote == null) return;
+        if (!localAlive ||
+            (remote.position - transform.position).sqrMagnitude <
+            (_player.position - transform.position).sqrMagnitude)
+        {
+            _target = remote;
+            _targetVel = CoopSync.RemoteVelocity;
+        }
+    }
+
     void FixedUpdate()
     {
         if (_player == null || !GameManager.I.Running) return;
+        PickTarget();
 
-        Vector3 toPlayer = _player.position - transform.position;
+        Vector3 toPlayer = _target.position - transform.position;
         float dist = toPlayer.magnitude;
 
         // broadside orbit at standoff range
@@ -71,9 +91,8 @@ public class BossAI : MonoBehaviour
         if (_turretTimer <= 0f && dist < 320f)
         {
             _turretTimer = Mathf.Max(0.9f, 2.2f - GameManager.I.score / 20000f);
-            Vector3 aim = _player.position;
-            if (_playerRb != null)
-                aim += _playerRb.linearVelocity * (dist / BoltSpeed) * 0.9f;
+            Vector3 aim = _target.position;
+            aim += _targetVel * (dist / BoltSpeed) * 0.9f;
             foreach (var m in turretMuzzles)
             {
                 Vector3 dir = (aim - m.position).normalized;
@@ -90,7 +109,7 @@ public class BossAI : MonoBehaviour
             _missileTimer = 8f;
             foreach (var m in turretMuzzles)
             {
-                Vector3 dir = ((_player.position - m.position).normalized + Random.insideUnitSphere * 0.35f).normalized;
+                Vector3 dir = ((_target.position - m.position).normalized + Random.insideUnitSphere * 0.35f).normalized;
                 EnemyMissile.Launch(m.position + dir * 3f, dir, BoltColor);
             }
             GameManager.I.PlaySfxAt(SfxSynth.WaveUp, transform.position, 0.6f);

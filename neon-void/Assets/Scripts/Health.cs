@@ -62,6 +62,9 @@ public class Health : MonoBehaviour
             if (sc != null && sc.guarding) amount *= 0.5f;   // guard mode halves damage
         }
         _sinceHit = 0f;
+        // co-op MVP tally: real enemies carry a NetTag on the host
+        if (!isPlayer && CoopSync.HostActive && GetComponent<NetTag>() != null)
+            CoopSync.I.TallyDamage(amount);
         if (absorb > 0f)
         {
             float soaked = Mathf.Min(absorb, amount);
