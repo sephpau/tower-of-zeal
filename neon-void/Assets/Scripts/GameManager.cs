@@ -464,6 +464,7 @@ public class GameManager : MonoBehaviour
     }
 
     public void Banner(string msg) => _hud.WaveBanner(msg);
+    public void AnnounceText(string msg) => _hud.AnnounceCaption(msg);
 
     // co-op: both pilots down (or the guest lost its host) — end the run
     // and set the session up to meet back in the lobby after the reload

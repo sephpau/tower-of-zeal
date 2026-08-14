@@ -12,12 +12,12 @@ public class HudController : MonoBehaviour
 
     Canvas _canvas;
     Font _font;
-    Text _scoreText, _waveText, _hostilesText, _comboText, _bannerText, _throttleText, _weaponText, _bossName;
+    Text _scoreText, _waveText, _hostilesText, _comboText, _bannerText, _announceText, _throttleText, _weaponText, _bossName;
     Image _shieldBar, _hullBar, _vignette, _reticle, _bossBar, _warnBorder;
     GameObject _settingsPanel;
     GameObject _gameHud, _startPanel, _overPanel, _winPanel, _bossGroup;
     Text _overScore, _overBest, _overStats, _winScore, _winBest;
-    float _bannerTimer, _vignetteAlpha;
+    float _bannerTimer, _announceTimer, _vignetteAlpha;
     WaveDirector _wavesRef;
 
     Text _xpLevelText, _timerText, _skillCdText, _skillLabel, _liveBoardText;
@@ -213,6 +213,12 @@ public class HudController : MonoBehaviour
         _bannerText.color = new Color(1f, 0.4f, 0.85f, 0f);
         _bannerText.fontStyle = FontStyle.BoldAndItalic;
         _bannerText.font = _titleFont;
+
+        // announcer comms line: text-only callouts, below the wave banner
+        _announceText = NewText(_gameHud.transform, "announce", "", 26, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.585f), new Vector2(0.5f, 0.585f), Vector2.zero, new Vector2(1200, 40));
+        _announceText.color = new Color(0.55f, 0.95f, 1f, 0f);
+        _announceText.fontStyle = FontStyle.Bold;
 
         // XP bar across the very top + level chip
         var xpBg = NewImage(_gameHud.transform, "xpbg", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -6), new Vector2(900, 8));
@@ -1943,6 +1949,15 @@ public class HudController : MonoBehaviour
             _bannerText.color = new Color(1f, 0.4f, 0.85f, Mathf.Min(a, ain));
         }
 
+        // announcer caption fade
+        if (_announceTimer > 0f)
+        {
+            _announceTimer -= Time.deltaTime;
+            float a = Mathf.Clamp01(_announceTimer / 0.5f);
+            float ain = Mathf.Clamp01((2.6f - _announceTimer) / 0.2f);
+            _announceText.color = new Color(0.55f, 0.95f, 1f, Mathf.Min(a, ain));
+        }
+
         // vignette decay
         _vignetteAlpha = Mathf.Max(0f, _vignetteAlpha - Time.deltaTime * 2.2f);
         _vignette.color = new Color(1, 1, 1, _vignetteAlpha);
@@ -1950,6 +1965,7 @@ public class HudController : MonoBehaviour
 
     public void SetCombo(int mult) { _comboText.text = mult >= 2 ? "COMBO x" + mult : ""; }
     public void WaveBanner(string msg) { _bannerText.text = msg; _bannerTimer = 2.2f; }
+    public void AnnounceCaption(string msg) { _announceText.text = ">> " + msg.ToUpperInvariant(); _announceTimer = 2.6f; }
     public void FlashDamage() { _vignetteAlpha = 1f; }
     public void PulseShield() { }
 
