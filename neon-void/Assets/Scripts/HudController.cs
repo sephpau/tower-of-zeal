@@ -598,23 +598,8 @@ public class HudController : MonoBehaviour
         MakeButton(_homePanel.transform, "SETTINGS", new Vector2(0.5f, 0.135f), new Vector2(360, 56),
             new Color(0.6f, 0.9f, 1f), () => { _homePanel.SetActive(false); _settingsPanel.SetActive(true); });
 
-        // Discord identity, top-right (only when the page has a client id configured)
-        if (DiscordAuth.Available)
-        {
-            Button db = null;
-            db = MakeButton(_homePanel.transform,
-                DiscordAuth.LoggedIn ? "DISCORD: " + DiscordAuth.DisplayName.ToUpperInvariant() + "  ✕" : "LOGIN WITH DISCORD",
-                new Vector2(0.865f, 0.93f), new Vector2(330, 46),
-                new Color(0.55f, 0.62f, 1f), () => {
-                    if (DiscordAuth.LoggedIn)
-                    {
-                        DiscordAuth.Logout();   // ✕ = sign out; label resets in place
-                        db.GetComponentInChildren<Text>().text = "LOGIN WITH DISCORD";
-                    }
-                    else DiscordAuth.Login();   // full-page redirect to Discord and back
-                });
-            db.GetComponentInChildren<Text>().fontSize = 18;
-        }
+        // Discord + Ronin wallet identity corner (top-right)
+        BuildIdentityCorner();
 
         var ctl = NewText(_homePanel.transform, "controls", "MOUSE aim · WASD move · SHIFT up / CTRL down · SPACE dash (spins!) · G guard (½ dmg, attack drops it, 5s CD) · LMB fire · RMB special · V 1st/3rd person · M mute\nCollect XP shards — choose upgrades on level up", 18, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.05f), new Vector2(0.5f, 0.05f), Vector2.zero, new Vector2(1500, 70));
@@ -1961,6 +1946,8 @@ public class HudController : MonoBehaviour
         // fixed center crosshair (mouse-look aiming)
         _reticle.rectTransform.anchoredPosition = Vector2.zero;
 
+        PollIdentity();   // wallet connect resolves async — refresh the corner when state flips
+
         // banner fade
         if (_bannerTimer > 0f)
         {
@@ -1987,6 +1974,105 @@ public class HudController : MonoBehaviour
     public void SetCombo(int mult) { _comboText.text = mult >= 2 ? "COMBO x" + mult : ""; }
     public void WaveBanner(string msg) { _bannerText.text = msg; _bannerTimer = 2.2f; }
     public void AnnounceCaption(string msg) { _announceText.text = ">> " + msg.ToUpperInvariant(); _announceTimer = 2.6f; }
+
+    // ---------- Discord + wallet identity corner ----------
+    GameObject _idCorner;
+    string _idCornerState = "";
+    string _idLastError = "";
+    float _idPollTimer;
+
+    string IdentityState() =>
+        (DiscordAuth.LoggedIn ? "d" : "-") + (WalletAuth.Connected ? "w" : "-") + (WalletAuth.Busy ? "b" : "-");
+
+    void BuildIdentityCorner()
+    {
+        if (_idCorner != null) Destroy(_idCorner);
+        _idCorner = new GameObject("identityCorner");
+        _idCorner.transform.SetParent(_homePanel.transform, false);
+        var rt = _idCorner.AddComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+        _idCornerState = IdentityState();
+
+        // row 1: Discord — logo only when logged out, name + ✕ when logged in
+        if (DiscordAuth.Available)
+        {
+            if (DiscordAuth.LoggedIn)
+            {
+                var db = MakeButton(_idCorner.transform,
+                    "DISCORD: " + DiscordAuth.DisplayName.ToUpperInvariant() + "  ✕",
+                    new Vector2(0.865f, 0.92f), new Vector2(330, 44),
+                    new Color(0.55f, 0.62f, 1f), () => { DiscordAuth.Logout(); BuildIdentityCorner(); });
+                db.GetComponentInChildren<Text>().fontSize = 18;
+            }
+            else
+            {
+                var db = MakeButton(_idCorner.transform, "", new Vector2(0.945f, 0.92f), new Vector2(58, 58),
+                    new Color(0.55f, 0.62f, 1f), () => DiscordAuth.Login());
+                var logoTex = Resources.Load<Texture2D>("icons/discord");
+                if (logoTex != null)
+                {
+                    var logo = NewImage(db.transform, "logo", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(46, 46));
+                    logo.sprite = Sprite.Create(logoTex, new Rect(0, 0, logoTex.width, logoTex.height), new Vector2(0.5f, 0.5f));
+                    logo.raycastTarget = false;
+                }
+            }
+        }
+
+        // row 2: Ronin wallet — same verified flow as classic Zeal Survivors
+        if (WalletAuth.Available)
+        {
+            if (WalletAuth.Connected)
+            {
+                var wb = MakeButton(_idCorner.transform,
+                    "RONIN: " + WalletAuth.ShortAddress.ToUpperInvariant() + "  ✕",
+                    new Vector2(0.88f, 0.845f), new Vector2(300, 44),
+                    new Color(0.35f, 0.75f, 1f), () => { WalletAuth.Disconnect(); BuildIdentityCorner(); });
+                wb.GetComponentInChildren<Text>().fontSize = 17;
+            }
+            else if (WalletAuth.Busy)
+            {
+                var wb = MakeButton(_idCorner.transform, "CONNECTING…", new Vector2(0.895f, 0.845f), new Vector2(240, 44),
+                    new Color(0.35f, 0.75f, 1f), () => { });
+                wb.GetComponentInChildren<Text>().fontSize = 17;
+            }
+            else
+            {
+                var wb = MakeButton(_idCorner.transform, "CONNECT RONIN", new Vector2(0.895f, 0.845f), new Vector2(240, 44),
+                    new Color(0.35f, 0.75f, 1f), () => { _idLastError = ""; WalletAuth.Connect(); BuildIdentityCorner(); });
+                wb.GetComponentInChildren<Text>().fontSize = 17;
+            }
+        }
+
+        // last wallet error (shown until the next attempt)
+        if (!string.IsNullOrEmpty(_idLastError))
+        {
+            var errText = NewText(_idCorner.transform, "walletErr", _idLastError.ToUpperInvariant(), 14, TextAnchor.MiddleRight,
+                new Vector2(0.985f, 0.725f), new Vector2(0.985f, 0.725f), new Vector2(-260, 0), new Vector2(520, 44));
+            errText.color = new Color(1f, 0.45f, 0.5f, 0.95f);
+        }
+
+        // warning while either identity is missing
+        if ((DiscordAuth.Available || WalletAuth.Available) && (!DiscordAuth.LoggedIn || !WalletAuth.Connected))
+        {
+            var warn = NewText(_idCorner.transform, "saveWarn",
+                "!! PROGRESS WILL NOT BE SAVED — CONNECT DISCORD & WALLET !!", 15, TextAnchor.MiddleRight,
+                new Vector2(0.985f, 0.775f), new Vector2(0.985f, 0.775f), new Vector2(-230, 0), new Vector2(460, 30));
+            warn.color = new Color(1f, 0.75f, 0.3f, 0.9f);
+            warn.fontStyle = FontStyle.Bold;
+        }
+    }
+
+    void PollIdentity()
+    {
+        if (_homePanel == null || !_homePanel.activeInHierarchy) return;
+        _idPollTimer -= Time.deltaTime;
+        if (_idPollTimer > 0f) return;
+        _idPollTimer = 1f;
+        string err = WalletAuth.PullError();
+        if (!string.IsNullOrEmpty(err)) { _idLastError = err; BuildIdentityCorner(); return; }
+        if (IdentityState() != _idCornerState) BuildIdentityCorner();
+    }
     public void FlashDamage() { _vignetteAlpha = 1f; }
     public void PulseShield() { }
 

@@ -118,6 +118,69 @@
         "&response_type=token&scope=identify&redirect_uri=" + encodeURIComponent(redirect);
     };
 
+    // ---------- Ronin wallet (same flow + storage keys as classic Zeal Survivors) ----------
+    var NV_WALLET_KEY = 'motz_wallet', NV_WALLET_VERIFIED = 'motz_wallet_verified';
+    window.__nvWalletBusy = false; window.__nvWalletError = "";
+    function nvValidAddress(a) { a = (a || '').toLowerCase(); return /^0x[a-f0-9]{40}$/.test(a) ? a : ''; }
+    function nvRoninProvider() {
+      if (window.ronin && window.ronin.provider) return window.ronin.provider;
+      if (window.ethereum) return window.ethereum;
+      return null;
+    }
+    window.NVWalletAddress = function () { return nvValidAddress(localStorage.getItem(NV_WALLET_KEY)); };
+    window.NVWalletBusy = function () { return window.__nvWalletBusy ? 1 : 0; };
+    window.NVWalletTakeError = function () { var e = window.__nvWalletError; window.__nvWalletError = ""; return e; };
+    window.NVWalletDisconnect = function () {
+      localStorage.removeItem(NV_WALLET_KEY); localStorage.removeItem(NV_WALLET_VERIFIED);
+      localStorage.removeItem('motz_voyages_wallet'); localStorage.removeItem('motz_voyages_wallet_verified');
+      fetch('/api/staking/logout', { method: 'POST', credentials: 'same-origin' }).catch(function () {});
+      var p = nvRoninProvider();
+      if (p && p.request) p.request({ method: 'wallet_revokePermissions', params: [{ eth_accounts: {} }] }).catch(function () {});
+    };
+    window.NVWalletConnect = async function () {
+      if (window.__nvWalletBusy) return;
+      window.__nvWalletBusy = true; window.__nvWalletError = "";
+      try {
+        var provider = nvRoninProvider();
+        if (!provider) throw new Error('Ronin Wallet not detected — open this page in a browser with the Ronin extension.');
+        var accounts = await provider.request({ method: 'eth_requestAccounts' });
+        var from = ((accounts && accounts[0]) || '').toLowerCase();
+        if (!from) throw new Error('No wallet account connected.');
+        try {
+          await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x7e4' }] });
+        } catch (e) {
+          if (e && e.code === 4902) {
+            try {
+              await provider.request({ method: 'wallet_addEthereumChain', params: [{
+                chainId: '0x7e4', chainName: 'Ronin Mainnet',
+                nativeCurrency: { name: 'Ronin', symbol: 'RON', decimals: 18 },
+                rpcUrls: ['https://api.roninchain.com/rpc'],
+                blockExplorerUrls: ['https://app.roninchain.com'] }] });
+            } catch (_) {}
+          }
+        }
+        var cr = await fetch('/api/staking/verify-wallet?address=' + encodeURIComponent(from), { credentials: 'same-origin' });
+        if (!cr.ok) throw new Error('Could not start wallet verification.');
+        var ch = await cr.json();
+        var sig = await provider.request({ method: 'personal_sign', params: [ch.message, from] });
+        var vr = await fetch('/api/staking/verify-wallet', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: from, signature: sig, nonce: ch.nonce, timestamp: ch.timestamp })
+        });
+        var v = await vr.json().catch(function () { return {}; });
+        if (!vr.ok || !v.verified) throw new Error(v.error || 'Wallet verification failed.');
+        var addr = nvValidAddress(v.address || from);
+        if (!addr) throw new Error('Wallet returned an invalid address.');
+        var ts = String(Date.now());
+        localStorage.setItem(NV_WALLET_KEY, addr); localStorage.setItem(NV_WALLET_VERIFIED, ts);
+        localStorage.setItem('motz_voyages_wallet', addr); localStorage.setItem('motz_voyages_wallet_verified', ts);
+      } catch (e) {
+        var msg = (e && e.message) || 'Wallet connection failed.';
+        window.__nvWalletError = ((e && e.code === 4001) || /cancel|denied|reject/i.test(msg)) ? 'Wallet connection cancelled.' : msg;
+      } finally { window.__nvWalletBusy = false; }
+    };
+
     // ---------- progress (smoothed toward loader's target) ----------
     // setInterval, not rAF: rAF freezes in background tabs, and the bar
     // should keep moving if the player loads the game behind another tab
