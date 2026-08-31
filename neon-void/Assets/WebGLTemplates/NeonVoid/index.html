@@ -84,6 +84,40 @@
   </div>
 
   <script>
+    // ---------- Discord login (implicit OAuth, no backend needed) ----------
+    // Paste your Discord Application's Client ID here (Developer Portal → OAuth2).
+    // Leave empty to hide the login button in-game.
+    var NV_DISCORD_CLIENT_ID = "";
+
+    (function () {
+      // returning from Discord: token arrives in the URL fragment
+      var m = /[#&]access_token=([^&]+)/.exec(location.hash || "");
+      if (m) {
+        history.replaceState(null, "", location.pathname + location.search);
+        fetch("https://discord.com/api/users/@me", {
+          headers: { Authorization: "Bearer " + decodeURIComponent(m[1]) }
+        }).then(function (r) { return r.json(); }).then(function (u) {
+          if (u && u.id) {
+            localStorage.setItem("nv-discord-user", JSON.stringify({
+              id: u.id, username: u.username || "",
+              global_name: u.global_name || "", avatar: u.avatar || ""
+            }));
+            location.reload();   // let Unity boot with the identity in place
+          }
+        }).catch(function () {});
+      }
+    })();
+
+    window.NVDiscordAvailable = function () { return NV_DISCORD_CLIENT_ID ? 1 : 0; };
+    window.NVDiscordUser = function () { return localStorage.getItem("nv-discord-user") || ""; };
+    window.NVDiscordLogout = function () { localStorage.removeItem("nv-discord-user"); };
+    window.NVDiscordLogin = function () {
+      if (!NV_DISCORD_CLIENT_ID) return;
+      var redirect = location.origin + location.pathname;
+      location.href = "https://discord.com/oauth2/authorize?client_id=" + NV_DISCORD_CLIENT_ID +
+        "&response_type=token&scope=identify&redirect_uri=" + encodeURIComponent(redirect);
+    };
+
     // ---------- progress (smoothed toward loader's target) ----------
     // setInterval, not rAF: rAF freezes in background tabs, and the bar
     // should keep moving if the player loads the game behind another tab

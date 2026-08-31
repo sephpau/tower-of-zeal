@@ -598,6 +598,24 @@ public class HudController : MonoBehaviour
         MakeButton(_homePanel.transform, "SETTINGS", new Vector2(0.5f, 0.135f), new Vector2(360, 56),
             new Color(0.6f, 0.9f, 1f), () => { _homePanel.SetActive(false); _settingsPanel.SetActive(true); });
 
+        // Discord identity, top-right (only when the page has a client id configured)
+        if (DiscordAuth.Available)
+        {
+            Button db = null;
+            db = MakeButton(_homePanel.transform,
+                DiscordAuth.LoggedIn ? "DISCORD: " + DiscordAuth.DisplayName.ToUpperInvariant() + "  ✕" : "LOGIN WITH DISCORD",
+                new Vector2(0.865f, 0.93f), new Vector2(330, 46),
+                new Color(0.55f, 0.62f, 1f), () => {
+                    if (DiscordAuth.LoggedIn)
+                    {
+                        DiscordAuth.Logout();   // ✕ = sign out; label resets in place
+                        db.GetComponentInChildren<Text>().text = "LOGIN WITH DISCORD";
+                    }
+                    else DiscordAuth.Login();   // full-page redirect to Discord and back
+                });
+            db.GetComponentInChildren<Text>().fontSize = 18;
+        }
+
         var ctl = NewText(_homePanel.transform, "controls", "MOUSE aim · WASD move · SHIFT up / CTRL down · SPACE dash (spins!) · G guard (½ dmg, attack drops it, 5s CD) · LMB fire · RMB special · V 1st/3rd person · M mute\nCollect XP shards — choose upgrades on level up", 18, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.05f), new Vector2(0.5f, 0.05f), Vector2.zero, new Vector2(1500, 70));
         ctl.color = new Color(0.8f, 0.9f, 1f, 0.7f);
@@ -920,6 +938,7 @@ public class HudController : MonoBehaviour
             new Vector2(0.5f, 0.445f), new Vector2(0.5f, 0.445f), Vector2.zero, new Vector2(400, 30))
             .color = new Color(1f, 0.85f, 0.4f);
         _nameInput = MakeInput(_tourneySetupPanel.transform, new Vector2(0.5f, 0.385f), "YOUR CALLSIGN");
+        if (DiscordAuth.LoggedIn) _nameInput.text = DiscordAuth.DisplayName;
 
         // pilot picker: MATCH PICK keeps the seeded auto-pilot, or choose your own
         _tourneyPilotButtons.Clear();
@@ -997,6 +1016,7 @@ public class HudController : MonoBehaviour
             new Vector2(0.5f, 0.485f), new Vector2(0.5f, 0.485f), Vector2.zero, new Vector2(400, 30))
             .color = new Color(1f, 0.85f, 0.4f);
         _coopNameInput = MakeInput(_coopPanel.transform, new Vector2(0.5f, 0.425f), "YOUR CALLSIGN");
+        if (DiscordAuth.LoggedIn) _coopNameInput.text = DiscordAuth.DisplayName;
 
         _coopStatus = NewText(_coopPanel.transform, "status", "", 22, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.3f), new Vector2(0.5f, 0.3f), Vector2.zero, new Vector2(1100, 34));
@@ -1307,6 +1327,7 @@ public class HudController : MonoBehaviour
             new Vector2(0.5f, 0.485f), new Vector2(0.5f, 0.485f), Vector2.zero, new Vector2(400, 30))
             .color = new Color(1f, 0.85f, 0.4f);
         _brNameInput = MakeInput(_brPanel.transform, new Vector2(0.5f, 0.425f), "YOUR CALLSIGN");
+        if (DiscordAuth.LoggedIn) _brNameInput.text = DiscordAuth.DisplayName;
 
         _brPilotButtons.Clear();
         _brPilotChoice = 0;
