@@ -297,6 +297,7 @@ public class HudController : MonoBehaviour
         BuildWinPanel();
         BuildLevelUpPanel();
         BuildTournamentPanels();
+        BuildAdventurePanel();
         BuildCoopPanel();
         BuildLobbyPanel();
         BuildRoyalePanels();
@@ -587,22 +588,24 @@ public class HudController : MonoBehaviour
         _bestHomeText.color = new Color(0.5f, 0.98f, 1f, 0.9f);
         _bestHomeText.font = _titleFont;
 
-        MakeButton(_homePanel.transform, "PLAY", new Vector2(0.5f, 0.47f), new Vector2(430, 74),
+        MakeButton(_homePanel.transform, "PLAY", new Vector2(0.5f, 0.49f), new Vector2(430, 74),
             new Color(1f, 0.85f, 0.4f), () => { _homePanel.SetActive(false); _startPanel.SetActive(true); });
-        MakeButton(_homePanel.transform, "BLITZ TOURNAMENT", new Vector2(0.5f, 0.36f), new Vector2(360, 56),
+        MakeButton(_homePanel.transform, "ADVENTURE", new Vector2(0.5f, 0.385f), new Vector2(360, 56),
+            new Color(1f, 0.72f, 0.25f), () => { _homePanel.SetActive(false); OpenAdventure(); });
+        MakeButton(_homePanel.transform, "BLITZ TOURNAMENT", new Vector2(0.5f, 0.31f), new Vector2(360, 56),
             new Color(1f, 0.55f, 0.9f), () => { _homePanel.SetActive(false); _tourneySetupPanel.SetActive(true); });
-        MakeButton(_homePanel.transform, "CO-OP (2P)", new Vector2(0.5f, 0.285f), new Vector2(360, 56),
+        MakeButton(_homePanel.transform, "CO-OP (2P)", new Vector2(0.5f, 0.235f), new Vector2(360, 56),
             new Color(0.4f, 1f, 0.75f), () => { _homePanel.SetActive(false); _coopPanel.SetActive(true); });
-        MakeButton(_homePanel.transform, "BATTLE ROYALE", new Vector2(0.5f, 0.21f), new Vector2(360, 56),
+        MakeButton(_homePanel.transform, "BATTLE ROYALE", new Vector2(0.5f, 0.16f), new Vector2(360, 56),
             new Color(1f, 0.35f, 0.35f), () => { _homePanel.SetActive(false); _brPanel.SetActive(true); });
-        MakeButton(_homePanel.transform, "SETTINGS", new Vector2(0.5f, 0.135f), new Vector2(360, 56),
+        MakeButton(_homePanel.transform, "SETTINGS", new Vector2(0.5f, 0.09f), new Vector2(360, 56),
             new Color(0.6f, 0.9f, 1f), () => { _homePanel.SetActive(false); _settingsPanel.SetActive(true); });
 
         // Discord + Ronin wallet identity corner (top-right)
         BuildIdentityCorner();
 
         var ctl = NewText(_homePanel.transform, "controls", "MOUSE aim · WASD move · SHIFT up / CTRL down · SPACE dash (spins!) · G guard (½ dmg, attack drops it, 5s CD) · LMB fire · RMB special · V 1st/3rd person · M mute\nCollect XP shards — choose upgrades on level up", 18, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.05f), new Vector2(0.5f, 0.05f), Vector2.zero, new Vector2(1500, 70));
+            new Vector2(0.5f, 0.033f), new Vector2(0.5f, 0.033f), Vector2.zero, new Vector2(1500, 70));
         ctl.color = new Color(0.8f, 0.9f, 1f, 0.7f);
         _homePanel.SetActive(false);
     }
@@ -2060,6 +2063,248 @@ public class HudController : MonoBehaviour
                 new Vector2(0.985f, 0.775f), new Vector2(0.985f, 0.775f), new Vector2(-230, 0), new Vector2(460, 30));
             warn.color = new Color(1f, 0.75f, 0.3f, 0.9f);
             warn.fontStyle = FontStyle.Bold;
+        }
+    }
+
+    // ---------- Adventure hub: armory / survivors / quests / board / pass ----------
+    GameObject _adventurePanel, _advContent;
+    Text _advGold, _advStatus;
+    string _advTab = "armory";
+    MetaBridge.Summary _advSummary;
+    Coroutine _advCo;
+
+    static readonly string[] ArmoryIds = { "might", "maxhp", "armor", "recovery", "cooldown", "area", "speed" };
+    static readonly string[] SurvivorIds = { "magnet", "xpgain", "greed", "revival", "reroll", "banish" };
+
+    void BuildAdventurePanel()
+    {
+        _adventurePanel = Panel("AdventurePanel");
+        var t = NewText(_adventurePanel.transform, "title", "ADVENTURE", 56, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.91f), new Vector2(0.5f, 0.91f), Vector2.zero, new Vector2(1400, 80));
+        t.color = new Color(1f, 0.72f, 0.25f);
+        t.fontStyle = FontStyle.BoldAndItalic;
+        t.font = _titleFont;
+
+        _advGold = NewText(_adventurePanel.transform, "gold", "", 26, TextAnchor.MiddleLeft,
+            new Vector2(0.13f, 0.91f), new Vector2(0.13f, 0.91f), Vector2.zero, new Vector2(400, 40));
+        _advGold.color = new Color(1f, 0.85f, 0.4f);
+        _advGold.fontStyle = FontStyle.Bold;
+
+        string[] tabs = { "armory", "survivors", "quests", "board", "pass" };
+        string[] labels = { "ARMORY", "SURVIVORS", "QUESTS", "LEADERBOARD", "BATTLE PASS" };
+        for (int i = 0; i < tabs.Length; i++)
+        {
+            string tab = tabs[i];
+            MakeButton(_adventurePanel.transform, labels[i], new Vector2(0.26f + i * 0.12f, 0.82f), new Vector2(215, 48),
+                new Color(0.95f, 0.8f, 0.5f), () => { _advTab = tab; RefreshAdventure(); })
+                .GetComponentInChildren<Text>().fontSize = 18;
+        }
+
+        _advStatus = NewText(_adventurePanel.transform, "status", "", 20, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.13f), new Vector2(0.5f, 0.13f), Vector2.zero, new Vector2(1200, 34));
+        _advStatus.color = new Color(0.6f, 0.95f, 1f);
+
+        MakeButton(_adventurePanel.transform, "BACK", new Vector2(0.5f, 0.06f), new Vector2(300, 52),
+            new Color(0.8f, 0.9f, 1f), () => { _adventurePanel.SetActive(false); _homePanel.SetActive(true); });
+        _adventurePanel.SetActive(false);
+    }
+
+    void OpenAdventure()
+    {
+        _adventurePanel.SetActive(true);
+        RefreshAdventure();
+    }
+
+    void RefreshAdventure()
+    {
+        if (_advCo != null) { StopCoroutine(_advCo); _advCo = null; }
+        _advSummary = MetaBridge.GetSummary();
+        _advStatus.text = "";
+        _advGold.text = _advSummary != null ? "GOLD  " + _advSummary.gold.ToString("N0") : "";
+        if (_advContent != null) Destroy(_advContent);
+        _advContent = new GameObject("advContent");
+        _advContent.transform.SetParent(_adventurePanel.transform, false);
+        var rt = _advContent.AddComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+
+        if (_advSummary == null)
+        {
+            NewText(_advContent.transform, "msg", "ADVENTURE NEEDS THE ONLINE VERSION\nPLAY AT MARKOFTHEZEAL.COM/ZEALSURVIVORSV2", 26, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1200, 100))
+                .color = new Color(1f, 0.75f, 0.3f);
+            return;
+        }
+
+        switch (_advTab)
+        {
+            case "armory": BuildUpgradeRows(ArmoryIds, "SHIP UPGRADES — PERMANENT, EVERY RUN"); break;
+            case "survivors": BuildUpgradeRows(SurvivorIds, "SURVIVOR TRAINING — CREW-WIDE PERKS"); break;
+            case "quests": BuildQuestRows(); break;
+            case "board": BuildBoardTab("weekly"); break;
+            case "pass": BuildPassTab(); break;
+        }
+    }
+
+    void AdvHeader(string text)
+    {
+        NewText(_advContent.transform, "hdr", text, 20, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.755f), new Vector2(0.5f, 0.755f), Vector2.zero, new Vector2(1200, 30))
+            .color = new Color(0.8f, 0.9f, 1f, 0.75f);
+    }
+
+    void BuildUpgradeRows(string[] ids, string header)
+    {
+        AdvHeader(header);
+        float y = 0.70f;
+        foreach (var id in ids)
+        {
+            MetaBridge.Upgrade up = null;
+            foreach (var u in _advSummary.upgrades) if (u.id == id) { up = u; break; }
+            if (up == null) continue;
+            var name = NewText(_advContent.transform, "n" + id, up.name.ToUpperInvariant() + "  " + up.rank + "/" + up.maxRank,
+                22, TextAnchor.MiddleLeft, new Vector2(0.28f, y), new Vector2(0.28f, y), Vector2.zero, new Vector2(420, 34));
+            name.color = up.rank > 0 ? new Color(1f, 0.85f, 0.4f) : Color.white;
+            name.fontStyle = FontStyle.Bold;
+            NewText(_advContent.transform, "d" + id, up.desc, 18, TextAnchor.MiddleLeft,
+                new Vector2(0.55f, y), new Vector2(0.55f, y), Vector2.zero, new Vector2(460, 34))
+                .color = new Color(0.85f, 0.9f, 1f, 0.85f);
+            bool maxed = up.rank >= up.maxRank;
+            string label = maxed ? "MAXED" : up.cost.ToString("N0") + " G";
+            string idCopy = id;
+            var buy = MakeButton(_advContent.transform, label, new Vector2(0.795f, y), new Vector2(170, 40),
+                maxed ? new Color(0.5f, 0.6f, 0.7f) : (_advSummary.gold >= up.cost ? new Color(0.5f, 1f, 0.6f) : new Color(1f, 0.5f, 0.5f)),
+                () => {
+                    var r = MetaBridge.Buy(idCopy);
+                    _advStatus.text = r.ok ? "UPGRADED!" : (r.err ?? "").ToUpperInvariant();
+                    RefreshAdventure();
+                });
+            buy.GetComponentInChildren<Text>().fontSize = 17;
+            y -= 0.068f;
+        }
+    }
+
+    void BuildQuestRows()
+    {
+        AdvHeader("DAILY QUESTS — RESET AT 00:00 UTC · EARN GOLD + PASS XP");
+        float y = 0.68f;
+        foreach (var q in _advSummary.quests)
+        {
+            var d = NewText(_advContent.transform, "q" + q.id, q.desc.ToUpperInvariant(), 21, TextAnchor.MiddleLeft,
+                new Vector2(0.3f, y), new Vector2(0.3f, y), Vector2.zero, new Vector2(560, 34));
+            d.color = q.claimed ? new Color(0.6f, 0.7f, 0.8f) : q.done ? new Color(0.5f, 1f, 0.6f) : Color.white;
+            NewText(_advContent.transform, "r" + q.id, "+" + q.gold + " G  +" + q.xp + " XP", 18, TextAnchor.MiddleCenter,
+                new Vector2(0.63f, y), new Vector2(0.63f, y), Vector2.zero, new Vector2(220, 34))
+                .color = new Color(1f, 0.85f, 0.4f, 0.9f);
+            string label = q.claimed ? "CLAIMED" : q.done ? "CLAIM" : "IN PROGRESS";
+            string qid = q.id;
+            var b = MakeButton(_advContent.transform, label, new Vector2(0.795f, y), new Vector2(180, 40),
+                q.done && !q.claimed ? new Color(0.5f, 1f, 0.6f) : new Color(0.5f, 0.6f, 0.7f),
+                () => { if (MetaBridge.ClaimQuest(qid)) { _advStatus.text = "REWARD CLAIMED!"; RefreshAdventure(); } });
+            b.GetComponentInChildren<Text>().fontSize = 16;
+            y -= 0.085f;
+        }
+        NewText(_advContent.transform, "life",
+            "LIFETIME — RUNS " + _advSummary.lifetimeRuns.ToString("N0") +
+            " · KILLS " + _advSummary.lifetimeKills.ToString("N0") +
+            " · BEST SCORE " + _advSummary.bestScore.ToString("N0"),
+            18, TextAnchor.MiddleCenter, new Vector2(0.5f, y - 0.04f), new Vector2(0.5f, y - 0.04f),
+            Vector2.zero, new Vector2(1200, 30)).color = new Color(0.8f, 0.9f, 1f, 0.6f);
+    }
+
+    void BuildBoardTab(string period)
+    {
+        AdvHeader("LEADERBOARD — SHARED WITH CLASSIC ZEAL SURVIVORS");
+        MakeButton(_advContent.transform, "WEEKLY", new Vector2(0.42f, 0.70f), new Vector2(190, 42),
+            period == "weekly" ? new Color(1f, 0.85f, 0.4f) : new Color(0.7f, 0.8f, 0.9f),
+            () => BuildBoardSwitch("weekly")).GetComponentInChildren<Text>().fontSize = 17;
+        MakeButton(_advContent.transform, "ALL-TIME", new Vector2(0.58f, 0.70f), new Vector2(190, 42),
+            period == "alltime" ? new Color(1f, 0.85f, 0.4f) : new Color(0.7f, 0.8f, 0.9f),
+            () => BuildBoardSwitch("alltime")).GetComponentInChildren<Text>().fontSize = 17;
+        var rows = NewText(_advContent.transform, "rows", "FETCHING…", 20, TextAnchor.UpperCenter,
+            new Vector2(0.5f, 0.64f), new Vector2(0.5f, 0.64f), new Vector2(0, -180), new Vector2(980, 420));
+        rows.color = new Color(0.9f, 0.95f, 1f);
+        MetaBridge.BoardFetch(period);
+        _advCo = StartCoroutine(PollBoard(rows));
+    }
+
+    void BuildBoardSwitch(string period)
+    {
+        if (_advCo != null) { StopCoroutine(_advCo); _advCo = null; }
+        foreach (Transform c in _advContent.transform) Destroy(c.gameObject);
+        BuildBoardTab(period);
+    }
+
+    System.Collections.IEnumerator PollBoard(Text rows)
+    {
+        for (int i = 0; i < 30; i++)
+        {
+            yield return new WaitForSecondsRealtime(0.35f);
+            var b = MetaBridge.BoardTake();
+            if (b == null) continue;
+            if (!b.ok) { rows.text = "BOARD UNAVAILABLE — " + (b.reason ?? "OFFLINE").ToUpperInvariant(); yield break; }
+            var sb = new System.Text.StringBuilder();
+            int shown = 0;
+            foreach (var r in b.rows)
+            {
+                shown++;
+                if (shown > 10) break;
+                sb.AppendLine(shown + ".  " + (r.premium ? "★ " : "") + r.name.ToUpperInvariant() + "   " + r.score.ToString("N0"));
+            }
+            if (shown == 0) sb.AppendLine("NO SCORES YET — BE THE FIRST!");
+            if (b.me != null && b.me.rank > 0)
+                sb.AppendLine("\nYOUR RANK: #" + b.me.rank + "  (" + b.me.score.ToString("N0") + ")");
+            rows.text = sb.ToString();
+            yield break;
+        }
+        rows.text = "BOARD TIMED OUT — TRY AGAIN";
+    }
+
+    void BuildPassTab()
+    {
+        var s = _advSummary;
+        AdvHeader("SEASON " + s.seasonId + " — " + s.seasonName.ToUpperInvariant());
+        var tier = NewText(_advContent.transform, "tier",
+            "TIER " + s.passTier + " / " + s.passTiers + "    ·    " + (s.passXp % s.xpPerTier) + " / " + s.xpPerTier + " XP TO NEXT",
+            26, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(1200, 40));
+        tier.color = new Color(1f, 0.85f, 0.4f);
+        tier.fontStyle = FontStyle.Bold;
+        NewText(_advContent.transform, "how", "EARN PASS XP FROM RUN SCORES AND QUESTS — REWARDS: GOLD, REROLLS, BANISHES, REVIVALS, COSMETICS",
+            17, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.62f), new Vector2(0.5f, 0.62f), Vector2.zero, new Vector2(1300, 30))
+            .color = new Color(0.85f, 0.9f, 1f, 0.8f);
+        var prem = NewText(_advContent.transform, "prem",
+            s.premium ? "★ PREMIUM PASS ACTIVE — +20% PASS XP + PREMIUM TRACK" : "PREMIUM TRACK LOCKED",
+            22, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.545f), new Vector2(0.5f, 0.545f), Vector2.zero, new Vector2(1200, 34));
+        prem.color = s.premium ? new Color(1f, 0.85f, 0.4f) : new Color(0.7f, 0.75f, 0.9f);
+
+        if (s.claimable > 0)
+            MakeButton(_advContent.transform, "CLAIM " + s.claimable + " REWARD" + (s.claimable > 1 ? "S" : ""),
+                new Vector2(0.5f, 0.45f), new Vector2(340, 52), new Color(0.5f, 1f, 0.6f),
+                () => { int n = MetaBridge.ClaimAllRewards(); _advStatus.text = n + " REWARDS CLAIMED!"; RefreshAdventure(); });
+
+        if (!s.premium && WalletAuth.Available)
+        {
+            MakeButton(_advContent.transform, "BUY PREMIUM PASS — " + s.priceRon + " RON",
+                new Vector2(0.5f, 0.35f), new Vector2(420, 56), new Color(0.35f, 0.75f, 1f),
+                () => { MetaBridge.PassBuy(); _advCo = StartCoroutine(PollPass()); });
+            if (!WalletAuth.Connected)
+                NewText(_advContent.transform, "needwallet", "CONNECT YOUR RONIN WALLET ON THE HOMEPAGE FIRST", 17, TextAnchor.MiddleCenter,
+                    new Vector2(0.5f, 0.285f), new Vector2(0.5f, 0.285f), Vector2.zero, new Vector2(900, 30))
+                    .color = new Color(1f, 0.75f, 0.3f);
+        }
+    }
+
+    System.Collections.IEnumerator PollPass()
+    {
+        for (int i = 0; i < 400; i++)
+        {
+            yield return new WaitForSecondsRealtime(0.5f);
+            var p = MetaBridge.GetPassStatus();
+            if (p == null) continue;
+            if (p.busy) { _advStatus.text = (p.status ?? "").ToUpperInvariant(); continue; }
+            _advStatus.text = p.ok ? "★ PREMIUM PASS UNLOCKED!" : (p.reason ?? "PURCHASE FAILED").ToUpperInvariant();
+            if (p.ok) RefreshAdventure();
+            yield break;
         }
     }
 

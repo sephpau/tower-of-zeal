@@ -79,6 +79,12 @@ public class GameManager : MonoBehaviour
         }
         _skills = _playerHealth.GetComponent<SkillSystem>();
         _skills.InitPilot(ZealData.Pilots[Mathf.Clamp(pilotIndex, 0, ZealData.Pilots.Length - 1)]);
+        RunStats.Reset();
+        if (!TournamentMode.Active && MetaBridge.Ready)
+        {
+            _skills.ApplyMetaBonuses(MetaBridge.GetBonuses());   // armory + survivor training
+            MetaBridge.RunStart();                               // leaderboard run token
+        }
         var tint = _playerHealth.GetComponent<ShipTint>();
         if (tint != null) tint.Apply(_skills.pilot.accent);
         var special = _playerHealth.GetComponent<SpecialAttack>();
@@ -103,6 +109,7 @@ public class GameManager : MonoBehaviour
         if (!Running) return;
         float tournamentBonus = TournamentMode.Active ? TournamentMode.XpBonus : 1f;
         int gained = Mathf.Max(1, Mathf.RoundToInt(amount * _skills.XpMult * tournamentBonus));
+        RunStats.gems++;
         if (xpLevel >= ZealData.MaxLevel) { score += gained * 5; return; }   // capped: xp becomes score
         xp += gained;
         PlaySfx(SfxSynth.Pickup, 0.15f);
@@ -347,6 +354,7 @@ public class GameManager : MonoBehaviour
     public void EnemyKilled(int baseScore, Vector3 where)
     {
         if (!Running) return;
+        RunStats.kills++;
         combo++;
         _comboTimer = 5f;
         int mult = 1 + Mathf.Min(7, combo / 4);
@@ -395,7 +403,7 @@ public class GameManager : MonoBehaviour
 
     public int CurrentWave() => _waves != null ? _waves.wave : 1;
     public void RegisterSummon(GameObject enemy) => _waves.RegisterSummon(enemy);
-    public void BossDown() { _waves.ClearBoss(); _waves.HostileDown(); }
+    public void BossDown() { RunStats.bosses++; _waves.ClearBoss(); _waves.HostileDown(); }
 
     public void OnWaveCleared(int wave)
     {
@@ -418,7 +426,26 @@ public class GameManager : MonoBehaviour
             PlayerPrefs.Save();
         }
         PlaySfx(SfxSynth.WaveUp, 1f);
+        FinishAdventureRun();
         _hud.ShowVictory(score, best, newBest);
+    }
+
+    // Adventure meta: absorb the run into the persistent profile (gold,
+    // pass XP, quests, achievements) and submit to the shared leaderboard.
+    // Tournament and multiplayer runs stay out — same rule as the classic game.
+    void FinishAdventureRun()
+    {
+        if (!MetaBridge.Ready || CoopSync.Active || RoyaleSync.Active) return;
+        string results = RunStats.ResultsJson(score, Mathf.RoundToInt(_elapsed), xpLevel,
+            _skills != null && _skills.pilot != null ? _skills.pilot.id : "ego");
+        var absorbed = MetaBridge.AbsorbRun(results);
+        MetaBridge.RunSubmit(results);
+        if (absorbed != null && absorbed.ok)
+        {
+            if (absorbed.gold > 0) _hud.AnnounceCaption("+" + absorbed.gold + " gold earned");
+            if (absorbed.quests != null)
+                foreach (var q in absorbed.quests) _hud.AnnounceCaption("Quest complete: " + q);
+        }
     }
 
     public void CollectPowerup(PowerupType type)
@@ -460,6 +487,7 @@ public class GameManager : MonoBehaviour
             PlayerPrefs.SetInt(BestKey, best);
             PlayerPrefs.Save();
         }
+        FinishAdventureRun();
         _hud.ShowGameOver(score, best, newBest, _waves.wave);
     }
 

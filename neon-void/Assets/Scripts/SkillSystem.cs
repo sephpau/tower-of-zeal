@@ -58,6 +58,21 @@ public class SkillSystem : MonoBehaviour
         if (ZealData.AutoWeaponsEnabled) AddWeapon(p.startWeapon);
     }
 
+    // permanent Adventure (armory/survivors) bonuses, applied after InitPilot
+    public void ApplyMetaBonuses(MetaBridge.Bonuses b)
+    {
+        stats["might"] += b.might;
+        stats["maxhp"] += b.maxhp;
+        stats["cooldown"] += b.cooldown;
+        stats["area"] += b.area;
+        stats["speed"] += b.speed;
+        stats["magnet"] += b.magnet;
+        stats["xpgain"] += b.xpgain;
+        stats["greed"] += b.greed;
+        if (b.recovery > 0f) GetComponent<Health>().shieldRegenPerSec += b.recovery;
+        RecalcShield(full: true);
+    }
+
     void RecalcShield(bool full = false)
     {
         var h = GetComponent<Health>();
@@ -93,6 +108,7 @@ public class SkillSystem : MonoBehaviour
         var ow = GetWeapon(id);
         if (ow == null || ow.evolved) return;
         ow.evolved = true;
+        RunStats.evolved++;
         ApplyLevels(ow);
         if (id == "fox") RebuildDrakes(ow);
         if (id == "void") RebuildAura(ow);

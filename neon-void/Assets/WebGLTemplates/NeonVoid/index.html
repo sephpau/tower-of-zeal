@@ -83,6 +83,12 @@
     </div>
   </div>
 
+  <!-- Classic Zeal Survivors meta layer (same-origin): config + net + meta.
+       Missing on local test hosts — every NVMeta* call below guards on window.SURV. -->
+  <script src="/survive/js/config.js"></script>
+  <script src="/survive/js/net.js"></script>
+  <script src="/survive/js/meta.js"></script>
+
   <script>
     // ---------- Discord login (implicit OAuth, no backend needed) ----------
     // Paste your Discord Application's Client ID here (Developer Portal → OAuth2).
@@ -180,6 +186,90 @@
         window.__nvWalletError = ((e && e.code === 4001) || /cancel|denied|reject/i.test(msg)) ? 'Wallet connection cancelled.' : msg;
       } finally { window.__nvWalletBusy = false; }
     };
+
+    // ---------- Adventure meta bridge (drives classic SURV.Meta from Unity) ----------
+    window.__nvBoard = ""; window.__nvPass = "";
+    window.NVMetaReady = function () { return (window.SURV && SURV.Meta && SURV.Meta.profile) ? 1 : 0; };
+    window.NVMetaInit = function () {
+      if (!window.SURV || !SURV.Meta) return;
+      try {
+        SURV.Meta.load();
+        SURV.Net && SURV.Net.bindWalletEvents && SURV.Net.bindWalletEvents();
+        SURV.Net && SURV.Net.loadProfile().catch(function () {});
+      } catch (e) {}
+    };
+    window.NVMetaSummary = function () {
+      if (!window.NVMetaReady()) return "";
+      var P = SURV.Meta.profile, C = SURV.CONFIG;
+      var ups = C.META_UPGRADES.map(function (u) {
+        return { id: u.id, name: u.name, desc: u.desc, rank: (P.upgrades[u.id] || 0), maxRank: u.maxRank, cost: SURV.Meta.upgradeCost(u) };
+      });
+      var qs = (P.quests.ids || []).map(function (qid) {
+        var q = C.QUEST_POOL.find(function (x) { return x.id === qid; }) || {};
+        return { id: qid, desc: q.desc || qid, gold: q.gold || 0, xp: q.xp || 0,
+          done: P.quests.done.indexOf(qid) >= 0, claimed: P.quests.claimed.indexOf(qid) >= 0 };
+      });
+      return JSON.stringify({
+        gold: P.gold || 0, name: P.name || "",
+        passXp: P.pass.xp || 0, passTier: SURV.Meta.passTier(), passTiers: C.SEASON.passTiers,
+        xpPerTier: C.SEASON.xpPerTier, premium: !!P.pass.premium,
+        seasonName: C.SEASON.name, seasonId: C.SEASON.id, priceRon: C.SEASON.premiumPriceRon,
+        claimable: SURV.Meta.claimableRewards().length,
+        lifetimeKills: P.lifetime.kills || 0, lifetimeRuns: P.lifetime.runs || 0, bestScore: P.lifetime.bestScore || 0,
+        upgrades: ups, quests: qs
+      });
+    };
+    window.NVMetaBuy = function (id) {
+      if (!window.NVMetaReady()) return '{"ok":false,"err":"offline"}';
+      return JSON.stringify(SURV.Meta.buyUpgrade(id));
+    };
+    window.NVMetaClaimQuest = function (id) {
+      if (!window.NVMetaReady()) return '{"ok":false}';
+      return JSON.stringify({ ok: SURV.Meta.claimQuest(id).ok });
+    };
+    window.NVMetaClaimRewards = function () {
+      if (!window.NVMetaReady()) return '{"ok":false,"count":0}';
+      var n = 0;
+      SURV.Meta.claimableRewards().forEach(function (c) {
+        if (SURV.Meta.claimReward(c.track, c.tier).ok) n++;
+      });
+      return JSON.stringify({ ok: true, count: n });
+    };
+    window.NVMetaBonuses = function () { return window.NVMetaReady() ? JSON.stringify(SURV.Meta.bonuses()) : "{}"; };
+    window.NVMetaAbsorbRun = function (json) {
+      if (!window.NVMetaReady()) return '{"ok":false}';
+      try {
+        var out = SURV.Meta.absorbRun(JSON.parse(json), null);
+        return JSON.stringify({ ok: true, passXp: out.passXp, gold: out.goldGained,
+          quests: out.questsDone.map(function (q) { return q.desc; }) });
+      } catch (e) { return '{"ok":false}'; }
+    };
+    window.NVRunStart = function () {
+      if (window.NVMetaReady() && SURV.Net) SURV.Net.startRun().catch(function () {});
+    };
+    window.NVRunSubmit = function (json) {
+      if (!window.NVMetaReady() || !SURV.Net) return;
+      try { SURV.Net.submitScore(JSON.parse(json)).catch(function () {}); } catch (e) {}
+    };
+    window.NVBoardFetch = function (period) {
+      window.__nvBoard = "";
+      if (!window.NVMetaReady() || !SURV.Net) { window.__nvBoard = '{"ok":false,"reason":"offline"}'; return; }
+      SURV.Net.fetchBoard(period)
+        .then(function (d) { window.__nvBoard = JSON.stringify(d); })
+        .catch(function () { window.__nvBoard = '{"ok":false,"reason":"offline"}'; });
+    };
+    window.NVBoardTake = function () { return window.__nvBoard; };
+    window.NVPassBuy = function () {
+      window.__nvPass = '{"busy":true,"status":"Starting purchase…"}';
+      if (!window.NVMetaReady() || !SURV.Net) { window.__nvPass = '{"busy":false,"ok":false,"reason":"offline"}'; return; }
+      SURV.Net.purchasePass(function (st) { window.__nvPass = JSON.stringify({ busy: true, status: st }); })
+        .then(function (r) {
+          if (r.ok) SURV.Meta.setPremium();
+          window.__nvPass = JSON.stringify({ busy: false, ok: !!r.ok, reason: r.reason || "" });
+        });
+    };
+    window.NVPassStatus = function () { return window.__nvPass; };
+    window.NVMetaInit();
 
     // ---------- progress (smoothed toward loader's target) ----------
     // setInterval, not rAF: rAF freezes in background tabs, and the bar
