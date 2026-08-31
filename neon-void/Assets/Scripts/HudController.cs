@@ -2076,37 +2076,71 @@ public class HudController : MonoBehaviour
     static readonly string[] ArmoryIds = { "might", "maxhp", "armor", "recovery", "cooldown", "area", "speed" };
     static readonly string[] SurvivorIds = { "magnet", "xpgain", "greed", "revival", "reroll", "banish" };
 
+    readonly List<Text> _advTabLabels = new List<Text>();
+    static readonly string[] AdvTabs = { "armory", "survivors", "quests", "board", "pass" };
+
     void BuildAdventurePanel()
     {
         _adventurePanel = Panel("AdventurePanel");
-        var t = NewText(_adventurePanel.transform, "title", "ADVENTURE", 56, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.91f), new Vector2(0.5f, 0.91f), Vector2.zero, new Vector2(1400, 80));
+
+        // opaque backdrop: the hub is a screen, not an overlay on the void
+        var bg = NewImage(_adventurePanel.transform, "bg", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        bg.color = new Color(0.05f, 0.035f, 0.13f, 0.97f);
+
+        var t = NewText(_adventurePanel.transform, "title", "ADVENTURE", 52, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.925f), new Vector2(0.5f, 0.925f), Vector2.zero, new Vector2(1400, 70));
         t.color = new Color(1f, 0.72f, 0.25f);
         t.fontStyle = FontStyle.BoldAndItalic;
         t.font = _titleFont;
 
-        _advGold = NewText(_adventurePanel.transform, "gold", "", 26, TextAnchor.MiddleLeft,
-            new Vector2(0.13f, 0.91f), new Vector2(0.13f, 0.91f), Vector2.zero, new Vector2(400, 40));
+        // gold chip, top-right (mirrors the classic armory)
+        var chip = NewImage(_adventurePanel.transform, "goldChip", new Vector2(0.88f, 0.925f), new Vector2(0.88f, 0.925f), Vector2.zero, new Vector2(230, 46));
+        chip.sprite = _roundedFill; chip.type = Image.Type.Sliced;
+        chip.color = new Color(0.12f, 0.09f, 0.26f, 0.95f);
+        var chipEdge = NewImage(chip.transform, "edge", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        chipEdge.sprite = _roundedOutline; chipEdge.type = Image.Type.Sliced;
+        chipEdge.color = new Color(1f, 0.85f, 0.4f, 0.5f);
+        _advGold = NewText(chip.transform, "gold", "", 22, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(220, 40));
         _advGold.color = new Color(1f, 0.85f, 0.4f);
         _advGold.fontStyle = FontStyle.Bold;
 
-        string[] tabs = { "armory", "survivors", "quests", "board", "pass" };
         string[] labels = { "ARMORY", "SURVIVORS", "QUESTS", "LEADERBOARD", "BATTLE PASS" };
-        for (int i = 0; i < tabs.Length; i++)
+        _advTabLabels.Clear();
+        for (int i = 0; i < AdvTabs.Length; i++)
         {
-            string tab = tabs[i];
-            MakeButton(_adventurePanel.transform, labels[i], new Vector2(0.26f + i * 0.12f, 0.82f), new Vector2(215, 48),
-                new Color(0.95f, 0.8f, 0.5f), () => { _advTab = tab; RefreshAdventure(); })
-                .GetComponentInChildren<Text>().fontSize = 18;
+            string tab = AdvTabs[i];
+            var b = MakeButton(_adventurePanel.transform, labels[i], new Vector2(0.26f + i * 0.12f, 0.845f), new Vector2(215, 48),
+                new Color(0.95f, 0.8f, 0.5f), () => { _advTab = tab; RefreshAdventure(); });
+            var lbl = b.GetComponentInChildren<Text>();
+            lbl.fontSize = 18;
+            _advTabLabels.Add(lbl);
         }
 
         _advStatus = NewText(_adventurePanel.transform, "status", "", 20, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.13f), new Vector2(0.5f, 0.13f), Vector2.zero, new Vector2(1200, 34));
+            new Vector2(0.5f, 0.125f), new Vector2(0.5f, 0.125f), Vector2.zero, new Vector2(1200, 34));
         _advStatus.color = new Color(0.6f, 0.95f, 1f);
 
-        MakeButton(_adventurePanel.transform, "BACK", new Vector2(0.5f, 0.06f), new Vector2(300, 52),
+        MakeButton(_adventurePanel.transform, "BACK", new Vector2(0.5f, 0.058f), new Vector2(300, 52),
             new Color(0.8f, 0.9f, 1f), () => { _adventurePanel.SetActive(false); _homePanel.SetActive(true); });
         _adventurePanel.SetActive(false);
+    }
+
+    // rounded card container with soft border, parented to the tab content
+    GameObject AdvCard(Vector2 anchor, Vector2 size, Color? edge = null)
+    {
+        var go = new GameObject("card");
+        go.transform.SetParent(_advContent.transform, false);
+        var img = go.AddComponent<Image>();
+        img.sprite = _roundedFill; img.type = Image.Type.Sliced;
+        img.color = new Color(0.105f, 0.08f, 0.23f, 0.96f);
+        var rt = img.rectTransform;
+        rt.anchorMin = rt.anchorMax = anchor;
+        rt.sizeDelta = size;
+        var border = NewImage(go.transform, "border", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        border.sprite = _roundedOutline; border.type = Image.Type.Sliced;
+        border.color = edge ?? new Color(0.5f, 0.4f, 0.85f, 0.45f);
+        return go;
     }
 
     void OpenAdventure()
@@ -2128,6 +2162,13 @@ public class HudController : MonoBehaviour
         rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
         rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
 
+        for (int i = 0; i < _advTabLabels.Count; i++)
+        {
+            bool active = AdvTabs[i] == _advTab;
+            _advTabLabels[i].color = active ? new Color(1f, 0.85f, 0.4f) : new Color(0.75f, 0.7f, 0.95f, 0.8f);
+            _advTabLabels[i].fontStyle = active ? FontStyle.Bold : FontStyle.Normal;
+        }
+
         if (_advSummary == null)
         {
             NewText(_advContent.transform, "msg", "ADVENTURE NEEDS THE ONLINE VERSION\nPLAY AT MARKOFTHEZEAL.COM/ZEALSURVIVORSV2", 26, TextAnchor.MiddleCenter,
@@ -2138,9 +2179,9 @@ public class HudController : MonoBehaviour
 
         switch (_advTab)
         {
-            case "armory": BuildUpgradeRows(ArmoryIds, "SHIP UPGRADES — PERMANENT, EVERY RUN"); break;
-            case "survivors": BuildUpgradeRows(SurvivorIds, "SURVIVOR TRAINING — CREW-WIDE PERKS"); break;
-            case "quests": BuildQuestRows(); break;
+            case "armory": BuildUpgradeCards(ArmoryIds, "Permanent ship upgrades. They apply to every run, forever."); break;
+            case "survivors": BuildUpgradeCards(SurvivorIds, "Survivor training. Crew-wide perks for every run."); break;
+            case "quests": BuildQuestCards(); break;
             case "board": BuildBoardTab("weekly"); break;
             case "pass": BuildPassTab(); break;
         }
@@ -2148,81 +2189,100 @@ public class HudController : MonoBehaviour
 
     void AdvHeader(string text)
     {
-        NewText(_advContent.transform, "hdr", text, 20, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.755f), new Vector2(0.5f, 0.755f), Vector2.zero, new Vector2(1200, 30))
-            .color = new Color(0.8f, 0.9f, 1f, 0.75f);
+        NewText(_advContent.transform, "hdr", text, 19, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.785f), new Vector2(0.5f, 0.785f), Vector2.zero, new Vector2(1300, 30))
+            .color = new Color(0.75f, 0.72f, 0.95f, 0.8f);
     }
 
-    void BuildUpgradeRows(string[] ids, string header)
+    // one armory-style card: name, desc, rank pips, buy button
+    void UpgradeCard(MetaBridge.Upgrade up, Vector2 anchor)
+    {
+        var card = AdvCard(anchor, new Vector2(370, 172),
+            up.rank > 0 ? new Color(1f, 0.85f, 0.4f, 0.45f) : (Color?)null);
+        var name = NewText(card.transform, "name", up.name, 22, TextAnchor.MiddleLeft,
+            new Vector2(0.5f, 0.83f), new Vector2(0.5f, 0.83f), Vector2.zero, new Vector2(330, 30));
+        name.color = up.rank > 0 ? new Color(1f, 0.85f, 0.4f) : Color.white;
+        name.fontStyle = FontStyle.Bold;
+        NewText(card.transform, "desc", up.desc, 16, TextAnchor.MiddleLeft,
+            new Vector2(0.5f, 0.63f), new Vector2(0.5f, 0.63f), Vector2.zero, new Vector2(330, 26))
+            .color = new Color(0.75f, 0.72f, 0.95f, 0.9f);
+        for (int i = 0; i < up.maxRank; i++)
+        {
+            var pip = NewImage(card.transform, "pip" + i, new Vector2(0.095f + i * 0.085f, 0.455f),
+                new Vector2(0.095f + i * 0.085f, 0.455f), Vector2.zero, new Vector2(24, 11));
+            pip.sprite = _roundedFill; pip.type = Image.Type.Sliced;
+            pip.color = i < up.rank ? new Color(1f, 0.85f, 0.4f) : new Color(0.3f, 0.26f, 0.5f);
+        }
+        bool maxed = up.rank >= up.maxRank;
+        string idCopy = up.id;
+        var buy = MakeButton(card.transform, maxed ? "MAXED" : up.cost.ToString("N0") + " GOLD",
+            new Vector2(0.5f, 0.19f), new Vector2(320, 42),
+            maxed ? new Color(0.55f, 0.6f, 0.75f) : (_advSummary.gold >= up.cost ? new Color(0.55f, 1f, 0.65f) : new Color(1f, 0.55f, 0.55f)),
+            () => {
+                var r = MetaBridge.Buy(idCopy);
+                _advStatus.text = r.ok ? "UPGRADED!" : (r.err ?? "").ToUpperInvariant();
+                RefreshAdventure();
+            });
+        buy.GetComponentInChildren<Text>().fontSize = 17;
+    }
+
+    void BuildUpgradeCards(string[] ids, string header)
     {
         AdvHeader(header);
-        float y = 0.70f;
+        int col = 0, row = 0;
         foreach (var id in ids)
         {
             MetaBridge.Upgrade up = null;
             foreach (var u in _advSummary.upgrades) if (u.id == id) { up = u; break; }
             if (up == null) continue;
-            var name = NewText(_advContent.transform, "n" + id, up.name.ToUpperInvariant() + "  " + up.rank + "/" + up.maxRank,
-                22, TextAnchor.MiddleLeft, new Vector2(0.28f, y), new Vector2(0.28f, y), Vector2.zero, new Vector2(420, 34));
-            name.color = up.rank > 0 ? new Color(1f, 0.85f, 0.4f) : Color.white;
-            name.fontStyle = FontStyle.Bold;
-            NewText(_advContent.transform, "d" + id, up.desc, 18, TextAnchor.MiddleLeft,
-                new Vector2(0.55f, y), new Vector2(0.55f, y), Vector2.zero, new Vector2(460, 34))
-                .color = new Color(0.85f, 0.9f, 1f, 0.85f);
-            bool maxed = up.rank >= up.maxRank;
-            string label = maxed ? "MAXED" : up.cost.ToString("N0") + " G";
-            string idCopy = id;
-            var buy = MakeButton(_advContent.transform, label, new Vector2(0.795f, y), new Vector2(170, 40),
-                maxed ? new Color(0.5f, 0.6f, 0.7f) : (_advSummary.gold >= up.cost ? new Color(0.5f, 1f, 0.6f) : new Color(1f, 0.5f, 0.5f)),
-                () => {
-                    var r = MetaBridge.Buy(idCopy);
-                    _advStatus.text = r.ok ? "UPGRADED!" : (r.err ?? "").ToUpperInvariant();
-                    RefreshAdventure();
-                });
-            buy.GetComponentInChildren<Text>().fontSize = 17;
-            y -= 0.068f;
+            UpgradeCard(up, new Vector2(0.29f + col * 0.21f, 0.655f - row * 0.185f));
+            if (++col == 3) { col = 0; row++; }
         }
     }
 
-    void BuildQuestRows()
+    void BuildQuestCards()
     {
-        AdvHeader("DAILY QUESTS — RESET AT 00:00 UTC · EARN GOLD + PASS XP");
-        float y = 0.68f;
+        AdvHeader("Daily quests reset at 00:00 UTC. Finish runs to progress, then claim gold + pass XP.");
+        float y = 0.655f;
         foreach (var q in _advSummary.quests)
         {
-            var d = NewText(_advContent.transform, "q" + q.id, q.desc.ToUpperInvariant(), 21, TextAnchor.MiddleLeft,
-                new Vector2(0.3f, y), new Vector2(0.3f, y), Vector2.zero, new Vector2(560, 34));
-            d.color = q.claimed ? new Color(0.6f, 0.7f, 0.8f) : q.done ? new Color(0.5f, 1f, 0.6f) : Color.white;
-            NewText(_advContent.transform, "r" + q.id, "+" + q.gold + " G  +" + q.xp + " XP", 18, TextAnchor.MiddleCenter,
-                new Vector2(0.63f, y), new Vector2(0.63f, y), Vector2.zero, new Vector2(220, 34))
+            var card = AdvCard(new Vector2(0.5f, y), new Vector2(1050, 86),
+                q.done && !q.claimed ? new Color(0.55f, 1f, 0.65f, 0.5f) : (Color?)null);
+            var d = NewText(card.transform, "q", q.desc, 21, TextAnchor.MiddleLeft,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-140, 0), new Vector2(600, 40));
+            d.color = q.claimed ? new Color(0.6f, 0.62f, 0.8f) : q.done ? new Color(0.55f, 1f, 0.65f) : Color.white;
+            d.fontStyle = FontStyle.Bold;
+            NewText(card.transform, "r", "+" + q.gold + " GOLD   +" + q.xp + " PASS XP", 17, TextAnchor.MiddleCenter,
+                new Vector2(0.71f, 0.5f), new Vector2(0.71f, 0.5f), Vector2.zero, new Vector2(260, 40))
                 .color = new Color(1f, 0.85f, 0.4f, 0.9f);
-            string label = q.claimed ? "CLAIMED" : q.done ? "CLAIM" : "IN PROGRESS";
             string qid = q.id;
-            var b = MakeButton(_advContent.transform, label, new Vector2(0.795f, y), new Vector2(180, 40),
-                q.done && !q.claimed ? new Color(0.5f, 1f, 0.6f) : new Color(0.5f, 0.6f, 0.7f),
+            var b = MakeButton(card.transform, q.claimed ? "CLAIMED" : q.done ? "CLAIM" : "IN PROGRESS",
+                new Vector2(0.9f, 0.5f), new Vector2(175, 44),
+                q.done && !q.claimed ? new Color(0.55f, 1f, 0.65f) : new Color(0.55f, 0.6f, 0.75f),
                 () => { if (MetaBridge.ClaimQuest(qid)) { _advStatus.text = "REWARD CLAIMED!"; RefreshAdventure(); } });
-            b.GetComponentInChildren<Text>().fontSize = 16;
-            y -= 0.085f;
+            b.GetComponentInChildren<Text>().fontSize = 15;
+            y -= 0.115f;
         }
         NewText(_advContent.transform, "life",
-            "LIFETIME — RUNS " + _advSummary.lifetimeRuns.ToString("N0") +
-            " · KILLS " + _advSummary.lifetimeKills.ToString("N0") +
-            " · BEST SCORE " + _advSummary.bestScore.ToString("N0"),
-            18, TextAnchor.MiddleCenter, new Vector2(0.5f, y - 0.04f), new Vector2(0.5f, y - 0.04f),
-            Vector2.zero, new Vector2(1200, 30)).color = new Color(0.8f, 0.9f, 1f, 0.6f);
+            "LIFETIME   ·   RUNS " + _advSummary.lifetimeRuns.ToString("N0") +
+            "   ·   KILLS " + _advSummary.lifetimeKills.ToString("N0") +
+            "   ·   BEST SCORE " + _advSummary.bestScore.ToString("N0"),
+            18, TextAnchor.MiddleCenter, new Vector2(0.5f, y - 0.02f), new Vector2(0.5f, y - 0.02f),
+            Vector2.zero, new Vector2(1200, 30)).color = new Color(0.75f, 0.72f, 0.95f, 0.7f);
     }
 
     void BuildBoardTab(string period)
     {
-        AdvHeader("LEADERBOARD — SHARED WITH CLASSIC ZEAL SURVIVORS");
-        MakeButton(_advContent.transform, "WEEKLY", new Vector2(0.42f, 0.70f), new Vector2(190, 42),
+        AdvHeader("One leaderboard across classic Zeal Survivors and The Void.");
+        MakeButton(_advContent.transform, "WEEKLY", new Vector2(0.42f, 0.72f), new Vector2(190, 42),
             period == "weekly" ? new Color(1f, 0.85f, 0.4f) : new Color(0.7f, 0.8f, 0.9f),
             () => BuildBoardSwitch("weekly")).GetComponentInChildren<Text>().fontSize = 17;
-        MakeButton(_advContent.transform, "ALL-TIME", new Vector2(0.58f, 0.70f), new Vector2(190, 42),
+        MakeButton(_advContent.transform, "ALL-TIME", new Vector2(0.58f, 0.72f), new Vector2(190, 42),
             period == "alltime" ? new Color(1f, 0.85f, 0.4f) : new Color(0.7f, 0.8f, 0.9f),
             () => BuildBoardSwitch("alltime")).GetComponentInChildren<Text>().fontSize = 17;
-        var rows = NewText(_advContent.transform, "rows", "FETCHING…", 20, TextAnchor.UpperCenter,
-            new Vector2(0.5f, 0.64f), new Vector2(0.5f, 0.64f), new Vector2(0, -180), new Vector2(980, 420));
+        var card = AdvCard(new Vector2(0.5f, 0.435f), new Vector2(980, 470));
+        var rows = NewText(card.transform, "rows", "FETCHING…", 20, TextAnchor.UpperCenter,
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -12), new Vector2(900, 430));
         rows.color = new Color(0.9f, 0.95f, 1f);
         MetaBridge.BoardFetch(period);
         _advCo = StartCoroutine(PollBoard(rows));
@@ -2263,33 +2323,45 @@ public class HudController : MonoBehaviour
     void BuildPassTab()
     {
         var s = _advSummary;
-        AdvHeader("SEASON " + s.seasonId + " — " + s.seasonName.ToUpperInvariant());
-        var tier = NewText(_advContent.transform, "tier",
-            "TIER " + s.passTier + " / " + s.passTiers + "    ·    " + (s.passXp % s.xpPerTier) + " / " + s.xpPerTier + " XP TO NEXT",
-            26, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(1200, 40));
+        AdvHeader("Season " + s.seasonId + " — " + s.seasonName + ". Earn pass XP from run scores and quests.");
+
+        var card = AdvCard(new Vector2(0.5f, 0.565f), new Vector2(900, 250),
+            s.premium ? new Color(1f, 0.85f, 0.4f, 0.5f) : (Color?)null);
+        var tier = NewText(card.transform, "tier", "TIER " + s.passTier + " / " + s.passTiers,
+            30, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.83f), new Vector2(0.5f, 0.83f), Vector2.zero, new Vector2(800, 44));
         tier.color = new Color(1f, 0.85f, 0.4f);
         tier.fontStyle = FontStyle.Bold;
-        NewText(_advContent.transform, "how", "EARN PASS XP FROM RUN SCORES AND QUESTS — REWARDS: GOLD, REROLLS, BANISHES, REVIVALS, COSMETICS",
-            17, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.62f), new Vector2(0.5f, 0.62f), Vector2.zero, new Vector2(1300, 30))
-            .color = new Color(0.85f, 0.9f, 1f, 0.8f);
-        var prem = NewText(_advContent.transform, "prem",
-            s.premium ? "★ PREMIUM PASS ACTIVE — +20% PASS XP + PREMIUM TRACK" : "PREMIUM TRACK LOCKED",
-            22, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.545f), new Vector2(0.5f, 0.545f), Vector2.zero, new Vector2(1200, 34));
-        prem.color = s.premium ? new Color(1f, 0.85f, 0.4f) : new Color(0.7f, 0.75f, 0.9f);
+
+        // XP progress bar to the next tier
+        float frac = Mathf.Clamp01((s.passXp % Mathf.Max(1, s.xpPerTier)) / (float)Mathf.Max(1, s.xpPerTier));
+        var barBg = NewImage(card.transform, "barBg", new Vector2(0.5f, 0.62f), new Vector2(0.5f, 0.62f), Vector2.zero, new Vector2(720, 16));
+        barBg.sprite = _roundedFill; barBg.type = Image.Type.Sliced;
+        barBg.color = new Color(0.28f, 0.24f, 0.48f);
+        var barFill = NewImage(barBg.transform, "fill", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+            new Vector2(Mathf.Max(10f, 720f * frac) / 2f, 0), new Vector2(Mathf.Max(10f, 720f * frac), 16));
+        barFill.sprite = _roundedFill; barFill.type = Image.Type.Sliced;
+        barFill.color = new Color(1f, 0.85f, 0.4f);
+        NewText(card.transform, "xp", (s.passXp % s.xpPerTier) + " / " + s.xpPerTier + " XP TO NEXT TIER",
+            16, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.47f), new Vector2(0.5f, 0.47f), Vector2.zero, new Vector2(700, 26))
+            .color = new Color(0.75f, 0.72f, 0.95f, 0.9f);
+        var prem = NewText(card.transform, "prem",
+            s.premium ? "★ PREMIUM ACTIVE — +20% PASS XP + PREMIUM REWARD TRACK" : "REWARDS: GOLD · REROLLS · BANISHES · REVIVALS · COSMETICS",
+            17, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.28f), new Vector2(0.5f, 0.28f), Vector2.zero, new Vector2(860, 30));
+        prem.color = s.premium ? new Color(1f, 0.85f, 0.4f) : new Color(0.75f, 0.72f, 0.95f, 0.9f);
 
         if (s.claimable > 0)
             MakeButton(_advContent.transform, "CLAIM " + s.claimable + " REWARD" + (s.claimable > 1 ? "S" : ""),
-                new Vector2(0.5f, 0.45f), new Vector2(340, 52), new Color(0.5f, 1f, 0.6f),
+                new Vector2(0.5f, 0.36f), new Vector2(340, 52), new Color(0.55f, 1f, 0.65f),
                 () => { int n = MetaBridge.ClaimAllRewards(); _advStatus.text = n + " REWARDS CLAIMED!"; RefreshAdventure(); });
 
         if (!s.premium && WalletAuth.Available)
         {
             MakeButton(_advContent.transform, "BUY PREMIUM PASS — " + s.priceRon + " RON",
-                new Vector2(0.5f, 0.35f), new Vector2(420, 56), new Color(0.35f, 0.75f, 1f),
+                new Vector2(0.5f, s.claimable > 0 ? 0.27f : 0.34f), new Vector2(420, 56), new Color(0.35f, 0.75f, 1f),
                 () => { MetaBridge.PassBuy(); _advCo = StartCoroutine(PollPass()); });
             if (!WalletAuth.Connected)
                 NewText(_advContent.transform, "needwallet", "CONNECT YOUR RONIN WALLET ON THE HOMEPAGE FIRST", 17, TextAnchor.MiddleCenter,
-                    new Vector2(0.5f, 0.285f), new Vector2(0.5f, 0.285f), Vector2.zero, new Vector2(900, 30))
+                    new Vector2(0.5f, s.claimable > 0 ? 0.2f : 0.27f), new Vector2(0.5f, s.claimable > 0 ? 0.2f : 0.27f), Vector2.zero, new Vector2(900, 30))
                     .color = new Color(1f, 0.75f, 0.3f);
         }
     }
