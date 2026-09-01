@@ -53,6 +53,15 @@ public class TouchStick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoi
     }
 }
 
+// drag-to-aim pad: swipes over the right half of the screen turn the ship
+public class TouchAimPad : MonoBehaviour, IPointerDownHandler, IDragHandler
+{
+    public static Vector2 Delta;   // accumulated finger movement, consumed per frame
+
+    public void OnPointerDown(PointerEventData e) { }
+    public void OnDrag(PointerEventData e) => Delta += e.delta;
+}
+
 // layout-editor drag handle: moves the element's anchor point
 public class TouchDraggable : MonoBehaviour, IDragHandler
 {
@@ -97,6 +106,42 @@ public class TouchControls : MonoBehaviour
         { "special", new Vector2(0.525f, 0.13f) }, { "dash", new Vector2(0.60f, 0.17f) },
         { "guard", new Vector2(0.675f, 0.13f) },
     };
+
+    // classic analog look: procedural antialiased circle + ring sprites
+    static Sprite _circle, _ring;
+
+    static Sprite CircleSprite()
+    {
+        if (_circle != null) return _circle;
+        _circle = MakeRound(false);
+        return _circle;
+    }
+
+    static Sprite RingSprite()
+    {
+        if (_ring != null) return _ring;
+        _ring = MakeRound(true);
+        return _ring;
+    }
+
+    static Sprite MakeRound(bool ring)
+    {
+        const int S = 128;
+        var tex = new Texture2D(S, S, TextureFormat.RGBA32, false);
+        var px = new Color[S * S];
+        float c = (S - 1) / 2f, r = S / 2f - 2f;
+        for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                float d = Mathf.Sqrt((x - c) * (x - c) + (y - c) * (y - c));
+                float a = Mathf.Clamp01(r - d);
+                if (ring) a *= Mathf.Clamp01(d - (r - 7f));
+                px[y * S + x] = new Color(1f, 1f, 1f, a);
+            }
+        tex.SetPixels(px);
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f));
+    }
 
     public static TouchControls Build(Transform parent, Sprite fill, Sprite outline, bool editMode)
     {
@@ -143,21 +188,43 @@ public class TouchControls : MonoBehaviour
 
     void BuildElements()
     {
+        bool dragAim = !editMode && GameSettings.TouchAimMode == 1;
+
+        // drag-aim pad first, so every stick/button overlays it and still
+        // receives its own touches; the pad catches bare swipes only
+        if (dragAim)
+        {
+            var pad = new GameObject("aimPad");
+            pad.transform.SetParent(transform, false);
+            var prt = pad.AddComponent<RectTransform>();
+            prt.anchorMin = new Vector2(0.5f, 0f); prt.anchorMax = Vector2.one;
+            prt.offsetMin = Vector2.zero; prt.offsetMax = Vector2.zero;
+            var pimg = pad.AddComponent<Image>();
+            pimg.color = new Color(0f, 0f, 0f, 0.001f);   // invisible raycast surface
+            pad.AddComponent<TouchAimPad>();
+        }
+
         foreach (var (id, label, size) in Elements)
         {
+            if (id == "joyR" && dragAim) continue;   // drag mode replaces the right stick
             var el = new GameObject(id);
             el.transform.SetParent(transform, false);
             var rt = el.AddComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = _anchors[id];
             rt.sizeDelta = new Vector2(size, size);
 
+            // sticks and action buttons are circular like a classic analog pad;
+            // only the wide UP/DOWN thrust buttons stay rounded rectangles
+            bool circular = id != "up" && id != "down";
             var img = el.AddComponent<Image>();
-            img.sprite = _fill; img.type = Image.Type.Sliced;
+            if (circular) { img.sprite = CircleSprite(); img.type = Image.Type.Simple; }
+            else { img.sprite = _fill; img.type = Image.Type.Sliced; }
             img.color = new Color(0.15f, 0.12f, 0.32f, editMode ? 0.85f : 0.42f);
             var edge = new GameObject("edge");
             edge.transform.SetParent(el.transform, false);
             var edgeImg = edge.AddComponent<Image>();
-            edgeImg.sprite = _outline; edgeImg.type = Image.Type.Sliced;
+            if (circular) { edgeImg.sprite = RingSprite(); edgeImg.type = Image.Type.Simple; }
+            else { edgeImg.sprite = _outline; edgeImg.type = Image.Type.Sliced; }
             edgeImg.raycastTarget = false;
             var edgeRt = edgeImg.rectTransform;
             edgeRt.anchorMin = Vector2.zero; edgeRt.anchorMax = Vector2.one;
@@ -191,7 +258,7 @@ public class TouchControls : MonoBehaviour
                 var knob = new GameObject("knob");
                 knob.transform.SetParent(el.transform, false);
                 var kimg = knob.AddComponent<Image>();
-                kimg.sprite = _fill; kimg.type = Image.Type.Sliced;
+                kimg.sprite = CircleSprite(); kimg.type = Image.Type.Simple;
                 kimg.color = new Color(0.55f, 0.8f, 1f, 0.55f);
                 kimg.raycastTarget = false;
                 var krt = kimg.rectTransform;
@@ -237,8 +304,17 @@ public class TouchControls : MonoBehaviour
     {
         if (editMode) return;
         TouchInput.Move = _stickL != null ? _stickL.Value : Vector2.zero;
-        TouchInput.Look = (_stickR != null ? _stickR.Value : Vector2.zero)
-            * LookSpeed * GameSettings.MouseSensitivity * Time.unscaledDeltaTime;
+        if (GameSettings.TouchAimMode == 1)
+        {
+            // drag-to-aim: finger movement maps straight to degrees
+            TouchInput.Look = TouchAimPad.Delta * 0.22f * GameSettings.MouseSensitivity;
+            TouchAimPad.Delta = Vector2.zero;
+        }
+        else
+        {
+            TouchInput.Look = (_stickR != null ? _stickR.Value : Vector2.zero)
+                * LookSpeed * GameSettings.MouseSensitivity * Time.unscaledDeltaTime;
+        }
     }
 
     void OnDisable()

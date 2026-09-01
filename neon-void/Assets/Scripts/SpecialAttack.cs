@@ -32,11 +32,14 @@ public class SpecialAttack : MonoBehaviour
         _ship = GetComponent<ShipController>();
     }
 
-    public void Init(ZealData.Pilot p)
+    string _specialId;   // the SHIP decides the special — custom hangar can mix
+
+    public void Init(ZealData.Pilot p, string specialId = null)
     {
         _pilot = p;
+        _specialId = string.IsNullOrEmpty(specialId) ? p.id : specialId;
         cooldownLeft = 0f;
-        switch (p.id)
+        switch (_specialId)
         {
             case "ego": DisplayName = "ZEAL BOLT"; _cooldown = 12f; break;
             case "captain": DisplayName = "CORSAIR CUTLASS"; _cooldown = 20f; break;
@@ -72,7 +75,7 @@ public class SpecialAttack : MonoBehaviour
         if (_ship != null) _ship.BreakGuard();   // specials are attacks too
         cooldownLeft = _cooldown;
         Announcer.Say(DisplayName + "!", 0.7f, 1.12f);
-        switch (_pilot.id)
+        switch (_specialId)
         {
             case "ego": _channel = StartCoroutine(ZealBeam()); break;
             case "captain": _channel = StartCoroutine(CutlassStorm()); break;

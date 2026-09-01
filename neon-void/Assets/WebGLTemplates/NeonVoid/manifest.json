@@ -1,0 +1,9 @@
+{
+  "name": "Zeal Survivors v2: The Void",
+  "short_name": "The Void",
+  "start_url": ".",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#120a24",
+  "theme_color": "#120a24"
+}

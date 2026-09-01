@@ -41,6 +41,13 @@ public static class GameSettings
     public static bool TouchActive =>
         TouchMode == 1 || (TouchMode == 0 && Application.isMobilePlatform);
 
+    // touch aim: 0 = right stick, 1 = drag the right half of the screen
+    public static int TouchAimMode
+    {
+        get => PlayerPrefs.GetInt("zsv2-touchaim", 0);
+        set { PlayerPrefs.SetInt("zsv2-touchaim", Mathf.Clamp(value, 0, 1)); PlayerPrefs.Save(); }
+    }
+
     // co-op partner voice loudness
     public static float VoiceVolume
     {

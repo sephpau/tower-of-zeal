@@ -590,7 +590,7 @@ public class HudController : MonoBehaviour
         _bestHomeText.font = _titleFont;
 
         MakeButton(_homePanel.transform, "QUICK PLAY", new Vector2(0.5f, 0.49f), new Vector2(430, 74),
-            new Color(1f, 0.85f, 0.4f), () => SwitchPanel(_homePanel, _startPanel));
+            new Color(1f, 0.85f, 0.4f), () => SwitchPanel(_homePanel, _startPanel, RefreshCustomHangar));
         MakeButton(_homePanel.transform, "ADVENTURE", new Vector2(0.5f, 0.385f), new Vector2(360, 56),
             new Color(1f, 0.72f, 0.25f), () => SwitchPanel(_homePanel, _adventurePanel, RefreshAdventure));
         MakeButton(_homePanel.transform, "BLITZ TOURNAMENT", new Vector2(0.5f, 0.31f), new Vector2(360, 56),
@@ -741,6 +741,20 @@ public class HudController : MonoBehaviour
             () => SwitchPanel(_settingsPanel, _touchEditPanel, RefreshTouchEditor));
         editBtn.transform.localPosition += new Vector3(415, 0, 0);
         editBtn.GetComponentInChildren<Text>().fontSize = 18;
+
+        // aim style on touch: right stick, or drag the right half of the screen
+        string[] aimModes = { "AIM: STICK", "AIM: DRAG" };
+        Text aimLabel = null;
+        var aimBtn = MakeButton(_settingsPanel.transform, aimModes[GameSettings.TouchAimMode],
+            new Vector2(0.5f, 0.505f), new Vector2(180, 48), new Color(0.5f, 0.95f, 1f), () => { });
+        aimBtn.transform.localPosition += new Vector3(610, 0, 0);
+        aimLabel = aimBtn.GetComponentInChildren<Text>();
+        aimLabel.fontSize = 17;
+        aimBtn.onClick.AddListener(() => {
+            GameSettings.TouchAimMode = 1 - GameSettings.TouchAimMode;
+            aimLabel.text = aimModes[GameSettings.TouchAimMode];
+            if (_touchOverlay != null) { Destroy(_touchOverlay); _touchOverlay = null; }   // rebuilt with the new mode
+        });
 
         // mouse sensitivity: try it live on the test pad to the right
         MakeVolumeRow("MOUSE SENSITIVITY", 0.46f, GameSettings.MouseSensitivity,
@@ -2020,6 +2034,81 @@ public class HudController : MonoBehaviour
     public void SetCombo(int mult) { _comboText.text = mult >= 2 ? "COMBO x" + mult : ""; }
     public void WaveBanner(string msg) { _bannerText.text = msg; _bannerTimer = 2.2f; }
     public void AnnounceCaption(string msg) { _announceText.text = ">> " + msg.ToUpperInvariant(); _announceTimer = 2.6f; }
+
+    // ---------- custom hangar: premium pass T10 mixes any pilot with any ship ----------
+    GameObject _hangar;
+    int _customChar, _customShip;
+
+    void RefreshCustomHangar()
+    {
+        if (_startPanel == null) return;
+        if (_hangar != null) Destroy(_hangar);
+        _hangar = new GameObject("customHangar");
+        _hangar.transform.SetParent(_startPanel.transform, false);
+        var hrt = _hangar.AddComponent<RectTransform>();
+        hrt.anchorMin = Vector2.zero; hrt.anchorMax = Vector2.one;
+        hrt.offsetMin = Vector2.zero; hrt.offsetMax = Vector2.zero;
+
+        var s = MetaBridge.Ready ? MetaBridge.GetSummary() : null;
+        bool unlocked = s != null && s.premium && s.passTier >= 10;
+        if (!unlocked)
+        {
+            NewText(_hangar.transform, "lockmsg",
+                "CUSTOM HANGAR — MIX ANY PILOT WITH ANY SHIP · UNLOCKS AT PREMIUM PASS TIER 10",
+                15, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.155f), new Vector2(0.5f, 0.155f), Vector2.zero, new Vector2(1100, 26))
+                .color = new Color(1f, 0.85f, 0.4f, 0.55f);
+            return;
+        }
+
+        var title = NewText(_hangar.transform, "htitle",
+            "★ CUSTOM HANGAR   ·   PILOT = STATS & TRAINING   ·   SHIP = SPECIAL & ARMORY",
+            16, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.225f), new Vector2(0.5f, 0.225f), Vector2.zero, new Vector2(1200, 26));
+        title.color = new Color(1f, 0.85f, 0.4f);
+        title.fontStyle = FontStyle.Bold;
+
+        for (int i = 0; i < ZealData.Pilots.Length; i++)
+        {
+            int idx = i;
+            var p = ZealData.Pilots[i];
+            bool sel = _customChar == i;
+            var b = MakeButton(_hangar.transform, "", new Vector2(0.235f + i * 0.052f, 0.15f), new Vector2(64, 64),
+                sel ? new Color(1f, 0.85f, 0.4f) : new Color(p.accent.r, p.accent.g, p.accent.b, 0.5f),
+                () => { _customChar = idx; RefreshCustomHangar(); });
+            var tex = Resources.Load<Texture2D>("chars/char-" + p.id);
+            if (tex != null)
+            {
+                var img = NewImage(b.transform, "img", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(52, 52));
+                img.sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                img.preserveAspect = true;
+                img.raycastTarget = false;
+                img.color = sel ? Color.white : new Color(1f, 1f, 1f, 0.65f);
+            }
+        }
+        var plus = NewText(_hangar.transform, "hplus", "+", 30, TextAnchor.MiddleCenter,
+            new Vector2(0.475f, 0.15f), new Vector2(0.475f, 0.15f), Vector2.zero, new Vector2(40, 40));
+        plus.color = new Color(1f, 0.85f, 0.4f);
+        plus.fontStyle = FontStyle.Bold;
+        for (int i = 0; i < ZealData.Pilots.Length; i++)
+        {
+            int idx = i;
+            var p = ZealData.Pilots[i];
+            bool sel = _customShip == i;
+            var b = MakeButton(_hangar.transform, "", new Vector2(0.545f + i * 0.062f, 0.15f), new Vector2(88, 60),
+                sel ? new Color(1f, 0.85f, 0.4f) : new Color(p.accent.r, p.accent.g, p.accent.b, 0.5f),
+                () => { _customShip = idx; RefreshCustomHangar(); });
+            var tex = Resources.Load<Texture2D>("chars/shipimg-" + p.id);
+            if (tex != null)
+            {
+                var img = NewImage(b.transform, "img", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(80, 50));
+                img.sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                img.preserveAspect = true;
+                img.raycastTarget = false;
+                img.color = sel ? Color.white : new Color(1f, 1f, 1f, 0.65f);
+            }
+        }
+        MakeButton(_hangar.transform, "LAUNCH", new Vector2(0.85f, 0.15f), new Vector2(170, 54),
+            new Color(1f, 0.85f, 0.4f), () => GameManager.I.StartRun(_customChar, _customShip));
+    }
 
     // ---------- touch layout editor ----------
     GameObject _touchEditPanel;

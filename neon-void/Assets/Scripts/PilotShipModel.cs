@@ -63,23 +63,26 @@ public static class PilotShipModel
         var tint = ship.GetComponent<ShipTint>();
         if (tint != null)
         {
+            // grilles measured from the rear renders: ±26% of half-span,
+            // mid-hull height; orbs sit just BEHIND the tail, not inside it
             Color booster = BoosterColor(pilotId);
             for (int i = 0; i < tint.glowQuads.Count && i < 2; i++)
             {
                 float side = i == 0 ? -1f : 1f;
-                tint.glowQuads[i].transform.localPosition = new Vector3(side * 0.88f, 0.32f, -2.2f);
+                tint.glowQuads[i].transform.localPosition = new Vector3(side * 0.75f, 0.15f, -2.75f);
+                tint.glowQuads[i].transform.localScale = Vector3.one * 0.72f;
                 tint.glowQuads[i].material.SetColor("_TintColor", booster);
             }
             for (int i = 0; i < tint.trails.Count && i < 2; i++)
             {
                 float side = i == 0 ? -1f : 1f;
-                tint.trails[i].transform.localPosition = new Vector3(side * 0.88f, 0.32f, -2.3f);
+                tint.trails[i].transform.localPosition = new Vector3(side * 0.75f, 0.15f, -2.85f);
                 tint.trails[i].startColor = new Color(booster.r, booster.g, booster.b, 0.85f);
                 tint.trails[i].endColor = new Color(booster.r * 0.6f, booster.g * 0.4f, booster.b, 0f);
             }
             if (tint.engineLight != null)
             {
-                tint.engineLight.transform.localPosition = new Vector3(0f, 0.35f, -2.3f);
+                tint.engineLight.transform.localPosition = new Vector3(0f, 0.2f, -2.8f);
                 tint.engineLight.color = booster;
             }
         }

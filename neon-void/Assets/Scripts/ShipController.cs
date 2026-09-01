@@ -55,9 +55,13 @@ public class ShipController : MonoBehaviour
     {
         if (!GameManager.I.Running || GameManager.I.Paused) return;
 
+        // touch mode aims ONLY through TouchInput.Look — mouse axes are
+        // ignored so stray touch-drags (left stick!) can never turn the ship
         float sens = mouseSens * GameSettings.MouseSensitivity;
-        _yaw += Input.GetAxis("Mouse X") * sens + TouchInput.Look.x;
-        _pitch = Mathf.Clamp(_pitch - Input.GetAxis("Mouse Y") * sens - TouchInput.Look.y, -85f, 85f);
+        float mx = TouchInput.Enabled ? 0f : Input.GetAxis("Mouse X") * sens;
+        float my = TouchInput.Enabled ? 0f : Input.GetAxis("Mouse Y") * sens;
+        _yaw += mx + TouchInput.Look.x;
+        _pitch = Mathf.Clamp(_pitch - my - TouchInput.Look.y, -85f, 85f);
 
         dashCooldown = Mathf.Max(0f, dashCooldown - Time.deltaTime);
         guardCooldown = Mathf.Max(0f, guardCooldown - Time.deltaTime);

@@ -5,6 +5,11 @@
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no, user-scalable=no">
   <title>Zeal Survivors v2: The Void</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#120a24">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap" rel="stylesheet">
@@ -207,12 +212,15 @@
       } finally { window.__nvWalletBusy = false; }
     };
 
-    // ---------- mobile: first tap = fullscreen + landscape lock (best effort) ----------
+    // ---------- mobile: taps request fullscreen + landscape until it sticks ----------
     (function () {
       if (!window.matchMedia || !matchMedia('(pointer: coarse)').matches) return;
-      var done = false;
-      document.addEventListener('touchend', function () {
-        if (done) return; done = true;
+      function inFullscreen() {
+        return !!(document.fullscreenElement || document.webkitFullscreenElement ||
+          (navigator.standalone === true));   // iOS home-screen app counts
+      }
+      function tryFullscreen() {
+        if (inFullscreen()) return;
         var el = document.documentElement;
         var fs = el.requestFullscreen || el.webkitRequestFullscreen;
         if (fs) { try { var p = fs.call(el); if (p && p.catch) p.catch(function () {}); } catch (e) {} }
@@ -220,7 +228,11 @@
           if (screen.orientation && screen.orientation.lock)
             screen.orientation.lock('landscape').catch(function () {});
         } catch (e) {}
-      }, { passive: true });
+      }
+      // keep trying on every tap until fullscreen actually takes hold —
+      // some browsers reject the first request during page load
+      document.addEventListener('touchend', tryFullscreen, { passive: true });
+      document.addEventListener('click', tryFullscreen, { passive: true });
     })();
 
     // ---------- Adventure meta bridge (drives classic SURV.Meta from Unity) ----------

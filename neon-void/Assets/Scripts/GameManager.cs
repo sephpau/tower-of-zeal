@@ -57,7 +57,10 @@ public class GameManager : MonoBehaviour
     float _eliteTimer;
     const float EliteEvery = 90f;   // v1 elite cadence
 
-    public void StartRun(int pilotIndex)
+    // shipIndex: -1 = the pilot's own ship. Custom hangar (premium pass T10)
+    // mixes freely — the CHARACTER carries stats/training, the SHIP carries
+    // the special skill, armory ranks and the hull.
+    public void StartRun(int pilotIndex, int shipIndex = -1)
     {
         _sigilIdx = 0;
         _overtimeAnnounced = false;
@@ -79,19 +82,21 @@ public class GameManager : MonoBehaviour
         }
         _skills = _playerHealth.GetComponent<SkillSystem>();
         _skills.InitPilot(ZealData.Pilots[Mathf.Clamp(pilotIndex, 0, ZealData.Pilots.Length - 1)]);
+        var shipPilot = ZealData.Pilots[Mathf.Clamp(shipIndex < 0 ? pilotIndex : shipIndex, 0, ZealData.Pilots.Length - 1)];
+        bool customLoadout = shipPilot.id != _skills.pilot.id;
         RunStats.Reset();
         if (!TournamentMode.Active && MetaBridge.Ready)
         {
-            _skills.ApplyShipBonuses(MetaBridge.GetShipBonuses(_skills.pilot.id));           // this ship's armory
+            _skills.ApplyShipBonuses(MetaBridge.GetShipBonuses(shipPilot.id));               // the flown hull's armory
             _skills.ApplyCrewBonuses(MetaBridge.GetCrewBonuses());                           // shared crew perks
-            _skills.ApplySurvivorBonuses(MetaBridge.GetSurvivorBonuses(_skills.pilot.id));   // this pilot's training
+            _skills.ApplySurvivorBonuses(MetaBridge.GetSurvivorBonuses(_skills.pilot.id));   // the character's training
             MetaBridge.RunStart();                                                           // leaderboard run token
         }
         var tint = _playerHealth.GetComponent<ShipTint>();
         if (tint != null) tint.Apply(_skills.pilot.accent);
-        PilotShipModel.Swap(_playerHealth.gameObject, _skills.pilot.id);   // each pilot flies their own ship
+        PilotShipModel.Swap(_playerHealth.gameObject, shipPilot.id);   // hull follows the ship choice
         var special = _playerHealth.GetComponent<SpecialAttack>();
-        if (special != null) special.Init(_skills.pilot);
+        if (special != null) special.Init(_skills.pilot, shipPilot.id);   // special follows the ship
         _music.Play();
         _waves.Begin();
         _hud.ShowGameHud();
@@ -99,7 +104,9 @@ public class GameManager : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         _hud.WaveBanner(TournamentMode.Active
             ? "BLITZ // " + TournamentMode.MatchCode + " // " + _skills.pilot.name.ToUpperInvariant()
-            : _skills.pilot.name.ToUpperInvariant() + " — " + _skills.pilot.title.ToUpperInvariant());
+            : customLoadout
+                ? _skills.pilot.name.ToUpperInvariant() + " × " + shipPilot.name.ToUpperInvariant() + "'S SHIP"
+                : _skills.pilot.name.ToUpperInvariant() + " — " + _skills.pilot.title.ToUpperInvariant());
     }
 
     // every level-up gets its own draft, even when one orb jumps several
