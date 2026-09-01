@@ -2197,8 +2197,7 @@ public class HudController : MonoBehaviour
     MetaBridge.Summary _advSummary;
     Coroutine _advCo;
 
-    static readonly string[] ArmoryIds = { "might", "maxhp", "armor", "recovery", "cooldown", "area", "speed" };
-    static readonly string[] SurvivorIds = { "magnet", "xpgain", "greed", "revival", "reroll", "banish" };
+    static readonly string[] SurvivorIds = { "magnet", "xpgain", "greed", "revival", "reroll", "banish" };   // CREW tab
 
     readonly List<Text> _advTabLabels = new List<Text>();
     static readonly string[] AdvTabs = { "armory", "survivors", "crew", "quests", "board", "pass" };
@@ -2298,7 +2297,7 @@ public class HudController : MonoBehaviour
 
         switch (_advTab)
         {
-            case "armory": BuildUpgradeCards(ArmoryIds, "Permanent ship upgrades. They apply to every run, forever."); break;
+            case "armory": BuildArmoryTab(); break;
             case "survivors": BuildSurvivorTab(); break;
             case "crew": BuildUpgradeCards(SurvivorIds, "Crew-wide perks. They apply to every survivor."); break;
             case "quests": BuildQuestCards(); break;
@@ -2311,18 +2310,7 @@ public class HudController : MonoBehaviour
     void BuildSurvivorTab()
     {
         AdvHeader("Personal training — each survivor levels up on their own.");
-        for (int i = 0; i < ZealData.Pilots.Length; i++)
-        {
-            var p = ZealData.Pilots[i];
-            string pid = p.id;
-            var b = MakeButton(_advContent.transform, p.name.ToUpperInvariant(),
-                new Vector2(0.29f + i * 0.14f, 0.715f), new Vector2(240, 46),
-                p.accent, () => { _advPilot = pid; RefreshAdventure(); });
-            var lbl = b.GetComponentInChildren<Text>();
-            lbl.fontSize = 16;
-            if (pid == _advPilot) { lbl.color = new Color(1f, 0.85f, 0.4f); lbl.fontStyle = FontStyle.Bold; }
-        }
-
+        PilotPicker(0.715f);
         var data = MetaBridge.GetSurvivors(_advPilot);
         var pilot = System.Array.Find(ZealData.Pilots, x => x.id == _advPilot);
         if (pilot != null)
@@ -2355,21 +2343,21 @@ public class HudController : MonoBehaviour
     }
 
     // one armory-style card: name, desc, rank pips, buy button
-    void UpgradeCard(MetaBridge.Upgrade up, Vector2 anchor, UnityEngine.Events.UnityAction onBuy = null)
+    void UpgradeCard(MetaBridge.Upgrade up, Vector2 anchor, UnityEngine.Events.UnityAction onBuy = null, bool compact = false)
     {
-        var card = AdvCard(anchor, new Vector2(370, 172),
+        var card = AdvCard(anchor, compact ? new Vector2(305, 156) : new Vector2(370, 172),
             up.rank > 0 ? new Color(1f, 0.85f, 0.4f, 0.45f) : (Color?)null);
-        var name = NewText(card.transform, "name", up.name, 22, TextAnchor.MiddleLeft,
-            new Vector2(0.5f, 0.83f), new Vector2(0.5f, 0.83f), Vector2.zero, new Vector2(330, 30));
+        var name = NewText(card.transform, "name", up.name, compact ? 19 : 22, TextAnchor.MiddleLeft,
+            new Vector2(0.5f, 0.83f), new Vector2(0.5f, 0.83f), Vector2.zero, compact ? new Vector2(270, 26) : new Vector2(330, 30));
         name.color = up.rank > 0 ? new Color(1f, 0.85f, 0.4f) : Color.white;
         name.fontStyle = FontStyle.Bold;
-        NewText(card.transform, "desc", up.desc, 16, TextAnchor.MiddleLeft,
-            new Vector2(0.5f, 0.63f), new Vector2(0.5f, 0.63f), Vector2.zero, new Vector2(330, 26))
+        NewText(card.transform, "desc", up.desc, compact ? 14 : 16, TextAnchor.MiddleLeft,
+            new Vector2(0.5f, 0.63f), new Vector2(0.5f, 0.63f), Vector2.zero, compact ? new Vector2(270, 22) : new Vector2(330, 26))
             .color = new Color(0.75f, 0.72f, 0.95f, 0.9f);
         for (int i = 0; i < up.maxRank; i++)
         {
-            var pip = NewImage(card.transform, "pip" + i, new Vector2(0.095f + i * 0.085f, 0.455f),
-                new Vector2(0.095f + i * 0.085f, 0.455f), Vector2.zero, new Vector2(24, 11));
+            var pip = NewImage(card.transform, "pip" + i, new Vector2(0.105f + i * 0.09f, 0.455f),
+                new Vector2(0.105f + i * 0.09f, 0.455f), Vector2.zero, compact ? new Vector2(20, 9) : new Vector2(24, 11));
             pip.sprite = _roundedFill; pip.type = Image.Type.Sliced;
             pip.color = i < up.rank ? new Color(1f, 0.85f, 0.4f) : new Color(0.3f, 0.26f, 0.5f);
         }
@@ -2381,10 +2369,54 @@ public class HudController : MonoBehaviour
             RefreshAdventure();
         });
         var buy = MakeButton(card.transform, maxed ? "MAXED" : up.cost.ToString("N0") + " GOLD",
-            new Vector2(0.5f, 0.19f), new Vector2(320, 42),
+            new Vector2(0.5f, 0.19f), compact ? new Vector2(255, 36) : new Vector2(320, 42),
             maxed ? new Color(0.55f, 0.6f, 0.75f) : (_advSummary.gold >= up.cost ? new Color(0.55f, 1f, 0.65f) : new Color(1f, 0.55f, 0.55f)),
             action);
-        buy.GetComponentInChildren<Text>().fontSize = 17;
+        buy.GetComponentInChildren<Text>().fontSize = compact ? 15 : 17;
+    }
+
+    // pilot selector row shared by the per-pilot tabs
+    void PilotPicker(float y)
+    {
+        for (int i = 0; i < ZealData.Pilots.Length; i++)
+        {
+            var p = ZealData.Pilots[i];
+            string pid = p.id;
+            var b = MakeButton(_advContent.transform, p.name.ToUpperInvariant(),
+                new Vector2(0.29f + i * 0.14f, y), new Vector2(240, 46),
+                p.accent, () => { _advPilot = pid; RefreshAdventure(); });
+            var lbl = b.GetComponentInChildren<Text>();
+            lbl.fontSize = 16;
+            if (pid == _advPilot) { lbl.color = new Color(1f, 0.85f, 0.4f); lbl.fontStyle = FontStyle.Bold; }
+        }
+    }
+
+    // per-ship armory: every pilot upgrades their own spaceship
+    void BuildArmoryTab()
+    {
+        AdvHeader("Every pilot flies their own ship — pick one, upgrade their hull.");
+        PilotPicker(0.715f);
+        var pilot = System.Array.Find(ZealData.Pilots, x => x.id == _advPilot);
+        if (pilot != null)
+        {
+            var pt = NewText(_advContent.transform, "ptitle", pilot.name.ToUpperInvariant() + "'S SHIP", 22, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.625f), new Vector2(0.5f, 0.625f), Vector2.zero, new Vector2(1000, 32));
+            pt.color = pilot.accent;
+            pt.fontStyle = FontStyle.Bold;
+        }
+        var data = MetaBridge.GetShip(_advPilot);
+        if (data == null || data.tracks == null) return;
+        int col = 0, row = 0;
+        foreach (var tr in data.tracks)
+        {
+            string tid = tr.id;
+            UpgradeCard(tr, new Vector2(0.245f + col * 0.17f, 0.5f - row * 0.18f), () => {
+                var r = MetaBridge.BuyShip(_advPilot, tid);
+                _advStatus.text = r.ok ? "SHIP UPGRADED!" : (r.err ?? "").ToUpperInvariant();
+                RefreshAdventure();
+            }, compact: true);
+            if (++col == 4) { col = 0; row++; }
+        }
     }
 
     void BuildUpgradeCards(string[] ids, string header)

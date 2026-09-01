@@ -57,5 +57,21 @@ mergeInto(LibraryManager.library, {
   NVMetaJsSurvivorBonuses: function (pilotPtr) {
     var s = (window.NVMetaSurvivorBonuses && window.NVMetaSurvivorBonuses(UTF8ToString(pilotPtr))) || "{}";
     var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
+  },
+  NVMetaJsShip: function (pilotPtr) {
+    var s = (window.NVMetaShip && window.NVMetaShip(UTF8ToString(pilotPtr))) || "";
+    var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
+  },
+  NVMetaJsBuyShip: function (pilotPtr, idPtr) {
+    var s = (window.NVMetaBuyShip && window.NVMetaBuyShip(UTF8ToString(pilotPtr), UTF8ToString(idPtr))) || "{}";
+    var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
+  },
+  NVMetaJsShipBonuses: function (pilotPtr) {
+    var s = (window.NVMetaShipBonuses && window.NVMetaShipBonuses(UTF8ToString(pilotPtr))) || "{}";
+    var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
+  },
+  NVMetaJsCrewBonuses: function () {
+    var s = (window.NVMetaCrewBonuses && window.NVMetaCrewBonuses()) || "{}";
+    var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
   }
 });

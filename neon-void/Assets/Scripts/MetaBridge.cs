@@ -24,6 +24,10 @@ public static class MetaBridge
     [DllImport("__Internal")] static extern string NVMetaJsSurvivors(string pilot);
     [DllImport("__Internal")] static extern string NVMetaJsBuySurvivor(string pilot, string track);
     [DllImport("__Internal")] static extern string NVMetaJsSurvivorBonuses(string pilot);
+    [DllImport("__Internal")] static extern string NVMetaJsShip(string pilot);
+    [DllImport("__Internal")] static extern string NVMetaJsBuyShip(string pilot, string id);
+    [DllImport("__Internal")] static extern string NVMetaJsShipBonuses(string pilot);
+    [DllImport("__Internal")] static extern string NVMetaJsCrewBonuses();
 #else
     static int NVMetaJsReady() => 0;
     static string NVMetaJsSummary() => "";
@@ -41,6 +45,10 @@ public static class MetaBridge
     static string NVMetaJsSurvivors(string pilot) => "";
     static string NVMetaJsBuySurvivor(string pilot, string track) => "{}";
     static string NVMetaJsSurvivorBonuses(string pilot) => "{}";
+    static string NVMetaJsShip(string pilot) => "";
+    static string NVMetaJsBuyShip(string pilot, string id) => "{}";
+    static string NVMetaJsShipBonuses(string pilot) => "{}";
+    static string NVMetaJsCrewBonuses() => "{}";
 #endif
 
     [System.Serializable] public class Upgrade { public string id, name, desc; public int rank, maxRank, cost; }
@@ -66,6 +74,8 @@ public static class MetaBridge
 
     [System.Serializable] public class Survivors { public string pilot; public int gold; public Upgrade[] tracks; }
     [System.Serializable] public class SurvivorBonuses { public float power, vitality, tempo; }
+    [System.Serializable] public class ShipBonuses { public float might, maxhp, armor, recovery, cooldown, area, speed; }
+    [System.Serializable] public class CrewBonuses { public float magnet, xpgain, greed; }
 
     public static bool Ready => NVMetaJsReady() != 0;
 
@@ -90,6 +100,10 @@ public static class MetaBridge
     public static Survivors GetSurvivors(string pilot) => Parse<Survivors>(NVMetaJsSurvivors(pilot));
     public static BuyResult BuySurvivor(string pilot, string track) => Parse<BuyResult>(NVMetaJsBuySurvivor(pilot, track)) ?? new BuyResult();
     public static SurvivorBonuses GetSurvivorBonuses(string pilot) => Parse<SurvivorBonuses>(NVMetaJsSurvivorBonuses(pilot)) ?? new SurvivorBonuses();
+    public static Survivors GetShip(string pilot) => Parse<Survivors>(NVMetaJsShip(pilot));
+    public static BuyResult BuyShip(string pilot, string id) => Parse<BuyResult>(NVMetaJsBuyShip(pilot, id)) ?? new BuyResult();
+    public static ShipBonuses GetShipBonuses(string pilot) => Parse<ShipBonuses>(NVMetaJsShipBonuses(pilot)) ?? new ShipBonuses();
+    public static CrewBonuses GetCrewBonuses() => Parse<CrewBonuses>(NVMetaJsCrewBonuses()) ?? new CrewBonuses();
 }
 
 // Per-run stat counters feeding quests, achievements and the leaderboard.

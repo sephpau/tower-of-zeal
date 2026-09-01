@@ -297,6 +297,69 @@
       SURV.Meta.syncSoon();
       return '{"ok":true}';
     };
+    // per-ship armory: same idea as survivor training — ranks live at
+    // "ship:<pilot>:<id>". Existing shared ranks migrate once to ALL ships
+    // so nobody loses progress they already paid for.
+    var NV_SHIP_IDS = ['might', 'maxhp', 'armor', 'recovery', 'cooldown', 'area', 'speed'];
+    function nvShipKey(pilot, id) { return 'ship:' + pilot + ':' + id; }
+    function nvShipDefs() {
+      return SURV.CONFIG.META_UPGRADES.filter(function (u) { return NV_SHIP_IDS.indexOf(u.id) >= 0; });
+    }
+    function nvMigrateShip() {
+      var P = SURV.Meta.profile;
+      if (P.upgrades['ship:migrated']) return;
+      var pilots = ['ego', 'captain', 'chef', 'lunar'];
+      nvShipDefs().forEach(function (u) {
+        var shared = P.upgrades[u.id] || 0;
+        if (shared > 0) pilots.forEach(function (p) {
+          var k = nvShipKey(p, u.id);
+          P.upgrades[k] = Math.max(P.upgrades[k] || 0, shared);
+        });
+      });
+      P.upgrades['ship:migrated'] = 1;
+      SURV.Meta.save(); SURV.Meta.syncSoon();
+    }
+    window.NVMetaShip = function (pilotId) {
+      if (!window.NVMetaReady()) return "";
+      nvMigrateShip();
+      var P = SURV.Meta.profile;
+      return JSON.stringify({ pilot: pilotId, gold: P.gold || 0, tracks: nvShipDefs().map(function (u) {
+        var rank = P.upgrades[nvShipKey(pilotId, u.id)] || 0;
+        return { id: u.id, name: u.name, desc: u.desc, rank: rank, maxRank: u.maxRank,
+                 cost: Math.round(u.base * Math.pow(SURV.CONFIG.META_COST_GROWTH, rank)) };
+      }) });
+    };
+    window.NVMetaBuyShip = function (pilotId, id) {
+      if (!window.NVMetaReady()) return '{"ok":false,"err":"offline"}';
+      nvMigrateShip();
+      var P = SURV.Meta.profile;
+      var u = nvShipDefs().find(function (x) { return x.id === id; });
+      if (!u) return '{"ok":false,"err":"unknown"}';
+      var key = nvShipKey(pilotId, id), rank = P.upgrades[key] || 0;
+      if (rank >= u.maxRank) return '{"ok":false,"err":"Maxed out"}';
+      var cost = Math.round(u.base * Math.pow(SURV.CONFIG.META_COST_GROWTH, rank));
+      if ((P.gold || 0) < cost) return '{"ok":false,"err":"Not enough gold"}';
+      P.gold -= cost;
+      P.upgrades[key] = rank + 1;
+      SURV.Meta.save(); SURV.Meta.syncSoon();
+      return '{"ok":true}';
+    };
+    window.NVMetaShipBonuses = function (pilotId) {
+      if (!window.NVMetaReady()) return "{}";
+      nvMigrateShip();
+      var P = SURV.Meta.profile, out = {};
+      nvShipDefs().forEach(function (u) {
+        var r = P.upgrades[nvShipKey(pilotId, u.id)] || 0;
+        if (r > 0) out[u.id] = u.per * r;
+      });
+      return JSON.stringify(out);
+    };
+    window.NVMetaCrewBonuses = function () {
+      if (!window.NVMetaReady()) return "{}";
+      var b = SURV.Meta.bonuses(), out = {};
+      ['magnet', 'xpgain', 'greed'].forEach(function (k) { if (b[k]) out[k] = b[k]; });
+      return JSON.stringify(out);
+    };
     window.NVMetaSurvivorBonuses = function (pilotId) {
       if (!window.NVMetaReady()) return "{}";
       var P = SURV.Meta.profile, out = {};

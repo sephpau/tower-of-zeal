@@ -67,19 +67,24 @@ public class SkillSystem : MonoBehaviour
         RecalcShield(full: true);
     }
 
-    // permanent Adventure (armory/survivors) bonuses, applied after InitPilot
-    public void ApplyMetaBonuses(MetaBridge.Bonuses b)
+    // per-ship armory ranks — only the flown pilot's ship applies
+    public void ApplyShipBonuses(MetaBridge.ShipBonuses b)
     {
         stats["might"] += b.might;
         stats["maxhp"] += b.maxhp;
         stats["cooldown"] += b.cooldown;
         stats["area"] += b.area;
         stats["speed"] += b.speed;
+        if (b.recovery > 0f) GetComponent<Health>().shieldRegenPerSec += b.recovery;
+        RecalcShield(full: true);
+    }
+
+    // crew perks — the only shared bonuses
+    public void ApplyCrewBonuses(MetaBridge.CrewBonuses b)
+    {
         stats["magnet"] += b.magnet;
         stats["xpgain"] += b.xpgain;
         stats["greed"] += b.greed;
-        if (b.recovery > 0f) GetComponent<Health>().shieldRegenPerSec += b.recovery;
-        RecalcShield(full: true);
     }
 
     void RecalcShield(bool full = false)

@@ -82,9 +82,10 @@ public class GameManager : MonoBehaviour
         RunStats.Reset();
         if (!TournamentMode.Active && MetaBridge.Ready)
         {
-            _skills.ApplyMetaBonuses(MetaBridge.GetBonuses());                          // armory + crew perks
+            _skills.ApplyShipBonuses(MetaBridge.GetShipBonuses(_skills.pilot.id));           // this ship's armory
+            _skills.ApplyCrewBonuses(MetaBridge.GetCrewBonuses());                           // shared crew perks
             _skills.ApplySurvivorBonuses(MetaBridge.GetSurvivorBonuses(_skills.pilot.id));   // this pilot's training
-            MetaBridge.RunStart();                                                      // leaderboard run token
+            MetaBridge.RunStart();                                                           // leaderboard run token
         }
         var tint = _playerHealth.GetComponent<ShipTint>();
         if (tint != null) tint.Apply(_skills.pilot.accent);
