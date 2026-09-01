@@ -14,9 +14,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap" rel="stylesheet">
   <style>
-    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #120a24; overflow: hidden; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%; background: #120a24; overflow: hidden;
+      /* the browser must never claim a touch gesture (scroll / pull-to-refresh /
+         back-swipe) — without this, drags freeze mid-gesture on mobile */
+      touch-action: none; overscroll-behavior: none;
+      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+    }
+    body { position: fixed; inset: 0; }
     #unity-container { position: absolute; inset: 0; }
-    #unity-canvas { width: 100%; height: 100%; display: block; background: #05020d; }
+    #unity-canvas { width: 100%; height: 100%; display: block; background: #05020d; touch-action: none; }
 
     /* ---------- loading overlay: logo + bar, nothing else ---------- */
     #nv-load {
@@ -233,6 +240,11 @@
       // some browsers reject the first request during page load
       document.addEventListener('touchend', tryFullscreen, { passive: true });
       document.addEventListener('click', tryFullscreen, { passive: true });
+
+      // belt-and-braces with the CSS touch-action: some browsers still start
+      // a native pan/refresh gesture mid-drag, which freezes the game's touch
+      // tracking until the finger lifts
+      document.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
     })();
 
     // ---------- Adventure meta bridge (drives classic SURV.Meta from Unity) ----------
