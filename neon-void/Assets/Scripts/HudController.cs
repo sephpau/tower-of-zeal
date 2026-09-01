@@ -588,18 +588,18 @@ public class HudController : MonoBehaviour
         _bestHomeText.color = new Color(0.5f, 0.98f, 1f, 0.9f);
         _bestHomeText.font = _titleFont;
 
-        MakeButton(_homePanel.transform, "PLAY", new Vector2(0.5f, 0.49f), new Vector2(430, 74),
-            new Color(1f, 0.85f, 0.4f), () => { _homePanel.SetActive(false); _startPanel.SetActive(true); });
+        MakeButton(_homePanel.transform, "QUICK PLAY", new Vector2(0.5f, 0.49f), new Vector2(430, 74),
+            new Color(1f, 0.85f, 0.4f), () => SwitchPanel(_homePanel, _startPanel));
         MakeButton(_homePanel.transform, "ADVENTURE", new Vector2(0.5f, 0.385f), new Vector2(360, 56),
-            new Color(1f, 0.72f, 0.25f), () => { _homePanel.SetActive(false); OpenAdventure(); });
+            new Color(1f, 0.72f, 0.25f), () => SwitchPanel(_homePanel, _adventurePanel, RefreshAdventure));
         MakeButton(_homePanel.transform, "BLITZ TOURNAMENT", new Vector2(0.5f, 0.31f), new Vector2(360, 56),
-            new Color(1f, 0.55f, 0.9f), () => { _homePanel.SetActive(false); _tourneySetupPanel.SetActive(true); });
+            new Color(1f, 0.55f, 0.9f), () => SwitchPanel(_homePanel, _tourneySetupPanel));
         MakeButton(_homePanel.transform, "CO-OP (2P)", new Vector2(0.5f, 0.235f), new Vector2(360, 56),
-            new Color(0.4f, 1f, 0.75f), () => { _homePanel.SetActive(false); _coopPanel.SetActive(true); });
+            new Color(0.4f, 1f, 0.75f), () => SwitchPanel(_homePanel, _coopPanel));
         MakeButton(_homePanel.transform, "BATTLE ROYALE", new Vector2(0.5f, 0.16f), new Vector2(360, 56),
-            new Color(1f, 0.35f, 0.35f), () => { _homePanel.SetActive(false); _brPanel.SetActive(true); });
+            new Color(1f, 0.35f, 0.35f), () => SwitchPanel(_homePanel, _brPanel));
         MakeButton(_homePanel.transform, "SETTINGS", new Vector2(0.5f, 0.09f), new Vector2(360, 56),
-            new Color(0.6f, 0.9f, 1f), () => { _homePanel.SetActive(false); _settingsPanel.SetActive(true); });
+            new Color(0.6f, 0.9f, 1f), () => SwitchPanel(_homePanel, _settingsPanel));
 
         // Discord + Ronin wallet identity corner (top-right)
         BuildIdentityCorner();
@@ -679,7 +679,7 @@ public class HudController : MonoBehaviour
         }
 
         MakeButton(_startPanel.transform, "BACK", new Vector2(0.5f, 0.12f), new Vector2(300, 54),
-            new Color(0.8f, 0.9f, 1f), () => { _startPanel.SetActive(false); _homePanel.SetActive(true); });
+            new Color(0.8f, 0.9f, 1f), () => SwitchPanel(_startPanel, _homePanel));
         _startPanel.SetActive(false);
     }
 
@@ -958,7 +958,7 @@ public class HudController : MonoBehaviour
                 GameManager.I.StartRun(TournamentMode.PilotIndex);
             });
         MakeButton(_tourneySetupPanel.transform, "BACK", new Vector2(0.58f, 0.18f), new Vector2(300, 56),
-            new Color(0.8f, 0.9f, 1f), () => { _tourneySetupPanel.SetActive(false); _homePanel.SetActive(true); });
+            new Color(0.8f, 0.9f, 1f), () => SwitchPanel(_tourneySetupPanel, _homePanel));
         _tourneySetupPanel.SetActive(false);
 
         // ----- results -----
@@ -1254,6 +1254,7 @@ public class HudController : MonoBehaviour
         colors.highlightedColor = new Color(1.6f, 1.6f, 1.9f);
         colors.pressedColor = new Color(2f, 2f, 2.4f);
         btn.colors = colors;
+        btn.onClick.AddListener(() => StartCoroutine(PunchScale(go.transform)));   // click feedback
         btn.onClick.AddListener(onClick);
         var btnGlow = NewImage(go.transform, "border", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         btnGlow.sprite = _roundedOutline;
@@ -1978,6 +1979,53 @@ public class HudController : MonoBehaviour
     public void WaveBanner(string msg) { _bannerText.text = msg; _bannerTimer = 2.2f; }
     public void AnnounceCaption(string msg) { _announceText.text = ">> " + msg.ToUpperInvariant(); _announceTimer = 2.6f; }
 
+    // ---------- panel transitions + button feedback ----------
+    Image _fadeOverlay;
+
+    void SwitchPanel(GameObject from, GameObject to, System.Action afterShow = null)
+        => StartCoroutine(SwitchPanelCo(from, to, afterShow));
+
+    System.Collections.IEnumerator SwitchPanelCo(GameObject from, GameObject to, System.Action afterShow)
+    {
+        if (_fadeOverlay == null)
+        {
+            _fadeOverlay = NewImage(_canvas.transform, "fadeOverlay", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            _fadeOverlay.color = new Color(0.03f, 0.02f, 0.09f, 0f);
+            _fadeOverlay.raycastTarget = false;
+        }
+        _fadeOverlay.transform.SetAsLastSibling();
+        _fadeOverlay.raycastTarget = true;   // swallow clicks mid-transition
+        for (float t = 0f; t < 1f; t += Time.unscaledDeltaTime / 0.13f)
+        {
+            _fadeOverlay.color = new Color(0.03f, 0.02f, 0.09f, Mathf.Clamp01(t));
+            yield return null;
+        }
+        if (from != null) from.SetActive(false);
+        if (to != null) to.SetActive(true);
+        afterShow?.Invoke();
+        yield return null;
+        for (float t = 1f; t > 0f; t -= Time.unscaledDeltaTime / 0.2f)
+        {
+            _fadeOverlay.color = new Color(0.03f, 0.02f, 0.09f, Mathf.Clamp01(t));
+            yield return null;
+        }
+        _fadeOverlay.color = new Color(0.03f, 0.02f, 0.09f, 0f);
+        _fadeOverlay.raycastTarget = false;
+    }
+
+    System.Collections.IEnumerator PunchScale(Transform tr)
+    {
+        if (tr == null) yield break;
+        Vector3 baseScale = tr.localScale;
+        for (float t = 0f; t < 1f; t += Time.unscaledDeltaTime / 0.14f)
+        {
+            if (tr == null) yield break;
+            tr.localScale = baseScale * (1f - 0.1f * Mathf.Sin(Mathf.Clamp01(t) * Mathf.PI));
+            yield return null;
+        }
+        if (tr != null) tr.localScale = baseScale;
+    }
+
     // ---------- Discord + wallet identity corner ----------
     GameObject _idCorner;
     string _idCornerState = "";
@@ -1997,55 +2045,32 @@ public class HudController : MonoBehaviour
         rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
         _idCornerState = IdentityState();
 
-        // row 1: Discord — logo only when logged out, name + ✕ when logged in
-        if (DiscordAuth.Available)
-        {
-            if (DiscordAuth.LoggedIn)
-            {
-                var db = MakeButton(_idCorner.transform,
-                    "DISCORD: " + DiscordAuth.DisplayName.ToUpperInvariant() + "  ✕",
-                    new Vector2(0.865f, 0.92f), new Vector2(330, 44),
-                    new Color(0.55f, 0.62f, 1f), () => { DiscordAuth.Logout(); BuildIdentityCorner(); });
-                db.GetComponentInChildren<Text>().fontSize = 18;
-            }
-            else
-            {
-                var db = MakeButton(_idCorner.transform, "", new Vector2(0.945f, 0.92f), new Vector2(58, 58),
-                    new Color(0.55f, 0.62f, 1f), () => DiscordAuth.Login());
-                var logoTex = Resources.Load<Texture2D>("icons/discord");
-                if (logoTex != null)
-                {
-                    var logo = NewImage(db.transform, "logo", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(46, 46));
-                    logo.sprite = Sprite.Create(logoTex, new Rect(0, 0, logoTex.width, logoTex.height), new Vector2(0.5f, 0.5f));
-                    logo.raycastTarget = false;
-                }
-            }
-        }
-
-        // row 2: Ronin wallet — same verified flow as classic Zeal Survivors
+        // logo pair, top-right: Ronin beside Discord. Connected = green check
+        // badge; hovering shows who is connected.
         if (WalletAuth.Available)
-        {
-            if (WalletAuth.Connected)
-            {
-                var wb = MakeButton(_idCorner.transform,
-                    "RONIN: " + WalletAuth.ShortAddress.ToUpperInvariant() + "  ✕",
-                    new Vector2(0.88f, 0.845f), new Vector2(300, 44),
-                    new Color(0.35f, 0.75f, 1f), () => { WalletAuth.Disconnect(); BuildIdentityCorner(); });
-                wb.GetComponentInChildren<Text>().fontSize = 17;
-            }
-            else if (WalletAuth.Busy)
-            {
-                var wb = MakeButton(_idCorner.transform, "CONNECTING…", new Vector2(0.895f, 0.845f), new Vector2(240, 44),
-                    new Color(0.35f, 0.75f, 1f), () => { });
-                wb.GetComponentInChildren<Text>().fontSize = 17;
-            }
-            else
-            {
-                var wb = MakeButton(_idCorner.transform, "CONNECT RONIN", new Vector2(0.895f, 0.845f), new Vector2(240, 44),
-                    new Color(0.35f, 0.75f, 1f), () => { _idLastError = ""; WalletAuth.Connect(); BuildIdentityCorner(); });
-                wb.GetComponentInChildren<Text>().fontSize = 17;
-            }
-        }
+            IdentityLogo("icons/ronin", new Vector2(0.9075f, 0.92f), new Color(0.35f, 0.75f, 1f),
+                WalletAuth.Connected,
+                WalletAuth.Busy ? "CONNECTING…"
+                    : WalletAuth.Connected ? "RONIN: " + WalletAuth.ShortAddress.ToUpperInvariant() + " — CLICK TO DISCONNECT"
+                    : "CONNECT RONIN WALLET",
+                () => {
+                    if (WalletAuth.Busy) return;
+                    if (WalletAuth.Connected) { WalletAuth.Disconnect(); BuildIdentityCorner(); }
+                    else { _idLastError = ""; WalletAuth.Connect(); BuildIdentityCorner(); }
+                });
+        if (DiscordAuth.Available)
+            IdentityLogo("icons/discord", new Vector2(0.945f, 0.92f), new Color(0.55f, 0.62f, 1f),
+                DiscordAuth.LoggedIn,
+                DiscordAuth.LoggedIn ? "DISCORD: " + DiscordAuth.DisplayName.ToUpperInvariant() + " — CLICK TO SIGN OUT"
+                    : "SIGN IN WITH DISCORD",
+                () => {
+                    if (DiscordAuth.LoggedIn) { DiscordAuth.Logout(); BuildIdentityCorner(); }
+                    else DiscordAuth.Login();
+                });
+
+        _idTooltip = NewText(_idCorner.transform, "tooltip", "", 15, TextAnchor.MiddleRight,
+            new Vector2(0.985f, 0.862f), new Vector2(0.985f, 0.862f), new Vector2(-260, 0), new Vector2(520, 26));
+        _idTooltip.color = new Color(0.8f, 0.9f, 1f, 0.95f);
 
         // last wallet error (shown until the next attempt)
         if (!string.IsNullOrEmpty(_idLastError))
@@ -2066,10 +2091,44 @@ public class HudController : MonoBehaviour
         }
     }
 
+    Text _idTooltip;
+
+    // square logo button with connected-check badge and hover tooltip
+    Button IdentityLogo(string iconRes, Vector2 anchor, Color tint, bool connected, string tip, UnityEngine.Events.UnityAction onClick)
+    {
+        var db = MakeButton(_idCorner.transform, "", anchor, new Vector2(58, 58), tint, onClick);
+        var tex = Resources.Load<Texture2D>(iconRes);
+        if (tex != null)
+        {
+            var logo = NewImage(db.transform, "logo", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(46, 46));
+            logo.sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+            logo.raycastTarget = false;
+        }
+        if (connected)
+        {
+            var badge = NewImage(db.transform, "check", new Vector2(0.88f, 0.14f), new Vector2(0.88f, 0.14f), Vector2.zero, new Vector2(24, 24));
+            badge.sprite = _roundedFill; badge.type = Image.Type.Sliced;
+            badge.color = new Color(0.25f, 0.85f, 0.4f);
+            badge.raycastTarget = false;
+            var check = NewText(badge.transform, "v", "✓", 17, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.52f), new Vector2(0.5f, 0.52f), Vector2.zero, new Vector2(24, 24));
+            check.color = Color.white;
+            check.fontStyle = FontStyle.Bold;
+        }
+        var trig = db.gameObject.AddComponent<EventTrigger>();
+        var enter = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
+        enter.callback.AddListener(_ => { if (_idTooltip != null) _idTooltip.text = tip; });
+        trig.triggers.Add(enter);
+        var exit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
+        exit.callback.AddListener(_ => { if (_idTooltip != null) _idTooltip.text = ""; });
+        trig.triggers.Add(exit);
+        return db;
+    }
+
     // ---------- Adventure hub: armory / survivors / quests / board / pass ----------
     GameObject _adventurePanel, _advContent;
     Text _advGold, _advStatus;
-    string _advTab = "armory";
+    string _advTab = "board";   // leaderboard first — the hook when the hub opens
     MetaBridge.Summary _advSummary;
     Coroutine _advCo;
 
@@ -2122,7 +2181,7 @@ public class HudController : MonoBehaviour
         _advStatus.color = new Color(0.6f, 0.95f, 1f);
 
         MakeButton(_adventurePanel.transform, "BACK", new Vector2(0.5f, 0.058f), new Vector2(300, 52),
-            new Color(0.8f, 0.9f, 1f), () => { _adventurePanel.SetActive(false); _homePanel.SetActive(true); });
+            new Color(0.8f, 0.9f, 1f), () => SwitchPanel(_adventurePanel, _homePanel));
         _adventurePanel.SetActive(false);
     }
 
@@ -2141,12 +2200,6 @@ public class HudController : MonoBehaviour
         border.sprite = _roundedOutline; border.type = Image.Type.Sliced;
         border.color = edge ?? new Color(0.5f, 0.4f, 0.85f, 0.45f);
         return go;
-    }
-
-    void OpenAdventure()
-    {
-        _adventurePanel.SetActive(true);
-        RefreshAdventure();
     }
 
     void RefreshAdventure()
