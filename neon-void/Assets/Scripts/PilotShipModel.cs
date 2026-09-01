@@ -58,35 +58,65 @@ public static class PilotShipModel
             Object.Destroy(col);
 
         // line the classic booster glow + trails + engine light up with this
-        // hull's twin exhaust grilles (all four Tripo ships share the layout),
-        // in each ship's own booster color
+        // hull's ACTUAL tail — the four Tripo hulls have different lengths, so
+        // hard-coded offsets end up inside the geometry and the orbs vanish.
+        // Measure the mounted model's bounds in the glow parent's local space
+        // (exact under any ship rotation) and hang the orbs just behind it.
         var tint = ship.GetComponent<ShipTint>();
-        if (tint != null)
+        if (tint != null && tint.glowQuads.Count > 0)
         {
-            // grilles measured from the rear renders: ±26% of half-span,
-            // mid-hull height; orbs sit just BEHIND the tail, not inside it
+            Transform space = tint.glowQuads[0].transform.parent;
+            Bounds lb = LocalBounds(model, space);
+            float grilleX = lb.size.x * 0.13f;            // ±26% of half-span
+            float tailY = lb.center.y + lb.size.y * 0.05f;
+            float tailZ = lb.min.z - 0.45f;               // clear of the hull
+
             Color booster = BoosterColor(pilotId);
             for (int i = 0; i < tint.glowQuads.Count && i < 2; i++)
             {
                 float side = i == 0 ? -1f : 1f;
-                tint.glowQuads[i].transform.localPosition = new Vector3(side * 0.75f, 0.15f, -2.75f);
-                tint.glowQuads[i].transform.localScale = Vector3.one * 0.72f;
+                tint.glowQuads[i].transform.localPosition = new Vector3(side * grilleX, tailY, tailZ);
+                tint.glowQuads[i].transform.localScale = Vector3.one * 1.15f;
                 tint.glowQuads[i].material.SetColor("_TintColor", booster);
             }
             for (int i = 0; i < tint.trails.Count && i < 2; i++)
             {
                 float side = i == 0 ? -1f : 1f;
-                tint.trails[i].transform.localPosition = new Vector3(side * 0.75f, 0.15f, -2.85f);
+                tint.trails[i].transform.localPosition = new Vector3(side * grilleX, tailY, tailZ - 0.1f);
                 tint.trails[i].startColor = new Color(booster.r, booster.g, booster.b, 0.85f);
                 tint.trails[i].endColor = new Color(booster.r * 0.6f, booster.g * 0.4f, booster.b, 0f);
             }
             if (tint.engineLight != null)
             {
-                tint.engineLight.transform.localPosition = new Vector3(0f, 0.2f, -2.8f);
+                tint.engineLight.transform.localPosition = new Vector3(0f, tailY + 0.1f, tailZ - 0.1f);
                 tint.engineLight.color = booster;
             }
         }
         return true;
+    }
+
+    // model's AABB in `space` local coordinates — built from mesh-space
+    // corners so a rotated ship doesn't inflate the box like a world AABB
+    static Bounds LocalBounds(GameObject model, Transform space)
+    {
+        var toLocal = space.worldToLocalMatrix;
+        bool first = true;
+        Bounds lb = new Bounds();
+        foreach (var mf in model.GetComponentsInChildren<MeshFilter>())
+        {
+            if (mf.sharedMesh == null) continue;
+            Bounds mb = mf.sharedMesh.bounds;
+            Matrix4x4 m = toLocal * mf.transform.localToWorldMatrix;
+            for (int c = 0; c < 8; c++)
+            {
+                Vector3 corner = mb.center + Vector3.Scale(mb.extents, new Vector3(
+                    (c & 1) == 0 ? -1f : 1f, (c & 2) == 0 ? -1f : 1f, (c & 4) == 0 ? -1f : 1f));
+                Vector3 p = m.MultiplyPoint3x4(corner);
+                if (first) { lb = new Bounds(p, Vector3.zero); first = false; }
+                else lb.Encapsulate(p);
+            }
+        }
+        return lb;
     }
 
     // per-ship booster flame colors

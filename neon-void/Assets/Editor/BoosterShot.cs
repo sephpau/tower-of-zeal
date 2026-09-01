@@ -41,9 +41,9 @@ public static class BoosterShot
                 if (t != null) Object.DestroyImmediate(t.gameObject);
             }
 
-            // rear three-quarter, slightly above — same angle as the user's screenshots
-            camGo.transform.position = new Vector3(0f, 2.2f, -8.5f);
-            camGo.transform.LookAt(new Vector3(0f, 0.3f, -1f));
+            // straight-on rear at hull height — the booster orbs must be visible here
+            camGo.transform.position = new Vector3(0f, 0.9f, -9.5f);
+            camGo.transform.LookAt(new Vector3(0f, 0.2f, 0f));
 
             cam.targetTexture = rt;
             cam.Render();
