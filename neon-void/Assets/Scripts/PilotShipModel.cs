@@ -39,6 +39,21 @@ public static class PilotShipModel
             model.transform.position += ship.transform.position - b.center;
         }
 
+        // apply the baked color map directly — embedded FBX textures don't
+        // survive Unity's material import, so we carry them as plain images
+        var baseTex = Resources.Load<Texture2D>("ships/tex/ship_" + pilotId + "_basecolor");
+        if (baseTex != null)
+        {
+            foreach (var r in renderers)
+                foreach (var m in r.materials)
+                {
+                    m.mainTexture = baseTex;
+                    m.color = Color.white;
+                    if (m.HasProperty("_Glossiness")) m.SetFloat("_Glossiness", 0.35f);
+                    if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", 0.1f);
+                }
+        }
+
         foreach (var col in model.GetComponentsInChildren<Collider>())
             Object.Destroy(col);
         return true;
