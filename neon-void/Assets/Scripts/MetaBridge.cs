@@ -21,6 +21,9 @@ public static class MetaBridge
     [DllImport("__Internal")] static extern string NVMetaJsBoardTake();
     [DllImport("__Internal")] static extern void NVMetaJsPassBuy();
     [DllImport("__Internal")] static extern string NVMetaJsPassStatus();
+    [DllImport("__Internal")] static extern string NVMetaJsSurvivors(string pilot);
+    [DllImport("__Internal")] static extern string NVMetaJsBuySurvivor(string pilot, string track);
+    [DllImport("__Internal")] static extern string NVMetaJsSurvivorBonuses(string pilot);
 #else
     static int NVMetaJsReady() => 0;
     static string NVMetaJsSummary() => "";
@@ -35,6 +38,9 @@ public static class MetaBridge
     static string NVMetaJsBoardTake() => "";
     static void NVMetaJsPassBuy() { }
     static string NVMetaJsPassStatus() => "";
+    static string NVMetaJsSurvivors(string pilot) => "";
+    static string NVMetaJsBuySurvivor(string pilot, string track) => "{}";
+    static string NVMetaJsSurvivorBonuses(string pilot) => "{}";
 #endif
 
     [System.Serializable] public class Upgrade { public string id, name, desc; public int rank, maxRank, cost; }
@@ -58,6 +64,9 @@ public static class MetaBridge
     [System.Serializable] public class Board { public bool ok; public string period, week, reason; public BoardRow[] rows; public BoardMe me; }
     [System.Serializable] public class PassStatus { public bool busy, ok; public string status, reason; }
 
+    [System.Serializable] public class Survivors { public string pilot; public int gold; public Upgrade[] tracks; }
+    [System.Serializable] public class SurvivorBonuses { public float power, vitality, tempo; }
+
     public static bool Ready => NVMetaJsReady() != 0;
 
     static T Parse<T>(string json) where T : class
@@ -78,6 +87,9 @@ public static class MetaBridge
     public static Board BoardTake() => Parse<Board>(NVMetaJsBoardTake());
     public static void PassBuy() => NVMetaJsPassBuy();
     public static PassStatus GetPassStatus() => Parse<PassStatus>(NVMetaJsPassStatus());
+    public static Survivors GetSurvivors(string pilot) => Parse<Survivors>(NVMetaJsSurvivors(pilot));
+    public static BuyResult BuySurvivor(string pilot, string track) => Parse<BuyResult>(NVMetaJsBuySurvivor(pilot, track)) ?? new BuyResult();
+    public static SurvivorBonuses GetSurvivorBonuses(string pilot) => Parse<SurvivorBonuses>(NVMetaJsSurvivorBonuses(pilot)) ?? new SurvivorBonuses();
 }
 
 // Per-run stat counters feeding quests, achievements and the leaderboard.

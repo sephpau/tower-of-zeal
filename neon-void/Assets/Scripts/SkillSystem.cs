@@ -58,6 +58,15 @@ public class SkillSystem : MonoBehaviour
         if (ZealData.AutoWeaponsEnabled) AddWeapon(p.startWeapon);
     }
 
+    // per-pilot Adventure training — only the flown pilot's ranks apply
+    public void ApplySurvivorBonuses(MetaBridge.SurvivorBonuses b)
+    {
+        stats["might"] += b.power;
+        stats["maxhp"] += b.vitality;
+        stats["cooldown"] += b.tempo;
+        RecalcShield(full: true);
+    }
+
     // permanent Adventure (armory/survivors) bonuses, applied after InitPilot
     public void ApplyMetaBonuses(MetaBridge.Bonuses b)
     {

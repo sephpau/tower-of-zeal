@@ -90,7 +90,7 @@ public class ActiveSkills : MonoBehaviour
 
         if (!GameManager.I.Running || GameManager.I.Paused) return;
         for (int i = 0; i < slots.Count && i < Keys.Length; i++)
-            if (Input.GetKeyDown(Keys[i]) && slots[i].cdLeft <= 0f)
+            if ((Input.GetKeyDown(Keys[i]) || TouchInput.ConsumeSkill(i)) && slots[i].cdLeft <= 0f)
                 Cast(slots[i]);
     }
 

@@ -66,7 +66,8 @@ public class SpecialAttack : MonoBehaviour
     {
         cooldownLeft = Mathf.Max(0f, cooldownLeft - Time.deltaTime);
         if (_pilot == null || !GameManager.I.Running || GameManager.I.Paused) return;
-        if (!Input.GetMouseButtonDown(1) || cooldownLeft > 0f) return;
+        bool wantSpecial = Input.GetMouseButtonDown(1) || TouchInput.ConsumeSpecial();
+        if (!wantSpecial || cooldownLeft > 0f) return;
 
         if (_ship != null) _ship.BreakGuard();   // specials are attacks too
         cooldownLeft = _cooldown;

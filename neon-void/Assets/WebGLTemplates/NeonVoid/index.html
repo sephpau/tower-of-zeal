@@ -65,12 +65,24 @@
       font-family: "Segoe UI", system-ui, sans-serif;
     }
     #nv-error { color: #ff8896; font-family: "Segoe UI", system-ui, sans-serif; font-size: 14px; margin-top: 8px; text-align: center; }
+
+    /* mobile: the game is landscape-only */
+    #nv-rotate {
+      position: fixed; inset: 0; z-index: 60; display: none;
+      align-items: center; justify-content: center; text-align: center;
+      background: #120a24; color: #f8c73f;
+      font-family: "Luckiest Guy", system-ui, sans-serif; font-size: 30px;
+      line-height: 1.5; letter-spacing: 0.05em;
+    }
+    @media (pointer: coarse) and (orientation: portrait) { #nv-rotate { display: flex; } }
   </style>
 </head>
 <body>
   <div id="unity-container">
     <canvas id="unity-canvas" tabindex="-1"></canvas>
   </div>
+
+  <div id="nv-rotate">ROTATE YOUR DEVICE<br>THE VOID IS LANDSCAPE ONLY</div>
 
   <div id="nv-load">
     <div id="nv-center">
@@ -187,6 +199,22 @@
       } finally { window.__nvWalletBusy = false; }
     };
 
+    // ---------- mobile: first tap = fullscreen + landscape lock (best effort) ----------
+    (function () {
+      if (!window.matchMedia || !matchMedia('(pointer: coarse)').matches) return;
+      var done = false;
+      document.addEventListener('touchend', function () {
+        if (done) return; done = true;
+        var el = document.documentElement;
+        var fs = el.requestFullscreen || el.webkitRequestFullscreen;
+        if (fs) { try { var p = fs.call(el); if (p && p.catch) p.catch(function () {}); } catch (e) {} }
+        try {
+          if (screen.orientation && screen.orientation.lock)
+            screen.orientation.lock('landscape').catch(function () {});
+        } catch (e) {}
+      }, { passive: true });
+    })();
+
     // ---------- Adventure meta bridge (drives classic SURV.Meta from Unity) ----------
     window.__nvBoard = ""; window.__nvPass = "";
     window.NVMetaReady = function () { return (window.SURV && SURV.Meta && SURV.Meta.profile) ? 1 : 0; };
@@ -236,6 +264,48 @@
       return JSON.stringify({ ok: true, count: n });
     };
     window.NVMetaBonuses = function () { return window.NVMetaReady() ? JSON.stringify(SURV.Meta.bonuses()) : "{}"; };
+
+    // per-survivor training: namespaced ranks inside the same cloud profile
+    // (upgrades["sv:<pilot>:<track>"]), so cross-device merge keeps working
+    var NV_SURV_TRACKS = [
+      { id: 'power',    name: 'Power Training',    desc: '+6% damage / rank',   per: 0.06, base: 250, maxRank: 3 },
+      { id: 'vitality', name: 'Vitality Training', desc: '+10% max HP / rank',  per: 0.10, base: 250, maxRank: 3 },
+      { id: 'tempo',    name: 'Tempo Training',    desc: '-3% cooldown / rank', per: 0.03, base: 350, maxRank: 3 }
+    ];
+    function nvSurvKey(pilot, track) { return 'sv:' + pilot + ':' + track; }
+    window.NVMetaSurvivors = function (pilotId) {
+      if (!window.NVMetaReady()) return "";
+      var P = SURV.Meta.profile;
+      return JSON.stringify({ pilot: pilotId, gold: P.gold || 0, tracks: NV_SURV_TRACKS.map(function (t) {
+        var rank = P.upgrades[nvSurvKey(pilotId, t.id)] || 0;
+        return { id: t.id, name: t.name, desc: t.desc, rank: rank, maxRank: t.maxRank,
+                 cost: Math.round(t.base * Math.pow(1.7, rank)) };
+      }) });
+    };
+    window.NVMetaBuySurvivor = function (pilotId, trackId) {
+      if (!window.NVMetaReady()) return '{"ok":false,"err":"offline"}';
+      var P = SURV.Meta.profile;
+      var t = NV_SURV_TRACKS.find(function (x) { return x.id === trackId; });
+      if (!t) return '{"ok":false,"err":"unknown"}';
+      var key = nvSurvKey(pilotId, trackId), rank = P.upgrades[key] || 0;
+      if (rank >= t.maxRank) return '{"ok":false,"err":"Maxed out"}';
+      var cost = Math.round(t.base * Math.pow(1.7, rank));
+      if ((P.gold || 0) < cost) return '{"ok":false,"err":"Not enough gold"}';
+      P.gold -= cost;
+      P.upgrades[key] = rank + 1;
+      SURV.Meta.save();
+      SURV.Meta.syncSoon();
+      return '{"ok":true}';
+    };
+    window.NVMetaSurvivorBonuses = function (pilotId) {
+      if (!window.NVMetaReady()) return "{}";
+      var P = SURV.Meta.profile, out = {};
+      NV_SURV_TRACKS.forEach(function (t) {
+        var r = P.upgrades[nvSurvKey(pilotId, t.id)] || 0;
+        if (r > 0) out[t.id] = t.per * r;
+      });
+      return JSON.stringify(out);
+    };
     window.NVMetaAbsorbRun = function (json) {
       if (!window.NVMetaReady()) return '{"ok":false}';
       try {

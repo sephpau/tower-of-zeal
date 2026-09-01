@@ -45,5 +45,17 @@ mergeInto(LibraryManager.library, {
   NVMetaJsPassStatus: function () {
     var s = (window.NVPassStatus && window.NVPassStatus()) || "";
     var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
+  },
+  NVMetaJsSurvivors: function (pilotPtr) {
+    var s = (window.NVMetaSurvivors && window.NVMetaSurvivors(UTF8ToString(pilotPtr))) || "";
+    var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
+  },
+  NVMetaJsBuySurvivor: function (pilotPtr, trackPtr) {
+    var s = (window.NVMetaBuySurvivor && window.NVMetaBuySurvivor(UTF8ToString(pilotPtr), UTF8ToString(trackPtr))) || "{}";
+    var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
+  },
+  NVMetaJsSurvivorBonuses: function (pilotPtr) {
+    var s = (window.NVMetaSurvivorBonuses && window.NVMetaSurvivorBonuses(UTF8ToString(pilotPtr))) || "{}";
+    var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
   }
 });

@@ -31,6 +31,16 @@ public static class GameSettings
         set { PlayerPrefs.SetFloat("zsv2-mousesens", Mathf.Clamp(value, 0.2f, 3f)); PlayerPrefs.Save(); }
     }
 
+    // touch controls: 0 = auto (mobile browsers), 1 = always on, 2 = off
+    public static int TouchMode
+    {
+        get => PlayerPrefs.GetInt("zsv2-touchmode", 0);
+        set { PlayerPrefs.SetInt("zsv2-touchmode", Mathf.Clamp(value, 0, 2)); PlayerPrefs.Save(); }
+    }
+
+    public static bool TouchActive =>
+        TouchMode == 1 || (TouchMode == 0 && Application.isMobilePlatform);
+
     // co-op partner voice loudness
     public static float VoiceVolume
     {

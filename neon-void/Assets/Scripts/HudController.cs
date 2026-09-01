@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -298,6 +298,7 @@ public class HudController : MonoBehaviour
         BuildLevelUpPanel();
         BuildTournamentPanels();
         BuildAdventurePanel();
+        BuildTouchEditPanel();
         BuildCoopPanel();
         BuildLobbyPanel();
         BuildRoyalePanels();
@@ -709,6 +710,26 @@ public class HudController : MonoBehaviour
             toggleLabel.text = GameSettings.HitWarning ? "ON" : "OFF";
             toggleLabel.color = GameSettings.HitWarning ? new Color(0.5f, 1f, 0.6f) : new Color(1f, 0.5f, 0.5f);
         });
+
+        // touch controls: AUTO detects mobile browsers; layout is editable
+        var touchLbl = NewText(_settingsPanel.transform, "touchlbl", "TOUCH CONTROLS", 28, TextAnchor.MiddleRight,
+            new Vector2(0.5f, 0.505f), new Vector2(0.5f, 0.505f), new Vector2(-110, 0), new Vector2(520, 44));
+        touchLbl.color = new Color(0.9f, 0.95f, 1f);
+        string[] touchModes = { "AUTO", "ON", "OFF" };
+        Text touchModeLabel = null;
+        var touchBtn = MakeButton(_settingsPanel.transform, touchModes[GameSettings.TouchMode],
+            new Vector2(0.5f, 0.505f), new Vector2(140, 48), new Color(0.5f, 0.95f, 1f), () => { });
+        touchBtn.transform.localPosition += new Vector3(220, 0, 0);
+        touchModeLabel = touchBtn.GetComponentInChildren<Text>();
+        touchBtn.onClick.AddListener(() => {
+            GameSettings.TouchMode = (GameSettings.TouchMode + 1) % 3;
+            touchModeLabel.text = touchModes[GameSettings.TouchMode];
+        });
+        var editBtn = MakeButton(_settingsPanel.transform, "EDIT LAYOUT",
+            new Vector2(0.5f, 0.505f), new Vector2(190, 48), new Color(1f, 0.85f, 0.4f),
+            () => SwitchPanel(_settingsPanel, _touchEditPanel, RefreshTouchEditor));
+        editBtn.transform.localPosition += new Vector3(415, 0, 0);
+        editBtn.GetComponentInChildren<Text>().fontSize = 18;
 
         // mouse sensitivity: try it live on the test pad to the right
         MakeVolumeRow("MOUSE SENSITIVITY", 0.46f, GameSettings.MouseSensitivity,
@@ -1747,7 +1768,17 @@ public class HudController : MonoBehaviour
         _bestHomeText.text = GameManager.I != null && GameManager.I.best > 0 ? "BEST  " + GameManager.I.best.ToString("N0") : "";
         WantsStart = true;
     }
-    public void ShowGameHud() { WantsStart = false; _startPanel.SetActive(false); _gameHud.SetActive(true); }
+    public void ShowGameHud()
+    {
+        WantsStart = false; _startPanel.SetActive(false); _gameHud.SetActive(true);
+        TouchInput.Enabled = GameSettings.TouchActive;
+        Input.simulateMouseWithTouches = !TouchInput.Enabled;   // sticks must not double as mouse-look
+        if (TouchInput.Enabled && _touchOverlay == null)
+            _touchOverlay = TouchControls.Build(_gameHud.transform, _roundedFill, _roundedOutline, editMode: false).gameObject;
+        if (_touchOverlay != null) _touchOverlay.SetActive(TouchInput.Enabled);
+    }
+
+    GameObject _touchOverlay;
 
     public void ShowGameOver(int score, int best, bool newBest, int wave)
     {
@@ -1979,6 +2010,40 @@ public class HudController : MonoBehaviour
     public void WaveBanner(string msg) { _bannerText.text = msg; _bannerTimer = 2.2f; }
     public void AnnounceCaption(string msg) { _announceText.text = ">> " + msg.ToUpperInvariant(); _announceTimer = 2.6f; }
 
+    // ---------- touch layout editor ----------
+    GameObject _touchEditPanel;
+    TouchControls _touchEditor;
+
+    void BuildTouchEditPanel()
+    {
+        _touchEditPanel = Panel("TouchEditPanel");
+        var bg = NewImage(_touchEditPanel.transform, "bg", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        bg.color = new Color(0.05f, 0.035f, 0.13f, 0.97f);
+        var t = NewText(_touchEditPanel.transform, "title", "DRAG THE CONTROLS WHERE YOU WANT THEM", 30, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.94f), new Vector2(0.5f, 0.94f), Vector2.zero, new Vector2(1400, 46));
+        t.color = new Color(1f, 0.85f, 0.4f);
+        t.fontStyle = FontStyle.Bold;
+        MakeButton(_touchEditPanel.transform, "SAVE", new Vector2(0.36f, 0.055f), new Vector2(220, 50),
+            new Color(0.55f, 1f, 0.65f), () => {
+                if (_touchEditor != null) _touchEditor.SaveLayout();
+                if (_touchOverlay != null) { Destroy(_touchOverlay); _touchOverlay = null; }   // rebuilt with new layout next run
+                SwitchPanel(_touchEditPanel, _settingsPanel);
+            });
+        MakeButton(_touchEditPanel.transform, "RESET", new Vector2(0.5f, 0.055f), new Vector2(220, 50),
+            new Color(1f, 0.75f, 0.3f), () => { TouchControls.ResetLayout(); RefreshTouchEditor(); });
+        MakeButton(_touchEditPanel.transform, "CANCEL", new Vector2(0.64f, 0.055f), new Vector2(220, 50),
+            new Color(0.8f, 0.9f, 1f), () => SwitchPanel(_touchEditPanel, _settingsPanel));
+        _touchEditPanel.SetActive(false);
+    }
+
+    void RefreshTouchEditor()
+    {
+        if (_touchEditor != null) Destroy(_touchEditor.gameObject);
+        _touchEditor = TouchControls.Build(_touchEditPanel.transform, _roundedFill, _roundedOutline, editMode: true);
+        // keep the editor's controls under the save/reset/cancel buttons
+        _touchEditor.transform.SetSiblingIndex(1);
+    }
+
     // ---------- panel transitions + button feedback ----------
     Image _fadeOverlay;
 
@@ -2136,7 +2201,8 @@ public class HudController : MonoBehaviour
     static readonly string[] SurvivorIds = { "magnet", "xpgain", "greed", "revival", "reroll", "banish" };
 
     readonly List<Text> _advTabLabels = new List<Text>();
-    static readonly string[] AdvTabs = { "armory", "survivors", "quests", "board", "pass" };
+    static readonly string[] AdvTabs = { "armory", "survivors", "crew", "quests", "board", "pass" };
+    string _advPilot = "ego";
 
     void BuildAdventurePanel()
     {
@@ -2164,15 +2230,15 @@ public class HudController : MonoBehaviour
         _advGold.color = new Color(1f, 0.85f, 0.4f);
         _advGold.fontStyle = FontStyle.Bold;
 
-        string[] labels = { "ARMORY", "SURVIVORS", "QUESTS", "LEADERBOARD", "BATTLE PASS" };
+        string[] labels = { "ARMORY", "SURVIVORS", "CREW", "QUESTS", "LEADERBOARD", "BATTLE PASS" };
         _advTabLabels.Clear();
         for (int i = 0; i < AdvTabs.Length; i++)
         {
             string tab = AdvTabs[i];
-            var b = MakeButton(_adventurePanel.transform, labels[i], new Vector2(0.26f + i * 0.12f, 0.845f), new Vector2(215, 48),
+            var b = MakeButton(_adventurePanel.transform, labels[i], new Vector2(0.225f + i * 0.11f, 0.845f), new Vector2(196, 48),
                 new Color(0.95f, 0.8f, 0.5f), () => { _advTab = tab; RefreshAdventure(); });
             var lbl = b.GetComponentInChildren<Text>();
-            lbl.fontSize = 18;
+            lbl.fontSize = 16;
             _advTabLabels.Add(lbl);
         }
 
@@ -2233,10 +2299,51 @@ public class HudController : MonoBehaviour
         switch (_advTab)
         {
             case "armory": BuildUpgradeCards(ArmoryIds, "Permanent ship upgrades. They apply to every run, forever."); break;
-            case "survivors": BuildUpgradeCards(SurvivorIds, "Survivor training. Crew-wide perks for every run."); break;
+            case "survivors": BuildSurvivorTab(); break;
+            case "crew": BuildUpgradeCards(SurvivorIds, "Crew-wide perks. They apply to every survivor."); break;
             case "quests": BuildQuestCards(); break;
             case "board": BuildBoardTab("weekly"); break;
             case "pass": BuildPassTab(); break;
+        }
+    }
+
+    // per-pilot training: pick a survivor, buy ranks that apply only to them
+    void BuildSurvivorTab()
+    {
+        AdvHeader("Personal training — each survivor levels up on their own.");
+        for (int i = 0; i < ZealData.Pilots.Length; i++)
+        {
+            var p = ZealData.Pilots[i];
+            string pid = p.id;
+            var b = MakeButton(_advContent.transform, p.name.ToUpperInvariant(),
+                new Vector2(0.29f + i * 0.14f, 0.715f), new Vector2(240, 46),
+                p.accent, () => { _advPilot = pid; RefreshAdventure(); });
+            var lbl = b.GetComponentInChildren<Text>();
+            lbl.fontSize = 16;
+            if (pid == _advPilot) { lbl.color = new Color(1f, 0.85f, 0.4f); lbl.fontStyle = FontStyle.Bold; }
+        }
+
+        var data = MetaBridge.GetSurvivors(_advPilot);
+        var pilot = System.Array.Find(ZealData.Pilots, x => x.id == _advPilot);
+        if (pilot != null)
+        {
+            var pt = NewText(_advContent.transform, "ptitle",
+                pilot.name.ToUpperInvariant() + " — " + pilot.title.ToUpperInvariant(), 22, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.62f), new Vector2(0.5f, 0.62f), Vector2.zero, new Vector2(1000, 32));
+            pt.color = pilot.accent;
+            pt.fontStyle = FontStyle.Bold;
+        }
+        if (data == null || data.tracks == null) return;
+        int col = 0;
+        foreach (var tr in data.tracks)
+        {
+            string tid = tr.id;
+            UpgradeCard(tr, new Vector2(0.29f + col * 0.21f, 0.45f), () => {
+                var r = MetaBridge.BuySurvivor(_advPilot, tid);
+                _advStatus.text = r.ok ? "TRAINED!" : (r.err ?? "").ToUpperInvariant();
+                RefreshAdventure();
+            });
+            col++;
         }
     }
 
@@ -2248,7 +2355,7 @@ public class HudController : MonoBehaviour
     }
 
     // one armory-style card: name, desc, rank pips, buy button
-    void UpgradeCard(MetaBridge.Upgrade up, Vector2 anchor)
+    void UpgradeCard(MetaBridge.Upgrade up, Vector2 anchor, UnityEngine.Events.UnityAction onBuy = null)
     {
         var card = AdvCard(anchor, new Vector2(370, 172),
             up.rank > 0 ? new Color(1f, 0.85f, 0.4f, 0.45f) : (Color?)null);
@@ -2268,14 +2375,15 @@ public class HudController : MonoBehaviour
         }
         bool maxed = up.rank >= up.maxRank;
         string idCopy = up.id;
+        UnityEngine.Events.UnityAction action = onBuy ?? (() => {
+            var r = MetaBridge.Buy(idCopy);
+            _advStatus.text = r.ok ? "UPGRADED!" : (r.err ?? "").ToUpperInvariant();
+            RefreshAdventure();
+        });
         var buy = MakeButton(card.transform, maxed ? "MAXED" : up.cost.ToString("N0") + " GOLD",
             new Vector2(0.5f, 0.19f), new Vector2(320, 42),
             maxed ? new Color(0.55f, 0.6f, 0.75f) : (_advSummary.gold >= up.cost ? new Color(0.55f, 1f, 0.65f) : new Color(1f, 0.55f, 0.55f)),
-            () => {
-                var r = MetaBridge.Buy(idCopy);
-                _advStatus.text = r.ok ? "UPGRADED!" : (r.err ?? "").ToUpperInvariant();
-                RefreshAdventure();
-            });
+            action);
         buy.GetComponentInChildren<Text>().fontSize = 17;
     }
 

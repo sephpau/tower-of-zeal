@@ -56,15 +56,15 @@ public class ShipController : MonoBehaviour
         if (!GameManager.I.Running || GameManager.I.Paused) return;
 
         float sens = mouseSens * GameSettings.MouseSensitivity;
-        _yaw += Input.GetAxis("Mouse X") * sens;
-        _pitch = Mathf.Clamp(_pitch - Input.GetAxis("Mouse Y") * sens, -85f, 85f);
+        _yaw += Input.GetAxis("Mouse X") * sens + TouchInput.Look.x;
+        _pitch = Mathf.Clamp(_pitch - Input.GetAxis("Mouse Y") * sens - TouchInput.Look.y, -85f, 85f);
 
         dashCooldown = Mathf.Max(0f, dashCooldown - Time.deltaTime);
         guardCooldown = Mathf.Max(0f, guardCooldown - Time.deltaTime);
 
         // guard: tap G to raise — stays up until you attack (or tap again);
         // 5s cooldown starts the moment it drops
-        if (Input.GetKeyDown(KeyCode.G))
+        if (Input.GetKeyDown(KeyCode.G) || TouchInput.ConsumeGuard())
         {
             if (guarding) EndGuard();
             else if (guardCooldown <= 0f)
@@ -79,7 +79,7 @@ public class ShipController : MonoBehaviour
             _guardBubble.SetActive(guarding);
 
         // dash: SPACE — burst toward current move input (or facing)
-        if (Input.GetKeyDown(KeyCode.Space) && dashCooldown <= 0f)
+        if ((Input.GetKeyDown(KeyCode.Space) || TouchInput.ConsumeDash()) && dashCooldown <= 0f)
         {
             dashCooldown = dashCooldownTime;
             Vector3 input = InputDir();
@@ -101,8 +101,10 @@ public class ShipController : MonoBehaviour
             }
         }
 
-        // attacking breaks guard instantly — the shot still fires
-        if (Input.GetMouseButton(0) && _weapon != null)
+        // attacking breaks guard instantly — the shot still fires.
+        // touch mode: the primary weapon auto-fires (guard still holds fire)
+        bool wantFire = Input.GetMouseButton(0) || (TouchInput.Enabled && !guarding);
+        if (wantFire && _weapon != null)
         {
             if (guarding) EndGuard();
             _weapon.TryFire();
@@ -133,10 +135,10 @@ public class ShipController : MonoBehaviour
 
     Vector3 InputDir()
     {
-        float h = (Input.GetKey(KeyCode.D) ? 1f : 0f) - (Input.GetKey(KeyCode.A) ? 1f : 0f);
-        float fwd = (Input.GetKey(KeyCode.W) ? 1f : 0f) - (Input.GetKey(KeyCode.S) ? 1f : 0f);
-        float up = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 1f : 0f)
-                 - (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ? 1f : 0f);
+        float h = (Input.GetKey(KeyCode.D) ? 1f : 0f) - (Input.GetKey(KeyCode.A) ? 1f : 0f) + TouchInput.Move.x;
+        float fwd = (Input.GetKey(KeyCode.W) ? 1f : 0f) - (Input.GetKey(KeyCode.S) ? 1f : 0f) + TouchInput.Move.y;
+        float up = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) || TouchInput.Up ? 1f : 0f)
+                 - (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) || TouchInput.Down ? 1f : 0f);
         Vector3 dir = new Vector3(h, up, fwd);
         return dir.sqrMagnitude > 1f ? dir.normalized : dir;
     }

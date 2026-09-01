@@ -82,8 +82,9 @@ public class GameManager : MonoBehaviour
         RunStats.Reset();
         if (!TournamentMode.Active && MetaBridge.Ready)
         {
-            _skills.ApplyMetaBonuses(MetaBridge.GetBonuses());   // armory + survivor training
-            MetaBridge.RunStart();                               // leaderboard run token
+            _skills.ApplyMetaBonuses(MetaBridge.GetBonuses());                          // armory + crew perks
+            _skills.ApplySurvivorBonuses(MetaBridge.GetSurvivorBonuses(_skills.pilot.id));   // this pilot's training
+            MetaBridge.RunStart();                                                      // leaderboard run token
         }
         var tint = _playerHealth.GetComponent<ShipTint>();
         if (tint != null) tint.Apply(_skills.pilot.accent);
@@ -173,7 +174,8 @@ public class GameManager : MonoBehaviour
 
         if (!Running)
         {
-            if ((Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space)) && _hud != null && _hud.WantsRestart)
+            bool tap = TouchInput.Enabled && Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began;
+            if ((Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space) || tap) && _hud != null && _hud.WantsRestart)
             {
                 Time.timeScale = 1f;
                 SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
