@@ -65,6 +65,13 @@
       font-family: "Segoe UI", system-ui, sans-serif;
     }
     #nv-error { color: #ff8896; font-family: "Segoe UI", system-ui, sans-serif; font-size: 14px; margin-top: 8px; text-align: center; }
+    #nv-ver {
+      position: absolute; left: 0; right: 0; bottom: 26px;
+      text-align: center; font-size: 18px; letter-spacing: 0.12em;
+      color: #ff8cd9; opacity: 0.85;
+      -webkit-text-stroke: 1px #241233;
+      text-shadow: 0 2px 0 #241233;
+    }
 
     /* mobile: the game is landscape-only */
     #nv-rotate {
@@ -93,6 +100,7 @@
       <div id="nv-pct">0%</div>
       <div id="nv-error"></div>
     </div>
+    <div id="nv-ver">V{{{ PRODUCT_VERSION }}}</div>
   </div>
 
   <!-- Classic Zeal Survivors meta layer (same-origin): config + net + meta.
@@ -402,6 +410,32 @@
         });
     };
     window.NVPassStatus = function () { return window.__nvPass; };
+    window.NVMetaPassTrack = function () {
+      if (!window.NVMetaReady()) return "";
+      var P = SURV.Meta.profile, C = SURV.CONFIG, tier = SURV.Meta.passTier();
+      function label(R) {
+        if (!R) return "";
+        if (R.name) return R.name;
+        var bits = [];
+        if (R.gold) bits.push(R.gold.toLocaleString() + " gold");
+        if (R.reroll) bits.push("+" + R.reroll + " reroll" + (R.reroll > 1 ? "s" : ""));
+        if (R.banish) bits.push("+" + R.banish + " banish" + (R.banish > 1 ? "es" : ""));
+        if (R.revival) bits.push("+" + R.revival + " revival");
+        return bits.join(", ");
+      }
+      var rows = [];
+      ["free", "premium"].forEach(function (track) {
+        var table = C.PASS_REWARDS[track];
+        Object.keys(table).forEach(function (t) {
+          t = Number(t);
+          var claimed = P.pass.claimed[track].indexOf(t) >= 0;
+          rows.push({ tier: t, track: track, label: label(table[t]), claimed: claimed,
+            claimable: !claimed && t <= tier && (track === "free" || P.pass.premium) });
+        });
+      });
+      rows.sort(function (a, b) { return a.tier - b.tier; });
+      return JSON.stringify({ rows: rows, tier: tier });
+    };
     window.NVMetaInit();
 
     // ---------- progress (smoothed toward loader's target) ----------

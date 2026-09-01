@@ -305,8 +305,33 @@ public class HomingPie : MonoBehaviour
         _target = target;
         _dmg = dmg;
         _tint = tint;
-        var disc = NVMeshes.SpherePart(gameObject, NVAssets.Emissive(new Color(1f, 0.6f, 0.3f), 3f), Vector3.zero, new Vector3(1.4f, 0.3f, 1.4f));
-        disc.name = "pieDisc";
+        // ---- an actual pie: tin, molten filling, scalloped crust, lattice ----
+        var tinMat = NVAssets.Standard(new Color(0.55f, 0.56f, 0.62f), 0.6f, 0.7f);
+        var crustMat = NVAssets.Standard(new Color(0.82f, 0.55f, 0.26f), 0.35f, 0.05f);
+        var fillMat = NVAssets.Emissive(new Color(1f, 0.45f, 0.15f), 2.6f);
+
+        NVMeshes.SpherePart(gameObject, tinMat, new Vector3(0f, -0.10f, 0f), new Vector3(2.3f, 0.24f, 2.3f));
+        NVMeshes.SpherePart(gameObject, fillMat, Vector3.zero, new Vector3(2.0f, 0.3f, 2.0f));   // scalding filling
+        for (int i = 0; i < 12; i++)   // scalloped crust rim
+        {
+            float a = i * Mathf.PI * 2f / 12f;
+            NVMeshes.SpherePart(gameObject, crustMat,
+                new Vector3(Mathf.Cos(a) * 1.0f, 0.10f, Mathf.Sin(a) * 1.0f),
+                new Vector3(0.46f, 0.30f, 0.46f));
+        }
+        for (int i = -1; i <= 1; i++)   // lattice strips, both directions
+            foreach (bool crossed in new[] { false, true })
+            {
+                var strip = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Destroy(strip.GetComponent<Collider>());
+                strip.transform.SetParent(transform, false);
+                strip.transform.localPosition = crossed ? new Vector3(i * 0.55f, 0.14f, 0f) : new Vector3(0f, 0.14f, i * 0.55f);
+                strip.transform.localRotation = Quaternion.Euler(0f, crossed ? 90f : 0f, 0f);
+                float len = Mathf.Sqrt(Mathf.Max(0.1f, 1f - (i * 0.55f) * (i * 0.55f))) * 1.9f;
+                strip.transform.localScale = new Vector3(len, 0.07f, 0.18f);
+                strip.GetComponent<MeshRenderer>().sharedMaterial = crustMat;
+            }
+
         var glow = NVAssets.Quad(NVAssets.AdditiveTinted(tint), 3.5f);
         glow.transform.SetParent(transform, false);
         glow.AddComponent<Billboard>();

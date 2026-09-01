@@ -89,6 +89,7 @@ public class GameManager : MonoBehaviour
         }
         var tint = _playerHealth.GetComponent<ShipTint>();
         if (tint != null) tint.Apply(_skills.pilot.accent);
+        PilotShipModel.Swap(_playerHealth.gameObject, _skills.pilot.id);   // each pilot flies their own ship
         var special = _playerHealth.GetComponent<SpecialAttack>();
         if (special != null) special.Init(_skills.pilot);
         _music.Play();

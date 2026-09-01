@@ -70,6 +70,10 @@ mergeInto(LibraryManager.library, {
     var s = (window.NVMetaShipBonuses && window.NVMetaShipBonuses(UTF8ToString(pilotPtr))) || "{}";
     var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
   },
+  NVMetaJsPassTrack: function () {
+    var s = (window.NVMetaPassTrack && window.NVMetaPassTrack()) || "";
+    var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
+  },
   NVMetaJsCrewBonuses: function () {
     var s = (window.NVMetaCrewBonuses && window.NVMetaCrewBonuses()) || "{}";
     var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;

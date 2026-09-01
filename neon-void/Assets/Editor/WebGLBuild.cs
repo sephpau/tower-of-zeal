@@ -23,6 +23,7 @@ public static class WebGLBuild
             }
         }
 
+        PlayerSettings.bundleVersion = "1.0.0";               // shown on the loading screen (v{{{ PRODUCT_VERSION }}})
         PlayerSettings.WebGL.template = "PROJECT:NeonVoid";   // Assets/WebGLTemplates/NeonVoid
         PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Brotli;
         PlayerSettings.WebGL.decompressionFallback = true;   // no server headers needed

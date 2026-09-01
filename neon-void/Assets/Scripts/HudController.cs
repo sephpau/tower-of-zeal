@@ -2149,8 +2149,9 @@ public class HudController : MonoBehaviour
         if ((DiscordAuth.Available || WalletAuth.Available) && (!DiscordAuth.LoggedIn || !WalletAuth.Connected))
         {
             var warn = NewText(_idCorner.transform, "saveWarn",
-                "!! PROGRESS WILL NOT BE SAVED — CONNECT DISCORD & WALLET !!", 15, TextAnchor.MiddleRight,
-                new Vector2(0.985f, 0.775f), new Vector2(0.985f, 0.775f), new Vector2(-230, 0), new Vector2(460, 30));
+                "!! PROGRESS NOT SAVED — CONNECT DISCORD & RONIN !!", 15, TextAnchor.MiddleRight,
+                new Vector2(0.985f, 0.775f), new Vector2(0.985f, 0.775f), new Vector2(-290, 0), new Vector2(580, 30));
+            warn.horizontalOverflow = HorizontalWrapMode.Overflow;
             warn.color = new Color(1f, 0.75f, 0.3f, 0.9f);
             warn.fontStyle = FontStyle.Bold;
         }
@@ -2304,6 +2305,35 @@ public class HudController : MonoBehaviour
             case "board": BuildBoardTab("weekly"); break;
             case "pass": BuildPassTab(); break;
         }
+        AnimateAdvContent();
+    }
+
+    // tab/pilot switches: content fades in and slides up
+    Coroutine _advAnimCo;
+
+    void AnimateAdvContent()
+    {
+        if (_advContent == null) return;
+        var cg = _advContent.GetComponent<CanvasGroup>();
+        if (cg == null) cg = _advContent.AddComponent<CanvasGroup>();
+        if (_advAnimCo != null) StopCoroutine(_advAnimCo);
+        _advAnimCo = StartCoroutine(AdvContentIn(cg));
+    }
+
+    System.Collections.IEnumerator AdvContentIn(CanvasGroup cg)
+    {
+        for (float t = 0f; t < 1f; t += Time.unscaledDeltaTime / 0.22f)
+        {
+            if (cg == null) yield break;
+            float k = Mathf.Clamp01(t);
+            float e = 1f - (1f - k) * (1f - k);   // ease-out
+            cg.alpha = e;
+            ((RectTransform)cg.transform).anchoredPosition = new Vector2(0f, -24f * (1f - e));
+            yield return null;
+        }
+        if (cg == null) yield break;
+        cg.alpha = 1f;
+        ((RectTransform)cg.transform).anchoredPosition = Vector2.zero;
     }
 
     // per-pilot training: pick a survivor, buy ranks that apply only to them
@@ -2486,6 +2516,7 @@ public class HudController : MonoBehaviour
         if (_advCo != null) { StopCoroutine(_advCo); _advCo = null; }
         foreach (Transform c in _advContent.transform) Destroy(c.gameObject);
         BuildBoardTab(period);
+        AnimateAdvContent();
     }
 
     System.Collections.IEnumerator PollBoard(Text rows)
@@ -2518,44 +2549,64 @@ public class HudController : MonoBehaviour
         var s = _advSummary;
         AdvHeader("Season " + s.seasonId + " — " + s.seasonName + ". Earn pass XP from run scores and quests.");
 
-        var card = AdvCard(new Vector2(0.5f, 0.565f), new Vector2(900, 250),
-            s.premium ? new Color(1f, 0.85f, 0.4f, 0.5f) : (Color?)null);
-        var tier = NewText(card.transform, "tier", "TIER " + s.passTier + " / " + s.passTiers,
-            30, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.83f), new Vector2(0.5f, 0.83f), Vector2.zero, new Vector2(800, 44));
+        var tier = NewText(_advContent.transform, "tier",
+            "TIER " + s.passTier + " / " + s.passTiers + "   ·   " + (s.passXp % s.xpPerTier) + " / " + s.xpPerTier + " XP" +
+            (s.premium ? "   ·   ★ PREMIUM" : ""),
+            21, TextAnchor.MiddleLeft, new Vector2(0.335f, 0.735f), new Vector2(0.335f, 0.735f), Vector2.zero, new Vector2(560, 32));
         tier.color = new Color(1f, 0.85f, 0.4f);
         tier.fontStyle = FontStyle.Bold;
 
-        // XP progress bar to the next tier
         float frac = Mathf.Clamp01((s.passXp % Mathf.Max(1, s.xpPerTier)) / (float)Mathf.Max(1, s.xpPerTier));
-        var barBg = NewImage(card.transform, "barBg", new Vector2(0.5f, 0.62f), new Vector2(0.5f, 0.62f), Vector2.zero, new Vector2(720, 16));
+        var barBg = NewImage(_advContent.transform, "barBg", new Vector2(0.335f, 0.702f), new Vector2(0.335f, 0.702f), Vector2.zero, new Vector2(560, 10));
         barBg.sprite = _roundedFill; barBg.type = Image.Type.Sliced;
         barBg.color = new Color(0.28f, 0.24f, 0.48f);
         var barFill = NewImage(barBg.transform, "fill", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-            new Vector2(Mathf.Max(10f, 720f * frac) / 2f, 0), new Vector2(Mathf.Max(10f, 720f * frac), 16));
+            new Vector2(Mathf.Max(8f, 560f * frac) / 2f, 0), new Vector2(Mathf.Max(8f, 560f * frac), 10));
         barFill.sprite = _roundedFill; barFill.type = Image.Type.Sliced;
         barFill.color = new Color(1f, 0.85f, 0.4f);
-        NewText(card.transform, "xp", (s.passXp % s.xpPerTier) + " / " + s.xpPerTier + " XP TO NEXT TIER",
-            16, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.47f), new Vector2(0.5f, 0.47f), Vector2.zero, new Vector2(700, 26))
-            .color = new Color(0.75f, 0.72f, 0.95f, 0.9f);
-        var prem = NewText(card.transform, "prem",
-            s.premium ? "★ PREMIUM ACTIVE — +20% PASS XP + PREMIUM REWARD TRACK" : "REWARDS: GOLD · REROLLS · BANISHES · REVIVALS · COSMETICS",
-            17, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.28f), new Vector2(0.5f, 0.28f), Vector2.zero, new Vector2(860, 30));
-        prem.color = s.premium ? new Color(1f, 0.85f, 0.4f) : new Color(0.75f, 0.72f, 0.95f, 0.9f);
 
         if (s.claimable > 0)
-            MakeButton(_advContent.transform, "CLAIM " + s.claimable + " REWARD" + (s.claimable > 1 ? "S" : ""),
-                new Vector2(0.5f, 0.36f), new Vector2(340, 52), new Color(0.55f, 1f, 0.65f),
-                () => { int n = MetaBridge.ClaimAllRewards(); _advStatus.text = n + " REWARDS CLAIMED!"; RefreshAdventure(); });
-
+            MakeButton(_advContent.transform, "CLAIM " + s.claimable,
+                new Vector2(0.685f, 0.72f), new Vector2(180, 46), new Color(0.55f, 1f, 0.65f),
+                () => { int n = MetaBridge.ClaimAllRewards(); _advStatus.text = n + " REWARDS CLAIMED!"; RefreshAdventure(); })
+                .GetComponentInChildren<Text>().fontSize = 17;
         if (!s.premium && WalletAuth.Available)
         {
-            MakeButton(_advContent.transform, "BUY PREMIUM PASS — " + s.priceRon + " RON",
-                new Vector2(0.5f, s.claimable > 0 ? 0.27f : 0.34f), new Vector2(420, 56), new Color(0.35f, 0.75f, 1f),
-                () => { MetaBridge.PassBuy(); _advCo = StartCoroutine(PollPass()); });
+            MakeButton(_advContent.transform, "BUY PASS — " + s.priceRon + " RON",
+                new Vector2(0.845f, 0.72f), new Vector2(280, 46), new Color(0.35f, 0.75f, 1f),
+                () => { MetaBridge.PassBuy(); _advCo = StartCoroutine(PollPass()); })
+                .GetComponentInChildren<Text>().fontSize = 17;
             if (!WalletAuth.Connected)
-                NewText(_advContent.transform, "needwallet", "CONNECT YOUR RONIN WALLET ON THE HOMEPAGE FIRST", 17, TextAnchor.MiddleCenter,
-                    new Vector2(0.5f, s.claimable > 0 ? 0.2f : 0.27f), new Vector2(0.5f, s.claimable > 0 ? 0.2f : 0.27f), Vector2.zero, new Vector2(900, 30))
+                NewText(_advContent.transform, "needwallet", "CONNECT RONIN FIRST", 14, TextAnchor.MiddleCenter,
+                    new Vector2(0.845f, 0.672f), new Vector2(0.845f, 0.672f), Vector2.zero, new Vector2(300, 24))
                     .color = new Color(1f, 0.75f, 0.3f);
+        }
+
+        // the full season reward track, free vs premium
+        var fh = NewText(_advContent.transform, "fh", "FREE TRACK", 18, TextAnchor.MiddleLeft,
+            new Vector2(0.235f, 0.645f), new Vector2(0.235f, 0.645f), Vector2.zero, new Vector2(360, 28));
+        fh.color = new Color(0.8f, 0.9f, 1f);
+        fh.fontStyle = FontStyle.Bold;
+        var ph = NewText(_advContent.transform, "ph", "PREMIUM TRACK" + (s.premium ? "  ★" : "  (LOCKED)"), 18, TextAnchor.MiddleLeft,
+            new Vector2(0.585f, 0.645f), new Vector2(0.585f, 0.645f), Vector2.zero, new Vector2(420, 28));
+        ph.color = s.premium ? new Color(1f, 0.85f, 0.4f) : new Color(0.75f, 0.72f, 0.95f, 0.75f);
+        ph.fontStyle = FontStyle.Bold;
+
+        var track = MetaBridge.GetPassTrack();
+        if (track == null || track.rows == null) return;
+        float yF = 0.608f, yP = 0.608f;
+        foreach (var r in track.rows)
+        {
+            bool free = r.track == "free";
+            float y = free ? yF : yP;
+            string text = "T" + r.tier + "  —  " + r.label.ToUpperInvariant() + (r.claimed ? "  ✓" : "");
+            var row = NewText(_advContent.transform, "pr" + r.track + r.tier, text, 14, TextAnchor.MiddleLeft,
+                new Vector2(free ? 0.235f : 0.585f, y), new Vector2(free ? 0.235f : 0.585f, y), Vector2.zero, new Vector2(460, 22));
+            row.color = r.claimed ? new Color(0.55f, 0.6f, 0.75f)
+                : r.claimable ? new Color(0.55f, 1f, 0.65f)
+                : (free || s.premium) ? new Color(0.9f, 0.92f, 1f, 0.85f)
+                : new Color(0.65f, 0.6f, 0.85f, 0.55f);
+            if (free) yF -= 0.0305f; else yP -= 0.0305f;
         }
     }
 
