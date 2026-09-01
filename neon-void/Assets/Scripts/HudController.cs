@@ -651,13 +651,24 @@ public class HudController : MonoBehaviour
             var edge = NewImage(card.transform, "edge", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 8), new Vector2(250, 6));
             edge.color = pilot.accent;
 
-            // v1-style card: portrait, TITLE, Name, perks, special skill
+            // v1-style card: pilot ✦ their ship, then TITLE, Name, perks, special skill
             var portraitTex = Resources.Load<Texture2D>("chars/char-" + pilot.id);
             if (portraitTex != null)
             {
-                var portrait = NewImage(card.transform, "portrait", new Vector2(0.5f, 0.8f), new Vector2(0.5f, 0.8f), Vector2.zero, new Vector2(130, 130));
+                var portrait = NewImage(card.transform, "portrait", new Vector2(0.26f, 0.8f), new Vector2(0.26f, 0.8f), Vector2.zero, new Vector2(115, 115));
                 portrait.sprite = Sprite.Create(portraitTex, new Rect(0, 0, portraitTex.width, portraitTex.height), new Vector2(0.5f, 0.5f));
                 portrait.preserveAspect = true;
+            }
+            var plus = NewText(card.transform, "plus", "+", 34, TextAnchor.MiddleCenter,
+                new Vector2(0.485f, 0.8f), new Vector2(0.485f, 0.8f), Vector2.zero, new Vector2(40, 40));
+            plus.color = new Color(pilot.accent.r, pilot.accent.g, pilot.accent.b, 0.9f);
+            plus.fontStyle = FontStyle.Bold;
+            var shipTex = Resources.Load<Texture2D>("chars/shipimg-" + pilot.id);
+            if (shipTex != null)
+            {
+                var shipImg = NewImage(card.transform, "shipimg", new Vector2(0.73f, 0.8f), new Vector2(0.73f, 0.8f), Vector2.zero, new Vector2(160, 100));
+                shipImg.sprite = Sprite.Create(shipTex, new Rect(0, 0, shipTex.width, shipTex.height), new Vector2(0.5f, 0.5f));
+                shipImg.preserveAspect = true;
             }
             var title = NewText(card.transform, "ptitle", pilot.title.ToUpperInvariant(), 15, TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 0.575f), new Vector2(0.5f, 0.575f), Vector2.zero, new Vector2(290, 26));

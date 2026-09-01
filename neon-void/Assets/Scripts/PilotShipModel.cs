@@ -56,6 +56,42 @@ public static class PilotShipModel
 
         foreach (var col in model.GetComponentsInChildren<Collider>())
             Object.Destroy(col);
+
+        // line the classic booster glow + trails + engine light up with this
+        // hull's twin exhaust grilles (all four Tripo ships share the layout),
+        // in each ship's own booster color
+        var tint = ship.GetComponent<ShipTint>();
+        if (tint != null)
+        {
+            Color booster = BoosterColor(pilotId);
+            for (int i = 0; i < tint.glowQuads.Count && i < 2; i++)
+            {
+                float side = i == 0 ? -1f : 1f;
+                tint.glowQuads[i].transform.localPosition = new Vector3(side * 0.88f, 0.32f, -2.2f);
+                tint.glowQuads[i].material.SetColor("_TintColor", booster);
+            }
+            for (int i = 0; i < tint.trails.Count && i < 2; i++)
+            {
+                float side = i == 0 ? -1f : 1f;
+                tint.trails[i].transform.localPosition = new Vector3(side * 0.88f, 0.32f, -2.3f);
+                tint.trails[i].startColor = new Color(booster.r, booster.g, booster.b, 0.85f);
+                tint.trails[i].endColor = new Color(booster.r * 0.6f, booster.g * 0.4f, booster.b, 0f);
+            }
+            if (tint.engineLight != null)
+            {
+                tint.engineLight.transform.localPosition = new Vector3(0f, 0.35f, -2.3f);
+                tint.engineLight.color = booster;
+            }
+        }
         return true;
     }
+
+    // per-ship booster flame colors
+    static Color BoosterColor(string pilotId) => pilotId switch
+    {
+        "captain" => new Color(0.75f, 0.48f, 0.22f),   // brown-amber
+        "chef" => new Color(1f, 0.28f, 0.2f),          // red
+        "lunar" => new Color(0.78f, 0.3f, 1f),         // neon violet
+        _ => new Color(0.25f, 0.55f, 1f),              // ego — blue
+    };
 }
