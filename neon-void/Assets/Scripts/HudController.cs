@@ -2582,32 +2582,103 @@ public class HudController : MonoBehaviour
                     .color = new Color(1f, 0.75f, 0.3f);
         }
 
-        // the full season reward track, free vs premium
-        var fh = NewText(_advContent.transform, "fh", "FREE TRACK", 18, TextAnchor.MiddleLeft,
-            new Vector2(0.235f, 0.645f), new Vector2(0.235f, 0.645f), Vector2.zero, new Vector2(360, 28));
-        fh.color = new Color(0.8f, 0.9f, 1f);
-        fh.fontStyle = FontStyle.Bold;
-        var ph = NewText(_advContent.transform, "ph", "PREMIUM TRACK" + (s.premium ? "  ★" : "  (LOCKED)"), 18, TextAnchor.MiddleLeft,
-            new Vector2(0.585f, 0.645f), new Vector2(0.585f, 0.645f), Vector2.zero, new Vector2(420, 28));
-        ph.color = s.premium ? new Color(1f, 0.85f, 0.4f) : new Color(0.75f, 0.72f, 0.95f, 0.75f);
-        ph.fontStyle = FontStyle.Bold;
+        var legend = NewText(_advContent.transform, "legend",
+            "FREE (TOP ROW)  ·  ★ PREMIUM (BOTTOM ROW)  ·  TAP GLOWING TIERS TO CLAIM  ·  DRAG TO SCROLL",
+            14, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.655f), new Vector2(0.5f, 0.655f), Vector2.zero, new Vector2(1300, 24));
+        legend.color = new Color(0.75f, 0.72f, 0.95f, 0.75f);
 
+        // v1-style tier board: one column per tier, free + premium cells,
+        // horizontally scrollable, auto-scrolled to the player's tier
         var track = MetaBridge.GetPassTrack();
         if (track == null || track.rows == null) return;
-        float yF = 0.608f, yP = 0.608f;
+
+        const float colW = 132f, viewW = 1560f;
+        var view = new GameObject("passView");
+        view.transform.SetParent(_advContent.transform, false);
+        var viewRt = view.AddComponent<RectTransform>();
+        viewRt.anchorMin = viewRt.anchorMax = new Vector2(0.5f, 0.405f);
+        viewRt.sizeDelta = new Vector2(viewW, 380);
+        view.AddComponent<RectMask2D>();
+        var viewImg = view.AddComponent<Image>();
+        viewImg.color = new Color(0f, 0f, 0f, 0.02f);   // raycast surface for dragging
+        var scroll = view.AddComponent<ScrollRect>();
+        scroll.horizontal = true; scroll.vertical = false;
+        scroll.movementType = ScrollRect.MovementType.Clamped;
+        scroll.scrollSensitivity = 40f;
+
+        var content = new GameObject("content");
+        content.transform.SetParent(view.transform, false);
+        var cRt = content.AddComponent<RectTransform>();
+        cRt.anchorMin = new Vector2(0f, 0f); cRt.anchorMax = new Vector2(0f, 1f);
+        cRt.pivot = new Vector2(0f, 0.5f);
+        cRt.sizeDelta = new Vector2(track.tiers * colW + 24f, 0f);
+        cRt.offsetMin = new Vector2(cRt.offsetMin.x, 0f); cRt.offsetMax = new Vector2(cRt.offsetMax.x, 0f);
+        scroll.content = cRt;
+        scroll.viewport = viewRt;
+
+        int nextTier = Mathf.Min(track.tiers, track.tier + 1);
+        for (int t = 1; t <= track.tiers; t++)
+        {
+            float x = 12f + (t - 1) * colW + colW / 2f;
+            bool isNext = t == nextTier && track.tier < track.tiers;
+            var lbl = NewText(content.transform, "t" + t, isNext ? "NEXT · T" + t : "T" + t, isNext ? 16 : 15,
+                TextAnchor.MiddleCenter, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(x, 168f), new Vector2(colW, 24));
+            lbl.color = isNext ? new Color(1f, 0.85f, 0.4f) : t <= track.tier ? new Color(0.55f, 1f, 0.65f, 0.9f) : new Color(0.75f, 0.72f, 0.95f, 0.7f);
+            lbl.fontStyle = isNext || t <= track.tier ? FontStyle.Bold : FontStyle.Normal;
+        }
+
         foreach (var r in track.rows)
         {
             bool free = r.track == "free";
-            float y = free ? yF : yP;
-            string text = "T" + r.tier + "  —  " + r.label.ToUpperInvariant() + (r.claimed ? "  ✓" : "");
-            var row = NewText(_advContent.transform, "pr" + r.track + r.tier, text, 14, TextAnchor.MiddleLeft,
-                new Vector2(free ? 0.235f : 0.585f, y), new Vector2(free ? 0.235f : 0.585f, y), Vector2.zero, new Vector2(460, 22));
-            row.color = r.claimed ? new Color(0.55f, 0.6f, 0.75f)
-                : r.claimable ? new Color(0.55f, 1f, 0.65f)
-                : (free || s.premium) ? new Color(0.9f, 0.92f, 1f, 0.85f)
-                : new Color(0.65f, 0.6f, 0.85f, 0.55f);
-            if (free) yF -= 0.0305f; else yP -= 0.0305f;
+            float x = 12f + (r.tier - 1) * colW + colW / 2f;
+            float y = free ? 78f : -78f;
+            if (!r.has)
+            {
+                var dash = NewImage(content.transform, "d", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(x, y), new Vector2(30, 6));
+                dash.sprite = _roundedFill; dash.type = Image.Type.Sliced;
+                dash.color = new Color(0.35f, 0.3f, 0.55f, 0.4f);
+                continue;
+            }
+            bool premLocked = !free && !track.premium;
+            var cellGo = new GameObject("c" + r.track + r.tier);
+            cellGo.transform.SetParent(content.transform, false);
+            var cellImg = cellGo.AddComponent<Image>();
+            cellImg.sprite = _roundedFill; cellImg.type = Image.Type.Sliced;
+            cellImg.color = r.claimable ? new Color(0.12f, 0.28f, 0.16f, 0.97f) : new Color(0.105f, 0.08f, 0.23f, 0.96f);
+            var cellRt = cellImg.rectTransform;
+            cellRt.anchorMin = cellRt.anchorMax = new Vector2(0f, 0.5f);
+            cellRt.anchoredPosition = new Vector2(x, y);
+            cellRt.sizeDelta = new Vector2(120, 128);
+            var edge = NewImage(cellGo.transform, "edge", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            edge.sprite = _roundedOutline; edge.type = Image.Type.Sliced;
+            edge.raycastTarget = false;
+            edge.color = r.claimable ? new Color(0.55f, 1f, 0.65f, 1f)
+                : r.claimed ? new Color(0.5f, 0.55f, 0.7f, 0.5f)
+                : free ? new Color(0.5f, 0.4f, 0.85f, 0.5f)
+                : new Color(1f, 0.85f, 0.4f, premLocked ? 0.25f : 0.55f);
+
+            string txt = (free ? "" : "★ ") + r.label.ToUpperInvariant() + (r.claimed ? "\n✓ CLAIMED" : "");
+            var cellTxt = NewText(cellGo.transform, "txt", txt, 13, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(112, 120));
+            cellTxt.color = r.claimed ? new Color(0.55f, 0.6f, 0.75f)
+                : r.claimable ? new Color(0.7f, 1f, 0.78f)
+                : premLocked ? new Color(0.65f, 0.6f, 0.85f, 0.55f)
+                : new Color(0.9f, 0.92f, 1f, 0.9f);
+            cellTxt.raycastTarget = false;
+
+            if (r.claimable)
+            {
+                string tr = r.track; int ti = r.tier;
+                var btn = cellGo.AddComponent<Button>();
+                btn.onClick.AddListener(() => {
+                    if (MetaBridge.ClaimTier(tr, ti)) { _advStatus.text = "TIER " + ti + " CLAIMED!"; RefreshAdventure(); }
+                });
+            }
         }
+
+        // bring the player's current tier into view
+        float target = Mathf.Max(0f, (nextTier - 1) * colW - viewW / 2f + colW);
+        cRt.anchoredPosition = new Vector2(-Mathf.Min(target, Mathf.Max(0f, cRt.sizeDelta.x - viewW)), 0f);
     }
 
     System.Collections.IEnumerator PollPass()

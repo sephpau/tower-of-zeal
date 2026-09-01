@@ -30,8 +30,10 @@ public static class PilotShipModel
         {
             var b = renderers[0].bounds;
             foreach (var r in renderers) b.Encapsulate(r.bounds);
+            // MULTIPLY the imported scale (Tripo FBX roots come in at 100x) —
+            // replacing it outright shrinks the ship to invisibility
             if (b.size.x > 0.0001f)
-                model.transform.localScale = Vector3.one * (TargetWidth / b.size.x);
+                model.transform.localScale = model.transform.localScale * (TargetWidth / b.size.x);
             b = renderers[0].bounds;
             foreach (var r in renderers) b.Encapsulate(r.bounds);
             model.transform.position += ship.transform.position - b.center;

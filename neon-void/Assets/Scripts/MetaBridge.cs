@@ -29,6 +29,7 @@ public static class MetaBridge
     [DllImport("__Internal")] static extern string NVMetaJsShipBonuses(string pilot);
     [DllImport("__Internal")] static extern string NVMetaJsCrewBonuses();
     [DllImport("__Internal")] static extern string NVMetaJsPassTrack();
+    [DllImport("__Internal")] static extern string NVMetaJsClaimTier(string track, int tier);
 #else
     static int NVMetaJsReady() => 0;
     static string NVMetaJsSummary() => "";
@@ -51,6 +52,7 @@ public static class MetaBridge
     static string NVMetaJsShipBonuses(string pilot) => "{}";
     static string NVMetaJsCrewBonuses() => "{}";
     static string NVMetaJsPassTrack() => "";
+    static string NVMetaJsClaimTier(string track, int tier) => "{}";
 #endif
 
     [System.Serializable] public class Upgrade { public string id, name, desc; public int rank, maxRank, cost; }
@@ -78,8 +80,8 @@ public static class MetaBridge
     [System.Serializable] public class SurvivorBonuses { public float power, vitality, tempo; }
     [System.Serializable] public class ShipBonuses { public float might, maxhp, armor, recovery, cooldown, area, speed; }
     [System.Serializable] public class CrewBonuses { public float magnet, xpgain, greed; }
-    [System.Serializable] public class PassRow { public int tier; public string track, label; public bool claimed, claimable; }
-    [System.Serializable] public class PassTrack { public PassRow[] rows; public int tier; }
+    [System.Serializable] public class PassRow { public int tier; public string track, label; public bool has, claimed, claimable; }
+    [System.Serializable] public class PassTrack { public PassRow[] rows; public int tier, tiers; public bool premium; }
 
     public static bool Ready => NVMetaJsReady() != 0;
 
@@ -109,6 +111,11 @@ public static class MetaBridge
     public static ShipBonuses GetShipBonuses(string pilot) => Parse<ShipBonuses>(NVMetaJsShipBonuses(pilot)) ?? new ShipBonuses();
     public static CrewBonuses GetCrewBonuses() => Parse<CrewBonuses>(NVMetaJsCrewBonuses()) ?? new CrewBonuses();
     public static PassTrack GetPassTrack() => Parse<PassTrack>(NVMetaJsPassTrack());
+    public static bool ClaimTier(string track, int tier)
+    {
+        var r = Parse<ClaimAll>(NVMetaJsClaimTier(track, tier));
+        return r != null && r.ok;
+    }
 }
 
 // Per-run stat counters feeding quests, achievements and the leaderboard.
