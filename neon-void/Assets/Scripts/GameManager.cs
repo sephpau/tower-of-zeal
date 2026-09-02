@@ -192,7 +192,7 @@ public class GameManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.M))
             AudioListener.volume = AudioListener.volume > 0f ? 0f : 1f;
 
-        if (_music != null) _music.volume = 0.34f * GameSettings.MusicVolume;
+        if (_music != null) _music.volume = 0.16f * GameSettings.MusicVolume;   // imported tracks are mastered hot
 
         if (!Running)
         {

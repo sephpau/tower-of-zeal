@@ -409,6 +409,22 @@
           quests: out.questsDone.map(function (q) { return q.desc; }) });
       } catch (e) { return '{"ok":false}'; }
     };
+    // connected Discord names the pilot automatically — profile + leaderboard
+    (function () {
+      function applyDiscordName() {
+        try {
+          var raw = localStorage.getItem("nv-discord-user");
+          if (!raw) return true;   // no Discord — nothing to do
+          if (!window.NVMetaReady()) return false;   // meta not loaded yet, retry
+          var u = JSON.parse(raw);
+          var n = u.global_name || u.username || "";
+          if (n) { SURV.Meta.setName(n); if (SURV.Meta.syncSoon) SURV.Meta.syncSoon(); }
+          return true;
+        } catch (e) { return true; }
+      }
+      var iv = setInterval(function () { if (applyDiscordName()) clearInterval(iv); }, 1000);
+    })();
+
     window.NVRunStart = function () {
       if (window.NVMetaReady() && SURV.Net) SURV.Net.startRun().catch(function () {});
     };

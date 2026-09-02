@@ -2709,7 +2709,7 @@ public class HudController : MonoBehaviour
         var pTex = Resources.Load<Texture2D>("chars/char-" + pilotId);
         if (pTex != null)
         {
-            var img = NewImage(root.transform, "char", new Vector2(0.135f, 0.34f), new Vector2(0.135f, 0.34f), Vector2.zero, new Vector2(440, 440));
+            var img = NewImage(root.transform, "char", new Vector2(0.135f, 0.34f), new Vector2(0.135f, 0.34f), Vector2.zero, new Vector2(880, 880));
             img.sprite = Sprite.Create(pTex, new Rect(0, 0, pTex.width, pTex.height), new Vector2(0.5f, 0.5f));
             img.preserveAspect = true;
             img.color = new Color(1f, 1f, 1f, 0.14f);
@@ -2718,7 +2718,7 @@ public class HudController : MonoBehaviour
         var sTex = Resources.Load<Texture2D>("chars/shipimg-" + pilotId);
         if (sTex != null)
         {
-            var img = NewImage(root.transform, "ship", new Vector2(0.865f, 0.34f), new Vector2(0.865f, 0.34f), Vector2.zero, new Vector2(580, 360));
+            var img = NewImage(root.transform, "ship", new Vector2(0.865f, 0.34f), new Vector2(0.865f, 0.34f), Vector2.zero, new Vector2(1160, 720));
             img.sprite = Sprite.Create(sTex, new Rect(0, 0, sTex.width, sTex.height), new Vector2(0.5f, 0.5f));
             img.preserveAspect = true;
             img.color = new Color(1f, 1f, 1f, 0.14f);
