@@ -140,7 +140,7 @@ public static class ZealData
     };
 
     public const int MaxActives = 4;
-    public const int MaxLevel = 10;
+    public const int MaxLevel = 30;
 
     // Zeal Sigil (the pulser) levels up on a run-time clock
     public static readonly float[] SigilTimes = { 45f, 90f, 130f, 170f, 210f };   // -> LV2..LV6

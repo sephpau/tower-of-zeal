@@ -121,9 +121,9 @@ public static class MetaBridge
 // Per-run stat counters feeding quests, achievements and the leaderboard.
 public static class RunStats
 {
-    public static int kills, elites, bosses, gems, evolved, chests;
+    public static int kills, elites, bosses, gems, evolved, chests, asteroids, xp;
 
-    public static void Reset() { kills = elites = bosses = gems = evolved = chests = 0; }
+    public static void Reset() { kills = elites = bosses = gems = evolved = chests = asteroids = xp = 0; }
 
     public static string ResultsJson(int score, int timeSec, int level, string character)
     {

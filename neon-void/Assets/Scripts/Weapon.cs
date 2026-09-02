@@ -90,7 +90,9 @@ public class Weapon : MonoBehaviour
                 FireOne(center + right * 0.8f - up * 0.7f, fwd, dmg);
                 break;
         }
-        GameManager.I.PlaySfx(SfxSynth.Laser, 0.5f);
+        var shot = GameAudio.PulseShot(sigilLevel);
+        if (shot != null) GameManager.I.PlaySfx(shot, 0.5f);
+        else GameManager.I.PlaySfx(SfxSynth.Laser, 0.5f);
         ChaseCamera.Shake(0.04f);
     }
 

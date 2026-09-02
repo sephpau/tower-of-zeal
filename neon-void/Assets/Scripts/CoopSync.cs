@@ -731,7 +731,7 @@ public class CoopSync : MonoBehaviour
             if (motion != null) motion.SetTarget(pos, PF(c[5]));
             h.shield = PF(c[6]); h.hull = PF(c[7]);
             h.maxShield = Mathf.Max(1f, PF(c[8])); h.maxHull = Mathf.Max(1f, PF(c[9]));
-            if (type == "dreadnought") { bossSeen = h; bossName = "VOID DREADNOUGHT"; }
+            if (type == "dreadnought") { bossSeen = h; bossName = "VOID DOOM"; }
             else if (type.StartsWith("boss-"))
             {
                 var def = System.Array.Find(ZealData.Bosses, b => "boss-" + b.id == type);

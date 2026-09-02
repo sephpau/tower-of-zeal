@@ -27,6 +27,9 @@ public class HudController : MonoBehaviour
     readonly List<Image> _actFills = new List<Image>();
     readonly List<Image> _actIcons = new List<Image>();
     readonly List<Text> _actAbbrevs = new List<Text>();
+    readonly List<RectTransform> _actSlotRts = new List<RectTransform>();   // for touch-layout repositioning
+    readonly List<Text> _actKeys = new List<Text>();
+    RectTransform _skillGaugeRt;
     Sprite _arrowSprite;
     GameObject _levelUpPanel, _tourneySetupPanel, _tourneyResultsPanel, _homePanel;
     Text _bestHomeText;
@@ -143,7 +146,7 @@ public class HudController : MonoBehaviour
         bgRt.anchorMin = new Vector2(0.5f, 1f); bgRt.anchorMax = new Vector2(0.5f, 1f);
         bgRt.anchoredPosition = new Vector2(0, -110);
         bgRt.sizeDelta = new Vector2(700, 50);
-        _bossName = NewText(_bossGroup.transform, "bossname", "VOID DREADNOUGHT", 24, TextAnchor.MiddleCenter,
+        _bossName = NewText(_bossGroup.transform, "bossname", "VOID DOOM", 24, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -8), new Vector2(700, 30));
         _bossName.color = new Color(1f, 0.25f, 0.35f);
         _bossName.fontStyle = FontStyle.BoldAndItalic;
@@ -163,6 +166,7 @@ public class HudController : MonoBehaviour
 
         // special-skill cooldown gauge beside the bars
         var skillBg = NewImage(_gameHud.transform, "skillbg", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(190, 112), new Vector2(84, 84));
+        _skillGaugeRt = skillBg.rectTransform;
         skillBg.sprite = CircleSprite();
         skillBg.color = new Color(0.05f, 0.05f, 0.15f, 0.85f);
         _skillIconImg = NewImage(skillBg.transform, "icon", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(56, 56));
@@ -185,6 +189,7 @@ public class HudController : MonoBehaviour
         {
             var slotBg = NewImage(_gameHud.transform, "actslot" + i, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(-190 + i * 90, 112), new Vector2(74, 74));
+            _actSlotRts.Add(slotBg.rectTransform);
             slotBg.sprite = CircleSprite();
             slotBg.color = new Color(0.05f, 0.05f, 0.15f, 0.7f);
             var fill = NewImage(slotBg.transform, "fill", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -206,6 +211,7 @@ public class HudController : MonoBehaviour
             var key = NewText(slotBg.transform, "key", (i + 1).ToString(), 16, TextAnchor.UpperCenter,
                 new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, -3), new Vector2(30, 20));
             key.color = new Color(0.7f, 0.8f, 1f, 0.7f);
+            _actKeys.Add(key);
         }
 
         _bannerText = NewText(_gameHud.transform, "banner", "", 64, TextAnchor.MiddleCenter,
@@ -832,6 +838,8 @@ public class HudController : MonoBehaviour
 
     void Update()
     {
+        PauseHotkeys();
+
         // waiting indicators: sweep bars while a lobby is short on people
         if (_lobbySpin != null)
         {
@@ -895,19 +903,20 @@ public class HudController : MonoBehaviour
         }
     }
 
-    void MakeVolumeRow(string label, float anchorY, float initial, System.Action<float> onChange, float min = 0f, float max = 1f)
+    void MakeVolumeRow(string label, float anchorY, float initial, System.Action<float> onChange, float min = 0f, float max = 1f, Transform parent = null)
     {
-        var lbl = NewText(_settingsPanel.transform, "lbl-" + label, label, 26, TextAnchor.MiddleRight,
+        var host = parent != null ? parent : _settingsPanel.transform;
+        var lbl = NewText(host, "lbl-" + label, label, 26, TextAnchor.MiddleRight,
             new Vector2(0.5f, anchorY), new Vector2(0.5f, anchorY), new Vector2(-250, 0), new Vector2(420, 40));
         lbl.color = new Color(0.9f, 0.95f, 1f);
 
-        var pct = NewText(_settingsPanel.transform, "pct-" + label, Mathf.RoundToInt(initial * 100) + "%", 22, TextAnchor.MiddleLeft,
+        var pct = NewText(host, "pct-" + label, Mathf.RoundToInt(initial * 100) + "%", 22, TextAnchor.MiddleLeft,
             new Vector2(0.5f, anchorY), new Vector2(0.5f, anchorY), new Vector2(330, 0), new Vector2(90, 40));
         pct.color = new Color(1f, 0.85f, 0.4f);
 
         // slider: rounded track, gold fill, circle handle
         var track = new GameObject("slider-" + label);
-        track.transform.SetParent(_settingsPanel.transform, false);
+        track.transform.SetParent(host, false);
         var trackImg = track.AddComponent<Image>();
         trackImg.sprite = _roundedFill;
         trackImg.type = Image.Type.Sliced;
@@ -1748,7 +1757,7 @@ public class HudController : MonoBehaviour
         _winTitle.color = new Color(0.5f, 1f, 0.6f);
         _winTitle.fontStyle = FontStyle.BoldAndItalic;
         _winTitle.font = _titleFont;
-        _winSub = NewText(_winPanel.transform, "sub", "THE VOID DREADNOUGHT IS DUST", 30, TextAnchor.MiddleCenter,
+        _winSub = NewText(_winPanel.transform, "sub", "THE VOID DOOM IS DUST", 30, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.59f), new Vector2(0.5f, 0.59f), Vector2.zero, new Vector2(1400, 50));
         _winSub.color = new Color(1f, 0.55f, 0.9f);
         _winScore = NewText(_winPanel.transform, "score", "0", 90, TextAnchor.MiddleCenter,
@@ -1801,9 +1810,153 @@ public class HudController : MonoBehaviour
         if (TouchInput.Enabled && _touchOverlay == null)
             _touchOverlay = TouchControls.Build(_gameHud.transform, _roundedFill, _roundedOutline, editMode: false).gameObject;
         if (_touchOverlay != null) _touchOverlay.SetActive(TouchInput.Enabled);
+        LayoutSkillHud();
+        _sawPointerLock = false;
+
+        // no ESC key on phones — small pause button in the top-right corner
+        if (TouchInput.Enabled && _touchPauseBtn == null)
+        {
+            var btn = MakeButton(_gameHud.transform, "I I", new Vector2(0.968f, 0.925f), new Vector2(56, 46),
+                new Color(0.8f, 0.9f, 1f), () => SetPauseVisible(true));
+            btn.GetComponentInChildren<Text>().fontSize = 15;
+            _touchPauseBtn = btn.gameObject;
+        }
+        if (_touchPauseBtn != null) _touchPauseBtn.SetActive(TouchInput.Enabled);
+    }
+
+    // touch mode: the skill icons + cooldown sweeps sit ON the touch buttons
+    // (wherever the player dragged them in the layout editor); desktop keeps
+    // the classic row beside the health bars
+    void LayoutSkillHud()
+    {
+        bool touch = TouchInput.Enabled;
+        for (int i = 0; i < _actSlotRts.Count; i++)
+        {
+            var rt = _actSlotRts[i];
+            if (touch)
+            {
+                rt.anchorMin = rt.anchorMax = TouchControls.LayoutAnchor("s" + (i + 1));
+                rt.anchoredPosition = Vector2.zero;
+            }
+            else
+            {
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0f);
+                rt.anchoredPosition = new Vector2(-190 + i * 90, 112);
+            }
+            if (i < _actKeys.Count) _actKeys[i].enabled = !touch;
+        }
+        if (_skillGaugeRt != null)
+        {
+            if (touch)
+            {
+                _skillGaugeRt.anchorMin = _skillGaugeRt.anchorMax = TouchControls.LayoutAnchor("special");
+                _skillGaugeRt.anchoredPosition = Vector2.zero;
+                _skillGaugeRt.sizeDelta = new Vector2(96, 96);   // match the SPC button hit area
+            }
+            else
+            {
+                _skillGaugeRt.anchorMin = _skillGaugeRt.anchorMax = new Vector2(0.5f, 0f);
+                _skillGaugeRt.anchoredPosition = new Vector2(190, 112);
+                _skillGaugeRt.sizeDelta = new Vector2(84, 84);
+            }
+        }
+        if (_skillLabel != null) _skillLabel.enabled = !touch;   // "RMB" hint is desktop-only
     }
 
     GameObject _touchOverlay;
+    GameObject _touchPauseBtn;
+
+    // ---------- ESC pause menu ----------
+    GameObject _pausePanel;
+    bool _sawPointerLock;   // WebGL: ESC exits pointer lock before we see the key — lock loss IS the pause signal
+
+    public void SetPauseVisible(bool on)
+    {
+        GameManager.I.SetMenuPause(on);
+        if (on && !GameManager.I.MenuPaused) return;   // refused (multiplayer / mid-draft)
+        if (on)
+        {
+            BuildPausePanel();   // rebuilt fresh so sliders always show current values
+        }
+        else if (_pausePanel != null)
+        {
+            Destroy(_pausePanel);
+            _pausePanel = null;
+            _sawPointerLock = false;
+        }
+    }
+
+    void BuildPausePanel()
+    {
+        if (_pausePanel != null) Destroy(_pausePanel);
+        _pausePanel = Panel("PausePanel");
+        var bg = _pausePanel.GetComponent<Image>();
+        bg.color = new Color(0.02f, 0.01f, 0.08f, 0.86f);
+        bg.raycastTarget = true;   // swallow clicks aimed at the game
+
+        var t = NewText(_pausePanel.transform, "title", "PAUSED", 64, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.8f), new Vector2(0.5f, 0.8f), Vector2.zero, new Vector2(900, 90));
+        t.color = new Color(0.55f, 0.95f, 1f);
+        t.fontStyle = FontStyle.BoldAndItalic;
+        t.font = _titleFont;
+
+        MakeButton(_pausePanel.transform, "RESUME", new Vector2(0.5f, 0.665f), new Vector2(360, 56),
+            new Color(0.55f, 1f, 0.65f), () => SetPauseVisible(false));
+
+        // sound + control settings inline
+        MakeVolumeRow("MUSIC VOLUME", 0.555f, GameSettings.MusicVolume,
+            v => GameSettings.MusicVolume = v, parent: _pausePanel.transform);
+        MakeVolumeRow("SFX VOLUME", 0.485f, GameSettings.SfxVolume,
+            v => GameSettings.SfxVolume = v, parent: _pausePanel.transform);
+        MakeVolumeRow("MOUSE SENSITIVITY", 0.415f, GameSettings.MouseSensitivity,
+            v => GameSettings.MouseSensitivity = v, 0.2f, 3f, _pausePanel.transform);
+
+        if (TouchInput.Enabled)
+        {
+            string[] aimModes = { "AIM: STICK", "AIM: DRAG" };
+            Text aimLabel = null;
+            var aimBtn = MakeButton(_pausePanel.transform, aimModes[GameSettings.TouchAimMode],
+                new Vector2(0.5f, 0.33f), new Vector2(240, 48), new Color(0.5f, 0.95f, 1f), () => { });
+            aimLabel = aimBtn.GetComponentInChildren<Text>();
+            aimLabel.fontSize = 17;
+            aimBtn.onClick.AddListener(() => {
+                GameSettings.TouchAimMode = 1 - GameSettings.TouchAimMode;
+                aimLabel.text = aimModes[GameSettings.TouchAimMode];
+                if (_touchOverlay != null) { Destroy(_touchOverlay); _touchOverlay = null; }
+                ShowGameHud();   // rebuild overlay + skill layout in the new mode
+                _pausePanel.transform.SetAsLastSibling();
+            });
+        }
+
+        MakeButton(_pausePanel.transform, "ABANDON RUN", new Vector2(0.5f, 0.2f), new Vector2(360, 56),
+            new Color(1f, 0.45f, 0.45f), () => {
+                var p = _pausePanel; _pausePanel = null;
+                Destroy(p);
+                GameManager.I.AbandonRun();
+            });
+
+        NewText(_pausePanel.transform, "hint", "ESC / P — RESUME", 16, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.115f), new Vector2(0.5f, 0.115f), Vector2.zero, new Vector2(600, 24))
+            .color = new Color(0.75f, 0.72f, 0.95f, 0.6f);
+    }
+
+    void PauseHotkeys()
+    {
+        var gm = GameManager.I;
+        if (gm == null) return;
+        bool keyDown = Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.P);
+        if (gm.MenuPaused)
+        {
+            if (keyDown) SetPauseVisible(false);
+            return;
+        }
+        if (!gm.CanMenuPause) { _sawPointerLock = false; return; }
+        if (Cursor.lockState == CursorLockMode.Locked) _sawPointerLock = true;
+        // in browsers ESC releases pointer lock without delivering the key —
+        // losing a lock we had while running means the player hit ESC
+        bool lockLost = _sawPointerLock && !TouchInput.Enabled && Cursor.lockState != CursorLockMode.Locked;
+        if (keyDown || lockLost) SetPauseVisible(true);
+    }
 
     public void ShowGameOver(int score, int best, bool newBest, int wave)
     {
@@ -1820,6 +1973,7 @@ public class HudController : MonoBehaviour
             : "Reached wave " + wave + " / " + WaveDirector.FinalWave;
         if (CoopSync.Active && CoopSync.I != null && !CoopSync.DuelActive)
             _overStats.text += "\n" + CoopSync.I.MvpLine();
+        MatchResultsBlock(_overPanel);
         Invoke(nameof(EnableRestart), 1.2f);
     }
     void EnableRestart() { WantsRestart = true; }
@@ -1829,11 +1983,46 @@ public class HudController : MonoBehaviour
         _gameHud.SetActive(false);
         _winPanel.SetActive(true);
         _winTitle.text = "SECTOR CLEARED";
-        _winSub.text = "THE VOID DREADNOUGHT IS DUST";
+        _winSub.text = "THE VOID DOOM IS DUST";
         _warnBorder.color = new Color(1, 1, 1, 0);
         _winScore.text = score.ToString("N0");
         _winBest.text = newBest ? "NEW BEST!" : "BEST  " + best.ToString("N0");
+        MatchResultsBlock(_winPanel);
         Invoke(nameof(EnableRestart), 1.5f);
+    }
+
+    // post-match results: what this run actually racked up
+    void MatchResultsBlock(GameObject panel)
+    {
+        var old = panel.transform.Find("matchResults");
+        if (old != null) Destroy(old.gameObject);
+        // the CLICK TO RELAUNCH pulse drops down to make room for the table
+        var pulse = panel.transform.Find("pulse") as RectTransform;
+        if (pulse != null) pulse.anchorMin = pulse.anchorMax = new Vector2(0.5f, 0.1f);
+        var root = new GameObject("matchResults");
+        root.transform.SetParent(panel.transform, false);
+        var rt = root.AddComponent<RectTransform>();
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.225f);
+        rt.sizeDelta = new Vector2(560, 165);
+
+        (string label, int value)[] rows = {
+            ("ENEMIES DESTROYED", Mathf.Max(0, RunStats.kills - RunStats.asteroids)),
+            ("ELITES DESTROYED", RunStats.elites),
+            ("BOSSES DESTROYED", RunStats.bosses),
+            ("ASTEROIDS SHATTERED", RunStats.asteroids),
+            ("XP EARNED", RunStats.xp),
+        };
+        for (int i = 0; i < rows.Length; i++)
+        {
+            float y = 1f - (i + 0.5f) / rows.Length;
+            var lbl = NewText(root.transform, "lbl" + i, rows[i].label, 19, TextAnchor.MiddleLeft,
+                new Vector2(0f, y), new Vector2(0f, y), new Vector2(150, 0), new Vector2(300, 26));
+            lbl.color = new Color(0.75f, 0.72f, 0.95f, 0.9f);
+            var val = NewText(root.transform, "val" + i, rows[i].value.ToString("N0"), 21, TextAnchor.MiddleRight,
+                new Vector2(1f, y), new Vector2(1f, y), new Vector2(-130, 0), new Vector2(220, 26));
+            val.color = new Color(1f, 0.85f, 0.4f);
+            val.fontStyle = FontStyle.Bold;
+        }
     }
 
     public void ShowDuelEnd(bool won, string partnerName)
@@ -2439,6 +2628,7 @@ public class HudController : MonoBehaviour
     // per-pilot training: pick a survivor, buy ranks that apply only to them
     void BuildSurvivorTab()
     {
+        AdvPilotBackdrop(_advPilot);
         AdvHeader("Personal training — each survivor levels up on their own.");
         PilotPicker(0.715f);
         var data = MetaBridge.GetSurvivors(_advPilot);
@@ -2505,6 +2695,37 @@ public class HudController : MonoBehaviour
         buy.GetComponentInChildren<Text>().fontSize = compact ? 15 : 17;
     }
 
+    // faint character + their spaceship behind a per-pilot tab's content,
+    // like the pilot-select cards
+    void AdvPilotBackdrop(string pilotId)
+    {
+        var root = new GameObject("pilotBackdrop");
+        root.transform.SetParent(_advContent.transform, false);
+        root.transform.SetAsFirstSibling();   // stays behind the cards
+        var rrt = root.AddComponent<RectTransform>();
+        rrt.anchorMin = Vector2.zero; rrt.anchorMax = Vector2.one;
+        rrt.offsetMin = Vector2.zero; rrt.offsetMax = Vector2.zero;
+
+        var pTex = Resources.Load<Texture2D>("chars/char-" + pilotId);
+        if (pTex != null)
+        {
+            var img = NewImage(root.transform, "char", new Vector2(0.135f, 0.34f), new Vector2(0.135f, 0.34f), Vector2.zero, new Vector2(440, 440));
+            img.sprite = Sprite.Create(pTex, new Rect(0, 0, pTex.width, pTex.height), new Vector2(0.5f, 0.5f));
+            img.preserveAspect = true;
+            img.color = new Color(1f, 1f, 1f, 0.14f);
+            img.raycastTarget = false;
+        }
+        var sTex = Resources.Load<Texture2D>("chars/shipimg-" + pilotId);
+        if (sTex != null)
+        {
+            var img = NewImage(root.transform, "ship", new Vector2(0.865f, 0.34f), new Vector2(0.865f, 0.34f), Vector2.zero, new Vector2(580, 360));
+            img.sprite = Sprite.Create(sTex, new Rect(0, 0, sTex.width, sTex.height), new Vector2(0.5f, 0.5f));
+            img.preserveAspect = true;
+            img.color = new Color(1f, 1f, 1f, 0.14f);
+            img.raycastTarget = false;
+        }
+    }
+
     // pilot selector row shared by the per-pilot tabs
     void PilotPicker(float y)
     {
@@ -2524,6 +2745,7 @@ public class HudController : MonoBehaviour
     // per-ship armory: every pilot upgrades their own spaceship
     void BuildArmoryTab()
     {
+        AdvPilotBackdrop(_advPilot);
         AdvHeader("Every pilot flies their own ship — pick one, upgrade their hull.");
         PilotPicker(0.715f);
         var pilot = System.Array.Find(ZealData.Pilots, x => x.id == _advPilot);

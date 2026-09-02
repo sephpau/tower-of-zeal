@@ -120,6 +120,7 @@ public class GameManager : MonoBehaviour
         float tournamentBonus = TournamentMode.Active ? TournamentMode.XpBonus : 1f;
         int gained = Mathf.Max(1, Mathf.RoundToInt(amount * _skills.XpMult * tournamentBonus));
         RunStats.gems++;
+        RunStats.xp += gained;
         if (xpLevel >= ZealData.MaxLevel) { score += gained * 5; return; }   // capped: xp becomes score
         xp += gained;
         PlaySfx(SfxSynth.Pickup, 0.15f);
@@ -138,7 +139,19 @@ public class GameManager : MonoBehaviour
         int lvl = _draftQueue.Dequeue();
         var acts = _playerHealth.GetComponent<ActiveSkills>();
         var choices = LevelUpChoices.Generate(lvl, _skills, acts, TournamentMode.Active ? TournamentMode.DraftRng(lvl) : null);
-        if (choices.Count == 0) { score += 300; TryOpenDraft(); return; }
+        if (choices.Count == 0)
+        {
+            // every skill learned and maxed — levels up to the cap now grow
+            // the ship itself: +6% hull ("hp") and +6% shield ("mana"), no draft
+            _playerHealth.maxHull *= 1.06f;
+            _playerHealth.maxShield *= 1.06f;
+            _playerHealth.hull = Mathf.Min(_playerHealth.maxHull, _playerHealth.hull + _playerHealth.maxHull * 0.1f);
+            _playerHealth.shield = _playerHealth.maxShield;
+            PlaySfx(SfxSynth.WaveUp, 0.5f);
+            Announcer.Say("Level " + lvl + " — hull and shields reinforced!", 0.6f, 1f);
+            TryOpenDraft();
+            return;
+        }
         _draftOpen = true;
         PlaySfx(SfxSynth.WaveUp, 0.6f);
         Announcer.Say("Level up! Choose a skill to upgrade.", 0.65f, 1.05f);
@@ -183,6 +196,15 @@ public class GameManager : MonoBehaviour
 
         if (!Running)
         {
+            // hangar theme on the menus — waits for the victory fanfare (or
+            // anything else on the music source) to finish first
+            var hangar = GameAudio.Clip("hangar");
+            if (hangar != null && _music != null && !_music.isPlaying)
+            {
+                _music.clip = hangar;
+                _music.loop = true;
+                _music.Play();
+            }
             bool tap = TouchInput.Enabled && Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began;
             if ((Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space) || tap) && _hud != null && _hud.WantsRestart)
             {
@@ -198,11 +220,23 @@ public class GameManager : MonoBehaviour
             if (_comboTimer <= 0f) { combo = 0; _hud.SetCombo(0); }
         }
 
-        // boss waves bring in the v1 drum layer
+        // stage music: wave-band mp3 tracks (blitz / overtime in tournaments),
+        // falling back to the synth score when a track is missing
         if (_music != null)
         {
-            var want = _waves.bossHealth != null ? SfxSynth.MusicBoss : SfxSynth.Music;
-            if (_music.clip != want) { _music.clip = want; _music.Play(); }
+            AudioClip want;
+            if (TournamentMode.Active)
+                want = _overtimeAnnounced ? GameAudio.Clip("overtime") : GameAudio.Clip("blitz");
+            else
+            {
+                int w = _waves.wave;
+                want = w >= 10 ? GameAudio.Clip("wave 10")
+                     : w >= 7 ? GameAudio.Clip("wave 7 9")
+                     : w >= 4 ? GameAudio.Clip("wave 4 6")
+                     : GameAudio.Clip("wave 1 3");
+            }
+            if (want == null) want = _waves.bossHealth != null ? SfxSynth.MusicBoss : SfxSynth.Music;
+            if (_music.clip != want) { _music.clip = want; _music.loop = true; _music.Play(); }
         }
 
         _elapsed += Time.deltaTime;
@@ -436,7 +470,9 @@ public class GameManager : MonoBehaviour
             PlayerPrefs.SetInt(BestKey, best);
             PlayerPrefs.Save();
         }
-        PlaySfx(SfxSynth.WaveUp, 1f);
+        var fanfare = GameAudio.Clip("Victory Fanfare");
+        if (fanfare != null) { _music.clip = fanfare; _music.loop = false; _music.Play(); }
+        else PlaySfx(SfxSynth.WaveUp, 1f);
         FinishAdventureRun();
         _hud.ShowVictory(score, best, newBest);
     }
@@ -462,7 +498,9 @@ public class GameManager : MonoBehaviour
     public void CollectPowerup(PowerupType type)
     {
         var weapon = _playerHealth != null ? _playerHealth.GetComponent<Weapon>() : null;
-        PlaySfx(SfxSynth.Pickup, 0.9f);
+        var pickup = GameAudio.Clip("power up pick up");
+        if (pickup != null) PlaySfx(pickup, 0.9f);
+        else PlaySfx(SfxSynth.Pickup, 0.9f);
         switch (type)
         {
             case PowerupType.Rapid:
@@ -475,6 +513,43 @@ public class GameManager : MonoBehaviour
                 _hud.WaveBanner("SHIELD RESTORED");
                 break;
         }
+    }
+
+    // ---------- ESC pause menu (single-player only, never over a draft) ----------
+    public bool MenuPaused { get; private set; }
+    public bool CanMenuPause => Running && !Paused && !CoopSync.Active && !RoyaleSync.Active;
+
+    public void SetMenuPause(bool on)
+    {
+        if (on == MenuPaused) return;
+        if (on && !CanMenuPause) return;
+        MenuPaused = on;
+        Paused = on;
+        Time.timeScale = on ? 0f : 1f;
+        Cursor.visible = on || !Running;
+        Cursor.lockState = on || !Running ? CursorLockMode.None : CursorLockMode.Locked;
+    }
+
+    // give up mid-run from the pause menu — counts like a normal run end:
+    // adventure stats absorb, leaderboard run submits, game-over screen shows
+    public void AbandonRun()
+    {
+        if (!Running) return;
+        SetMenuPause(false);
+        if (TournamentMode.Active) { EndTournament("RUN ABANDONED"); return; }
+        Running = false;
+        _music.Stop();
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+        bool newBest = score > best;
+        if (newBest)
+        {
+            best = score;
+            PlayerPrefs.SetInt(BestKey, best);
+            PlayerPrefs.Save();
+        }
+        FinishAdventureRun();
+        _hud.ShowGameOver(score, best, newBest, _waves.wave);
     }
 
     void OnPlayerDeath(Health h)

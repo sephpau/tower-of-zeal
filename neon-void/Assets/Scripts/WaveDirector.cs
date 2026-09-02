@@ -48,9 +48,9 @@ public class WaveDirector : MonoBehaviour
         var miniboss = System.Array.Find(ZealData.Bosses, b => b.wave == wave);
         if (wave == FinalWave)
         {
-            GameManager.I.OnBossWave("!! VOID DREADNOUGHT !!");
+            GameManager.I.OnBossWave("!! VOID DOOM !!");
             var boss = EnemyFactory.BuildDreadnought(center + RandomShellDir() * 210f);
-            SetBoss(boss.GetComponent<Health>(), "VOID DREADNOUGHT");
+            SetBoss(boss.GetComponent<Health>(), "VOID DOOM");
             bossHealth.OnDeath += _ => { ClearBoss(); HostileDown(); };
             hostilesAlive = 1;
             for (int i = 0; i < 3; i++) SpawnOne(center, true, false);

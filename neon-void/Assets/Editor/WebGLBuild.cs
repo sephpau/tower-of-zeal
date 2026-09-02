@@ -23,7 +23,12 @@ public static class WebGLBuild
             }
         }
 
-        PlayerSettings.bundleVersion = "1.0.0";               // shown on the loading screen (v{{{ PRODUCT_VERSION }}})
+        // version shown on the loading screen (V{{{ PRODUCT_VERSION }}}) —
+        // read from version.txt; the patch number bumps +1 on every deploy
+        string verFile = System.IO.Path.Combine(Application.dataPath, "..", "version.txt");
+        PlayerSettings.bundleVersion = System.IO.File.Exists(verFile)
+            ? System.IO.File.ReadAllText(verFile).Trim()
+            : "1.0.0";
         PlayerSettings.WebGL.template = "PROJECT:NeonVoid";   // Assets/WebGLTemplates/NeonVoid
         PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Brotli;
         PlayerSettings.WebGL.decompressionFallback = true;   // no server headers needed
