@@ -44,7 +44,7 @@ public static class GameSettings
     // touch aim: 0 = right stick, 1 = drag the right half of the screen
     public static int TouchAimMode
     {
-        get => PlayerPrefs.GetInt("zsv2-touchaim", 0);
+        get => PlayerPrefs.GetInt("zsv2-touchaim", 1);   // drag-to-aim is the mobile default
         set { PlayerPrefs.SetInt("zsv2-touchaim", Mathf.Clamp(value, 0, 1)); PlayerPrefs.Save(); }
     }
 
