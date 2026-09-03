@@ -182,7 +182,14 @@ public class DecimationRunner : MonoBehaviour
                 foreach (var r in rends) b.Encapsulate(r.bounds);
                 model.transform.position += _totem.transform.position - b.center;
             }
-            var tex = Resources.Load<Texture2D>("decimation/tex/doom_totem_basecolor");
+            // extracted embedded textures land under decimation/tex with the FBX author's
+            // names, so take the best-looking candidate rather than guessing a filename
+            Texture2D tex = null;
+            foreach (var t in Resources.LoadAll<Texture2D>("decimation/tex"))
+            {
+                string n = t.name.ToLowerInvariant();
+                if (tex == null || n.Contains("base") || n.Contains("color") || n.Contains("albedo") || n.Contains("diffuse")) tex = t;
+            }
             foreach (var r in rends)
                 foreach (var m in r.materials)
                 {
