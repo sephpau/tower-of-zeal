@@ -30,7 +30,7 @@ public class DecimationRunner : MonoBehaviour
 {
     float _elapsed, _spawnTimer, _totemTimer, _eliteTimer, _decimatorLeft = -1f;
     bool _wasRunning;
-    GameObject _totem, _aura;
+    GameObject _totem, _totemRock, _aura;
 
     // saved baseline for the Decimator power-up
     Vector3 _savedScale;
@@ -45,6 +45,7 @@ public class DecimationRunner : MonoBehaviour
         _eliteTimer = 50f;
         _decimatorLeft = -1f;
         if (_totem != null) Destroy(_totem);
+        if (_totemRock != null) Destroy(_totemRock);
         if (_aura != null) Destroy(_aura);
     }
 
@@ -93,7 +94,7 @@ public class DecimationRunner : MonoBehaviour
 
         // the Doom Totem
         _totemTimer -= dt;
-        if (_totem == null && _totemTimer <= 0f) SpawnTotem(center);
+        if (_totem == null && _totemRock == null && _totemTimer <= 0f) SpawnTotem(center);
         if (_totem != null)
         {
             _totem.transform.Rotate(0f, 70f * dt, 0f, Space.World);
@@ -117,24 +118,92 @@ public class DecimationRunner : MonoBehaviour
         }
     }
 
+    // the totem is buried in a rock: find the one seeping red and crack it open
     void SpawnTotem(Vector3 center)
     {
         var gm = GameManager.I;
         Vector3 d = Random.onUnitSphere; d.y *= 0.4f;
-        _totem = new GameObject("doomTotem");
-        _totem.transform.position = center + d.normalized * Random.Range(60f, 100f);
+        float size = 9f;
+        _totemRock = new GameObject("totemRock");
+        _totemRock.transform.position = center + d.normalized * Random.Range(70f, 110f);
+        _totemRock.transform.rotation = Random.rotation;
+        _totemRock.transform.localScale = Vector3.one * size;
+        _totemRock.AddComponent<MeshFilter>().sharedMesh = NVAssets.RockMesh(4242);
+        _totemRock.AddComponent<MeshRenderer>().sharedMaterial = NVAssets.Rock;
+        var col = _totemRock.AddComponent<SphereCollider>();
+        col.radius = 0.85f;
+        var rb = _totemRock.AddComponent<Rigidbody>();
+        rb.useGravity = false;
+        rb.mass = size * 4f;
+        rb.angularVelocity = Random.insideUnitSphere * 0.3f;
+        var h = _totemRock.AddComponent<Health>();
+        h.Configure(0f, 160f);
+        // a faint red seep gives it away to a sharp eye
+        var seep = new GameObject("seep").AddComponent<Light>();
+        seep.transform.SetParent(_totemRock.transform, false);
+        seep.type = LightType.Point;
+        seep.color = new Color(1f, 0.15f, 0.1f);
+        seep.intensity = 3f;
+        seep.range = 30f;
+        h.OnDeath += _ =>
+        {
+            var rock = _totemRock;
+            _totemRock = null;
+            Vector3 at = rock != null ? rock.transform.position : center;
+            ExplosionFactory.Explode(at, new Color(1f, 0.65f, 0.3f), 3.5f, true);
+            gm.PlaySfxAt(SfxSynth.BigBoom, at, 0.9f);
+            if (rock != null) Destroy(rock);
+            RevealTotem(at);
+        };
+        gm.Hud.WaveBanner("!! A DOOM TOTEM HIDES IN A NEARBY ASTEROID !!");
+        gm.PlaySfx(SfxSynth.WaveUp, 0.6f);
+        Announcer.Say("A Doom Totem lies buried in a nearby asteroid. Crack it open!", 0.6f, 0.95f);
+    }
+
+    // the rock is dust: Dr. Ego von Doom stands revealed, ready to be claimed
+    void RevealTotem(Vector3 pos)
+    {
+        var gm = GameManager.I;
         var red = new Color(1f, 0.12f, 0.1f);
-        var pillar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        Destroy(pillar.GetComponent<Collider>());
-        pillar.transform.SetParent(_totem.transform, false);
-        pillar.transform.localScale = new Vector3(2.2f, 9f, 2.2f);
-        pillar.GetComponent<MeshRenderer>().sharedMaterial = NVAssets.Emissive(red, 2.8f);
-        var crown = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        Destroy(crown.GetComponent<Collider>());
-        crown.transform.SetParent(_totem.transform, false);
-        crown.transform.localPosition = new Vector3(0f, 6f, 0f);
-        crown.transform.localScale = Vector3.one * 3.4f;
-        crown.GetComponent<MeshRenderer>().sharedMaterial = NVAssets.Emissive(new Color(1f, 0.5f, 0.2f), 3.5f);
+        _totem = new GameObject("doomTotem");
+        _totem.transform.position = pos;
+        var prefab = Resources.Load<GameObject>("decimation/doom_totem");
+        if (prefab != null)
+        {
+            var model = Instantiate(prefab, _totem.transform);
+            var rends = model.GetComponentsInChildren<Renderer>();
+            if (rends.Length > 0)
+            {
+                var b = rends[0].bounds;
+                foreach (var r in rends) b.Encapsulate(r.bounds);
+                float tall = Mathf.Max(b.size.x, b.size.y, b.size.z);
+                if (tall > 0.0001f) model.transform.localScale *= 10f / tall;
+                b = rends[0].bounds;
+                foreach (var r in rends) b.Encapsulate(r.bounds);
+                model.transform.position += _totem.transform.position - b.center;
+            }
+            var tex = Resources.Load<Texture2D>("decimation/tex/doom_totem_basecolor");
+            foreach (var r in rends)
+                foreach (var m in r.materials)
+                {
+                    if (tex != null && m.mainTexture == null) { m.mainTexture = tex; m.color = Color.white; }
+                    if (m.mainTexture == null)
+                    {
+                        // embedded texture lost on import: brand it in doom red instead
+                        m.color = new Color(0.55f, 0.08f, 0.08f);
+                        if (m.HasProperty("_EmissionColor")) { m.EnableKeyword("_EMISSION"); m.SetColor("_EmissionColor", red * 0.6f); }
+                    }
+                }
+            foreach (var c in model.GetComponentsInChildren<Collider>()) Destroy(c);
+        }
+        else
+        {
+            var pillar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Destroy(pillar.GetComponent<Collider>());
+            pillar.transform.SetParent(_totem.transform, false);
+            pillar.transform.localScale = new Vector3(2.2f, 9f, 2.2f);
+            pillar.GetComponent<MeshRenderer>().sharedMaterial = NVAssets.Emissive(red, 2.8f);
+        }
         var glow = NVAssets.Quad(NVAssets.AdditiveTinted(red), 26f);
         glow.transform.SetParent(_totem.transform, false);
         glow.AddComponent<Billboard>();
@@ -144,9 +213,9 @@ public class DecimationRunner : MonoBehaviour
         light.color = red;
         light.intensity = 6f;
         light.range = 60f;
-        gm.Hud.WaveBanner("!! DOOM TOTEM !!");
-        gm.PlaySfx(SfxSynth.BigBoom, 0.6f);
-        Announcer.Say("A Doom Totem has appeared. Claim it!", 0.6f, 0.95f);
+        gm.Hud.WaveBanner("!! DOOM TOTEM REVEALED !!");
+        gm.PlaySfx(SfxSynth.BigBoom, 0.7f);
+        Announcer.Say("The Doom Totem is exposed. Claim it!", 0.6f, 0.95f);
     }
 
     void BecomeDecimator()
