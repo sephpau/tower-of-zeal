@@ -5,6 +5,9 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager I { get; private set; }
     public bool Running { get; private set; }
+    public Health Player => _playerHealth;
+    public SkillSystem Skills => _skills;
+    public HudController Hud => _hud;
 
     public int score;
     public int combo;
@@ -46,6 +49,8 @@ public class GameManager : MonoBehaviour
         _music.loop = true;
         _music.volume = 0.34f;
 
+        gameObject.AddComponent<CometField>();
+        gameObject.AddComponent<DecimationRunner>();
         _hud.ShowStart();
     }
 
@@ -85,6 +90,7 @@ public class GameManager : MonoBehaviour
         var shipPilot = ZealData.Pilots[Mathf.Clamp(shipIndex < 0 ? pilotIndex : shipIndex, 0, ZealData.Pilots.Length - 1)];
         bool customLoadout = shipPilot.id != _skills.pilot.id;
         RunStats.Reset();
+        if (DecimationMode.Pending) DecimationMode.Arm(); else DecimationMode.Active = false;
         if (!TournamentMode.Active && MetaBridge.Ready)
         {
             _skills.ApplyShipBonuses(MetaBridge.GetShipBonuses(shipPilot.id));               // the flown hull's armory
@@ -102,7 +108,9 @@ public class GameManager : MonoBehaviour
         _hud.ShowGameHud();
         Cursor.visible = false;
         Cursor.lockState = CursorLockMode.Locked;
-        _hud.WaveBanner(TournamentMode.Active
+        _hud.WaveBanner(DecimationMode.Active
+            ? "!! THE DECIMATION !!  " + _skills.pilot.name.ToUpperInvariant()
+            : TournamentMode.Active
             ? "BLITZ // " + TournamentMode.MatchCode + " // " + _skills.pilot.name.ToUpperInvariant()
             : customLoadout
                 ? _skills.pilot.name.ToUpperInvariant() + " × " + shipPilot.name.ToUpperInvariant() + "'S SHIP"
@@ -225,7 +233,9 @@ public class GameManager : MonoBehaviour
         if (_music != null)
         {
             AudioClip want;
-            if (TournamentMode.Active)
+            if (DecimationMode.Active)
+                want = GameAudio.Clip("wave 10");
+            else if (TournamentMode.Active)
                 want = _overtimeAnnounced ? GameAudio.Clip("overtime") : GameAudio.Clip("blitz");
             else
             {
@@ -458,6 +468,7 @@ public class GameManager : MonoBehaviour
 
     public void Victory()
     {
+        if (DecimationMode.Active) return;   // the arena never clears; the clock ends it
         if (TournamentMode.Active) { EndTournament("SECTOR CLEARED"); return; }
         Running = false;
         _music.Stop();
@@ -482,11 +493,13 @@ public class GameManager : MonoBehaviour
     // Tournament and multiplayer runs stay out — same rule as the classic game.
     void FinishAdventureRun()
     {
-        if (!MetaBridge.Ready || CoopSync.Active || RoyaleSync.Active) return;
+        if (!MetaBridge.Ready || CoopSync.Active || RoyaleSync.Active || DecimationMode.Active) return;
         string results = RunStats.ResultsJson(score, Mathf.RoundToInt(_elapsed), xpLevel,
             _skills != null && _skills.pilot != null ? _skills.pilot.id : "ego");
         var absorbed = MetaBridge.AbsorbRun(results);
-        MetaBridge.RunSubmit(results);
+        // leaderboard is for connected pilots only: guests keep local progress but never rank
+        if (WalletAuth.Connected) MetaBridge.RunSubmit(results);
+        else _hud.AnnounceCaption("Connect Ronin to rank on the leaderboard");
         if (absorbed != null && absorbed.ok)
         {
             if (absorbed.gold > 0) _hud.AnnounceCaption("+" + absorbed.gold + " gold earned");
@@ -560,6 +573,7 @@ public class GameManager : MonoBehaviour
         h.gameObject.SetActive(false);
         if (RoyaleSync.Active && RoyaleSync.I != null) { RoyaleSync.I.OnLocalDeath(); return; }   // eliminated → spectate
         if (CoopSync.Active && CoopSync.I != null) { CoopSync.I.OnLocalDeath(); return; }   // partner may still save the run
+        if (DecimationMode.Active) { var dr = GetComponent<DecimationRunner>(); if (dr != null) dr.OnPlayerDied(h); return; }   // unlimited lives
         if (TournamentMode.Active) { EndTournament("SHIP DESTROYED"); return; }
         Running = false;
         _music.Stop();
@@ -605,6 +619,31 @@ public class GameManager : MonoBehaviour
     public void ShowDamage(float amount, Vector3 worldPos)
     {
         if (Running && _hud != null) _hud.DamagePopup(Mathf.Max(1, Mathf.RoundToInt(amount)), worldPos);
+    }
+
+    // the pilot taking a hit: imported cue, rate-limited so bursts don't stack
+    float _lastHitSfx = -9f;
+    public void PlayerHitSfx()
+    {
+        if (Time.unscaledTime - _lastHitSfx < 0.09f) return;
+        _lastHitSfx = Time.unscaledTime;
+        var c = GameAudio.Clip("damage received");
+        if (c != null) PlaySfx(c, 0.8f); else PlaySfx(SfxSynth.Hit, 0.7f);
+    }
+
+    // THE DECIMATION: the clock ran out; tally kills, deaths, K/D
+    public void DecimationOver()
+    {
+        if (!Running) return;
+        Running = false;
+        _music.Stop();
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+        if (_playerHealth != null) _playerHealth.gameObject.SetActive(true);
+        bool newBest = RunStats.kills > DecimationMode.BestKills;
+        DecimationMode.RecordBest();
+        _hud.ShowDecimationOver(RunStats.kills, DecimationMode.Deaths, newBest);
+        DecimationMode.Active = false;
     }
 
     public void PlaySfx(AudioClip clip, float vol = 1f)

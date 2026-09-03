@@ -596,17 +596,27 @@ public class HudController : MonoBehaviour
         _bestHomeText.font = _titleFont;
 
         MakeButton(_homePanel.transform, "QUICK PLAY", new Vector2(0.5f, 0.49f), new Vector2(430, 74),
-            new Color(1f, 0.85f, 0.4f), () => SwitchPanel(_homePanel, _startPanel, RefreshCustomHangar));
-        MakeButton(_homePanel.transform, "ADVENTURE", new Vector2(0.5f, 0.385f), new Vector2(360, 56),
+            new Color(1f, 0.85f, 0.4f), () => { DecimationMode.Pending = false; SwitchPanel(_homePanel, _startPanel, RefreshCustomHangar); });
+        MakeButton(_homePanel.transform, "ADVENTURE", new Vector2(0.5f, 0.395f), new Vector2(360, 56),
             new Color(1f, 0.72f, 0.25f), () => SwitchPanel(_homePanel, _adventurePanel, RefreshAdventure));
-        MakeButton(_homePanel.transform, "BLITZ TOURNAMENT", new Vector2(0.5f, 0.31f), new Vector2(360, 56),
+        MakeButton(_homePanel.transform, "BLITZ TOURNAMENT", new Vector2(0.5f, 0.33f), new Vector2(360, 56),
             new Color(1f, 0.55f, 0.9f), () => SwitchPanel(_homePanel, _tourneySetupPanel));
-        MakeButton(_homePanel.transform, "CO-OP (2P)", new Vector2(0.5f, 0.235f), new Vector2(360, 56),
+        MakeButton(_homePanel.transform, "CO-OP (2P)", new Vector2(0.5f, 0.265f), new Vector2(360, 56),
             new Color(0.4f, 1f, 0.75f), () => SwitchPanel(_homePanel, _coopPanel));
-        MakeButton(_homePanel.transform, "BATTLE ROYALE", new Vector2(0.5f, 0.16f), new Vector2(360, 56),
+        MakeButton(_homePanel.transform, "BATTLE ROYALE", new Vector2(0.5f, 0.2f), new Vector2(360, 56),
             new Color(1f, 0.35f, 0.35f), () => SwitchPanel(_homePanel, _brPanel));
-        MakeButton(_homePanel.transform, "SETTINGS", new Vector2(0.5f, 0.09f), new Vector2(360, 56),
+        MakeButton(_homePanel.transform, "THE DECIMATION", new Vector2(0.5f, 0.135f), new Vector2(360, 56),
+            new Color(1f, 0.2f, 0.15f), () => { DecimationMode.Pending = true; SwitchPanel(_homePanel, _startPanel, RefreshCustomHangar); });
+        MakeButton(_homePanel.transform, "SETTINGS", new Vector2(0.5f, 0.07f), new Vector2(360, 56),
             new Color(0.6f, 0.9f, 1f), () => SwitchPanel(_homePanel, _settingsPanel));
+
+        // daily on-chain check-in reward (Ronin tx through the classic meta layer)
+        _dailyBtn = MakeButton(_homePanel.transform, "DAILY CHECK-IN", new Vector2(0.11f, 0.93f), new Vector2(240, 46),
+            new Color(1f, 0.85f, 0.4f), () => StartCoroutine(DailyClaimCo()));
+        _dailyStatus = NewText(_homePanel.transform, "dailystatus", "", 15, TextAnchor.MiddleCenter,
+            new Vector2(0.11f, 0.885f), new Vector2(0.11f, 0.885f), Vector2.zero, new Vector2(360, 24));
+        _dailyStatus.color = new Color(0.8f, 0.9f, 1f, 0.8f);
+        RefreshDailyButton();
 
         // Discord + Ronin wallet identity corner (top-right)
         BuildIdentityCorner();
@@ -645,6 +655,8 @@ public class HudController : MonoBehaviour
             colors.pressedColor = new Color(2f, 2f, 2.4f);
             btn.colors = colors;
             btn.onClick.AddListener(() => {
+                GameManager.I.PlaySfx(SfxSynth.Click, 0.55f);
+                ShipShowcase.Clear();
                 _startPanel.SetActive(false);
                 _gameHud.SetActive(true);
                 GameManager.I.StartRun(idx);
@@ -669,13 +681,8 @@ public class HudController : MonoBehaviour
                 new Vector2(0.485f, 0.8f), new Vector2(0.485f, 0.8f), Vector2.zero, new Vector2(40, 40));
             plus.color = new Color(pilot.accent.r, pilot.accent.g, pilot.accent.b, 0.9f);
             plus.fontStyle = FontStyle.Bold;
-            var shipTex = Resources.Load<Texture2D>("chars/shipimg-" + pilot.id);
-            if (shipTex != null)
-            {
-                var shipImg = NewImage(card.transform, "shipimg", new Vector2(0.73f, 0.8f), new Vector2(0.73f, 0.8f), Vector2.zero, new Vector2(160, 100));
-                shipImg.sprite = Sprite.Create(shipTex, new Rect(0, 0, shipTex.width, shipTex.height), new Vector2(0.5f, 0.5f));
-                shipImg.preserveAspect = true;
-            }
+            // the ship slot beside the portrait is filled by a rotating 3D hull
+            // (ShipShowcase) whenever this panel is open
             var title = NewText(card.transform, "ptitle", pilot.title.ToUpperInvariant(), 15, TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 0.575f), new Vector2(0.5f, 0.575f), Vector2.zero, new Vector2(290, 26));
             title.color = new Color(1f, 0.85f, 0.4f, 0.9f);
@@ -697,7 +704,7 @@ public class HudController : MonoBehaviour
         }
 
         MakeButton(_startPanel.transform, "BACK", new Vector2(0.5f, 0.12f), new Vector2(300, 54),
-            new Color(0.8f, 0.9f, 1f), () => SwitchPanel(_startPanel, _homePanel));
+            new Color(0.8f, 0.9f, 1f), () => { ShipShowcase.Clear(); SwitchPanel(_startPanel, _homePanel); });
         _startPanel.SetActive(false);
     }
 
@@ -1310,6 +1317,7 @@ public class HudController : MonoBehaviour
         colors.pressedColor = new Color(2f, 2f, 2.4f);
         btn.colors = colors;
         btn.onClick.AddListener(() => StartCoroutine(PunchScale(go.transform)));   // click feedback
+        btn.onClick.AddListener(() => { if (GameManager.I != null) GameManager.I.PlaySfx(SfxSynth.Click, 0.55f); });
         btn.onClick.AddListener(onClick);
         var btnGlow = NewImage(go.transform, "border", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         btnGlow.sprite = _roundedOutline;
@@ -1991,6 +1999,22 @@ public class HudController : MonoBehaviour
         Invoke(nameof(EnableRestart), 1.5f);
     }
 
+    public void ShowDecimationOver(int kills, int deaths, bool newBest)
+    {
+        _gameHud.SetActive(false);
+        if (_sideLevelPanel != null) _sideLevelPanel.SetActive(false);
+        _overPanel.SetActive(true);
+        _overTitle.text = "DECIMATION OVER";
+        _overPulse.text = "CLICK TO RETURN";
+        _warnBorder.color = new Color(1, 1, 1, 0);
+        _overScore.text = kills.ToString("N0") + " KILLS";
+        _overBest.text = newBest ? "NEW BEST!" : "BEST  " + DecimationMode.BestKills.ToString("N0") + " KILLS";
+        float kd = deaths == 0 ? kills : (float)kills / deaths;
+        _overStats.text = "Deaths " + deaths + "   /   K/D " + kd.ToString("0.00");
+        MatchResultsBlock(_overPanel);
+        Invoke(nameof(EnableRestart), 1.2f);
+    }
+
     // post-match results: what this run actually racked up
     void MatchResultsBlock(GameObject panel)
     {
@@ -2005,13 +2029,19 @@ public class HudController : MonoBehaviour
         rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.225f);
         rt.sizeDelta = new Vector2(560, 165);
 
-        (string label, int value)[] rows = {
+        var rowList = new List<(string label, int value)> {
             ("ENEMIES DESTROYED", Mathf.Max(0, RunStats.kills - RunStats.asteroids)),
             ("ELITES DESTROYED", RunStats.elites),
             ("BOSSES DESTROYED", RunStats.bosses),
             ("ASTEROIDS SHATTERED", RunStats.asteroids),
             ("XP EARNED", RunStats.xp),
         };
+        if (DecimationMode.Active)
+        {
+            rowList.Add(("DEATHS", DecimationMode.Deaths));
+            rowList.Add(("K/D  (x100)", Mathf.RoundToInt(DecimationMode.KD * 100f)));
+        }
+        var rows = rowList.ToArray();
         for (int i = 0; i < rows.Length; i++)
         {
             float y = 1f - (i + 0.5f) / rows.Length;
@@ -2227,6 +2257,49 @@ public class HudController : MonoBehaviour
     // ---------- custom hangar: premium pass T10 mixes any pilot with any ship ----------
     GameObject _hangar;
     int _customChar, _customShip;
+    Button _dailyBtn;
+    Text _dailyStatus;
+
+    void RefreshDailyButton()
+    {
+        if (_dailyBtn == null) return;
+        var lbl = _dailyBtn.GetComponentInChildren<Text>();
+        var st = DailyBridge.Poll();
+        if (st != null && st.claimed)
+        {
+            if (lbl != null) lbl.text = "CHECKED IN  " + (st.streak > 0 ? "x" + st.streak : "");
+            if (_dailyStatus != null) _dailyStatus.text = "daily reward claimed, come back tomorrow";
+        }
+        else
+        {
+            if (lbl != null) lbl.text = "DAILY CHECK-IN";
+            if (_dailyStatus != null) _dailyStatus.text = WalletAuth.Connected ? "on-chain check-in: gold + pass XP, streak grows daily" : "connect Ronin to claim daily rewards";
+        }
+    }
+
+    System.Collections.IEnumerator DailyClaimCo()
+    {
+        if (!MetaBridge.Ready) { if (_dailyStatus != null) _dailyStatus.text = "meta layer offline, try again shortly"; yield break; }
+        if (!WalletAuth.Connected) { if (_dailyStatus != null) _dailyStatus.text = "connect your Ronin wallet first (top-right)"; yield break; }
+        DailyBridge.Start();
+        for (int i = 0; i < 400; i++)
+        {
+            yield return new WaitForSecondsRealtime(0.5f);
+            var st = DailyBridge.Poll();
+            if (st == null) continue;
+            if (st.busy)
+            {
+                if (_dailyStatus != null && !string.IsNullOrEmpty(st.status)) _dailyStatus.text = st.status;
+                continue;
+            }
+            if (st.ok && _dailyStatus != null)
+                _dailyStatus.text = "+" + st.gold + " gold, +" + st.xp + " pass XP  (streak " + st.streak + ")";
+            else if (_dailyStatus != null && !string.IsNullOrEmpty(st.reason))
+                _dailyStatus.text = st.reason;
+            break;
+        }
+        RefreshDailyButton();
+    }
 
     void RefreshCustomHangar()
     {
@@ -2238,6 +2311,7 @@ public class HudController : MonoBehaviour
         hrt.anchorMin = Vector2.zero; hrt.anchorMax = Vector2.one;
         hrt.offsetMin = Vector2.zero; hrt.offsetMax = Vector2.zero;
 
+        ShipShowcase.ShowSelect(_canvas.GetComponent<RectTransform>());
         var s = MetaBridge.Ready ? MetaBridge.GetSummary() : null;
         bool unlocked = s != null && s.premium && s.passTier >= 10;
         if (!unlocked)
@@ -2296,7 +2370,9 @@ public class HudController : MonoBehaviour
             }
         }
         MakeButton(_hangar.transform, "LAUNCH", new Vector2(0.85f, 0.15f), new Vector2(170, 54),
-            new Color(1f, 0.85f, 0.4f), () => GameManager.I.StartRun(_customChar, _customShip));
+            new Color(1f, 0.85f, 0.4f), () => { ShipShowcase.Clear(); GameManager.I.StartRun(_customChar, _customShip); });
+        // preview the chosen pairing's hull turning under the cards
+        ShipShowcase.ShowPair(_canvas.GetComponent<RectTransform>(), ZealData.Pilots[_customShip].id);
     }
 
     // ---------- touch layout editor ----------
@@ -2349,6 +2425,7 @@ public class HudController : MonoBehaviour
         }
         _fadeOverlay.transform.SetAsLastSibling();
         _fadeOverlay.raycastTarget = true;   // swallow clicks mid-transition
+        if (GameManager.I != null) GameManager.I.PlaySfx(SfxSynth.Swish, 0.5f);
         for (float t = 0f; t < 1f; t += Time.unscaledDeltaTime / 0.13f)
         {
             _fadeOverlay.color = new Color(0.03f, 0.02f, 0.09f, Mathf.Clamp01(t));

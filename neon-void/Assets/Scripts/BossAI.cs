@@ -16,6 +16,8 @@ public class BossAI : MonoBehaviour
     float _ringTimer = 8f;
     float _missileTimer = 6f;
     int _orbitSign = 1;
+    float _dashTimer = 5f;
+    Vector3 _dashVel;
 
     const float BoltSpeed = 80f;
     const float BoltDamage = 22f;
@@ -85,7 +87,20 @@ public class BossAI : MonoBehaviour
 
         Quaternion want = Quaternion.LookRotation(desired);
         _rb.MoveRotation(Quaternion.RotateTowards(_rb.rotation, want, 14f * Time.fixedDeltaTime));
-        _rb.linearVelocity = transform.forward * speed * ActiveSkills.EnemySlow;
+        // evasive dashes: sideways or straight back, never a charge at the player
+        _dashTimer -= Time.fixedDeltaTime;
+        if (_dashTimer <= 0f && dist < 340f)
+        {
+            _dashTimer = Random.Range(4f, 7f);
+            Vector3 side = Vector3.Cross(toPlayer.normalized, Vector3.up).normalized;
+            float r = Random.value;
+            Vector3 ddir = r < 0.4f ? side : r < 0.8f ? -side : -toPlayer.normalized;
+            _dashVel = ddir * 95f;
+            ExplosionFactory.Sparks(transform.position, BoltColor);
+            GameManager.I.PlaySfxAt(SfxSynth.Dash, transform.position, 0.9f);
+        }
+        _dashVel = Vector3.MoveTowards(_dashVel, Vector3.zero, 140f * Time.fixedDeltaTime);
+        _rb.linearVelocity = (transform.forward * speed + _dashVel) * ActiveSkills.EnemySlow;
 
         // turret bursts with lead
         _turretTimer -= Time.fixedDeltaTime;

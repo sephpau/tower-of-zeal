@@ -440,6 +440,31 @@
         .catch(function () { window.__nvBoard = '{"ok":false,"reason":"offline"}'; });
     };
     window.NVBoardTake = function () { return window.__nvBoard; };
+    // ---------- daily on-chain check-in reward ----------
+    window.__nvDaily = '{"busy":false}';
+    window.NVDailyStart = function () {
+      window.__nvDaily = '{"busy":true,"status":"Starting check-in..."}';
+      if (!window.NVMetaReady() || !SURV.Net) { window.__nvDaily = '{"busy":false,"ok":false,"reason":"offline"}'; return; }
+      if (SURV.Meta.dailyClaimedToday()) {
+        window.__nvDaily = JSON.stringify({ busy: false, ok: false, claimed: true, reason: "Already claimed today",
+          streak: (SURV.Meta.profile.daily || {}).streak || 0 });
+        return;
+      }
+      SURV.Net.dailyCheckIn(function (st) { window.__nvDaily = JSON.stringify({ busy: true, status: st }); })
+        .then(function (r) {
+          if (!r.ok) { window.__nvDaily = JSON.stringify({ busy: false, ok: false, reason: r.reason || "Check-in failed" }); return; }
+          var c = SURV.Meta.claimDaily(r.streak);
+          window.__nvDaily = JSON.stringify({ busy: false, ok: !!c.ok, claimed: true,
+            gold: c.gold || 0, xp: c.xp || 0, streak: c.streak || r.streak || 1 });
+        })
+        .catch(function () { window.__nvDaily = '{"busy":false,"ok":false,"reason":"Check-in failed"}'; });
+    };
+    window.NVDailyStatus = function () {
+      if (window.__nvDaily === '{"busy":false}' && window.NVMetaReady() && SURV.Meta.dailyClaimedToday())
+        return JSON.stringify({ busy: false, claimed: true, streak: (SURV.Meta.profile.daily || {}).streak || 0 });
+      return window.__nvDaily;
+    };
+
     window.NVPassBuy = function () {
       window.__nvPass = '{"busy":true,"status":"Starting purchase…"}';
       if (!window.NVMetaReady() || !SURV.Net) { window.__nvPass = '{"busy":false,"ok":false,"reason":"offline"}'; return; }

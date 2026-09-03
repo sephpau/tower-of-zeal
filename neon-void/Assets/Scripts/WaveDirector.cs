@@ -32,6 +32,7 @@ public class WaveDirector : MonoBehaviour
         if (CoopSync.IsGuest) return;      // co-op guest mirrors the host's waves
         if (CoopSync.DuelActive) return;   // duels are pilot vs pilot — no waves
         if (RoyaleSync.Active) return;     // battle royale: the zone is the only director
+        if (DecimationMode.Active) return; // the Decimation drives its own horde
         if (hostilesAlive > 0 || _spawning) return;
 
         _intermission -= Time.deltaTime;

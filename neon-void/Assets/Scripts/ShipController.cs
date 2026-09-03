@@ -182,7 +182,7 @@ public class ShipController : MonoBehaviour
         h.TakeDamage(Mathf.Min(45f, impact * 1.1f));
         ExplosionFactory.Sparks(c.GetContact(0).point, new Color(1f, 0.7f, 0.3f));
         ChaseCamera.Shake(0.6f);
-        GameManager.I.PlaySfx(SfxSynth.Hit);
+        GameManager.I.PlayerHitSfx();
         _vel *= 0.3f;
     }
 }

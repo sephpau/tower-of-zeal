@@ -10,6 +10,7 @@ public static class SfxSynth
     public static AudioClip HitPulse, HitSpecial;   // hit-confirm cues
     public static AudioClip Dash;                   // dash whoosh
     public static AudioClip Crash;                  // death crunch: blast + debris tail
+    public static AudioClip Click, Swish;           // UI: button click + panel swish
 
     static bool _built;
 
@@ -30,13 +31,36 @@ public static class SfxSynth
             return Saw(f, t) * 0.7f * Decay(t, d, 3f);
         });
         // dash: rising airy whoosh
-        Dash = Render("dash", 0.32f, (t, d) =>
+        // dash = an air-whoosh past the ear: fast attack, a bright→dull noise
+        // sweep, a downward "doppler" tone, and a low launch thump at the start
+        Dash = Render("dash", 0.36f, (t, d) =>
+        {
+            float k = t / d;
+            // punchy attack (first 6%) then a fast exponential tail
+            float env = Mathf.Min(1f, k / 0.06f) * Mathf.Exp(-4.5f * k);
+            // broadband noise whose bright partials decay faster than the low
+            // ones — approximates a lowpass sweeping shut as the gust passes
+            float bright = (Mathf.Sin(t * 8300f) + Mathf.Sin(t * 13100f) + Mathf.Sin(t * 17700f)) / 3f;
+            float dull = (Mathf.Sin(t * 2100f) + Mathf.Sin(t * 3400f)) / 2f;
+            float air = bright * Mathf.Exp(-7f * k) * 0.6f + dull * (1f - 0.5f * k) * 0.4f;
+            // downward doppler tone for the "vwoosh"
+            float woosh = Tri(Mathf.Lerp(760f, 120f, k), t) * 0.35f;
+            // short low thump for the launch kick
+            float thump = Mathf.Sin(t * 70f * Mathf.PI * 2f) * Mathf.Exp(-22f * k) * 0.5f;
+            return (air + woosh) * env * 0.8f + thump;
+        });
+        // UI feedback: crisp click on any button, soft swish on panel changes
+        Click = Render("click", 0.06f, (t, d) =>
+        {
+            float f = Mathf.Lerp(1600f, 900f, t / d);
+            return Square(f, t) * 0.5f * Decay(t, d, 5f);
+        });
+        Swish = Render("swish", 0.22f, (t, d) =>
         {
             float k = t / d;
             float env = Mathf.Sin(k * Mathf.PI);
-            float noise = (Mathf.Sin(t * 6100f) + Mathf.Sin(t * 9700f) + Mathf.Sin(t * 15400f)) / 3f;
-            float sweep = Tri(Mathf.Lerp(160f, 900f, k), t) * 0.4f;
-            return (noise * 0.45f + sweep) * env * 0.6f;
+            float noise = (Mathf.Sin(t * 5200f) + Mathf.Sin(t * 8900f)) / 2f;
+            return noise * env * 0.35f * (1f - 0.5f * k);
         });
         // bright tick when a pulse shot connects
         HitPulse = Render("hitpulse", 0.07f, (t, d) =>

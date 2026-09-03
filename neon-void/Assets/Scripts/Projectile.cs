@@ -93,7 +93,7 @@ public class Projectile : MonoBehaviour
                         ExplosionFactory.Sparks(hit.point, _fromPlayer ? new Color(0.4f, 0.9f, 1f) : new Color(1f, 0.4f, 0.8f));
                         if (h.isPlayer)
                         {
-                            GameManager.I.PlaySfx(SfxSynth.Hit, 0.7f);
+                            GameManager.I.PlayerHitSfx();
                             ChaseCamera.Shake(0.35f);
                             GameManager.I.FlashDamage();
                         }

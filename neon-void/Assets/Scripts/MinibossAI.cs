@@ -17,6 +17,15 @@ public class MinibossAI : MonoBehaviour
     float _actTimer = 3f, _fireTimer = 1.5f, _missileTimer = 6f;
     Renderer[] _renderers;
     float _cloak;   // smuggler: 0 visible .. 1 cloaked
+    float _dashTimer = 4f;
+    Vector3 _dashVel;
+
+    // smuggler blink telegraph: it locks a destination and phases for 3s
+    // before jumping, so the blink is readable instead of instant
+    const float BlinkWindup = 3f;
+    float _blinkCharge = -1f;      // -1 = idle, else seconds left in the windup
+    Vector3 _blinkDest;
+    GameObject _blinkMarker;
 
     const float BoltSpeed = 75f;
 
@@ -37,6 +46,7 @@ public class MinibossAI : MonoBehaviour
 
     void OnDeath(Health h)
     {
+        if (_blinkMarker != null) Destroy(_blinkMarker);
         ExplosionFactory.Explode(transform.position, def.tint, 2.2f, true);
         GameManager.I.PlaySfxAt(SfxSynth.BigBoom, transform.position, 1f);
         GameManager.I.PlaySfxAt(SfxSynth.Crash, transform.position, 1f);
@@ -76,6 +86,20 @@ public class MinibossAI : MonoBehaviour
         Vector3 toPlayer = _target.position - transform.position;
         float dist = toPlayer.magnitude;
 
+        // evasive dashes shared by all three bosses: sideways or backward only
+        _dashTimer -= Time.fixedDeltaTime;
+        if (_dashTimer <= 0f && dist < 260f && _blinkCharge < 0f)
+        {
+            _dashTimer = Random.Range(3.5f, 6f);
+            Vector3 side = Vector3.Cross(toPlayer.normalized, Vector3.up).normalized;
+            float r = Random.value;
+            Vector3 ddir = r < 0.4f ? side : r < 0.8f ? -side : -toPlayer.normalized;
+            _dashVel = ddir * 80f;
+            ExplosionFactory.Sparks(transform.position, def.tint);
+            GameManager.I.PlaySfxAt(SfxSynth.Dash, transform.position, 0.8f);
+        }
+        _dashVel = Vector3.MoveTowards(_dashVel, Vector3.zero, 120f * Time.fixedDeltaTime);
+
         switch (def.behavior)
         {
             case "blink": TickSmuggler(toPlayer, dist); break;
@@ -105,23 +129,61 @@ public class MinibossAI : MonoBehaviour
         // drift toward the player between blinks
         Quaternion want = Quaternion.LookRotation(toPlayer.normalized);
         _rb.MoveRotation(Quaternion.RotateTowards(_rb.rotation, want, 120f * Time.fixedDeltaTime));
-        _rb.linearVelocity = transform.forward * 26f * ActiveSkills.EnemySlow;
+        _rb.linearVelocity = transform.forward * 26f * ActiveSkills.EnemySlow + _dashVel * ActiveSkills.EnemySlow;
 
-        _actTimer -= Time.fixedDeltaTime;
-        if (_actTimer <= 0f)
+        if (_blinkCharge < 0f)
         {
-            _actTimer = 3.2f;
-            // cloak-blink: vanish, reappear at a new angle near the hunted pilot
-            ExplosionFactory.Sparks(transform.position, def.tint);
-            Vector3 dir = Random.onUnitSphere; dir.y *= 0.4f;
-            transform.position = _target.position + dir.normalized * Random.Range(45f, 70f);
-            ExplosionFactory.Sparks(transform.position, def.tint);
-            GameManager.I.PlaySfxAt(SfxSynth.Hit, transform.position, 0.5f);
-            // ambush burst right after the blink
-            for (int i = 0; i < 5; i++)
-                FireAimed(6f * i / 5f - 3f);
+            _actTimer -= Time.fixedDeltaTime;
+            if (_actTimer <= 0f)
+            {
+                _actTimer = 3.2f;
+                // lock a destination near the hunted pilot and begin phasing —
+                // the jump itself waits out the 3s windup below
+                Vector3 dir = Random.onUnitSphere; dir.y *= 0.4f;
+                _blinkDest = _target.position + dir.normalized * Random.Range(45f, 70f);
+                _blinkCharge = BlinkWindup;
+                SpawnBlinkMarker();
+                GameManager.I.PlaySfxAt(SfxSynth.WaveUp, transform.position, 0.55f);
+                Announcer.Say("The Smuggler is phasing — brace!", 0.55f, 0.95f);
+            }
+            SetCloak(Mathf.PingPong(Time.time * 0.7f, 1f) * 0.75f);
         }
-        SetCloak(Mathf.PingPong(Time.time * 0.7f, 1f) * 0.75f);
+        else
+        {
+            // winding up to blink: telegraph at the destination, deepen the
+            // cloak as it fades out, then jump when the timer expires
+            _blinkCharge -= Time.fixedDeltaTime;
+            if (_blinkMarker != null)
+            {
+                float pulse = 0.6f + 0.4f * Mathf.Sin(Time.time * 14f);
+                _blinkMarker.transform.localScale = Vector3.one * (3f + 4f * (1f - _blinkCharge / BlinkWindup)) * pulse;
+                if (Random.value < 0.4f) ExplosionFactory.Sparks(_blinkDest, def.tint);
+            }
+            SetCloak(Mathf.Lerp(0.2f, 0.95f, 1f - _blinkCharge / BlinkWindup));
+            if (_blinkCharge <= 0f)
+            {
+                _blinkCharge = -1f;
+                if (_blinkMarker != null) Destroy(_blinkMarker);
+                ExplosionFactory.Sparks(transform.position, def.tint);
+                transform.position = _blinkDest;
+                ExplosionFactory.Sparks(transform.position, def.tint);
+                GameManager.I.PlaySfxAt(SfxSynth.Hit, transform.position, 0.5f);
+                // ambush burst right after the blink lands
+                for (int i = 0; i < 5; i++)
+                    FireAimed(6f * i / 5f - 3f);
+            }
+        }
+    }
+
+    // glowing warning marker at the spot the Smuggler is about to jump to
+    void SpawnBlinkMarker()
+    {
+        if (_blinkMarker != null) Destroy(_blinkMarker);
+        _blinkMarker = new GameObject("blinkMarker");
+        _blinkMarker.transform.position = _blinkDest;
+        var glow = NVAssets.Quad(NVAssets.AdditiveTinted(def.tint), 3f);
+        glow.transform.SetParent(_blinkMarker.transform, false);
+        glow.AddComponent<Billboard>();
     }
 
     void SetCloak(float k)
@@ -145,7 +207,7 @@ public class MinibossAI : MonoBehaviour
         Vector3 desired = (tangent + toPlayer.normalized * Mathf.Clamp((dist - 70f) / 40f, -1f, 1f)).normalized;
         Quaternion want = Quaternion.LookRotation(desired);
         _rb.MoveRotation(Quaternion.RotateTowards(_rb.rotation, want, 60f * Time.fixedDeltaTime));
-        _rb.linearVelocity = transform.forward * 18f * ActiveSkills.EnemySlow;
+        _rb.linearVelocity = transform.forward * 18f * ActiveSkills.EnemySlow + _dashVel * ActiveSkills.EnemySlow;
         transform.Rotate(0f, 0f, 80f * Time.fixedDeltaTime, Space.Self);   // the wheel spins
 
         _fireTimer -= Time.fixedDeltaTime;
@@ -183,7 +245,7 @@ public class MinibossAI : MonoBehaviour
     {
         Quaternion want = Quaternion.LookRotation(toPlayer.normalized);
         _rb.MoveRotation(Quaternion.RotateTowards(_rb.rotation, want, 25f * Time.fixedDeltaTime));
-        _rb.linearVelocity = transform.forward * 10f * ActiveSkills.EnemySlow;
+        _rb.linearVelocity = transform.forward * 10f * ActiveSkills.EnemySlow + _dashVel * ActiveSkills.EnemySlow;
 
         // gravity well: drag the player toward the void
         if (dist < 130f && _playerRb != null)

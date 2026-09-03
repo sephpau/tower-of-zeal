@@ -81,5 +81,10 @@ mergeInto(LibraryManager.library, {
   NVMetaJsCrewBonuses: function () {
     var s = (window.NVMetaCrewBonuses && window.NVMetaCrewBonuses()) || "{}";
     var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
+  },
+  NVMetaJsDailyStart: function () { if (window.NVDailyStart) window.NVDailyStart(); },
+  NVMetaJsDailyStatus: function () {
+    var s = (window.NVDailyStatus && window.NVDailyStatus()) || "";
+    var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
   }
 });
