@@ -737,13 +737,13 @@ public class HudController : MonoBehaviour
 
         // touch controls: AUTO detects mobile browsers; layout is editable
         var touchLbl = NewText(_settingsPanel.transform, "touchlbl", "TOUCH CONTROLS", 28, TextAnchor.MiddleRight,
-            new Vector2(0.5f, 0.505f), new Vector2(0.5f, 0.505f), new Vector2(-110, 0), new Vector2(520, 44));
+            new Vector2(0.5f, 0.505f), new Vector2(0.5f, 0.505f), new Vector2(-200, 0), new Vector2(520, 44));
         touchLbl.color = new Color(0.9f, 0.95f, 1f);
         string[] touchModes = { "AUTO", "ON", "OFF" };
         Text touchModeLabel = null;
         var touchBtn = MakeButton(_settingsPanel.transform, touchModes[GameSettings.TouchMode],
             new Vector2(0.5f, 0.505f), new Vector2(140, 48), new Color(0.5f, 0.95f, 1f), () => { });
-        touchBtn.transform.localPosition += new Vector3(100, 0, 0);
+        touchBtn.transform.localPosition += new Vector3(135, 0, 0);
         touchModeLabel = touchBtn.GetComponentInChildren<Text>();
         touchBtn.onClick.AddListener(() => {
             GameSettings.TouchMode = (GameSettings.TouchMode + 1) % 3;
@@ -752,7 +752,7 @@ public class HudController : MonoBehaviour
         var editBtn = MakeButton(_settingsPanel.transform, "EDIT LAYOUT",
             new Vector2(0.5f, 0.505f), new Vector2(190, 48), new Color(1f, 0.85f, 0.4f),
             () => SwitchPanel(_settingsPanel, _touchEditPanel, RefreshTouchEditor));
-        editBtn.transform.localPosition += new Vector3(270, 0, 0);
+        editBtn.transform.localPosition += new Vector3(305, 0, 0);
         editBtn.GetComponentInChildren<Text>().fontSize = 18;
 
         // aim style on touch: right stick, or drag the right half of the screen
@@ -760,7 +760,7 @@ public class HudController : MonoBehaviour
         Text aimLabel = null;
         var aimBtn = MakeButton(_settingsPanel.transform, aimModes[GameSettings.TouchAimMode],
             new Vector2(0.5f, 0.505f), new Vector2(150, 44), new Color(0.5f, 0.95f, 1f), () => { });
-        aimBtn.transform.localPosition += new Vector3(440, 0, 0);   // stays left of the mouse test pad at 16:9
+        aimBtn.transform.localPosition += new Vector3(462, 0, 0);   // stays left of the mouse test pad at 16:9
         aimLabel = aimBtn.GetComponentInChildren<Text>();
         aimLabel.fontSize = 17;
         aimBtn.onClick.AddListener(() => {
@@ -772,7 +772,7 @@ public class HudController : MonoBehaviour
         // mouse sensitivity: try it live on the test pad to the right
         MakeVolumeRow("MOUSE SENSITIVITY", 0.46f, GameSettings.MouseSensitivity,
             v => GameSettings.MouseSensitivity = v, 0.2f, 3f);
-        var pad = NewImage(_settingsPanel.transform, "senspad", new Vector2(0.84f, 0.42f), new Vector2(0.84f, 0.42f), Vector2.zero, new Vector2(260, 260));
+        var pad = NewImage(_settingsPanel.transform, "senspad", new Vector2(0.855f, 0.42f), new Vector2(0.855f, 0.42f), Vector2.zero, new Vector2(260, 260));
         pad.sprite = _roundedFill;
         pad.type = Image.Type.Sliced;
         pad.color = new Color(0.05f, 0.04f, 0.14f, 0.85f);
@@ -781,11 +781,11 @@ public class HudController : MonoBehaviour
         padBorder.type = Image.Type.Sliced;
         padBorder.color = new Color(0.4f, 1f, 0.75f, 0.5f);
         var padTitle = NewText(_settingsPanel.transform, "padtitle", "MOUSE TEST PAD", 22, TextAnchor.MiddleCenter,
-            new Vector2(0.84f, 0.58f), new Vector2(0.84f, 0.58f), Vector2.zero, new Vector2(320, 32));
+            new Vector2(0.855f, 0.58f), new Vector2(0.855f, 0.58f), Vector2.zero, new Vector2(320, 32));
         padTitle.color = new Color(0.4f, 1f, 0.75f);
         padTitle.font = _titleFont;
         var padHint = NewText(_settingsPanel.transform, "padhint", "MOVE YOUR MOUSE — THE DOT\nMATCHES YOUR IN-GAME AIM SPEED", 15, TextAnchor.MiddleCenter,
-            new Vector2(0.84f, 0.25f), new Vector2(0.84f, 0.25f), Vector2.zero, new Vector2(320, 44));
+            new Vector2(0.855f, 0.25f), new Vector2(0.855f, 0.25f), Vector2.zero, new Vector2(320, 44));
         padHint.color = new Color(0.8f, 0.9f, 1f, 0.7f);
         _sensDot = NewImage(pad.transform, "dot", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(16, 16));
         _sensDot.sprite = CircleSprite();
