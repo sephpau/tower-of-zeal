@@ -2276,6 +2276,7 @@ public partial class HudController : MonoBehaviour
         var lbl = _dailyBtn.GetComponentInChildren<Text>();
         var st = DailyBridge.Poll();
         if (st != null && st.busy) return;   // a claim is in progress: leave its live status alone
+        if (Time.unscaledTime < _dailyHoldUntil) return;   // a fresh result stays readable before the hint returns
         if (st != null && st.claimed)
         {
             if (lbl != null) lbl.text = "CHECKED IN  " + (st.streak > 0 ? "x" + st.streak : "");
@@ -2288,11 +2289,29 @@ public partial class HudController : MonoBehaviour
         }
     }
 
+    float _dailyHoldUntil;
+    bool _dailyRunning;
+
+    void DailySay(string msg, float hold, bool headline)
+    {
+        if (_dailyStatus != null) _dailyStatus.text = msg;
+        _dailyHoldUntil = Time.unscaledTime + hold;
+        if (headline) AnnounceCaption("Daily check-in: " + msg);
+        Debug.Log("[daily] " + msg);
+    }
+
     System.Collections.IEnumerator DailyClaimCo()
     {
-        if (!MetaBridge.Ready) { if (_dailyStatus != null) _dailyStatus.text = "meta layer offline, try again shortly"; yield break; }
-        if (!WalletAuth.Connected || !DiscordAuth.LoggedIn) { if (_dailyStatus != null) _dailyStatus.text = "connect Discord AND Ronin first (top-right)"; yield break; }
+        if (_dailyRunning) yield break;
+        if (!MetaBridge.Ready) { DailySay("meta layer offline, try again shortly", 8f, true); yield break; }
+        if (!WalletAuth.Connected && !DiscordAuth.LoggedIn) { DailySay("connect Discord AND Ronin first (top-right)", 8f, true); yield break; }
+        if (!WalletAuth.Connected) { DailySay("Ronin not connected - connect it top-right", 8f, true); yield break; }
+        if (!DiscordAuth.LoggedIn) { DailySay("Discord not connected - connect it top-right", 8f, true); yield break; }
+        _dailyRunning = true;
+        DailySay("starting check-in...", 8f, true);
         DailyBridge.Start();
+        string lastStatus = "";
+        float busySince = Time.unscaledTime;
         for (int i = 0; i < 400; i++)
         {
             yield return new WaitForSecondsRealtime(0.5f);
@@ -2300,15 +2319,19 @@ public partial class HudController : MonoBehaviour
             if (st == null) continue;
             if (st.busy)
             {
-                if (_dailyStatus != null && !string.IsNullOrEmpty(st.status)) _dailyStatus.text = st.status;
+                string s = st.status ?? "";
+                if (s != lastStatus) { lastStatus = s; busySince = Time.unscaledTime; if (s.Length > 0) DailySay(s, 8f, false); }
+                else if (Time.unscaledTime - busySince > 25f && s.Length > 0 && !s.EndsWith("popup)"))
+                    DailySay(s + " (still waiting - open the Ronin extension popup)", 8f, false);
                 continue;
             }
-            if (st.ok && _dailyStatus != null)
-                _dailyStatus.text = "+" + st.gold + " gold, +" + st.xp + " pass XP  (streak " + st.streak + ")";
-            else if (_dailyStatus != null && !string.IsNullOrEmpty(st.reason))
-                _dailyStatus.text = st.reason;
+            if (st.ok)
+                DailySay("+" + st.gold + " gold, +" + st.xp + " pass XP  (streak " + st.streak + ")", 15f, true);
+            else
+                DailySay(string.IsNullOrEmpty(st.reason) ? "check-in failed" : st.reason, 15f, true);
             break;
         }
+        _dailyRunning = false;
         RefreshDailyButton();
     }
 
@@ -2775,9 +2798,9 @@ public partial class HudController : MonoBehaviour
         var iconTex = Resources.Load<Texture2D>("icons/" + up.name);
         bool hasIcon = iconTex != null;
         // text keeps its left edge; it just stops short of the icon column when there is one
-        Vector2 nameSize = compact ? new Vector2(hasIcon ? 200 : 270, 26) : new Vector2(hasIcon ? 250 : 330, 30);
-        Vector2 descSize = compact ? new Vector2(hasIcon ? 200 : 270, 22) : new Vector2(hasIcon ? 250 : 330, 26);
-        Vector2 textOff = hasIcon ? (compact ? new Vector2(-35, 0) : new Vector2(-40, 0)) : Vector2.zero;
+        Vector2 nameSize = compact ? new Vector2(hasIcon ? 185 : 270, 26) : new Vector2(hasIcon ? 230 : 330, 30);
+        Vector2 descSize = compact ? new Vector2(hasIcon ? 185 : 270, 22) : new Vector2(hasIcon ? 230 : 330, 26);
+        Vector2 textOff = hasIcon ? (compact ? new Vector2(-42, 0) : new Vector2(-50, 0)) : Vector2.zero;
         var name = NewText(card.transform, "name", up.name, compact ? 19 : 22, TextAnchor.MiddleLeft,
             new Vector2(0.5f, 0.83f), new Vector2(0.5f, 0.83f), textOff, nameSize);
         name.color = up.rank > 0 ? new Color(1f, 0.85f, 0.4f) : Color.white;
@@ -2787,21 +2810,44 @@ public partial class HudController : MonoBehaviour
             .color = new Color(0.75f, 0.72f, 0.95f, 0.9f);
         if (hasIcon)
         {
-            var icon = NewImage(card.transform, "icon", new Vector2(0.86f, 0.73f), new Vector2(0.86f, 0.73f), Vector2.zero,
-                compact ? new Vector2(50, 50) : new Vector2(62, 62));
+            var icon = NewImage(card.transform, "icon", new Vector2(0.85f, 0.72f), new Vector2(0.85f, 0.72f), Vector2.zero,
+                compact ? new Vector2(70, 70) : new Vector2(88, 88));
             icon.sprite = Sprite.Create(iconTex, new Rect(0, 0, iconTex.width, iconTex.height), new Vector2(0.5f, 0.5f));
             icon.preserveAspect = true;
             icon.raycastTarget = false;
             icon.color = up.rank > 0 ? Color.white : new Color(1f, 1f, 1f, 0.85f);
         }
-        for (int i = 0; i < up.maxRank; i++)
-        {
-            var pip = NewImage(card.transform, "pip" + i, new Vector2(0.105f + i * 0.09f, 0.455f),
-                new Vector2(0.105f + i * 0.09f, 0.455f), Vector2.zero, compact ? new Vector2(20, 9) : new Vector2(24, 11));
-            pip.sprite = _roundedFill; pip.type = Image.Type.Sliced;
-            pip.color = i < up.rank ? new Color(1f, 0.85f, 0.4f) : new Color(0.3f, 0.26f, 0.5f);
-        }
         bool maxed = up.rank >= up.maxRank;
+        // rank gauge: one tank that fills up rank by rank, and burns once maxed
+        float barW = compact ? 255f : 320f, barH = compact ? 15f : 18f;
+        var track = NewImage(card.transform, "gauge", new Vector2(0.5f, 0.455f), new Vector2(0.5f, 0.455f), Vector2.zero, new Vector2(barW, barH));
+        track.sprite = _roundedFill; track.type = Image.Type.Sliced;
+        track.color = new Color(0.16f, 0.13f, 0.3f, 0.95f);
+        Image fill = null;
+        if (up.rank > 0 && up.maxRank > 0)
+        {
+            float frac = Mathf.Clamp01((float)up.rank / up.maxRank);
+            fill = NewImage(track.transform, "fill", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(2f, 0f),
+                new Vector2(Mathf.Max(barH, (barW - 4f) * frac), barH - 4f));
+            fill.rectTransform.pivot = new Vector2(0f, 0.5f);
+            fill.sprite = _roundedFill; fill.type = Image.Type.Sliced;
+            fill.color = maxed ? new Color(1f, 0.55f, 0.15f) : new Color(1f, 0.85f, 0.4f);
+        }
+        for (int i = 1; i < up.maxRank; i++)   // level ticks so rank 2/5 still reads at a glance
+        {
+            float x = (float)i / up.maxRank;
+            var tick = NewImage(track.transform, "tick" + i, new Vector2(x, 0.5f), new Vector2(x, 0.5f), Vector2.zero, new Vector2(2f, barH - 5f));
+            tick.color = new Color(0.05f, 0.04f, 0.1f, 0.85f);
+        }
+        if (maxed && fill != null)
+        {
+            var glow = NewImage(card.transform, "burn", new Vector2(0.5f, 0.455f), new Vector2(0.5f, 0.455f), Vector2.zero, new Vector2(barW + 16f, barH + 16f));
+            glow.sprite = _roundedFill; glow.type = Image.Type.Sliced;
+            glow.color = new Color(1f, 0.45f, 0.1f, 0.25f);
+            glow.transform.SetSiblingIndex(track.transform.GetSiblingIndex());   // behind the tank
+            var fx = card.AddComponent<FuelBurnFx>();
+            fx.Init(fill, glow, _roundedFill, barW, barH);
+        }
         string idCopy = up.id;
         UnityEngine.Events.UnityAction action = onBuy ?? (() => {
             var r = MetaBridge.Buy(idCopy);

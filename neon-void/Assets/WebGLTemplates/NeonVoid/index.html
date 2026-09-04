@@ -452,7 +452,15 @@
     window.__nvDaily = '{"busy":false}';
     window.NVDailyStart = function () {
       window.__nvDaily = '{"busy":true,"status":"Starting check-in..."}';
+      try { window.NVDailyStartInner(); }
+      catch (e) { console.warn("[daily] failed", e); window.__nvDaily = JSON.stringify({ busy: false, ok: false, reason: "Check-in error: " + ((e && e.message) || e) }); }
+    };
+    window.NVDailyStartInner = function () {
+      console.log("[daily] start", { meta: window.NVMetaReady(), wallet: window.NVWalletAddress(), discord: !!window.SURV_DISCORD_TOKEN, provider: !!(window.ronin && window.ronin.provider) || !!window.ethereum });
       if (!window.NVMetaReady() || !SURV.Net) { window.__nvDaily = '{"busy":false,"ok":false,"reason":"offline"}'; return; }
+      if (!window.NVWalletAddress()) { window.__nvDaily = '{"busy":false,"ok":false,"reason":"Ronin not connected"}'; return; }
+      if (!window.SURV_DISCORD_TOKEN) { window.__nvDaily = '{"busy":false,"ok":false,"reason":"Discord login expired - reconnect Discord (top-right)"}'; return; }
+      if (!(window.ronin && window.ronin.provider) && !window.ethereum) { window.__nvDaily = '{"busy":false,"ok":false,"reason":"Ronin Wallet extension not detected in this browser"}'; return; }
       if (SURV.Meta.dailyClaimedToday()) {
         window.__nvDaily = JSON.stringify({ busy: false, ok: false, claimed: true, reason: "Already claimed today",
           streak: (SURV.Meta.profile.daily || {}).streak || 0 });
@@ -472,7 +480,7 @@
               reason: r.granted ? "" : "Already claimed today" });
           });
         })
-        .catch(function () { window.__nvDaily = '{"busy":false,"ok":false,"reason":"Check-in failed"}'; });
+        .catch(function (e) { console.warn("[daily] failed", e); window.__nvDaily = JSON.stringify({ busy: false, ok: false, reason: "Check-in failed: " + ((e && e.message) || e) }); });
     };
     window.NVDailyStatus = function () {
       if (window.__nvDaily === '{"busy":false}' && window.NVMetaReady() && SURV.Meta.dailyClaimedToday())
