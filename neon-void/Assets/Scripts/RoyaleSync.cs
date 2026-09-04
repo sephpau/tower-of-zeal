@@ -622,8 +622,8 @@ public class RoyaleSync : MonoBehaviour
                 break;
             case "DK":
                 if (!IsHostRole || p.Length < 2) break;
-                var kp = players.Find(x => x.peerId == from);
-                if (kp != null) int.TryParse(p[1], out kp.pve);
+                var dkp = players.Find(x => x.peerId == from);
+                if (dkp != null) int.TryParse(p[1], out dkp.pve);
                 break;
             case "DRANK":
                 if (IsHostRole || p.Length < 2) break;
@@ -635,12 +635,12 @@ public class RoyaleSync : MonoBehaviour
                 break;
             case "DCLAIM":
                 if (!IsHostRole) break;
-                var cp = players.Find(x => x.peerId == from);
-                if (cp != null) HostDecimated(cp.slot);
+                var dcp = players.Find(x => x.peerId == from);
+                if (dcp != null) HostDecimated(dcp.slot);
                 break;
             case "DECIM":
-                if (IsHostRole || p.Length < 2 || !int.TryParse(p[1], out int dslot)) break;
-                ApplyDecimLocal(dslot);
+                if (IsHostRole || p.Length < 2 || !int.TryParse(p[1], out int decSlot)) break;
+                ApplyDecimLocal(decSlot);
                 break;
             case "KICKED":
                 onStatus?.Invoke("KICKED BY THE HOST");
