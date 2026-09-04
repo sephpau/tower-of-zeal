@@ -504,8 +504,8 @@ public class GameManager : MonoBehaviour
             _skills != null && _skills.pilot != null ? _skills.pilot.id : "ego");
         var absorbed = MetaBridge.AbsorbRun(results);
         // leaderboard is for connected pilots only: guests keep local progress but never rank
-        if (WalletAuth.Connected) MetaBridge.RunSubmit(results);
-        else _hud.AnnounceCaption("Connect Ronin to rank on the leaderboard");
+        if (WalletAuth.Connected && DiscordAuth.LoggedIn) MetaBridge.RunSubmit(results);
+        else _hud.AnnounceCaption("Connect Discord + Ronin to rank on the leaderboard");
         if (absorbed != null && absorbed.ok)
         {
             if (absorbed.gold > 0) _hud.AnnounceCaption("+" + absorbed.gold + " gold earned");

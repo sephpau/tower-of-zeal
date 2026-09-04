@@ -117,7 +117,10 @@
 
   <!-- Classic Zeal Survivors meta layer (same-origin): config + net + meta.
        Missing on local test hosts — every NVMeta* call below guards on window.SURV. -->
-  <script>window.SURV_GAME = "survive2";   /* The Void keeps its own leaderboard */</script>
+  <script>
+    window.SURV_GAME = "survive2";   /* The Void keeps its own leaderboard */
+    try { window.SURV_DISCORD_TOKEN = localStorage.getItem("nv-discord-token") || ""; } catch (e) { window.SURV_DISCORD_TOKEN = ""; }
+  </script>
   <script src="/survive/js/config.js"></script>
   <script src="/survive/js/net.js"></script>
   <script src="/survive/js/meta.js"></script>
@@ -132,6 +135,8 @@
       // returning from Discord: token arrives in the URL fragment
       var m = /[#&]access_token=([^&]+)/.exec(location.hash || "");
       if (m) {
+        // keep the token: the server verifies it with Discord for leaderboard + daily rewards
+        try { localStorage.setItem("nv-discord-token", decodeURIComponent(m[1])); } catch (e) {}
         history.replaceState(null, "", location.pathname + location.search);
         fetch("https://discord.com/api/users/@me", {
           headers: { Authorization: "Bearer " + decodeURIComponent(m[1]) }
@@ -149,7 +154,7 @@
 
     window.NVDiscordAvailable = function () { return NV_DISCORD_CLIENT_ID ? 1 : 0; };
     window.NVDiscordUser = function () { return localStorage.getItem("nv-discord-user") || ""; };
-    window.NVDiscordLogout = function () { localStorage.removeItem("nv-discord-user"); };
+    window.NVDiscordLogout = function () { localStorage.removeItem("nv-discord-user"); localStorage.removeItem("nv-discord-token"); window.SURV_DISCORD_TOKEN = ""; };
     window.NVDiscordLogin = function () {
       if (!NV_DISCORD_CLIENT_ID) return;
       var redirect = location.origin + location.pathname;

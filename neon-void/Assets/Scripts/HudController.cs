@@ -2284,14 +2284,14 @@ public partial class HudController : MonoBehaviour
         else
         {
             if (lbl != null) lbl.text = "DAILY CHECK-IN";
-            if (_dailyStatus != null) _dailyStatus.text = WalletAuth.Connected ? "on-chain check-in: gold + pass XP, streak grows daily" : "connect Ronin to claim daily rewards";
+            if (_dailyStatus != null) _dailyStatus.text = (WalletAuth.Connected && DiscordAuth.LoggedIn) ? "on-chain check-in: gold + pass XP, streak grows daily" : "connect Discord + Ronin to claim daily rewards";
         }
     }
 
     System.Collections.IEnumerator DailyClaimCo()
     {
         if (!MetaBridge.Ready) { if (_dailyStatus != null) _dailyStatus.text = "meta layer offline, try again shortly"; yield break; }
-        if (!WalletAuth.Connected) { if (_dailyStatus != null) _dailyStatus.text = "connect your Ronin wallet first (top-right)"; yield break; }
+        if (!WalletAuth.Connected || !DiscordAuth.LoggedIn) { if (_dailyStatus != null) _dailyStatus.text = "connect Discord AND Ronin first (top-right)"; yield break; }
         DailyBridge.Start();
         for (int i = 0; i < 400; i++)
         {
@@ -2938,7 +2938,7 @@ public partial class HudController : MonoBehaviour
 
     void BuildBoardTab(string period)
     {
-        AdvHeader("Zeal Survivors v2 leaderboard - connected Ronin pilots only.");
+        AdvHeader("Zeal Survivors v2 leaderboard - pilots with Discord + Ronin connected only.");
         MakeButton(_advContent.transform, "WEEKLY", new Vector2(0.42f, 0.72f), new Vector2(190, 42),
             period == "weekly" ? new Color(1f, 0.85f, 0.4f) : new Color(0.7f, 0.8f, 0.9f),
             () => BuildBoardSwitch("weekly")).GetComponentInChildren<Text>().fontSize = 17;
