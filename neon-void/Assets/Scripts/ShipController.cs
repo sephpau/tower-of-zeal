@@ -36,6 +36,16 @@ public class ShipController : MonoBehaviour
             if (t.name == "guardBubble") { _guardBubble = t.gameObject; break; }
     }
 
+    // deactivated (destroyed / awaiting respawn): drop any dash momentum and bank so
+    // the revived ship does not carry the last burst or sit rolled over
+    void OnDisable()
+    {
+        _vel = Vector3.zero;
+        _roll = 0f;
+        dashCooldown = 0f;
+        if (_rb != null) { _rb.linearVelocity = Vector3.zero; _rb.angularVelocity = Vector3.zero; }
+    }
+
     // teleport + aim reset (duel start positions) — keeps the look angles in sync
     public void SetPose(Vector3 pos, float yawDeg)
     {

@@ -13,6 +13,22 @@ public class DashFlourish : MonoBehaviour
     public Transform visualRoot;
     Coroutine _active;
 
+    // a death mid-flourish deactivates the ship and kills the coroutine, which would
+    // otherwise leave the hull frozen at whatever spin/scale frame it was on (and the
+    // camera tilted) when the pilot respawns. Restore the neutral pose on the way out.
+    public void ResetVisual()
+    {
+        if (_active != null) { StopCoroutine(_active); _active = null; }
+        CameraSpin = Quaternion.identity;
+        if (visualRoot != null)
+        {
+            visualRoot.localRotation = Quaternion.identity;
+            visualRoot.localScale = Vector3.one;
+        }
+    }
+
+    void OnDisable() => ResetVisual();
+
     public void Play(char type)
     {
         if (visualRoot == null) return;
