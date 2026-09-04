@@ -1824,7 +1824,8 @@ public class HudController : MonoBehaviour
         // no ESC key on phones — small pause button in the top-right corner
         if (TouchInput.Enabled && _touchPauseBtn == null)
         {
-            var btn = MakeButton(_gameHud.transform, "I I", new Vector2(0.968f, 0.925f), new Vector2(56, 46),
+            // top-center, tucked under the level/timer readout so it never covers it
+            var btn = MakeButton(_gameHud.transform, "I I", new Vector2(0.5f, 0.905f), new Vector2(56, 46),
                 new Color(0.8f, 0.9f, 1f), () => SetPauseVisible(true));
             btn.GetComponentInChildren<Text>().fontSize = 15;
             _touchPauseBtn = btn.gameObject;
