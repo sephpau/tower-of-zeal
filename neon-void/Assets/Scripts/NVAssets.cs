@@ -185,7 +185,9 @@ public static class NVAssets
     public static GameObject Quad(Material mat, float size)
     {
         var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
-        Object.Destroy(q.GetComponent<Collider>());
+        // immediate: a deferred Destroy leaves a concave MeshCollider on the quad for one
+        // physics step, which PhysX rejects (and logs) once the quad is parented to a rigidbody
+        Object.DestroyImmediate(q.GetComponent<Collider>());
         q.GetComponent<MeshRenderer>().sharedMaterial = mat;
         q.transform.localScale = Vector3.one * size;
         return q;
