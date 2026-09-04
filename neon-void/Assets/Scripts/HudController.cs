@@ -2771,13 +2771,29 @@ public partial class HudController : MonoBehaviour
     {
         var card = AdvCard(anchor, compact ? new Vector2(305, 156) : new Vector2(370, 172),
             up.rank > 0 ? new Color(1f, 0.85f, 0.4f, 0.45f) : (Color?)null);
+        // hand-drawn icon when one exists under Resources/icons/<upgrade name>.png
+        var iconTex = Resources.Load<Texture2D>("icons/" + up.name);
+        bool hasIcon = iconTex != null;
+        // text keeps its left edge; it just stops short of the icon column when there is one
+        Vector2 nameSize = compact ? new Vector2(hasIcon ? 200 : 270, 26) : new Vector2(hasIcon ? 250 : 330, 30);
+        Vector2 descSize = compact ? new Vector2(hasIcon ? 200 : 270, 22) : new Vector2(hasIcon ? 250 : 330, 26);
+        Vector2 textOff = hasIcon ? (compact ? new Vector2(-35, 0) : new Vector2(-40, 0)) : Vector2.zero;
         var name = NewText(card.transform, "name", up.name, compact ? 19 : 22, TextAnchor.MiddleLeft,
-            new Vector2(0.5f, 0.83f), new Vector2(0.5f, 0.83f), Vector2.zero, compact ? new Vector2(270, 26) : new Vector2(330, 30));
+            new Vector2(0.5f, 0.83f), new Vector2(0.5f, 0.83f), textOff, nameSize);
         name.color = up.rank > 0 ? new Color(1f, 0.85f, 0.4f) : Color.white;
         name.fontStyle = FontStyle.Bold;
         NewText(card.transform, "desc", up.desc, compact ? 14 : 16, TextAnchor.MiddleLeft,
-            new Vector2(0.5f, 0.63f), new Vector2(0.5f, 0.63f), Vector2.zero, compact ? new Vector2(270, 22) : new Vector2(330, 26))
+            new Vector2(0.5f, 0.63f), new Vector2(0.5f, 0.63f), textOff, descSize)
             .color = new Color(0.75f, 0.72f, 0.95f, 0.9f);
+        if (hasIcon)
+        {
+            var icon = NewImage(card.transform, "icon", new Vector2(0.86f, 0.73f), new Vector2(0.86f, 0.73f), Vector2.zero,
+                compact ? new Vector2(50, 50) : new Vector2(62, 62));
+            icon.sprite = Sprite.Create(iconTex, new Rect(0, 0, iconTex.width, iconTex.height), new Vector2(0.5f, 0.5f));
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+            icon.color = up.rank > 0 ? Color.white : new Color(1f, 1f, 1f, 0.85f);
+        }
         for (int i = 0; i < up.maxRank; i++)
         {
             var pip = NewImage(card.transform, "pip" + i, new Vector2(0.105f + i * 0.09f, 0.455f),
