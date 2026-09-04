@@ -120,7 +120,7 @@ public static class PilotShipModel
     }
 
     // per-ship booster flame colors
-    static Color BoosterColor(string pilotId) => pilotId switch
+    public static Color BoosterColor(string pilotId) => pilotId switch
     {
         "captain" => new Color(0.75f, 0.48f, 0.22f),   // brown-amber
         "chef" => new Color(1f, 0.28f, 0.2f),          // red

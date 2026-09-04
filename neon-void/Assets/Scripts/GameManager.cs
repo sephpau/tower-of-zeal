@@ -102,6 +102,10 @@ public class GameManager : MonoBehaviour
         var tint = _playerHealth.GetComponent<ShipTint>();
         if (tint != null) tint.Apply(_skills.pilot.accent);
         PilotShipModel.Swap(_playerHealth.gameObject, shipPilot.id);   // hull follows the ship choice
+        // pulse-wave bolts take the hull's booster color, lifted toward white so they read in the dark
+        var pulseWeapon = _playerHealth.GetComponent<Weapon>();
+        if (pulseWeapon != null)
+            pulseWeapon.boltColor = Color.Lerp(PilotShipModel.BoosterColor(shipPilot.id), Color.white, 0.35f);
         var special = _playerHealth.GetComponent<SpecialAttack>();
         if (special != null) special.Init(_skills.pilot, shipPilot.id);   // special follows the ship
         _music.Play();
