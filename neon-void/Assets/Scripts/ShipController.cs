@@ -27,6 +27,7 @@ public class ShipController : MonoBehaviour
     void Awake()
     {
         _rb = GetComponent<Rigidbody>();
+        if (GetComponent<CollisionDamage>() == null) gameObject.AddComponent<CollisionDamage>();
         _weapon = GetComponent<Weapon>();
         _skills = GetComponent<SkillSystem>();
         Vector3 e = transform.rotation.eulerAngles;
@@ -173,16 +174,12 @@ public class ShipController : MonoBehaviour
         _rb.MoveRotation(Quaternion.Euler(_pitch, _yaw, _roll));
     }
 
+    // damage on impact lives in CollisionDamage (10% asteroid / 25% ram);
+    // this only kills the momentum so the ship does not grind along the hull
     void OnCollisionEnter(Collision c)
     {
         if (!GameManager.I.Running) return;
-        float impact = c.relativeVelocity.magnitude;
-        if (impact < 6f) return;
-        var h = GetComponent<Health>();
-        h.TakeDamage(Mathf.Min(45f, impact * 1.1f));
-        ExplosionFactory.Sparks(c.GetContact(0).point, new Color(1f, 0.7f, 0.3f));
-        ChaseCamera.Shake(0.6f);
-        GameManager.I.PlayerHitSfx();
+        if (c.relativeVelocity.magnitude < 6f) return;
         _vel *= 0.3f;
     }
 }

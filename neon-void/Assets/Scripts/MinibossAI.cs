@@ -39,6 +39,7 @@ public class MinibossAI : MonoBehaviour
     void Start()
     {
         _rb = GetComponent<Rigidbody>();
+        if (GetComponent<CollisionDamage>() == null) gameObject.AddComponent<CollisionDamage>();
         _renderers = GetComponentsInChildren<Renderer>();
         var ship = FindAnyObjectByType<ShipController>();
         if (ship != null) { _player = ship.transform; _playerRb = ship.GetComponent<Rigidbody>(); }

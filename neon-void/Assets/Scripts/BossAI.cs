@@ -26,6 +26,7 @@ public class BossAI : MonoBehaviour
     void Awake()
     {
         _rb = GetComponent<Rigidbody>();
+        if (GetComponent<CollisionDamage>() == null) gameObject.AddComponent<CollisionDamage>();
         var h = GetComponent<Health>();
         h.OnDeath += OnDeath;
     }

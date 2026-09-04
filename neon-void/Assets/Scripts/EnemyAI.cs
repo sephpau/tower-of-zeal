@@ -23,6 +23,7 @@ public class EnemyAI : MonoBehaviour
     void Awake()
     {
         _rb = GetComponent<Rigidbody>();
+        if (GetComponent<CollisionDamage>() == null) gameObject.AddComponent<CollisionDamage>();
         _weapon = GetComponent<Weapon>();
         _strafeDir = Random.value > 0.5f ? 1f : -1f;
         var h = GetComponent<Health>();
