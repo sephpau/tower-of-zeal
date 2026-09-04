@@ -30,25 +30,8 @@ public static class SfxSynth
             float f = Mathf.Lerp(190f, 55f, t / d);
             return Saw(f, t) * 0.7f * Decay(t, d, 3f);
         });
-        // dash: rising airy whoosh
-        // dash = an air-whoosh past the ear: fast attack, a bright→dull noise
-        // sweep, a downward "doppler" tone, and a low launch thump at the start
-        Dash = Render("dash", 0.36f, (t, d) =>
-        {
-            float k = t / d;
-            // punchy attack (first 6%) then a fast exponential tail
-            float env = Mathf.Min(1f, k / 0.06f) * Mathf.Exp(-4.5f * k);
-            // broadband noise whose bright partials decay faster than the low
-            // ones — approximates a lowpass sweeping shut as the gust passes
-            float bright = (Mathf.Sin(t * 8300f) + Mathf.Sin(t * 13100f) + Mathf.Sin(t * 17700f)) / 3f;
-            float dull = (Mathf.Sin(t * 2100f) + Mathf.Sin(t * 3400f)) / 2f;
-            float air = bright * Mathf.Exp(-7f * k) * 0.6f + dull * (1f - 0.5f * k) * 0.4f;
-            // downward doppler tone for the "vwoosh"
-            float woosh = Tri(Mathf.Lerp(760f, 120f, k), t) * 0.35f;
-            // short low thump for the launch kick
-            float thump = Mathf.Sin(t * 70f * Mathf.PI * 2f) * Mathf.Exp(-22f * k) * 0.5f;
-            return (air + woosh) * env * 0.8f + thump;
-        });
+        // dash: a real air swish - filtered noise only, no tones (tones read like a UI chime)
+        Dash = RenderSwish("dash", 0.3f);
         // UI feedback: crisp click on any button, soft swish on panel changes
         Click = Render("click", 0.06f, (t, d) =>
         {
@@ -106,6 +89,33 @@ public static class SfxSynth
     static float Saw(float f, float t) { float p = f * t; return 2f * (p - Mathf.Floor(p + 0.5f)); }
     static float Tri(float f, float t) { float p = f * t; return 4f * Mathf.Abs(p - Mathf.Floor(p + 0.5f)) - 1f; }
     static float Decay(float t, float d, float k) => Mathf.Exp(-k * t / d * 3f);
+
+    // Swish: white noise through a band-pass whose center sweeps down (6 kHz -> 700 Hz)
+    // with a snappy attack and a breathy tail. Pure noise, so it reads as air, not a note.
+    static AudioClip RenderSwish(string name, float dur)
+    {
+        int n = (int)(SR * dur);
+        var data = new float[n];
+        var rng = new System.Random(4242);
+        float lpHi = 0f, lpLo = 0f;
+        for (int i = 0; i < n; i++)
+        {
+            float t = i / (float)SR;
+            float k = t / dur;
+            float env = Mathf.Min(1f, k / 0.08f) * Mathf.Pow(1f - k, 1.6f);
+            float center = Mathf.Lerp(6000f, 700f, Mathf.Pow(k, 0.7f));
+            float aHi = Mathf.Clamp01(2f * Mathf.PI * center / SR);
+            float aLo = Mathf.Clamp01(2f * Mathf.PI * (center * 0.35f) / SR);
+            float noise = (float)(rng.NextDouble() * 2 - 1);
+            lpHi += aHi * (noise - lpHi);
+            lpLo += aLo * (noise - lpLo);
+            float band = lpHi - lpLo;   // band-pass: keeps the rush, drops the rumble and the hiss
+            data[i] = Mathf.Clamp(band * env * 2.6f, -1f, 1f);
+        }
+        var clip = AudioClip.Create(name, n, 1, SR, false);
+        clip.SetData(data, 0);
+        return clip;
+    }
 
     static AudioClip RenderNoiseBoom(string name, float dur, float startFreq, float gain)
     {
