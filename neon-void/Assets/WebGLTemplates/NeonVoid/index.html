@@ -120,6 +120,8 @@
   <script>
     window.SURV_GAME = "survive2";   /* The Void keeps its own leaderboard */
     try { window.SURV_DISCORD_TOKEN = localStorage.getItem("nv-discord-token") || ""; } catch (e) { window.SURV_DISCORD_TOKEN = ""; }
+    /* Discord logins from before token-keeping have no token the server can verify: drop them so the HUD asks for a fresh Discord login */
+    try { if (!window.SURV_DISCORD_TOKEN && localStorage.getItem("nv-discord-user")) localStorage.removeItem("nv-discord-user"); } catch (e) {}
   </script>
   <script src="/survive/js/config.js"></script>
   <script src="/survive/js/net.js"></script>
