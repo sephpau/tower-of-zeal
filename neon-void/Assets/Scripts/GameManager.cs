@@ -58,6 +58,7 @@ public class GameManager : MonoBehaviour
     bool _lowHpSaid;
     public float ElapsedSeconds => _elapsed;
     int _sigilIdx;
+    public int SigilLevelNow => 1 + _sigilIdx;   // what the run clock has earned so far
     bool _overtimeAnnounced;
     float _eliteTimer;
     const float EliteEvery = 90f;   // v1 elite cadence
@@ -266,7 +267,8 @@ public class GameManager : MonoBehaviour
         while (_sigilIdx < ZealData.SigilTimes.Length && _elapsed >= ZealData.SigilTimes[_sigilIdx])
         {
             _sigilIdx++;
-            if (weapon != null) weapon.sigilLevel = 1 + _sigilIdx;
+            // the Decimator holds max sigil; the clock catches up when the buff ends
+            if (weapon != null && !DecimationRunner.DecimatorActive) weapon.sigilLevel = 1 + _sigilIdx;
             _hud.WaveBanner("ZEAL SIGIL LV " + (1 + _sigilIdx));
             PlaySfx(SfxSynth.Pickup, 0.9f);
         }

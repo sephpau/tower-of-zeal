@@ -28,6 +28,8 @@ public static class DecimationMode
 
 public class DecimationRunner : MonoBehaviour
 {
+    public static bool DecimatorActive;   // sigil clock defers to the buff while true
+
     float _elapsed, _spawnTimer, _totemTimer, _eliteTimer, _decimatorLeft = -1f;
     bool _wasRunning;
     GameObject _totem, _totemRock, _aura;
@@ -39,6 +41,7 @@ public class DecimationRunner : MonoBehaviour
 
     void ResetState()
     {
+        DecimatorActive = false;
         _elapsed = 0f;
         _spawnTimer = 2.5f;
         _totemTimer = 18f;
@@ -260,6 +263,7 @@ public class DecimationRunner : MonoBehaviour
         l.range = 45f;
 
         _decimatorLeft = DecimationMode.DecimatorTime;
+        DecimatorActive = true;
         gm.Hud.WaveBanner("!! YOU ARE THE DECIMATOR !!");
         gm.PlaySfx(SfxSynth.BigBoom, 1f);
         gm.PlaySfx(SfxSynth.WaveUp, 1f);
@@ -287,7 +291,9 @@ public class DecimationRunner : MonoBehaviour
             sk.stats["cooldown"] = _savedCd;
             sk.stats["speed"] = _savedSpeed;
         }
-        if (w != null) w.sigilLevel = _savedSigil;
+        // restore to whatever the run clock has reached meanwhile, never below where we started
+        if (w != null) w.sigilLevel = Mathf.Max(_savedSigil, gm.SigilLevelNow);
+        DecimatorActive = false;
         Destroy(_aura);
         _aura = null;
         _decimatorLeft = -1f;
