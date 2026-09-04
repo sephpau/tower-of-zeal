@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 // The entire HUD is built in code with uGUI: reticle, shield/hull bars,
 // score, wave banner, hostile counter, damage vignette, start/game-over panels.
-public class HudController : MonoBehaviour
+public partial class HudController : MonoBehaviour
 {
     public bool WantsStart { get; private set; }
     public bool WantsRestart { get; private set; }
@@ -308,6 +308,7 @@ public class HudController : MonoBehaviour
         BuildCoopPanel();
         BuildLobbyPanel();
         BuildRoyalePanels();
+        BuildDecimationPanels();
         BuildSideLevelPanel();
         BuildSettingsPanel();
         _gameHud.SetActive(false);
@@ -606,7 +607,7 @@ public class HudController : MonoBehaviour
         MakeButton(_homePanel.transform, "BATTLE ROYALE", new Vector2(0.5f, 0.2f), new Vector2(360, 56),
             new Color(1f, 0.35f, 0.35f), () => SwitchPanel(_homePanel, _brPanel));
         MakeButton(_homePanel.transform, "THE DECIMATION", new Vector2(0.5f, 0.135f), new Vector2(360, 56),
-            new Color(1f, 0.2f, 0.15f), () => { DecimationMode.Pending = true; SwitchPanel(_homePanel, _startPanel, RefreshCustomHangar); });
+            new Color(1f, 0.2f, 0.15f), () => OpenDecimationLobby());
         MakeButton(_homePanel.transform, "SETTINGS", new Vector2(0.5f, 0.07f), new Vector2(360, 56),
             new Color(0.6f, 0.9f, 1f), () => SwitchPanel(_homePanel, _settingsPanel));
 

@@ -15,6 +15,7 @@ public class RoyaleSync : MonoBehaviour
     public static bool Active;       // a royale session exists
     public static bool Playing;      // a match is underway locally
     public static bool Spectating;   // local eyes only — no ship in the fight
+    public static bool Decimation;   // THE DECIMATION ruleset: unlimited lives, no zone, timed, ranked by kills
 
     public class PlayerInfo
     {
@@ -24,8 +25,10 @@ public class RoyaleSync : MonoBehaviour
         public int pilot;
         public int team;                 // 0 = solo/FFA, 1-4 = squads A-D
         public int lives = 3;
-        public int kills;
-        public int[] taken = new int[8];   // host bookkeeping: damage this player took, by shooter
+        public int kills;                // pilot-vs-pilot kills (host credited)
+        public int pve;                  // horde kills reported by that client (Decimation)
+        public int deaths;
+        public int[] taken = new int[32];   // host bookkeeping: damage this player took, by shooter
         public bool alive = true;
         public GameObject ghost;
         public Vector3 targetPos, vel;
@@ -52,7 +55,7 @@ public class RoyaleSync : MonoBehaviour
     public float ZoneRadius => _zoneRadius;
     public Vector3 ZoneCenter => _zoneCenter;
 
-    const int MaxPlayers = 8;
+    static int MaxPlayers => Decimation ? 32 : 8;   // star topology through the host
     const float PoseEvery = 1f / 12f;
 
     CoopNet _net;
@@ -77,7 +80,7 @@ public class RoyaleSync : MonoBehaviour
     int _spectateIdx;
 
     // per-player match stats: who's carrying, who's cargo
-    readonly int[] _dmgFrom = new int[8];   // damage I took, by shooter slot
+    readonly int[] _dmgFrom = new int[32];   // damage I took, by shooter slot
     int _lastHitBy = -1;
     float _lastHitTime;
     public readonly List<string> lastMatchStats = new List<string>();
@@ -97,7 +100,7 @@ public class RoyaleSync : MonoBehaviour
     string TakenBlob()
     {
         var sb = new System.Text.StringBuilder();
-        for (int i = 0; i < 8; i++) { if (i > 0) sb.Append(','); sb.Append(_dmgFrom[i]); }
+        for (int i = 0; i < 32; i++) { if (i > 0) sb.Append(','); sb.Append(_dmgFrom[i]); }
         return sb.ToString();
     }
 
@@ -106,9 +109,13 @@ public class RoyaleSync : MonoBehaviour
     static string CleanName(string s) =>
         (string.IsNullOrWhiteSpace(s) ? "PILOT" : s.Trim()).Replace("|", "").Replace(";", "").Replace(",", "");
 
-    public static RoyaleSync Begin(bool host, string room, string name, int pilot, bool spectator)
+    public static RoyaleSync Begin(bool host, string room, string name, int pilot, bool spectator) =>
+        Begin(host, room, name, pilot, spectator, false);
+
+    public static RoyaleSync Begin(bool host, string room, string name, int pilot, bool spectator, bool decimation)
     {
         CoopSync.Cancel();
+        Decimation = decimation;
         if (I != null) Destroy(I.gameObject);
         var go = new GameObject("RoyaleSession");
         DontDestroyOnLoad(go);
@@ -184,8 +191,8 @@ public class RoyaleSync : MonoBehaviour
         if (_byPeer.TryGetValue(id, out var p))
         {
             _byPeer.Remove(id);
-            if (_started && p.alive) EliminateSlot(p.slot, " (DISCONNECTED)");
-            else players.Remove(p);
+            if (_started && p.alive && !Decimation) EliminateSlot(p.slot, " (DISCONNECTED)");
+            else { if (p.ghost != null) Destroy(p.ghost); players.Remove(p); }
             BroadcastRoster();
             onRosterChanged?.Invoke();
         }
@@ -260,7 +267,7 @@ public class RoyaleSync : MonoBehaviour
     public void HostStartMatch()
     {
         if (!IsHostRole || _counting || _started) return;
-        if (players.Count < 2) { onStatus?.Invoke("NEED AT LEAST 2 PILOTS TO LAUNCH"); return; }
+        if (players.Count < 2 && !Decimation) { onStatus?.Invoke("NEED AT LEAST 2 PILOTS TO LAUNCH"); return; }
         _net.Broadcast("CNT");
         StartCoroutine(CountdownCo());
     }
@@ -302,19 +309,22 @@ public class RoyaleSync : MonoBehaviour
         Spectating = _isSpectator;
         aliveCount = players.Count;
         _myPlacement = 0;
-        _myLives = 3;
-        System.Array.Clear(_dmgFrom, 0, 8);
+        _myLives = Decimation ? 999 : 3;
+        System.Array.Clear(_dmgFrom, 0, 32);
         _lastHitBy = -1;
         lastMatchStats.Clear();
         foreach (var pl in players)
         {
-            pl.lives = 3;
+            pl.lives = Decimation ? 999 : 3;
             pl.kills = 0;
-            System.Array.Clear(pl.taken, 0, 8);
+            pl.pve = 0;
+            pl.deaths = 0;
+            System.Array.Clear(pl.taken, 0, 32);
         }
         StartCoroutine(StopSignalingLater());   // grace period for audio-edge handshakes
 
         onStarted?.Invoke();
+        DecimationMode.Pending = Decimation;   // StartRun arms the arena ruleset
         GameManager.I.StartRun(_myPilot);
 
         var ship = FindAnyObjectByType<ShipController>();
@@ -341,11 +351,15 @@ public class RoyaleSync : MonoBehaviour
         _zoneRadius = _zoneTarget = 420f;
         _zoneTimer = 35f;
         _zoneStage = 0;
-        BuildZoneSphere();
+        if (!Decimation) BuildZoneSphere();
+        _decLeft = DecimationMode.Duration;
+        _decTick = 0f;
 
         ApplyVoiceRouting();
         if (Spectating) SpectateNext(0);
-        GameManager.I.Banner("BATTLE ROYALE // " + _room + " // " + aliveCount + " SHIPS");
+        GameManager.I.Banner(Decimation
+            ? "THE DECIMATION // " + _room + " // " + aliveCount + " PILOTS"
+            : "BATTLE ROYALE // " + _room + " // " + aliveCount + " SHIPS");
     }
 
     IEnumerator StopSignalingLater()
@@ -470,7 +484,7 @@ public class RoyaleSync : MonoBehaviour
                 if (tkp != null)
                 {
                     var cells = p[1].Split(',');
-                    for (int i = 0; i < 8 && i < cells.Length; i++) int.TryParse(cells[i], out tkp.taken[i]);
+                    for (int i = 0; i < 32 && i < cells.Length; i++) int.TryParse(cells[i], out tkp.taken[i]);
                 }
                 break;
             case "DOWN":
@@ -479,6 +493,7 @@ public class RoyaleSync : MonoBehaviour
                 if (dwp != null && p.Length >= 2)
                 {
                     int.TryParse(p[1], out dwp.lives);
+                    dwp.deaths++;
                     if (p.Length >= 3 && int.TryParse(p[2], out int downBy) && downBy >= 0)
                     {
                         var killer = BySlot(downBy);
@@ -486,7 +501,7 @@ public class RoyaleSync : MonoBehaviour
                     }
                     if (dwp.ghost != null) HideGhostWithBoom(dwp);
                     _net.Broadcast("DOWNB|" + dwp.slot + "|" + dwp.lives);
-                    GameManager.I.Banner(dwp.name.ToUpperInvariant() + " IS DOWN — " + dwp.lives + " LIVES LEFT");
+                    GameManager.I.Banner(dwp.name.ToUpperInvariant() + (Decimation ? " IS DOWN" : " IS DOWN — " + dwp.lives + " LIVES LEFT"));
                 }
                 break;
             case "RESP":
@@ -505,7 +520,7 @@ public class RoyaleSync : MonoBehaviour
                 {
                     int.TryParse(p[2], out dbp.lives);
                     if (dbp.ghost != null) HideGhostWithBoom(dbp);
-                    GameManager.I.Banner(dbp.name.ToUpperInvariant() + " IS DOWN — " + dbp.lives + " LIVES LEFT");
+                    GameManager.I.Banner(dbp.name.ToUpperInvariant() + (Decimation ? " IS DOWN" : " IS DOWN — " + dbp.lives + " LIVES LEFT"));
                 }
                 break;
             case "RESPB":
@@ -598,6 +613,34 @@ public class RoyaleSync : MonoBehaviour
             case "WIN":
                 if (p.Length < 3 || !int.TryParse(p[1], out int wslot)) break;
                 EndMatch(wslot, p[2], p.Length >= 4 ? p[3] : "");
+                break;
+            // ----- THE DECIMATION -----
+            case "DTIME":
+                if (IsHostRole || p.Length < 2) break;
+                _decLeft = PF(p[1]);
+                if (GameManager.I != null && GameManager.I.Hud != null) GameManager.I.Hud.SetTimer(_decLeft);
+                break;
+            case "DK":
+                if (!IsHostRole || p.Length < 2) break;
+                var kp = players.Find(x => x.peerId == from);
+                if (kp != null) int.TryParse(p[1], out kp.pve);
+                break;
+            case "DRANK":
+                if (IsHostRole || p.Length < 2) break;
+                EndDecimationMatch(p[1]);
+                break;
+            case "TOTEM":
+                if (IsHostRole || p.Length < 4) break;
+                DecimationRunner.NetSpawnRock(new Vector3(PF(p[1]), PF(p[2]), PF(p[3])));
+                break;
+            case "DCLAIM":
+                if (!IsHostRole) break;
+                var cp = players.Find(x => x.peerId == from);
+                if (cp != null) HostDecimated(cp.slot);
+                break;
+            case "DECIM":
+                if (IsHostRole || p.Length < 2 || !int.TryParse(p[1], out int dslot)) break;
+                ApplyDecimLocal(dslot);
                 break;
             case "KICKED":
                 onStatus?.Invoke("KICKED BY THE HOST");
@@ -692,6 +735,11 @@ public class RoyaleSync : MonoBehaviour
     {
         if (_localDead) return;
         _myLives--;
+        if (Decimation)
+        {
+            DecimationRunner.NetOnLocalDeath();
+            if (IsHostRole && Me != null) Me.deaths++;
+        }
         var me = Me;
         if (me != null) me.lives = _myLives;
         int killer = RecentKiller();
@@ -727,10 +775,10 @@ public class RoyaleSync : MonoBehaviour
 
     IEnumerator RespawnCo()
     {
-        for (int s = 5; s > 0; s--)
+        for (int s = Decimation ? 2 : 5; s > 0; s--)
         {
             if (!Playing || GameManager.I == null || !GameManager.I.Running) yield break;
-            GameManager.I.Banner("RESPAWN IN " + s + " — " + _myLives + (_myLives == 1 ? " LIFE" : " LIVES") + " LEFT");
+            GameManager.I.Banner(Decimation ? "RESPAWN IN " + s : "RESPAWN IN " + s + " — " + _myLives + (_myLives == 1 ? " LIFE" : " LIVES") + " LEFT");
             yield return new WaitForSecondsRealtime(1f);
         }
         if (!Playing || GameManager.I == null || !GameManager.I.Running || _localHealth == null) yield break;
@@ -743,7 +791,7 @@ public class RoyaleSync : MonoBehaviour
         _localHealth.Revive(1f);
         if (IsHostRole) _net.Broadcast("RESPB|0");
         else _net.Send("host", "RESP");
-        GameManager.I.Banner("BACK IN THE FIGHT — " + _myLives + (_myLives == 1 ? " LIFE" : " LIVES") + " LEFT");
+        GameManager.I.Banner(Decimation ? "BACK IN THE FIGHT" : "BACK IN THE FIGHT — " + _myLives + (_myLives == 1 ? " LIFE" : " LIVES") + " LEFT");
     }
 
     void HideGhostWithBoom(PlayerInfo p)
@@ -892,7 +940,7 @@ public class RoyaleSync : MonoBehaviour
             if (_statTimer <= 0f && Playing)
             {
                 _statTimer = 1f;
-                if (IsHostRole) { var me = Me; if (me != null) System.Array.Copy(_dmgFrom, me.taken, 8); }
+                if (IsHostRole) { var me = Me; if (me != null) System.Array.Copy(_dmgFrom, me.taken, 32); }
                 else _net.Send("host", "TK|" + TakenBlob());
             }
         }
@@ -913,8 +961,12 @@ public class RoyaleSync : MonoBehaviour
         }
 
         // host runs the zone; everyone renders and suffers it
-        if (IsHostRole) ZoneHostTick();
-        ZoneLocalTick();
+        if (Decimation) DecimationTick();
+        else
+        {
+            if (IsHostRole) ZoneHostTick();
+            ZoneLocalTick();
+        }
 
         // spectator camera cycling
         if (Spectating)
@@ -922,6 +974,135 @@ public class RoyaleSync : MonoBehaviour
             if (Input.GetKeyDown(KeyCode.J)) SpectateNext(-1);
             if (Input.GetKeyDown(KeyCode.K)) SpectateNext(1);
         }
+    }
+
+    // ---------- THE DECIMATION: host clock, rankings, shared totem ----------
+    float _decLeft, _decTick;
+
+    void DecimationTick()
+    {
+        _decTick -= Time.unscaledDeltaTime;
+        if (IsHostRole)
+        {
+            _decLeft -= Time.deltaTime;
+            GameManager.I.Hud.SetTimer(_decLeft);
+            if (_decTick <= 0f)
+            {
+                _decTick = 1f;
+                var me = Me;
+                if (me != null) me.pve = RunStats.kills;
+                _net.Broadcast("DTIME|" + F(_decLeft));
+            }
+            if (_decLeft <= 0f) HostEndDecimation();
+        }
+        else if (_decTick <= 0f)
+        {
+            _decTick = 1f;
+            _net.Send("host", "DK|" + RunStats.kills);
+        }
+    }
+
+    void HostEndDecimation()
+    {
+        if (!_started) return;
+        var sb = new System.Text.StringBuilder();
+        foreach (var p in players)
+            sb.Append(p.slot).Append(',').Append(p.kills + p.pve).Append(',').Append(p.deaths).Append(';');
+        string blob = sb.ToString();
+        _net.Broadcast("DRANK|" + blob);
+        EndDecimationMatch(blob);
+    }
+
+    // everyone: rank by kills, then K/D; show the board and return to the lobby
+    void EndDecimationMatch(string blob)
+    {
+        if (!_started) return;
+        var rows = new List<(int slot, string name, int kills, int deaths)>();
+        foreach (var entry in blob.Split(';'))
+        {
+            if (entry.Length == 0) continue;
+            var c = entry.Split(',');
+            if (c.Length < 3 || !int.TryParse(c[0], out int slot)) continue;
+            int.TryParse(c[1], out int k);
+            int.TryParse(c[2], out int d);
+            var pl = BySlot(slot);
+            rows.Add((slot, pl != null ? pl.name.ToUpperInvariant() : "PILOT " + slot, k, d));
+        }
+        rows.Sort((a, b) =>
+        {
+            if (b.kills != a.kills) return b.kills.CompareTo(a.kills);
+            float ka = a.deaths == 0 ? a.kills : (float)a.kills / a.deaths;
+            float kb = b.deaths == 0 ? b.kills : (float)b.kills / b.deaths;
+            return kb.CompareTo(ka);
+        });
+        var lines = new List<string>();
+        int myRank = 0;
+        for (int i = 0; i < rows.Count; i++)
+        {
+            float kd = rows[i].deaths == 0 ? rows[i].kills : (float)rows[i].kills / rows[i].deaths;
+            lines.Add("#" + (i + 1) + "  " + rows[i].name + "   " + rows[i].kills + " KILLS   " + rows[i].deaths + " DEATHS   K/D " + kd.ToString("0.00"));
+            if (rows[i].slot == mySlot) myRank = i + 1;
+        }
+        DecimationRunner.NetForceEnd();
+        Playing = false;
+        _started = false;
+        _counting = false;
+        InLobby = true;
+        Spectating = false;
+        _localDead = false;
+        foreach (var p in players) { if (p.ghost != null) { Destroy(p.ghost); p.ghost = null; } p.hasPose = false; }
+        RestoreLobbyVoice();
+        GameManager.I.DecimationRankOver(lines, myRank);
+    }
+
+    public void NetAnnounceTotem(Vector3 at)
+    {
+        if (!IsHostRole || _net == null) return;
+        _net.Broadcast("TOTEM|" + F(at.x) + "|" + F(at.y) + "|" + F(at.z));
+    }
+
+    public void NetClaimTotem()
+    {
+        if (_net == null) return;
+        if (IsHostRole) HostDecimated(0);
+        else _net.Send("host", "DCLAIM");
+    }
+
+    void HostDecimated(int slot)
+    {
+        _net.Broadcast("DECIM|" + slot);
+        ApplyDecimLocal(slot);
+    }
+
+    void ApplyDecimLocal(int slot)
+    {
+        if (slot == mySlot) return;   // my own runner already applied the buff
+        DecimationRunner.NetSomeoneDecimated();
+        var p = BySlot(slot);
+        if (p != null)
+        {
+            GameManager.I.Banner(p.name.ToUpperInvariant() + " IS THE DECIMATOR!");
+            if (p.ghost != null) StartCoroutine(GhostDecimatorCo(p));
+        }
+    }
+
+    IEnumerator GhostDecimatorCo(PlayerInfo p)
+    {
+        var g = p.ghost;
+        if (g == null) yield break;
+        Vector3 baseScale = g.transform.localScale;
+        g.transform.localScale = baseScale * 2f;
+        var aura = new GameObject("decimatorAura");
+        aura.transform.SetParent(g.transform, false);
+        var red = new Color(1f, 0.15f, 0.1f);
+        var q = NVAssets.Quad(NVAssets.AdditiveTinted(red), 9f);
+        q.transform.SetParent(aura.transform, false);
+        q.AddComponent<Billboard>();
+        var l = aura.AddComponent<Light>();
+        l.type = LightType.Point; l.color = red; l.intensity = 7f; l.range = 45f;
+        float t = DecimationMode.DecimatorTime;
+        while (t > 0f && g != null) { t -= Time.deltaTime; yield return null; }
+        if (g != null) { g.transform.localScale = baseScale; if (aura != null) Destroy(aura); }
     }
 
     void SendPoseAndFire()

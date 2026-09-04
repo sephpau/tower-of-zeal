@@ -648,6 +648,20 @@ public class GameManager : MonoBehaviour
         DecimationMode.Active = false;
     }
 
+    // THE DECIMATION (room match): the host clock expired; show the ranked board
+    public void DecimationRankOver(System.Collections.Generic.List<string> rows, int myRank)
+    {
+        if (!Running) return;
+        Running = false;
+        _music.Stop();
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+        if (_playerHealth != null) _playerHealth.gameObject.SetActive(true);
+        DecimationMode.RecordBest();
+        _hud.ShowDecimationRank(rows, myRank, RunStats.kills, DecimationMode.Deaths);
+        DecimationMode.Active = false;
+    }
+
     public void PlaySfx(AudioClip clip, float vol = 1f)
     {
         if (clip != null && _sfx2d != null) _sfx2d.PlayOneShot(clip, vol * GameSettings.SfxVolume);

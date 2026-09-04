@@ -65,12 +65,17 @@ public class DecimationRunner : MonoBehaviour
         float dt = Time.deltaTime;
         _elapsed += dt;
         float left = DecimationMode.Duration - _elapsed;
-        gm.Hud.SetTimer(left);
-        if (left <= 0f)
+        // in a room the host clock (RoyaleSync) owns the timer and the ending
+        bool netMatch = RoyaleSync.Active && RoyaleSync.Decimation;
+        if (!netMatch)
         {
-            EndDecimator();
-            gm.DecimationOver();
-            return;
+            gm.Hud.SetTimer(left);
+            if (left <= 0f)
+            {
+                EndDecimator();
+                gm.DecimationOver();
+                return;
+            }
         }
 
         Vector3 center = player.transform.position;
@@ -97,7 +102,8 @@ public class DecimationRunner : MonoBehaviour
 
         // the Doom Totem
         _totemTimer -= dt;
-        if (_totem == null && _totemRock == null && _totemTimer <= 0f) SpawnTotem(center);
+        bool hostOrSolo = !RoyaleSync.Active || !RoyaleSync.Decimation || (RoyaleSync.I != null && RoyaleSync.I.IsHostRole);
+        if (hostOrSolo && _totem == null && _totemRock == null && _totemTimer <= 0f) SpawnTotem(center);
         if (_totem != null)
         {
             _totem.transform.Rotate(0f, 70f * dt, 0f, Space.World);
@@ -109,6 +115,7 @@ public class DecimationRunner : MonoBehaviour
                 Destroy(_totem);
                 _totem = null;
                 _totemTimer = 40f;
+                if (RoyaleSync.Active && RoyaleSync.Decimation && RoyaleSync.I != null) RoyaleSync.I.NetClaimTotem();
                 BecomeDecimator();
             }
         }
@@ -124,11 +131,47 @@ public class DecimationRunner : MonoBehaviour
     // the totem is buried in a rock: find the one seeping red and crack it open
     void SpawnTotem(Vector3 center)
     {
-        var gm = GameManager.I;
         Vector3 d = Random.onUnitSphere; d.y *= 0.4f;
+        Vector3 at = center + d.normalized * Random.Range(70f, 110f);
+        // hosting a room: every pilot gets the same rock at the same spot
+        if (RoyaleSync.Active && RoyaleSync.Decimation && RoyaleSync.I != null && RoyaleSync.I.IsHostRole)
+            RoyaleSync.I.NetAnnounceTotem(at);
+        SpawnRockAt(at);
+    }
+
+    static DecimationRunner Inst => GameManager.I != null ? GameManager.I.GetComponent<DecimationRunner>() : null;
+
+    // network hooks (RoyaleSync drives these in a room)
+    public static void NetSpawnRock(Vector3 at)
+    {
+        var r = Inst;
+        if (r != null && r._totem == null && r._totemRock == null) r.SpawnRockAt(at);
+    }
+    public static void NetSomeoneDecimated()
+    {
+        var r = Inst;
+        if (r == null) return;
+        if (r._totem != null) { Destroy(r._totem); r._totem = null; }
+        if (r._totemRock != null) { Destroy(r._totemRock); r._totemRock = null; }
+        r._totemTimer = 40f;
+    }
+    public static void NetOnLocalDeath()
+    {
+        var r = Inst;
+        if (r != null) { r.EndDecimator(); DecimationMode.Deaths++; }
+    }
+    public static void NetForceEnd()
+    {
+        var r = Inst;
+        if (r != null) r.EndDecimator();
+    }
+
+    void SpawnRockAt(Vector3 at)
+    {
+        var gm = GameManager.I;
         float size = 9f;
         _totemRock = new GameObject("totemRock");
-        _totemRock.transform.position = center + d.normalized * Random.Range(70f, 110f);
+        _totemRock.transform.position = at;
         _totemRock.transform.rotation = Random.rotation;
         _totemRock.transform.localScale = Vector3.one * size;
         _totemRock.AddComponent<MeshFilter>().sharedMesh = NVAssets.RockMesh(4242);
@@ -152,11 +195,11 @@ public class DecimationRunner : MonoBehaviour
         {
             var rock = _totemRock;
             _totemRock = null;
-            Vector3 at = rock != null ? rock.transform.position : center;
-            ExplosionFactory.Explode(at, new Color(1f, 0.65f, 0.3f), 3.5f, true);
-            gm.PlaySfxAt(SfxSynth.BigBoom, at, 0.9f);
+            Vector3 atPos = rock != null ? rock.transform.position : at;
+            ExplosionFactory.Explode(atPos, new Color(1f, 0.65f, 0.3f), 3.5f, true);
+            gm.PlaySfxAt(SfxSynth.BigBoom, atPos, 0.9f);
             if (rock != null) Destroy(rock);
-            RevealTotem(at);
+            RevealTotem(atPos);
         };
         gm.Hud.WaveBanner("!! A DOOM TOTEM HIDES IN A NEARBY ASTEROID !!");
         gm.PlaySfx(SfxSynth.WaveUp, 0.6f);
