@@ -46,7 +46,7 @@ public class Projectile : MonoBehaviour
         var p = go.AddComponent<Projectile>();
 
         var core = GameObject.CreatePrimitive(PrimitiveType.Quad);
-        Object.Destroy(core.GetComponent<Collider>());
+        Object.DestroyImmediate(core.GetComponent<Collider>());   // no stray concave collider on a rigidbody
         core.transform.SetParent(go.transform, false);
         core.transform.localScale = Vector3.one * 1.1f;
         p._core = core.GetComponent<MeshRenderer>();
