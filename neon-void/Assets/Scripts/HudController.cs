@@ -2798,9 +2798,9 @@ public partial class HudController : MonoBehaviour
         var iconTex = Resources.Load<Texture2D>("icons/" + up.name);
         bool hasIcon = iconTex != null;
         // text keeps its left edge; it just stops short of the icon column when there is one
-        Vector2 nameSize = compact ? new Vector2(hasIcon ? 185 : 270, 26) : new Vector2(hasIcon ? 230 : 330, 30);
-        Vector2 descSize = compact ? new Vector2(hasIcon ? 185 : 270, 22) : new Vector2(hasIcon ? 230 : 330, 26);
-        Vector2 textOff = hasIcon ? (compact ? new Vector2(-42, 0) : new Vector2(-50, 0)) : Vector2.zero;
+        Vector2 nameSize = compact ? new Vector2(hasIcon ? 165 : 270, 26) : new Vector2(hasIcon ? 215 : 330, 30);
+        Vector2 descSize = compact ? new Vector2(hasIcon ? 165 : 270, 22) : new Vector2(hasIcon ? 215 : 330, 26);
+        Vector2 textOff = hasIcon ? (compact ? new Vector2(-50, 0) : new Vector2(-58, 0)) : Vector2.zero;
         var name = NewText(card.transform, "name", up.name, compact ? 19 : 22, TextAnchor.MiddleLeft,
             new Vector2(0.5f, 0.83f), new Vector2(0.5f, 0.83f), textOff, nameSize);
         name.color = up.rank > 0 ? new Color(1f, 0.85f, 0.4f) : Color.white;
@@ -2810,8 +2810,8 @@ public partial class HudController : MonoBehaviour
             .color = new Color(0.75f, 0.72f, 0.95f, 0.9f);
         if (hasIcon)
         {
-            var icon = NewImage(card.transform, "icon", new Vector2(0.85f, 0.72f), new Vector2(0.85f, 0.72f), Vector2.zero,
-                compact ? new Vector2(70, 70) : new Vector2(88, 88));
+            var icon = NewImage(card.transform, "icon", new Vector2(0.83f, 0.64f), new Vector2(0.83f, 0.64f), Vector2.zero,
+                compact ? new Vector2(96, 96) : new Vector2(116, 116));
             icon.sprite = Sprite.Create(iconTex, new Rect(0, 0, iconTex.width, iconTex.height), new Vector2(0.5f, 0.5f));
             icon.preserveAspect = true;
             icon.raycastTarget = false;
@@ -2821,7 +2821,7 @@ public partial class HudController : MonoBehaviour
         // rank gauge: an outlined tank with one cell per rank (left-aligned, stops
         // short of the icon column). Cells fill gold rank by rank, burn once maxed.
         float cardW = compact ? 305f : 370f;
-        float barW = compact ? (hasIcon ? 190f : 255f) : (hasIcon ? 235f : 320f);
+        float barW = compact ? (hasIcon ? 170f : 255f) : (hasIcon ? 220f : 320f);
         float barH = compact ? 20f : 24f;
         float barX = 22f + barW * 0.5f - cardW * 0.5f;   // left edge 22px in from the card
         var track = NewImage(card.transform, "gauge", new Vector2(0.5f, 0.455f), new Vector2(0.5f, 0.455f), new Vector2(barX, 0f), new Vector2(barW, barH));
