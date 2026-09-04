@@ -743,7 +743,7 @@ public class HudController : MonoBehaviour
         Text touchModeLabel = null;
         var touchBtn = MakeButton(_settingsPanel.transform, touchModes[GameSettings.TouchMode],
             new Vector2(0.5f, 0.505f), new Vector2(140, 48), new Color(0.5f, 0.95f, 1f), () => { });
-        touchBtn.transform.localPosition += new Vector3(220, 0, 0);
+        touchBtn.transform.localPosition += new Vector3(100, 0, 0);
         touchModeLabel = touchBtn.GetComponentInChildren<Text>();
         touchBtn.onClick.AddListener(() => {
             GameSettings.TouchMode = (GameSettings.TouchMode + 1) % 3;
@@ -752,15 +752,15 @@ public class HudController : MonoBehaviour
         var editBtn = MakeButton(_settingsPanel.transform, "EDIT LAYOUT",
             new Vector2(0.5f, 0.505f), new Vector2(190, 48), new Color(1f, 0.85f, 0.4f),
             () => SwitchPanel(_settingsPanel, _touchEditPanel, RefreshTouchEditor));
-        editBtn.transform.localPosition += new Vector3(415, 0, 0);
+        editBtn.transform.localPosition += new Vector3(270, 0, 0);
         editBtn.GetComponentInChildren<Text>().fontSize = 18;
 
         // aim style on touch: right stick, or drag the right half of the screen
         string[] aimModes = { "AIM: STICK", "AIM: DRAG" };
         Text aimLabel = null;
         var aimBtn = MakeButton(_settingsPanel.transform, aimModes[GameSettings.TouchAimMode],
-            new Vector2(0.5f, 0.505f), new Vector2(180, 48), new Color(0.5f, 0.95f, 1f), () => { });
-        aimBtn.transform.localPosition += new Vector3(610, 0, 0);
+            new Vector2(0.5f, 0.505f), new Vector2(150, 44), new Color(0.5f, 0.95f, 1f), () => { });
+        aimBtn.transform.localPosition += new Vector3(440, 0, 0);   // stays left of the mouse test pad at 16:9
         aimLabel = aimBtn.GetComponentInChildren<Text>();
         aimLabel.fontSize = 17;
         aimBtn.onClick.AddListener(() => {
