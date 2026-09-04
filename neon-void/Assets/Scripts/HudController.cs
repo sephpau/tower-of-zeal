@@ -2311,7 +2311,12 @@ public class HudController : MonoBehaviour
         hrt.anchorMin = Vector2.zero; hrt.anchorMax = Vector2.one;
         hrt.offsetMin = Vector2.zero; hrt.offsetMax = Vector2.zero;
 
-        ShipShowcase.ShowSelect(_canvas.GetComponent<RectTransform>());
+        var canvasRt = _canvas.GetComponent<RectTransform>();
+        ShipShowcase.ShowSelect(canvasRt);
+        // THE DECIMATION: the Doom Totem looms beside the cards and the title says so
+        if (DecimationMode.Pending) ShipShowcase.ShowTotem(canvasRt);
+        var pickT = _startPanel.transform.Find("pick");
+        if (pickT != null) pickT.GetComponent<Text>().text = DecimationMode.Pending ? "THE DECIMATION  -  CHOOSE YOUR EGO" : "CHOOSE YOUR EGO";
         var s = MetaBridge.Ready ? MetaBridge.GetSummary() : null;
         bool unlocked = s != null && s.premium && s.passTier >= 10;
         if (!unlocked)

@@ -10,7 +10,7 @@ public class ShipShowcase : MonoBehaviour
 {
     const float Depth = 7f;
     static readonly List<GameObject> Live = new List<GameObject>();
-    static GameObject _pair;
+    static GameObject _pair, _totem;
 
     Camera _cam;
     RectTransform _canvas;
@@ -41,6 +41,65 @@ public class ShipShowcase : MonoBehaviour
         foreach (var g in Live) if (g != null) Destroy(g);
         Live.Clear();
         if (_pair != null) { Destroy(_pair); _pair = null; }
+        if (_totem != null) { Destroy(_totem); _totem = null; }
+    }
+
+    // THE DECIMATION select screen: Dr. Ego von Doom looms beside the cards
+    public static void ShowTotem(RectTransform canvas)
+    {
+        if (_totem != null) Destroy(_totem);
+        var cam = Camera.main;
+        var prefab = Resources.Load<GameObject>("decimation/doom_totem");
+        if (cam == null || prefab == null) return;
+
+        var holder = new GameObject("showcase-totem");
+        var model = Instantiate(prefab, holder.transform);
+        var rends = model.GetComponentsInChildren<Renderer>();
+        if (rends.Length > 0)
+        {
+            var b = rends[0].bounds;
+            foreach (var r in rends) b.Encapsulate(r.bounds);
+            float tall = Mathf.Max(b.size.x, b.size.y, b.size.z);
+            if (tall > 0.0001f) model.transform.localScale *= 3.4f / tall;
+            b = rends[0].bounds;
+            foreach (var r in rends) b.Encapsulate(r.bounds);
+            model.transform.position += holder.transform.position - b.center;
+        }
+        Texture2D tex = null;
+        foreach (var t in Resources.LoadAll<Texture2D>("decimation/tex"))
+        {
+            string n = t.name.ToLowerInvariant();
+            if (tex == null || n.Contains("base") || n.Contains("color") || n.Contains("albedo") || n.Contains("diffuse")) tex = t;
+        }
+        var red = new Color(1f, 0.12f, 0.1f);
+        foreach (var r in rends)
+            foreach (var m in r.materials)
+            {
+                if (tex != null && m.mainTexture == null) { m.mainTexture = tex; m.color = Color.white; }
+                if (m.mainTexture == null) m.color = new Color(0.55f, 0.08f, 0.08f);
+            }
+        foreach (var c in model.GetComponentsInChildren<Collider>()) Destroy(c);
+
+        var glow = NVAssets.Quad(NVAssets.AdditiveTinted(red), 6f);
+        glow.transform.SetParent(holder.transform, false);
+        glow.transform.localPosition = new Vector3(0f, 0f, 0.6f);
+        glow.AddComponent<Billboard>();
+        var l = new GameObject("light").AddComponent<Light>();
+        l.transform.SetParent(holder.transform, false);
+        l.transform.localPosition = new Vector3(0f, 1f, -1.5f);
+        l.type = LightType.Point;
+        l.color = red;
+        l.intensity = 4f;
+        l.range = 10f;
+
+        var sc = holder.AddComponent<ShipShowcase>();
+        sc._cam = cam;
+        sc._canvas = canvas;
+        sc._px = new Vector2(790f, 40f);
+        sc._model = model.transform;
+        sc._spin = 24f;
+        sc.Place();
+        _totem = holder;
     }
 
     static GameObject Spawn(RectTransform canvas, string pilotId, Vector2 px, float width)
