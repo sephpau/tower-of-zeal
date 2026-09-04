@@ -2922,7 +2922,7 @@ public partial class HudController : MonoBehaviour
 
     void BuildBoardTab(string period)
     {
-        AdvHeader("One leaderboard across classic Zeal Survivors and The Void.");
+        AdvHeader("Zeal Survivors v2 leaderboard - connected Ronin pilots only.");
         MakeButton(_advContent.transform, "WEEKLY", new Vector2(0.42f, 0.72f), new Vector2(190, 42),
             period == "weekly" ? new Color(1f, 0.85f, 0.4f) : new Color(0.7f, 0.8f, 0.9f),
             () => BuildBoardSwitch("weekly")).GetComponentInChildren<Text>().fontSize = 17;
