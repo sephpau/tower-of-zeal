@@ -243,7 +243,7 @@ public class DecimationRunner : MonoBehaviour
         }
         if (w != null) { _savedSigil = w.sigilLevel; w.sigilLevel = Weapon.MaxSigil; }
         _savedMaxHull = h.maxHull; _savedMaxShield = h.maxShield;
-        h.maxHull *= 2f; h.maxShield *= 2f;
+        h.maxHull *= 20f; h.maxShield *= 20f;   // Decimator: HP and shield (mana) x20
         h.hull = h.maxHull; h.shield = h.maxShield;
 
         var red = new Color(1f, 0.15f, 0.1f);
