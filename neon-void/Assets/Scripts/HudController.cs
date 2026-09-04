@@ -2628,6 +2628,17 @@ public partial class HudController : MonoBehaviour
             new Vector2(0.5f, 0.125f), new Vector2(0.5f, 0.125f), Vector2.zero, new Vector2(1200, 34));
         _advStatus.color = new Color(0.6f, 0.95f, 1f);
 
+        // launch straight from the hub with the pilot picked in the Armory/Survivors tabs
+        MakeButton(_adventurePanel.transform, "GO ADVENTURE", new Vector2(0.5f, 0.135f), new Vector2(430, 62),
+            new Color(1f, 0.85f, 0.4f), () =>
+            {
+                DecimationMode.Pending = false;
+                ShipShowcase.Clear();
+                int idx = System.Array.FindIndex(ZealData.Pilots, x => x.id == _advPilot);
+                _adventurePanel.SetActive(false);
+                _gameHud.SetActive(true);
+                GameManager.I.StartRun(Mathf.Max(0, idx));
+            });
         MakeButton(_adventurePanel.transform, "BACK", new Vector2(0.5f, 0.058f), new Vector2(300, 52),
             new Color(0.8f, 0.9f, 1f), () => SwitchPanel(_adventurePanel, _homePanel));
         _adventurePanel.SetActive(false);
