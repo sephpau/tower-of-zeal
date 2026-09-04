@@ -2818,30 +2818,37 @@ public partial class HudController : MonoBehaviour
             icon.color = up.rank > 0 ? Color.white : new Color(1f, 1f, 1f, 0.85f);
         }
         bool maxed = up.rank >= up.maxRank;
-        // rank gauge: one tank that fills up rank by rank, and burns once maxed
-        float barW = compact ? 255f : 320f, barH = compact ? 15f : 18f;
-        var track = NewImage(card.transform, "gauge", new Vector2(0.5f, 0.455f), new Vector2(0.5f, 0.455f), Vector2.zero, new Vector2(barW, barH));
+        // rank gauge: an outlined tank with one cell per rank (left-aligned, stops
+        // short of the icon column). Cells fill gold rank by rank, burn once maxed.
+        float cardW = compact ? 305f : 370f;
+        float barW = compact ? (hasIcon ? 190f : 255f) : (hasIcon ? 235f : 320f);
+        float barH = compact ? 20f : 24f;
+        float barX = 22f + barW * 0.5f - cardW * 0.5f;   // left edge 22px in from the card
+        var track = NewImage(card.transform, "gauge", new Vector2(0.5f, 0.455f), new Vector2(0.5f, 0.455f), new Vector2(barX, 0f), new Vector2(barW, barH));
         track.sprite = _roundedFill; track.type = Image.Type.Sliced;
-        track.color = new Color(0.16f, 0.13f, 0.3f, 0.95f);
+        track.color = new Color(0.82f, 0.84f, 0.95f, 0.85f);   // light outline
+        var inner = NewImage(track.transform, "inner", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(barW - 4f, barH - 4f));
+        inner.sprite = _roundedFill; inner.type = Image.Type.Sliced;
+        inner.color = new Color(0.14f, 0.12f, 0.26f, 0.97f);
         Image fill = null;
         if (up.rank > 0 && up.maxRank > 0)
         {
             float frac = Mathf.Clamp01((float)up.rank / up.maxRank);
-            fill = NewImage(track.transform, "fill", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(2f, 0f),
-                new Vector2(Mathf.Max(barH, (barW - 4f) * frac), barH - 4f));
+            fill = NewImage(inner.transform, "fill", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), Vector2.zero,
+                new Vector2((barW - 4f) * frac, barH - 4f));
             fill.rectTransform.pivot = new Vector2(0f, 0.5f);
             fill.sprite = _roundedFill; fill.type = Image.Type.Sliced;
             fill.color = maxed ? new Color(1f, 0.55f, 0.15f) : new Color(1f, 0.85f, 0.4f);
         }
-        for (int i = 1; i < up.maxRank; i++)   // level ticks so rank 2/5 still reads at a glance
+        for (int i = 1; i < up.maxRank; i++)   // cell dividers, drawn over the fill
         {
             float x = (float)i / up.maxRank;
-            var tick = NewImage(track.transform, "tick" + i, new Vector2(x, 0.5f), new Vector2(x, 0.5f), Vector2.zero, new Vector2(2f, barH - 5f));
-            tick.color = new Color(0.05f, 0.04f, 0.1f, 0.85f);
+            var tick = NewImage(inner.transform, "tick" + i, new Vector2(x, 0.5f), new Vector2(x, 0.5f), Vector2.zero, new Vector2(2f, barH - 4f));
+            tick.color = new Color(0.82f, 0.84f, 0.95f, 0.85f);
         }
         if (maxed && fill != null)
         {
-            var glow = NewImage(card.transform, "burn", new Vector2(0.5f, 0.455f), new Vector2(0.5f, 0.455f), Vector2.zero, new Vector2(barW + 16f, barH + 16f));
+            var glow = NewImage(card.transform, "burn", new Vector2(0.5f, 0.455f), new Vector2(0.5f, 0.455f), new Vector2(barX, 0f), new Vector2(barW + 16f, barH + 16f));
             glow.sprite = _roundedFill; glow.type = Image.Type.Sliced;
             glow.color = new Color(1f, 0.45f, 0.1f, 0.25f);
             glow.transform.SetSiblingIndex(track.transform.GetSiblingIndex());   // behind the tank
