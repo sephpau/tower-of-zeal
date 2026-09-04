@@ -656,7 +656,7 @@ public partial class HudController : MonoBehaviour
             colors.pressedColor = new Color(2f, 2f, 2.4f);
             btn.colors = colors;
             btn.onClick.AddListener(() => {
-                GameManager.I.PlaySfx(SfxSynth.Click, 0.55f);
+                GameManager.I.PlaySfx(GameAudio.Clip("ui click") ?? SfxSynth.Click, 0.55f);
                 ShipShowcase.Clear();
                 _startPanel.SetActive(false);
                 _gameHud.SetActive(true);
@@ -1318,7 +1318,7 @@ public partial class HudController : MonoBehaviour
         colors.pressedColor = new Color(2f, 2f, 2.4f);
         btn.colors = colors;
         btn.onClick.AddListener(() => StartCoroutine(PunchScale(go.transform)));   // click feedback
-        btn.onClick.AddListener(() => { if (GameManager.I != null) GameManager.I.PlaySfx(SfxSynth.Click, 0.55f); });
+        btn.onClick.AddListener(() => { if (GameManager.I != null) GameManager.I.PlaySfx(GameAudio.Clip("ui click") ?? SfxSynth.Click, 0.55f); });
         btn.onClick.AddListener(onClick);
         var btnGlow = NewImage(go.transform, "border", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         btnGlow.sprite = _roundedOutline;
@@ -2441,7 +2441,7 @@ public partial class HudController : MonoBehaviour
         }
         _fadeOverlay.transform.SetAsLastSibling();
         _fadeOverlay.raycastTarget = true;   // swallow clicks mid-transition
-        if (GameManager.I != null) GameManager.I.PlaySfx(SfxSynth.Swish, 0.5f);
+        if (GameManager.I != null) GameManager.I.PlaySfx(GameAudio.Clip("ui swish") ?? SfxSynth.Swish, 0.5f);
         for (float t = 0f; t < 1f; t += Time.unscaledDeltaTime / 0.13f)
         {
             _fadeOverlay.color = new Color(0.03f, 0.02f, 0.09f, Mathf.Clamp01(t));
