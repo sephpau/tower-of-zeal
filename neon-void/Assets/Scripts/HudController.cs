@@ -2096,8 +2096,16 @@ public partial class HudController : MonoBehaviour
         if (RoyaleSync.Active && RoyaleSync.Playing && RoyaleSync.I != null)
         {
             _hostilesText.text = RoyaleSync.I.aliveCount + " SHIPS LEFT";
-            _waveText.text = "BATTLE ROYALE";
-            _timerText.text = "ZONE " + Mathf.CeilToInt(RoyaleSync.I.ZoneShrinkIn) + "s";
+            if (RoyaleSync.Decimation)
+            {
+                // Decimation rooms: the host clock drives the timer via SetTimer; no zone here
+                _waveText.text = "THE DECIMATION";
+            }
+            else
+            {
+                _waveText.text = "BATTLE ROYALE";
+                _timerText.text = "ZONE " + Mathf.CeilToInt(RoyaleSync.I.ZoneShrinkIn) + "s";
+            }
             _timerText.color = new Color(1f, 0.4f, 0.4f);
         }
         _shieldBar.fillAmount = player.maxShield > 0 ? player.shield / player.maxShield : 0f;
