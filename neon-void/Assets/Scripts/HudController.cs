@@ -2275,6 +2275,7 @@ public partial class HudController : MonoBehaviour
         if (_dailyBtn == null) return;
         var lbl = _dailyBtn.GetComponentInChildren<Text>();
         var st = DailyBridge.Poll();
+        if (st != null && st.busy) return;   // a claim is in progress: leave its live status alone
         if (st != null && st.claimed)
         {
             if (lbl != null) lbl.text = "CHECKED IN  " + (st.streak > 0 ? "x" + st.streak : "");
@@ -3109,8 +3110,16 @@ public partial class HudController : MonoBehaviour
         }
     }
 
+    float _dailyHintTimer;
     void PollIdentity()
     {
+        // keep the daily check-in hint in step with wallet state (cheap, every 2s, home only)
+        _dailyHintTimer -= Time.unscaledDeltaTime;
+        if (_dailyHintTimer <= 0f)
+        {
+            _dailyHintTimer = 2f;
+            if (_homePanel != null && _homePanel.activeSelf) RefreshDailyButton();
+        }
         if (_homePanel == null || !_homePanel.activeInHierarchy) return;
         _idPollTimer -= Time.deltaTime;
         if (_idPollTimer > 0f) return;
