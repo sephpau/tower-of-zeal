@@ -453,9 +453,16 @@
       SURV.Net.dailyCheckIn(function (st) { window.__nvDaily = JSON.stringify({ busy: true, status: st }); })
         .then(function (r) {
           if (!r.ok) { window.__nvDaily = JSON.stringify({ busy: false, ok: false, reason: r.reason || "Check-in failed" }); return; }
-          var c = SURV.Meta.claimDaily(r.streak);
-          window.__nvDaily = JSON.stringify({ busy: false, ok: !!c.ok, claimed: true,
-            gold: c.gold || 0, xp: c.xp || 0, streak: c.streak || r.streak || 1 });
+          // the SERVER credited the reward (wallet session + on-chain check-in + per-day lock);
+          // the client only pulls the updated cloud profile - nothing is granted locally
+          window.__nvDaily = JSON.stringify({ busy: true, status: "Syncing your rewards..." });
+          return SURV.Net.loadProfile().then(function () {
+            var P = SURV.Meta.profile;
+            if (P && P.daily && P.daily.claimed) {} else if (P) { P.daily = { day: new Date().toISOString().slice(0, 10), claimed: true, streak: r.streak || 1 }; SURV.Meta.save && SURV.Meta.save(); }
+            window.__nvDaily = JSON.stringify({ busy: false, ok: !!r.granted, claimed: true,
+              gold: r.gold || 0, xp: r.xp || 0, streak: r.streak || 1,
+              reason: r.granted ? "" : "Already claimed today" });
+          });
         })
         .catch(function () { window.__nvDaily = '{"busy":false,"ok":false,"reason":"Check-in failed"}'; });
     };
