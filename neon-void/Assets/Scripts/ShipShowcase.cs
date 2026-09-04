@@ -60,7 +60,7 @@ public class ShipShowcase : MonoBehaviour
             var b = rends[0].bounds;
             foreach (var r in rends) b.Encapsulate(r.bounds);
             float tall = Mathf.Max(b.size.x, b.size.y, b.size.z);
-            if (tall > 0.0001f) model.transform.localScale *= 3.4f / tall;
+            if (tall > 0.0001f) model.transform.localScale *= 2.5f / tall;
             b = rends[0].bounds;
             foreach (var r in rends) b.Encapsulate(r.bounds);
             model.transform.position += holder.transform.position - b.center;
@@ -95,7 +95,7 @@ public class ShipShowcase : MonoBehaviour
         var sc = holder.AddComponent<ShipShowcase>();
         sc._cam = cam;
         sc._canvas = canvas;
-        sc._px = new Vector2(790f, 40f);
+        sc._px = new Vector2(770f, 275f);   // upper-right, clear of the Lunar card and the screen edge
         sc._model = model.transform;
         sc._spin = 24f;
         sc.Place();
