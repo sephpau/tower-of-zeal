@@ -204,6 +204,9 @@ public static class EnemyFactory
             turretMuzzles[i] = m;
         }
 
+        // Doom's own hull (Tripo export faces -Z, hence the half turn)
+        BossShipModel.Mount(go, "doom", 46f, 180f, false);
+
         var col = go.AddComponent<BoxCollider>();
         col.size = new Vector3(9f, 5f, 46f);
 
@@ -288,6 +291,9 @@ public static class EnemyFactory
             Rig(go, 7f, def.hp);
         }
 
+        // each legend's own hull replaces the placeholder silhouette when it ships
+        BossShipModel.Mount(go, def.id, def.id == "gruyere" ? 16f : (def.id == "smuggler" ? 15f : 13f), 0f, def.id == "smuggler");
+
         var rb = go.GetComponent<Rigidbody>();
         rb.mass = 60f;
         var boss = go.AddComponent<MinibossAI>();
@@ -348,15 +354,32 @@ public static class NVOutline
         var mat = new Material(_shader);
         mat.SetColor("_Color", color);
         mat.SetFloat("_Width", width);
+        // the shader extrudes in object space, so imported hulls (tiny meshes under a
+        // big scale) need the width divided by their world scale to keep the same rim
+        var byScale = new System.Collections.Generic.Dictionary<int, Material>();
         foreach (var mf in root.GetComponentsInChildren<MeshFilter>())
         {
             if (mf.sharedMesh == null || mf.name == "outline" || mf.name == "guardBubble") continue;
-            if (mf.GetComponent<MeshRenderer>() == null) continue;
+            var mr = mf.GetComponent<MeshRenderer>();
+            if (mr == null || !mr.enabled) continue;   // hidden placeholder geometry gets no rim
             if (mf.GetComponent<Billboard>() != null) continue;   // glow quads stay clean
+            float s = Mathf.Max(0.0001f, mf.transform.lossyScale.x);
+            Material use = mat;
+            if (Mathf.Abs(s - 1f) > 0.01f)
+            {
+                int key = Mathf.RoundToInt(s * 1000f);
+                if (!byScale.TryGetValue(key, out use))
+                {
+                    use = new Material(_shader);
+                    use.SetColor("_Color", color);
+                    use.SetFloat("_Width", width / s);
+                    byScale[key] = use;
+                }
+            }
             var o = new GameObject("outline");
             o.transform.SetParent(mf.transform, false);
             o.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
-            o.AddComponent<MeshRenderer>().sharedMaterial = mat;
+            o.AddComponent<MeshRenderer>().sharedMaterial = use;
         }
     }
 }
