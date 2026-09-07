@@ -21,16 +21,17 @@ public class EnemyMissile : MonoBehaviour
         go.transform.rotation = Quaternion.LookRotation(initialDir.sqrMagnitude > 0.001f ? initialDir : Vector3.forward);
 
         var warheadMat = NVAssets.Emissive(tint, 2.6f);
-        NVMeshes.SpherePart(go, warheadMat, Vector3.zero, new Vector3(0.55f, 0.55f, 1.8f));
-        NVMeshes.SpherePart(go, NVAssets.Emissive(new Color(1f, 0.8f, 0.3f), 3f), new Vector3(0f, 0f, 0.9f), Vector3.one * 0.4f);
-        var glow = NVAssets.Quad(NVAssets.AdditiveTinted(tint), 2.4f);
+        // 2x body: a big, obvious target that is easy to shoot down
+        NVMeshes.SpherePart(go, warheadMat, Vector3.zero, new Vector3(1.1f, 1.1f, 3.6f));
+        NVMeshes.SpherePart(go, NVAssets.Emissive(new Color(1f, 0.8f, 0.3f), 3f), new Vector3(0f, 0f, 1.8f), Vector3.one * 0.8f);
+        var glow = NVAssets.Quad(NVAssets.AdditiveTinted(tint), 4.8f);
         glow.transform.SetParent(go.transform, false);
-        glow.transform.localPosition = new Vector3(0f, 0f, -1.1f);
+        glow.transform.localPosition = new Vector3(0f, 0f, -2.2f);
         glow.AddComponent<Billboard>();
         var trail = go.AddComponent<TrailRenderer>();
         trail.time = 0.45f;
-        trail.startWidth = 0.5f;
-        trail.endWidth = 0.03f;
+        trail.startWidth = 1f;
+        trail.endWidth = 0.06f;
         trail.material = NVAssets.Additive;
         trail.startColor = tint;
         trail.endColor = new Color(tint.r, tint.g, tint.b, 0f);
@@ -39,7 +40,7 @@ public class EnemyMissile : MonoBehaviour
         // collider must be WIDER than a player bolt's per-frame step (~4 units
         // at speed 240) or fast bolts tunnel straight through and never hit it
         var col = go.AddComponent<SphereCollider>();
-        col.radius = 2.6f;
+        col.radius = 5.2f;   // doubled with the body
         var h = go.AddComponent<Health>();
         h.Configure(0f, 22f);   // ~2 base pulse hits to shoot one down
         var m = go.AddComponent<EnemyMissile>();
