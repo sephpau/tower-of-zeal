@@ -2966,8 +2966,17 @@ public partial class HudController : MonoBehaviour
         {
             var card = AdvCard(new Vector2(0.5f, y), new Vector2(1050, 86),
                 q.done && !q.claimed ? new Color(0.55f, 1f, 0.65f, 0.5f) : (Color?)null);
+            // quest art when it exists under Resources/icons/quests/<quest id>.png
+            var qTex = Resources.Load<Texture2D>("icons/quests/" + q.id);
+            if (qTex != null)
+            {
+                var qi = NewImage(card.transform, "qicon", new Vector2(0.045f, 0.5f), new Vector2(0.045f, 0.5f), Vector2.zero, new Vector2(70, 70));
+                qi.sprite = Sprite.Create(qTex, new Rect(0, 0, qTex.width, qTex.height), new Vector2(0.5f, 0.5f));
+                qi.preserveAspect = true;
+                qi.color = q.claimed ? new Color(1f, 1f, 1f, 0.5f) : Color.white;
+            }
             var d = NewText(card.transform, "q", q.desc, 21, TextAnchor.MiddleLeft,
-                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-140, 0), new Vector2(600, 40));
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(qTex != null ? -100 : -140, 0), new Vector2(qTex != null ? 520 : 600, 40));
             d.color = q.claimed ? new Color(0.6f, 0.62f, 0.8f) : q.done ? new Color(0.55f, 1f, 0.65f) : Color.white;
             d.fontStyle = FontStyle.Bold;
             NewText(card.transform, "r", "+" + q.gold + " GOLD   +" + q.xp + " PASS XP", 17, TextAnchor.MiddleCenter,
