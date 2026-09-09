@@ -2129,15 +2129,20 @@ public partial class HudController : MonoBehaviour
         root.transform.SetParent(panel.transform, false);
         var rt = root.AddComponent<RectTransform>();
         rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.225f);
-        rt.sizeDelta = new Vector2(560, 165);
+        rt.anchoredPosition = new Vector2(-330f, 0f);   // stats column, left
+        rt.sizeDelta = new Vector2(560, 200);
 
+        int secs = Mathf.RoundToInt(GameManager.I != null ? GameManager.I.ElapsedSeconds : 0f);
         var rowList = new List<(string label, int value)> {
+            ("TIME SURVIVED  (SEC)", secs),
+            ("LEVEL REACHED", GameManager.I != null ? GameManager.I.xpLevel : 1),
             ("ENEMIES DESTROYED", Mathf.Max(0, RunStats.kills - RunStats.asteroids)),
             ("ELITES DESTROYED", RunStats.elites),
             ("BOSSES DESTROYED", RunStats.bosses),
             ("ASTEROIDS SHATTERED", RunStats.asteroids),
             ("XP EARNED", RunStats.xp),
         };
+        RewardsBlock(panel);
         if (DecimationMode.Active)
         {
             rowList.Add(("DEATHS", DecimationMode.Deaths));
@@ -2155,6 +2160,77 @@ public partial class HudController : MonoBehaviour
             val.color = new Color(1f, 0.85f, 0.4f);
             val.fontStyle = FontStyle.Bold;
         }
+    }
+
+    // post-run rewards column, right of the stats: what this run actually paid.
+    // Adventure fills in when the server has banked the run; practice and
+    // multiplayer say so plainly.
+    void RewardsBlock(GameObject panel)
+    {
+        var old = panel.transform.Find("runRewards");
+        if (old != null) Destroy(old.gameObject);
+        var root = new GameObject("runRewards");
+        root.transform.SetParent(panel.transform, false);
+        var rt = root.AddComponent<RectTransform>();
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.225f);
+        rt.anchoredPosition = new Vector2(330f, 0f);
+        rt.sizeDelta = new Vector2(560, 200);
+
+        bool adventure = GameManager.AdventureRun && !CoopSync.Active && !RoyaleSync.Active && !DecimationMode.Active;
+        string mode = GameManager.Mode == GameManager.RunMode.Quick ? "PRACTICE RUN — NOTHING EARNED"
+            : adventure ? "ADVENTURE — BANKING REWARDS..."
+            : "MULTIPLAYER — NOTHING EARNED";
+        var head = NewText(root.transform, "mode", mode, 18, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -14), new Vector2(560, 26));
+        head.color = adventure ? new Color(1f, 0.85f, 0.4f) : new Color(0.8f, 0.9f, 1f, 0.8f);
+        head.fontStyle = FontStyle.Bold;
+
+        string[] labels = { "GOLD BANKED", "PASS XP", "QUESTS COMPLETED", "WEEKLY RANK", "GOLD PICKED UP" };
+        var vals = new Text[labels.Length];
+        for (int i = 0; i < labels.Length; i++)
+        {
+            float y = 0.82f - (i + 0.5f) / labels.Length * 0.82f;
+            var lbl = NewText(root.transform, "rl" + i, labels[i], 19, TextAnchor.MiddleLeft,
+                new Vector2(0f, y), new Vector2(0f, y), new Vector2(150, 0), new Vector2(300, 26));
+            lbl.color = new Color(0.75f, 0.72f, 0.95f, 0.9f);
+            vals[i] = NewText(root.transform, "rv" + i, adventure ? "..." : "—", 21, TextAnchor.MiddleRight,
+                new Vector2(1f, y), new Vector2(1f, y), new Vector2(-130, 0), new Vector2(220, 26));
+            vals[i].color = new Color(1f, 0.85f, 0.4f);
+            vals[i].fontStyle = FontStyle.Bold;
+        }
+        vals[4].text = RunStats.gold.ToString("N0");
+        if (adventure) StartCoroutine(RewardsFillCo(head, vals));
+    }
+
+    System.Collections.IEnumerator RewardsFillCo(Text head, Text[] vals)
+    {
+        for (int i = 0; i < 60; i++)
+        {
+            yield return new WaitForSecondsRealtime(0.5f);
+            if (head == null) yield break;
+            var st = MetaBridge.RunFinishTake();
+            if (st == null || st.busy) continue;
+            if (st.ok)
+            {
+                head.text = "ADVENTURE — REWARDS BANKED";
+                vals[0].text = st.gold.ToString("N0");
+                vals[1].text = st.passXp.ToString("N0");
+                vals[2].text = st.quests != null ? st.quests.Length.ToString() : "0";
+                vals[3].text = st.weeklyRank > 0 ? "#" + st.weeklyRank : "—";
+            }
+            else
+            {
+                head.text = st.reason == "offline" ? "OFFLINE — RUN NOT RECORDED"
+                    : st.reason == "discord_required" ? "RECONNECT DISCORD — NOT RECORDED"
+                    : st.reason == "auth_required" ? "RECONNECT RONIN — NOT RECORDED"
+                    : "NOT RECORDED: " + (st.reason ?? "").ToUpperInvariant();
+                head.color = new Color(1f, 0.5f, 0.5f);
+                vals[0].text = "0"; vals[1].text = st.passXp.ToString("N0");
+                vals[2].text = st.quests != null ? st.quests.Length.ToString() : "0"; vals[3].text = "—";
+            }
+            yield break;
+        }
+        if (head != null) head.text = "ADVENTURE — SERVER DID NOT ANSWER";
     }
 
     public void ShowDuelEnd(bool won, string partnerName)
@@ -2622,9 +2698,10 @@ public partial class HudController : MonoBehaviour
         {
             var gear = MakeButton(_idCorner.transform, "", new Vector2(0.87f, 0.92f), new Vector2(58, 58), new Color(0.6f, 0.9f, 1f),
                 () => SwitchPanel(_homePanel, _settingsPanel));
-            var g = NewImage(gear.transform, "gear", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(40, 40));
-            g.sprite = GearSprite();
-            g.color = new Color(0.85f, 0.95f, 1f);
+            var gearTex = Resources.Load<Texture2D>("icons/Settings");
+            var g = NewImage(gear.transform, "gear", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, gearTex != null ? new Vector2(48, 48) : new Vector2(40, 40));
+            if (gearTex != null) { g.sprite = Sprite.Create(gearTex, new Rect(0, 0, gearTex.width, gearTex.height), new Vector2(0.5f, 0.5f)); g.preserveAspect = true; }
+            else { g.sprite = GearSprite(); g.color = new Color(0.85f, 0.95f, 1f); }
             var trig = gear.gameObject.AddComponent<EventTrigger>();
             var enter = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
             enter.callback.AddListener(_ => { if (_idTooltip != null) _idTooltip.text = "SETTINGS"; });
