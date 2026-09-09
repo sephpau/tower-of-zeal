@@ -608,6 +608,7 @@
         if (R.reroll) bits.push("+" + R.reroll + " reroll" + (R.reroll > 1 ? "s" : ""));
         if (R.banish) bits.push("+" + R.banish + " banish" + (R.banish > 1 ? "es" : ""));
         if (R.revival) bits.push("+" + R.revival + " revival");
+        if (R.energy) bits.push("+" + R.energy + " energy");
         return bits.join(", ");
       }
       // every tier × both tracks — the client draws the full board like v1
@@ -617,6 +618,7 @@
           var R = C.PASS_REWARDS[track][t];
           var claimed = P.pass.claimed[track].indexOf(t) >= 0;
           rows.push({ tier: t, track: track, label: R ? label(R) : "", has: !!R, claimed: claimed,
+            gold: !!(R && R.gold), energy: !!(R && R.energy),
             claimable: !!R && !claimed && t <= tier && (track === "free" || P.pass.premium) });
         });
       }

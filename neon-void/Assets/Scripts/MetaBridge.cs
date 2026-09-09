@@ -98,7 +98,7 @@ public static class MetaBridge
     [System.Serializable] public class SurvivorBonuses { public float power, vitality, tempo; }
     [System.Serializable] public class ShipBonuses { public float might, maxhp, armor, recovery, cooldown, area, speed; }
     [System.Serializable] public class CrewBonuses { public float magnet, xpgain, greed; }
-    [System.Serializable] public class PassRow { public int tier; public string track, label; public bool has, claimed, claimable; }
+    [System.Serializable] public class PassRow { public int tier; public string track, label; public bool has, claimed, claimable, gold, energy; }
     [System.Serializable] public class PassTrack { public PassRow[] rows; public int tier, tiers; public bool premium; }
 
     public static bool Ready => NVMetaJsReady() != 0;

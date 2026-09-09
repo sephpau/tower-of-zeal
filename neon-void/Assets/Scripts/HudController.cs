@@ -3090,7 +3090,7 @@ public partial class HudController : MonoBehaviour
         _advEnergy.color = new Color(0.4f, 0.95f, 1f);
         _advEnergy.fontStyle = FontStyle.Bold;
         _advEnergyNote = NewText(_adventurePanel.transform, "energyNote", "tanks refill at 8:00 AM PHT · the daily log tops up +3", 13, TextAnchor.MiddleCenter,
-            new Vector2(0.765f, 0.922f), new Vector2(0.765f, 0.922f), Vector2.zero, new Vector2(320, 18));
+            new Vector2(0.765f, 0.926f), new Vector2(0.765f, 0.926f), Vector2.zero, new Vector2(320, 18));
         _advEnergyNote.color = new Color(0.8f, 0.9f, 1f, 0.6f);
 
         string[] labels = { "ARMORY", "SURVIVORS", "CREW", "QUESTS", "LEADERBOARD", "BATTLE PASS" };
@@ -3098,7 +3098,7 @@ public partial class HudController : MonoBehaviour
         for (int i = 0; i < AdvTabs.Length; i++)
         {
             string tab = AdvTabs[i];
-            var b = MakeButton(_adventurePanel.transform, labels[i], new Vector2(0.225f + i * 0.11f, 0.825f), new Vector2(196, 48),
+            var b = MakeButton(_adventurePanel.transform, labels[i], new Vector2(0.225f + i * 0.11f, 0.84f), new Vector2(196, 48),
                 new Color(0.95f, 0.8f, 0.5f), () => { _advTab = tab; RefreshAdventure(); });
             var lbl = b.GetComponentInChildren<Text>();
             lbl.fontSize = 16;
@@ -3289,7 +3289,7 @@ public partial class HudController : MonoBehaviour
         _advContent.transform.SetParent(_adventurePanel.transform, false);
         var rt = _advContent.AddComponent<RectTransform>();
         rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
-        rt.offsetMin = new Vector2(0f, -48f); rt.offsetMax = new Vector2(0f, -48f);   // room for the tall tab tiles
+        rt.offsetMin = new Vector2(0f, -64f); rt.offsetMax = new Vector2(0f, -64f);   // room for the tall tab tiles
 
         for (int i = 0; i < _advTabLabels.Count; i++)
         {
@@ -3698,39 +3698,39 @@ public partial class HudController : MonoBehaviour
         var tier = NewText(_advContent.transform, "tier",
             "TIER " + s.passTier + " / " + s.passTiers + "   ·   " + (s.passXp % s.xpPerTier) + " / " + s.xpPerTier + " XP" +
             (s.premium ? "   ·   ★ PREMIUM" : ""),
-            21, TextAnchor.MiddleLeft, new Vector2(0.335f, 0.735f), new Vector2(0.335f, 0.735f), Vector2.zero, new Vector2(560, 32));
+            21, TextAnchor.MiddleLeft, new Vector2(0.5f, 0.755f), new Vector2(0.5f, 0.755f), new Vector2(-490, 0), new Vector2(580, 32));
         tier.color = new Color(1f, 0.85f, 0.4f);
         tier.fontStyle = FontStyle.Bold;
 
         float frac = Mathf.Clamp01((s.passXp % Mathf.Max(1, s.xpPerTier)) / (float)Mathf.Max(1, s.xpPerTier));
-        var barBg = NewImage(_advContent.transform, "barBg", new Vector2(0.335f, 0.702f), new Vector2(0.335f, 0.702f), Vector2.zero, new Vector2(560, 10));
+        var barBg = NewImage(_advContent.transform, "barBg", new Vector2(0.5f, 0.712f), new Vector2(0.5f, 0.712f), Vector2.zero, new Vector2(1560, 10));
         barBg.sprite = _roundedFill; barBg.type = Image.Type.Sliced;
         barBg.color = new Color(0.28f, 0.24f, 0.48f);
         var barFill = NewImage(barBg.transform, "fill", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-            new Vector2(Mathf.Max(8f, 560f * frac) / 2f, 0), new Vector2(Mathf.Max(8f, 560f * frac), 10));
+            new Vector2(Mathf.Max(8f, 1560f * frac) / 2f, 0), new Vector2(Mathf.Max(8f, 1560f * frac), 10));
         barFill.sprite = _roundedFill; barFill.type = Image.Type.Sliced;
         barFill.color = new Color(1f, 0.85f, 0.4f);
 
         if (s.claimable > 0)
             MakeButton(_advContent.transform, "CLAIM " + s.claimable,
-                new Vector2(0.685f, 0.72f), new Vector2(180, 46), new Color(0.55f, 1f, 0.65f),
+                new Vector2(0.69f, 0.755f), new Vector2(180, 46), new Color(0.55f, 1f, 0.65f),
                 () => { int n = MetaBridge.ClaimAllRewards(); _advStatus.text = n + " REWARDS CLAIMED!"; RefreshAdventure(); })
                 .GetComponentInChildren<Text>().fontSize = 17;
         var perks = NewText(_advContent.transform, "perks",
             (s.premium ? "★ PREMIUM PERKS YOU HOLD:  " : "★ PREMIUM PERKS:  ") +
-            "Gilded Ego skin (T1)  ·  Ember Trail + Custom Hangar (T10)  ·  boss hulls for your ship: Smuggler (T15), Gruyere (T20), Garrison (T25), Doom (T30)  ·  +1 permanent revival (T20)  ·  Void Trail + 5000 gold (T30)",
-            13, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.655f), new Vector2(0.5f, 0.655f), Vector2.zero, new Vector2(1500, 22));
+            "Gilded Ego skin (T1)  ·  Ember Trail + Custom Hangar (T10)  ·  boss hulls: Smuggler (T15), Gruyere (T20), Garrison (T25), Doom (T30)  ·  +1 revival (T20)  ·  Void Trail + 5000 gold (T30)  ·  energy at T3, 7, 11, 17, 21, 27",
+            13, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.632f), new Vector2(0.5f, 0.632f), Vector2.zero, new Vector2(1500, 22));
         perks.color = new Color(1f, 0.85f, 0.4f, 0.85f);
         perks.horizontalOverflow = HorizontalWrapMode.Overflow;
         if (!s.premium && WalletAuth.Available)
         {
             MakeButton(_advContent.transform, "BUY PASS - " + s.priceRon + " RON",
-                new Vector2(0.845f, 0.72f), new Vector2(280, 46), new Color(0.35f, 0.75f, 1f),
+                new Vector2(0.86f, 0.755f), new Vector2(280, 46), new Color(0.35f, 0.75f, 1f),
                 () => { MetaBridge.PassBuy(); _advCo = StartCoroutine(PollPass()); })
                 .GetComponentInChildren<Text>().fontSize = 17;
             if (!WalletAuth.Connected)
                 NewText(_advContent.transform, "needwallet", "CONNECT RONIN FIRST", 14, TextAnchor.MiddleCenter,
-                    new Vector2(0.845f, 0.672f), new Vector2(0.845f, 0.672f), Vector2.zero, new Vector2(300, 24))
+                    new Vector2(0.86f, 0.795f), new Vector2(0.86f, 0.795f), Vector2.zero, new Vector2(300, 24))
                     .color = new Color(1f, 0.75f, 0.3f);
         }
 
@@ -3809,9 +3809,18 @@ public partial class HudController : MonoBehaviour
                 : free ? new Color(0.5f, 0.4f, 0.85f, 0.5f)
                 : new Color(1f, 0.85f, 0.4f, premLocked ? 0.25f : 0.55f);
 
+            // gold and energy rewards carry their icon above the text
+            Texture2D rewardTex = r.energy ? Resources.Load<Texture2D>("icons/energy") : r.gold ? Resources.Load<Texture2D>("icons/gold") : null;
+            if (rewardTex != null)
+            {
+                var ri = NewImage(cellGo.transform, "ricon", new Vector2(0.5f, 0.74f), new Vector2(0.5f, 0.74f), Vector2.zero, new Vector2(44, 44));
+                ri.sprite = Sprite.Create(rewardTex, new Rect(0, 0, rewardTex.width, rewardTex.height), new Vector2(0.5f, 0.5f));
+                ri.preserveAspect = true; ri.raycastTarget = false;
+                ri.color = premLocked ? new Color(1f, 1f, 1f, 0.45f) : Color.white;
+            }
             string txt = (free ? "" : "★ ") + r.label.ToUpperInvariant() + (r.claimed ? "\n✓ CLAIMED" : "");
             var cellTxt = NewText(cellGo.transform, "txt", txt, 13, TextAnchor.MiddleCenter,
-                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(112, 120));
+                new Vector2(0.5f, rewardTex != null ? 0.34f : 0.5f), new Vector2(0.5f, rewardTex != null ? 0.34f : 0.5f), Vector2.zero, new Vector2(112, rewardTex != null ? 70 : 120));
             cellTxt.color = r.claimed ? new Color(0.55f, 0.6f, 0.75f)
                 : r.claimable ? new Color(0.7f, 1f, 0.78f)
                 : premLocked ? new Color(0.65f, 0.6f, 0.85f, 0.55f)
