@@ -576,15 +576,18 @@ public class GameManager : MonoBehaviour
 
     // ---------- ESC pause menu (single-player only, never over a draft) ----------
     public bool MenuPaused { get; private set; }
-    public bool CanMenuPause => Running && !Paused && !CoopSync.Active && !RoyaleSync.Active;
+    // multiplayer can open the menu too, but the match keeps running underneath
+    public bool MenuFreezes => !(CoopSync.Active || RoyaleSync.Active);
+    public bool CanMenuPause => Running && !Paused;
 
     public void SetMenuPause(bool on)
     {
         if (on == MenuPaused) return;
         if (on && !CanMenuPause) return;
         MenuPaused = on;
-        Paused = on;
-        Time.timeScale = on ? 0f : 1f;
+        bool freeze = on && MenuFreezes;
+        Paused = freeze;
+        Time.timeScale = freeze ? 0f : 1f;
         Cursor.visible = on || !Running;
         Cursor.lockState = on || !Running ? CursorLockMode.None : CursorLockMode.Locked;
     }

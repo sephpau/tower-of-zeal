@@ -118,7 +118,8 @@ public partial class HudController : MonoBehaviour
         _comboText.fontStyle = FontStyle.BoldAndItalic;
 
         _waveText = NewText(_gameHud.transform, "wave", "WAVE 1", 30, TextAnchor.UpperRight,
-            new Vector2(1, 1), new Vector2(1, 1), new Vector2(-30, -24), new Vector2(400, 44));
+            new Vector2(1, 1), new Vector2(1, 1), new Vector2(-30, -24), new Vector2(520, 44));
+        _waveText.rectTransform.pivot = new Vector2(1f, 1f);   // grows leftward, never off-screen
         _waveText.color = new Color(1f, 0.55f, 0.9f);
         _waveText.fontStyle = FontStyle.Bold;
 
@@ -2004,8 +2005,13 @@ public partial class HudController : MonoBehaviour
         bg.color = new Color(0.02f, 0.01f, 0.08f, 0.86f);
         bg.raycastTarget = true;   // swallow clicks aimed at the game
 
-        var t = NewText(_pausePanel.transform, "title", "PAUSED", 64, TextAnchor.MiddleCenter,
+        bool live = !GameManager.I.MenuFreezes;   // multiplayer: the match keeps going behind this
+        var t = NewText(_pausePanel.transform, "title", live ? "SETTINGS" : "PAUSED", 64, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.8f), new Vector2(0.5f, 0.8f), Vector2.zero, new Vector2(900, 90));
+        if (live)
+            NewText(_pausePanel.transform, "livenote", "THE MATCH KEEPS RUNNING — CLOSE THIS QUICKLY", 18, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.735f), new Vector2(0.5f, 0.735f), Vector2.zero, new Vector2(900, 26))
+                .color = new Color(1f, 0.6f, 0.5f);
         t.color = new Color(0.55f, 0.95f, 1f);
         t.fontStyle = FontStyle.BoldAndItalic;
         t.font = _titleFont;
@@ -2038,7 +2044,7 @@ public partial class HudController : MonoBehaviour
             });
         }
 
-        MakeButton(_pausePanel.transform, "ABANDON RUN", new Vector2(0.5f, 0.2f), new Vector2(360, 56),
+        if (!live) MakeButton(_pausePanel.transform, "ABANDON RUN", new Vector2(0.5f, 0.2f), new Vector2(360, 56),
             new Color(1f, 0.45f, 0.45f), () => {
                 var p = _pausePanel; _pausePanel = null;
                 Destroy(p);
