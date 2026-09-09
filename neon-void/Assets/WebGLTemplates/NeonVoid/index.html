@@ -168,7 +168,22 @@
     var NV_WALLET_KEY = 'motz_wallet', NV_WALLET_VERIFIED = 'motz_wallet_verified';
     window.__nvWalletBusy = false; window.__nvWalletError = "";
     function nvValidAddress(a) { a = (a || '').toLowerCase(); return /^0x[a-f0-9]{40}$/.test(a) ? a : ''; }
+    // EIP-6963: modern wallets announce themselves; the announced Ronin provider is
+    // preferred over the legacy window.ronin shim, which can stop answering on a
+    // long-lived page. Announcements are collected from page load.
+    window.__nvProviders = [];
+    window.addEventListener('eip6963:announceProvider', function (e) {
+      try { if (e.detail && e.detail.provider) window.__nvProviders.push(e.detail); } catch (x) {}
+    });
+    try { window.dispatchEvent(new Event('eip6963:requestProvider')); } catch (x) {}
     function nvRoninProvider() {
+      var found = null;
+      for (var i = 0; i < window.__nvProviders.length; i++) {
+        var d = window.__nvProviders[i], info = d.info || {};
+        var tag = ((info.rdns || '') + ' ' + (info.name || '')).toLowerCase();
+        if (tag.indexOf('ronin') >= 0) { found = d.provider; break; }
+      }
+      if (found) return found;
       if (window.ronin && window.ronin.provider) return window.ronin.provider;
       if (window.ethereum) return window.ethereum;
       return null;
@@ -187,8 +202,12 @@
       var p = nvRoninProvider();
       if (p && p.request) p.request({ method: 'wallet_revokePermissions', params: [{ eth_accounts: {} }] }).catch(function () {});
     };
-    window.__nvWalletStep = "";
-    window.NVWalletStep = function () { return window.__nvWalletStep || ""; };
+    window.__nvWalletStep = ""; window.__nvWalletStepAt = 0;
+    function nvStep(t) { window.__nvWalletStep = t; window.__nvWalletStepAt = Date.now(); console.log('[wallet] ' + new Date().toISOString().slice(11, 19) + ' ' + t); }
+    window.NVWalletStep = function () {
+      if (!window.__nvWalletStep) return "";
+      return window.__nvWalletStep + " (" + Math.round((Date.now() - window.__nvWalletStepAt) / 1000) + "s)";
+    };
     // a wallet popup that is closed without answering would leave the flow hanging
     // forever (and every later click ignored), so every step races a timeout
     function nvWithTimeout(p, ms, what) {
@@ -202,11 +221,11 @@
         if (!provider) throw new Error('Ronin Wallet not detected - open this page in a browser with the Ronin extension.');
         // already authorized for this site? then no connect popup is needed (it can hang
         // when the extension thinks it is already connected); otherwise ask for access
-        window.__nvWalletStep = "checking the wallet";
+        nvStep("checking the wallet");
         var accounts = [];
         try { accounts = await nvWithTimeout(provider.request({ method: 'eth_accounts' }), 8000, 'The wallet'); } catch (e) { accounts = []; }
         if (!accounts || !accounts[0]) {
-          window.__nvWalletStep = "waiting for the wallet - approve the connection in Ronin";
+          nvStep("waiting for the wallet - approve the connection in Ronin");
           accounts = await nvWithTimeout(provider.request({ method: 'eth_requestAccounts' }), 90000, 'The wallet');
         }
         var from = ((accounts && accounts[0]) || '').toLowerCase();
@@ -224,13 +243,13 @@
             } catch (_) {}
           }
         }
-        window.__nvWalletStep = "asking the server for a challenge";
+        nvStep("asking the server for a challenge");
         var cr = await nvWithTimeout(fetch('/api/staking/verify-wallet?address=' + encodeURIComponent(from), { credentials: 'same-origin' }), 30000, 'The server');
         if (!cr.ok) throw new Error('Could not start wallet verification.');
         var ch = await cr.json();
-        window.__nvWalletStep = "waiting for your signature (no gas)";
+        nvStep("waiting for your signature (no gas)");
         var sig = await nvWithTimeout(provider.request({ method: 'personal_sign', params: [ch.message, from] }), 120000, 'The signature request');
-        window.__nvWalletStep = "verifying the signature";
+        nvStep("verifying the signature");
         var vr = await fetch('/api/staking/verify-wallet', {
           method: 'POST', credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },

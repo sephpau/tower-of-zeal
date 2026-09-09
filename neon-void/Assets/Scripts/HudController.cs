@@ -1054,6 +1054,7 @@ public partial class HudController : MonoBehaviour
 
     void Update()
     {
+        PollIdentity();   // every screen, every frame: wallet/Discord state, daily hint, hover tags
         PauseHotkeys();
 
         // waiting indicators: sweep bars while a lobby is short on people
@@ -2525,8 +2526,6 @@ public partial class HudController : MonoBehaviour
 
         // fixed center crosshair (mouse-look aiming)
         _reticle.rectTransform.anchoredPosition = Vector2.zero;
-
-        PollIdentity();   // wallet connect resolves async — refresh the corner when state flips
 
         // banner fade
         if (_bannerTimer > 0f)

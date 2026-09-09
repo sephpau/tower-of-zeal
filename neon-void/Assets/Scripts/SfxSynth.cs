@@ -64,7 +64,7 @@ public static class SfxSynth
             return noise * env * 0.35f * (1f - 0.5f * k);
         });
         // bolt on an enemy hull: a metallic thock - a click of noise and a falling ping
-        HitEnemy = RenderNoiseHit("hitenemy", 0.09f, 5200f, 900f, 1400f, 520f, 0.32f, 1.0f);
+        HitEnemy = RenderNoiseHit("hitenemy", 0.11f, 3200f, 480f, 720f, 240f, 0.48f, 1.05f);   // deeper thock
         // bolt on an asteroid: dull stony crack - dark noise, low knock, no ring
         HitRock = RenderNoiseHit("hitrock", 0.12f, 1800f, 260f, 150f, 90f, 0.7f, 0.9f);
         // damage taken: a heavy thud plus shield crackle and a short alarm blip
@@ -75,12 +75,8 @@ public static class SfxSynth
             float f = Mathf.Lerp(1900f, 750f, t / d);
             return Square(f, t) * 0.55f * Decay(t, d, 4f);
         });
-        // meatier crunch-zap when a special connects
-        HitSpecial = Render("hitspecial", 0.18f, (t, d) =>
-        {
-            float f = Mathf.Lerp(620f, 130f, t / d);
-            return (Saw(f, t) * 0.55f + Tri(f * 2.7f, t) * 0.3f) * Decay(t, d, 2.6f);
-        });
+        // a special connecting: a heavy slam - big low thump under a long dark noise burst
+        HitSpecial = RenderNoiseHit("hitspecial", 0.32f, 4200f, 200f, 170f, 44f, 0.6f, 1.35f);
         // death crash: falling growl + crunchy blast + late debris ticks
         Crash = Render("crash", 0.72f, (t, d) =>
         {

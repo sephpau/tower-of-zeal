@@ -210,7 +210,7 @@ public class SpecialAttack : MonoBehaviour
                 {
                     h.TakeDamage(BeamDps * Might * Time.deltaTime);
                     if (Random.value < 6f * Time.deltaTime)
-                        GameManager.I.PlaySfx(SfxSynth.HitSpecial, 0.4f);
+                        GameManager.I.PlaySfx(GameAudio.Clip("hit special") ?? SfxSynth.HitSpecial, 0.75f);
                     if (Random.value < 14f * Time.deltaTime)
                         ExplosionFactory.Sparks(hit.point, Accent);
                 }
@@ -264,7 +264,7 @@ public class SpecialAttack : MonoBehaviour
                         ExplosionFactory.Sparks(h.transform.position, Accent);
                         connected = true;
                     }
-                if (connected) GameManager.I.PlaySfx(SfxSynth.HitSpecial, 0.35f);
+                if (connected) GameManager.I.PlaySfx(GameAudio.Clip("hit special") ?? SfxSynth.HitSpecial, 0.7f);
             }
             yield return null;
         }
@@ -379,7 +379,7 @@ public class HomingPie : MonoBehaviour
             if (h != null && !h.isPlayer && !h.playerSide)
             {
                 h.TakeDamage(_dmg);
-                GameManager.I.PlaySfx(SfxSynth.HitSpecial, 0.6f);
+                GameManager.I.PlaySfx(GameAudio.Clip("hit special") ?? SfxSynth.HitSpecial, 0.9f);
             }
             ExplosionFactory.Explode(hit.point, _tint, 0.7f);
             GameManager.I.PlaySfxAt(SfxSynth.Boom, hit.point, 0.4f);
@@ -434,7 +434,7 @@ public class StormMarkBolt : MonoBehaviour
                 if (direct != null && !direct.isPlayer && !direct.playerSide)
                 {
                     direct.TakeDamage(_dmg);
-                    GameManager.I.PlaySfx(SfxSynth.HitSpecial, 0.7f);
+                    GameManager.I.PlaySfx(GameAudio.Clip("hit special") ?? SfxSynth.HitSpecial, 1f);
                     // the mark detonates: chain to everything nearby, same damage
                     foreach (var h in SkillSystem.AllHostiles())
                     {
