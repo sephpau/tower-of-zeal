@@ -2747,7 +2747,7 @@ public partial class HudController : MonoBehaviour
             stepT.color = new Color(0.5f, 0.95f, 1f, 0.95f);
             // spinning ring over the Ronin badge so the wait is visible without hovering
             _idSpinner = NewImage(_idCorner.transform, "spinner", new Vector2(0.9075f, 0.92f), new Vector2(0.9075f, 0.92f), Vector2.zero, new Vector2(70, 70));
-            _idSpinner.sprite = RingSprite();
+            _idSpinner.sprite = SpinnerRingSprite();
             _idSpinner.color = new Color(0.5f, 0.95f, 1f, 0.9f);
         }
         else if (WalletAuth.Connected && !WalletAuth.SessionOk)
@@ -2823,7 +2823,7 @@ public partial class HudController : MonoBehaviour
     static string Short(string a) => string.IsNullOrEmpty(a) ? "?" : (a.Length >= 10 ? a.Substring(0, 6) + "..." + a.Substring(a.Length - 4) : a);
 
     // open ring with a gap, spun while the wallet flow is busy
-    Sprite RingSprite()
+    Sprite SpinnerRingSprite()
     {
         const int S = 64;
         var tex = new Texture2D(S, S, TextureFormat.RGBA32, false);
