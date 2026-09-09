@@ -170,11 +170,11 @@ public class RoyaleSync : MonoBehaviour
         if (state == 1)
         {
             CoopNet.SetVoiceVolume(GameSettings.VoiceVolume);
-            onStatus?.Invoke("CONNECTED — CHECKING IN…");
+            onStatus?.Invoke("CONNECTED - CHECKING IN…");
             _net.Send("host", "HELLO|" + _myName + "|" + _myPilot + "|" + (_isSpectator ? "s" : "p"));
         }
         else if (state == 2) HandleLinkLost();
-        else if (state == -1) onStatus?.Invoke("NO ROOM FOUND — CHECK THE CODE AND TRY AGAIN");
+        else if (state == -1) onStatus?.Invoke("NO ROOM FOUND - CHECK THE CODE AND TRY AGAIN");
     }
 
     void OnPeerJoined(string id)
@@ -202,10 +202,10 @@ public class RoyaleSync : MonoBehaviour
     {
         if (Playing && GameManager.I != null && GameManager.I.Running)
         {
-            GameManager.I.Banner("HOST LOST — MATCH VOID");
+            GameManager.I.Banner("HOST LOST - MATCH VOID");
             GameManager.I.CoopGameOver();
         }
-        else onStatus?.Invoke("CONNECTION LOST — LEAVE AND TRY AGAIN");
+        else onStatus?.Invoke("CONNECTION LOST - LEAVE AND TRY AGAIN");
         Active = false;
         Playing = false;
     }
@@ -501,7 +501,7 @@ public class RoyaleSync : MonoBehaviour
                     }
                     if (dwp.ghost != null) HideGhostWithBoom(dwp);
                     _net.Broadcast("DOWNB|" + dwp.slot + "|" + dwp.lives);
-                    GameManager.I.Banner(dwp.name.ToUpperInvariant() + (Decimation ? " IS DOWN" : " IS DOWN — " + dwp.lives + " LIVES LEFT"));
+                    GameManager.I.Banner(dwp.name.ToUpperInvariant() + (Decimation ? " IS DOWN" : " IS DOWN - " + dwp.lives + " LIVES LEFT"));
                 }
                 break;
             case "RESP":
@@ -520,7 +520,7 @@ public class RoyaleSync : MonoBehaviour
                 {
                     int.TryParse(p[2], out dbp.lives);
                     if (dbp.ghost != null) HideGhostWithBoom(dbp);
-                    GameManager.I.Banner(dbp.name.ToUpperInvariant() + (Decimation ? " IS DOWN" : " IS DOWN — " + dbp.lives + " LIVES LEFT"));
+                    GameManager.I.Banner(dbp.name.ToUpperInvariant() + (Decimation ? " IS DOWN" : " IS DOWN - " + dbp.lives + " LIVES LEFT"));
                 }
                 break;
             case "RESPB":
@@ -599,7 +599,7 @@ public class RoyaleSync : MonoBehaviour
                         ep.ghost.SetActive(false);
                     }
                     if (eslot == mySlot) _myPlacement = aliveCount + 1;
-                    GameManager.I.Banner(ep.name.ToUpperInvariant() + " ELIMINATED — " + aliveCount + " LEFT");
+                    GameManager.I.Banner(ep.name.ToUpperInvariant() + " ELIMINATED - " + aliveCount + " LEFT");
                     GameManager.I.PlaySfx(SfxSynth.BigBoom, 0.6f);
                 }
                 break;
@@ -763,7 +763,7 @@ public class RoyaleSync : MonoBehaviour
             EliminateSlot(0, "");
         }
         else _net.Send("host", "DIE|" + killer);
-        GameManager.I.Banner("ELIMINATED — SPECTATING (J/K TO SWITCH SHIPS)");
+        GameManager.I.Banner("ELIMINATED - SPECTATING (J/K TO SWITCH SHIPS)");
         SpectateNext(0);
     }
 
@@ -778,7 +778,7 @@ public class RoyaleSync : MonoBehaviour
         for (int s = Decimation ? 2 : 5; s > 0; s--)
         {
             if (!Playing || GameManager.I == null || !GameManager.I.Running) yield break;
-            GameManager.I.Banner(Decimation ? "RESPAWN IN " + s : "RESPAWN IN " + s + " — " + _myLives + (_myLives == 1 ? " LIFE" : " LIVES") + " LEFT");
+            GameManager.I.Banner(Decimation ? "RESPAWN IN " + s : "RESPAWN IN " + s + " - " + _myLives + (_myLives == 1 ? " LIFE" : " LIVES") + " LEFT");
             yield return new WaitForSecondsRealtime(1f);
         }
         if (!Playing || GameManager.I == null || !GameManager.I.Running || _localHealth == null) yield break;
@@ -791,7 +791,7 @@ public class RoyaleSync : MonoBehaviour
         _localHealth.Revive(1f);
         if (IsHostRole) _net.Broadcast("RESPB|0");
         else _net.Send("host", "RESP");
-        GameManager.I.Banner(Decimation ? "BACK IN THE FIGHT" : "BACK IN THE FIGHT — " + _myLives + (_myLives == 1 ? " LIFE" : " LIVES") + " LEFT");
+        GameManager.I.Banner(Decimation ? "BACK IN THE FIGHT" : "BACK IN THE FIGHT - " + _myLives + (_myLives == 1 ? " LIFE" : " LIVES") + " LEFT");
     }
 
     void HideGhostWithBoom(PlayerInfo p)
@@ -818,7 +818,7 @@ public class RoyaleSync : MonoBehaviour
         }
         if (slot != mySlot)
         {
-            GameManager.I.Banner(p.name.ToUpperInvariant() + " ELIMINATED" + suffix + " — " + aliveCount + " LEFT");
+            GameManager.I.Banner(p.name.ToUpperInvariant() + " ELIMINATED" + suffix + " - " + aliveCount + " LEFT");
             GameManager.I.PlaySfx(SfxSynth.BigBoom, 0.6f);
         }
         CheckWin();
@@ -885,7 +885,7 @@ public class RoyaleSync : MonoBehaviour
             }
             rows.Sort((a, b) => b.dealt.CompareTo(a.dealt));
             for (int i = 0; i < rows.Count; i++)
-                lastMatchStats.Add((i == 0 ? "★ " : "   ") + rows[i].name + " — "
+                lastMatchStats.Add((i == 0 ? "★ " : "   ") + rows[i].name + " - "
                     + rows[i].kills + (rows[i].kills == 1 ? " KILL · " : " KILLS · ")
                     + rows[i].dealt.ToString("N0") + " DMG");
         }

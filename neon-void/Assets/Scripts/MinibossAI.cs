@@ -146,7 +146,7 @@ public class MinibossAI : MonoBehaviour
                 _blinkCharge = BlinkWindup;
                 SpawnBlinkMarker();
                 GameManager.I.PlaySfxAt(SfxSynth.WaveUp, transform.position, 0.55f);
-                Announcer.Say("The Smuggler is phasing — brace!", 0.55f, 0.95f);
+                Announcer.Say("The Smuggler is phasing - brace!", 0.55f, 0.95f);
             }
             SetCloak(Mathf.PingPong(Time.time * 0.7f, 1f) * 0.75f);
         }

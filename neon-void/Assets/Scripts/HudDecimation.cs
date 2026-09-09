@@ -176,7 +176,7 @@ public partial class HudController
             }
             if (_decListInfo != null)
                 _decListInfo.text = rooms.Count == 0
-                    ? "NO OPEN ROOMS RIGHT NOW — HOST ONE AND OTHERS CAN JOIN YOU"
+                    ? "NO OPEN ROOMS RIGHT NOW - HOST ONE AND OTHERS CAN JOIN YOU"
                     : rooms.Count + (rooms.Count == 1 ? " ROOM OPEN" : " ROOMS OPEN") + "  ·  TAP ONE TO JOIN";
         });
     }
@@ -193,7 +193,7 @@ public partial class HudController
         _decLobbyPanel.SetActive(true);
         _decCountdown.text = "";
         _decLobbyStatus.text = host
-            ? "YOU ARE HOSTING — START WHENEVER YOU LIKE, PILOTS CAN JOIN UNTIL THEN"
+            ? "YOU ARE HOSTING - START WHENEVER YOU LIKE, PILOTS CAN JOIN UNTIL THEN"
             : "CONNECTING TO " + roomCode.Trim().ToUpperInvariant();
         RefreshDecLobby();
     }
@@ -237,7 +237,7 @@ public partial class HudController
             if (!has) continue;
             var p = s.players[i];
             string pilot = ZealData.Pilots[Mathf.Clamp(p.pilot, 0, ZealData.Pilots.Length - 1)].name.ToUpperInvariant();
-            _decRowTexts[i].text = (p.slot == s.mySlot ? "> " : "") + p.name.ToUpperInvariant() + "  —  " + pilot + (p.slot == 0 ? "  (HOST)" : "");
+            _decRowTexts[i].text = (p.slot == s.mySlot ? "> " : "") + p.name.ToUpperInvariant() + "  -  " + pilot + (p.slot == 0 ? "  (HOST)" : "");
             _decRowTexts[i].color = p.slot == s.mySlot ? new Color(0.5f, 0.98f, 1f) : new Color(0.85f, 0.9f, 1f);
         }
         _decRoster.text = s.players.Count == 0

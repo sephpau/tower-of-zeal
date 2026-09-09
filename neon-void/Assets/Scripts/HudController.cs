@@ -493,7 +493,7 @@ public partial class HudController : MonoBehaviour
         _resultsScore.text = score.ToString("N0");
         _resultsVerify.text = "MATCH " + matchCode + "   ·   VERIFY CODE  " + verify;
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine(online ? "— LIVE MATCH STANDINGS —" : "— LOCAL STANDINGS (offline) —");
+        sb.AppendLine(online ? "- LIVE MATCH STANDINGS -" : "- LOCAL STANDINGS (offline) -");
         int rank = 1;
         foreach (var e in standings)
         {
@@ -515,7 +515,7 @@ public partial class HudController : MonoBehaviour
         foreach (var c in _levelUpCards) Destroy(c);
         _levelUpCards.Clear();
         _levelUpPanel.SetActive(true);
-        _levelUpPanel.transform.Find("title").GetComponent<Text>().text = "LEVEL " + level + " — CHOOSE";
+        _levelUpPanel.transform.Find("title").GetComponent<Text>().text = "LEVEL " + level + " - CHOOSE";
 
         for (int i = 0; i < choices.Count; i++)
         {
@@ -579,7 +579,7 @@ public partial class HudController : MonoBehaviour
             new Vector2(0.5f, 0.755f), new Vector2(0.5f, 0.755f), Vector2.zero, new Vector2(1500, 100));
         surv.font = _titleFont;
         surv.color = new Color(0.98f, 0.78f, 0.25f);
-        var v2 = NewText(_homePanel.transform, "v2", "V2 — THE VOID", 36, TextAnchor.MiddleCenter,
+        var v2 = NewText(_homePanel.transform, "v2", "V2 - THE VOID", 36, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.675f), new Vector2(0.5f, 0.675f), Vector2.zero, new Vector2(1000, 52));
         v2.font = _titleFont;
         v2.color = new Color(1f, 0.55f, 0.9f);
@@ -599,11 +599,11 @@ public partial class HudController : MonoBehaviour
         _bestHomeText.font = _titleFont;
 
         // three doors: practice, the real game, everything multiplayer
-        HomeTile("QUICK PLAY", "practice run · stock ship · nothing earned", new Vector2(0.5f, 0.47f), new Color(0.6f, 0.9f, 1f),
+        HomeTile("QUICK PLAY", "sparring run · stock ship · no plunder, no glory, just flying", new Vector2(0.5f, 0.47f), new Color(0.6f, 0.9f, 1f),
             () => { DecimationMode.Pending = false; SwitchPanel(_homePanel, _startPanel, RefreshCustomHangar); });
-        HomeTile("ADVENTURE", "the real game · earn gold · quests · leaderboard · 1 energy per run", new Vector2(0.5f, 0.355f), new Color(1f, 0.85f, 0.4f),
+        HomeTile("ADVENTURE", "brave the Void · loot gold · clear bounties · climb the board · 1 energy a run", new Vector2(0.5f, 0.355f), new Color(1f, 0.85f, 0.4f),
             () => SwitchPanel(_homePanel, _adventurePanel, RefreshAdventure));
-        HomeTile("MULTIPLAYER", "tournament · co-op · battle royale · the decimation", new Vector2(0.5f, 0.24f), new Color(1f, 0.55f, 0.9f),
+        HomeTile("MULTIPLAYER", "crew up or cut them down · tournament · co-op · royale · decimation", new Vector2(0.5f, 0.24f), new Color(1f, 0.55f, 0.9f),
             () => SwitchPanel(_homePanel, _multiPanel));
 
         // daily on-chain check-in card, top-left
@@ -612,7 +612,7 @@ public partial class HudController : MonoBehaviour
         // Discord + Ronin wallet identity corner (top-right)
         BuildIdentityCorner();
 
-        var ctl = NewText(_homePanel.transform, "controls", "MOUSE aim · WASD move · SHIFT up / CTRL down · SPACE dash (spins!) · G guard (½ dmg, attack drops it, 5s CD) · LMB fire · RMB special · V 1st/3rd person · M mute\nCollect XP shards — choose upgrades on level up", 18, TextAnchor.MiddleCenter,
+        var ctl = NewText(_homePanel.transform, "controls", "MOUSE aim · WASD move · SHIFT up / CTRL down · SPACE dash (spins!) · G guard (½ dmg, attack drops it, 5s CD) · LMB fire · RMB special · V 1st/3rd person · M mute\nCollect XP shards - choose upgrades on level up", 18, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.033f), new Vector2(0.5f, 0.033f), Vector2.zero, new Vector2(1500, 70));
         ctl.color = new Color(0.8f, 0.9f, 1f, 0.7f);
         _homePanel.SetActive(false);
@@ -651,8 +651,8 @@ public partial class HudController : MonoBehaviour
             new Vector2(0.27f, 0.8f), new Vector2(0.27f, 0.8f), new Vector2(120, 0), new Vector2(240, 26));
         title.color = new Color(1f, 0.85f, 0.4f);
         title.fontStyle = FontStyle.Bold;
-        _dailyInfo = NewText(card.transform, "info", "", 13, TextAnchor.MiddleLeft,
-            new Vector2(0.27f, 0.6f), new Vector2(0.27f, 0.6f), new Vector2(120, 0), new Vector2(240, 20));
+        _dailyInfo = NewText(card.transform, "info", "", 13, TextAnchor.UpperLeft,
+            new Vector2(0.27f, 0.56f), new Vector2(0.27f, 0.56f), new Vector2(120, 0), new Vector2(250, 36));
         _dailyInfo.color = new Color(0.8f, 0.9f, 1f, 0.85f);
         _dailyBtn = MakeButton(card.transform, "CHECK IN", new Vector2(0.62f, 0.3f), new Vector2(200, 34),
             new Color(1f, 0.85f, 0.4f), () => StartCoroutine(DailyClaimCo()));
@@ -710,7 +710,7 @@ public partial class HudController : MonoBehaviour
             new Vector2(0.5f, 0.8f), new Vector2(0.5f, 0.8f), Vector2.zero, new Vector2(1200, 90));
         t.color = new Color(1f, 0.55f, 0.9f);
         t.font = _titleFont;
-        var s = NewText(_multiPanel.transform, "sub", "Meta upgrades apply. No gold, no quests, no adventure leaderboard — just glory.", 20, TextAnchor.MiddleCenter,
+        var s = NewText(_multiPanel.transform, "sub", "Your upgrades fly with you. No plunder out here, captain: only bragging rights.", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.72f), new Vector2(0.5f, 0.72f), Vector2.zero, new Vector2(1200, 30));
         s.color = new Color(0.8f, 0.9f, 1f, 0.8f);
         MakeButton(_multiPanel.transform, "BLITZ TOURNAMENT", new Vector2(0.5f, 0.6f), new Vector2(420, 60),
@@ -729,11 +729,11 @@ public partial class HudController : MonoBehaviour
     void BuildStartPanel()   // character select, reached from the homepage
     {
         _startPanel = Panel("SelectPanel");
-        var pick = NewText(_startPanel.transform, "pick", "QUICK PLAY — CHOOSE YOUR EGO", 46, TextAnchor.MiddleCenter,
+        var pick = NewText(_startPanel.transform, "pick", "QUICK PLAY - CHOOSE YOUR EGO", 46, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.85f), new Vector2(0.5f, 0.85f), Vector2.zero, new Vector2(1200, 64));
         pick.color = new Color(1f, 0.85f, 0.4f);
         pick.font = _titleFont;
-        var practice = NewText(_startPanel.transform, "practice", "practice run: stock ship, all stats level 1 · no gold, no quests, no leaderboard", 17, TextAnchor.MiddleCenter,
+        var practice = NewText(_startPanel.transform, "practice", "sparring run: stock ship, level-one everything · no plunder, no bounties, no board", 17, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.795f), new Vector2(0.5f, 0.795f), Vector2.zero, new Vector2(1200, 26));
         practice.color = new Color(0.8f, 0.9f, 1f, 0.75f);
 
@@ -886,7 +886,7 @@ public partial class HudController : MonoBehaviour
             new Vector2(0.855f, 0.58f), new Vector2(0.855f, 0.58f), Vector2.zero, new Vector2(320, 32));
         padTitle.color = new Color(0.4f, 1f, 0.75f);
         padTitle.font = _titleFont;
-        var padHint = NewText(_settingsPanel.transform, "padhint", "MOVE YOUR MOUSE — THE DOT\nMATCHES YOUR IN-GAME AIM SPEED", 15, TextAnchor.MiddleCenter,
+        var padHint = NewText(_settingsPanel.transform, "padhint", "MOVE YOUR MOUSE - THE DOT\nMATCHES YOUR IN-GAME AIM SPEED", 15, TextAnchor.MiddleCenter,
             new Vector2(0.855f, 0.25f), new Vector2(0.855f, 0.25f), Vector2.zero, new Vector2(320, 44));
         padHint.color = new Color(0.8f, 0.9f, 1f, 0.7f);
         _sensDot = NewImage(pad.transform, "dot", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(16, 16));
@@ -990,17 +990,17 @@ public partial class HudController : MonoBehaviour
         int lvl = CoopNet.MicTestLevel();
         if (lvl == -1)
         {
-            _micStatus.text = "MIC BLOCKED — CHECK BROWSER *AND* WINDOWS PRIVACY (SETTINGS > PRIVACY > MICROPHONE)";
+            _micStatus.text = "MIC BLOCKED - CHECK BROWSER *AND* WINDOWS PRIVACY (SETTINGS > PRIVACY > MICROPHONE)";
             _micLevelFill.fillAmount = 0f;
         }
         else if (lvl == -3)
         {
-            _micStatus.text = "NO MICROPHONE FOUND — PLUG IN A HEADSET AND PRESS START AGAIN";
+            _micStatus.text = "NO MICROPHONE FOUND - PLUG IN A HEADSET AND PRESS START AGAIN";
             _micLevelFill.fillAmount = 0f;
         }
         else if (lvl == -4)
         {
-            _micStatus.text = "MIC IS BUSY IN ANOTHER APP — CLOSE IT AND PRESS START AGAIN";
+            _micStatus.text = "MIC IS BUSY IN ANOTHER APP - CLOSE IT AND PRESS START AGAIN";
             _micLevelFill.fillAmount = 0f;
         }
         else if (lvl == -2)
@@ -1008,7 +1008,7 @@ public partial class HudController : MonoBehaviour
         else
         {
             _micLevelFill.fillAmount = Mathf.Max(Mathf.Lerp(_micLevelFill.fillAmount, lvl / 100f, 0.4f), lvl / 100f);
-            _micStatus.text = lvl > 6 ? "MIC OK — WE HEAR YOU LOUD AND CLEAR!" : "SPEAK INTO YOUR MIC…";
+            _micStatus.text = lvl > 6 ? "MIC OK - WE HEAR YOU LOUD AND CLEAR!" : "SPEAK INTO YOUR MIC…";
         }
     }
 
@@ -1078,7 +1078,7 @@ public partial class HudController : MonoBehaviour
         t.color = new Color(1f, 0.55f, 0.9f);
         t.fontStyle = FontStyle.BoldAndItalic;
         t.font = _titleFont;
-        var sub = NewText(_tourneySetupPanel.transform, "sub", "5-MINUTE SEEDED RUN + 1 MINUTE OVERTIME · +20% XP · SAME CODE = SAME WAVES & DRAFTS\nPICK YOUR PILOT — VERIFY CODE PROVES YOUR RUN AND YOUR PILOT", 20, TextAnchor.MiddleCenter,
+        var sub = NewText(_tourneySetupPanel.transform, "sub", "5-MINUTE SEEDED RUN + 1 MINUTE OVERTIME · +20% XP · SAME CODE = SAME WAVES & DRAFTS\nPICK YOUR PILOT - VERIFY CODE PROVES YOUR RUN AND YOUR PILOT", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.68f), new Vector2(0.5f, 0.68f), Vector2.zero, new Vector2(1400, 60));
         sub.color = new Color(0.8f, 0.9f, 1f, 0.8f);
 
@@ -1156,7 +1156,7 @@ public partial class HudController : MonoBehaviour
         t.color = new Color(0.4f, 1f, 0.75f);
         t.fontStyle = FontStyle.BoldAndItalic;
         t.font = _titleFont;
-        var sub = NewText(_coopPanel.transform, "sub", "2 PILOTS VS THE WAVES — LIVE · AGREE ON A ROOM CODE, ONE HOSTS, ONE JOINS\nVOICE CHAT ON (ALLOW YOUR MIC · N MUTES) · PICK YOUR PILOT TOGETHER IN THE LOBBY", 20, TextAnchor.MiddleCenter,
+        var sub = NewText(_coopPanel.transform, "sub", "2 PILOTS VS THE WAVES - LIVE · AGREE ON A ROOM CODE, ONE HOSTS, ONE JOINS\nVOICE CHAT ON (ALLOW YOUR MIC · N MUTES) · PICK YOUR PILOT TOGETHER IN THE LOBBY", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.705f), new Vector2(0.5f, 0.705f), Vector2.zero, new Vector2(1400, 60));
         sub.color = new Color(0.8f, 0.9f, 1f, 0.8f);
 
@@ -1339,9 +1339,9 @@ public partial class HudController : MonoBehaviour
         readyLabel.color = s.MyReady ? new Color(1f, 0.85f, 0.4f) : new Color(0.5f, 1f, 0.6f);
 
         var modeLabel = _blitzBtn.GetComponentInChildren<Text>();
-        modeLabel.text = s.lobbyMode == 1 ? "MODE: BLITZ DUO — 5:00 + OT · SEEDED · TEAM SCORE"
-            : s.lobbyMode == 2 ? "MODE: VOID DUEL — 1V1 PVP"
-            : "MODE: CAMPAIGN CO-OP — ENDLESS WAVES";
+        modeLabel.text = s.lobbyMode == 1 ? "MODE: BLITZ DUO - 5:00 + OT · SEEDED · TEAM SCORE"
+            : s.lobbyMode == 2 ? "MODE: VOID DUEL - 1V1 PVP"
+            : "MODE: CAMPAIGN CO-OP - ENDLESS WAVES";
         modeLabel.color = s.lobbyMode == 1 ? new Color(1f, 0.55f, 0.9f)
             : s.lobbyMode == 2 ? new Color(1f, 0.35f, 0.35f)
             : new Color(0.5f, 0.98f, 1f);
@@ -1392,13 +1392,13 @@ public partial class HudController : MonoBehaviour
         if (_tourneyPilotChoice >= 0)
         {
             var chosen = ZealData.Pilots[_tourneyPilotChoice];
-            _tourneyPilotPreview.text = "YOUR PILOT:  " + chosen.name.ToUpperInvariant() + " — " + chosen.title.ToUpperInvariant();
+            _tourneyPilotPreview.text = "YOUR PILOT:  " + chosen.name.ToUpperInvariant() + " - " + chosen.title.ToUpperInvariant();
             _tourneyPilotPreview.color = chosen.accent;
             return;
         }
         string code = string.IsNullOrEmpty(_codeInput.text) ? "OPEN" : _codeInput.text.Trim().ToUpperInvariant();
         var pilot = ZealData.Pilots[(int)(TournamentMode.Hash32(code) % (uint)ZealData.Pilots.Length)];
-        _tourneyPilotPreview.text = "MATCH PILOT:  " + pilot.name.ToUpperInvariant() + " — " + pilot.title.ToUpperInvariant();
+        _tourneyPilotPreview.text = "MATCH PILOT:  " + pilot.name.ToUpperInvariant() + " - " + pilot.title.ToUpperInvariant();
         _tourneyPilotPreview.color = new Color(0.5f, 0.95f, 1f);
     }
 
@@ -1469,7 +1469,7 @@ public partial class HudController : MonoBehaviour
         t.color = new Color(1f, 0.35f, 0.35f);
         t.fontStyle = FontStyle.BoldAndItalic;
         t.font = _titleFont;
-        var sub = NewText(_brPanel.transform, "sub", "UP TO 8 PILOTS · SHRINKING VOID ZONE · LAST SHIP FLYING WINS\nONE HOSTS, EVERYONE ELSE JOINS — OR PRESS WATCH TO SPECTATE", 20, TextAnchor.MiddleCenter,
+        var sub = NewText(_brPanel.transform, "sub", "UP TO 8 PILOTS · SHRINKING VOID ZONE · LAST SHIP FLYING WINS\nONE HOSTS, EVERYONE ELSE JOINS - OR PRESS WATCH TO SPECTATE", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.705f), new Vector2(0.5f, 0.705f), Vector2.zero, new Vector2(1400, 60));
         sub.color = new Color(0.8f, 0.9f, 1f, 0.8f);
 
@@ -1617,7 +1617,7 @@ public partial class HudController : MonoBehaviour
         _brLobbyPanel.SetActive(true);
         _brCountdown.text = "";
         _brLobbyStatus.text = host
-            ? "SHARE THE ROOM CODE — WAITING FOR PILOTS"
+            ? "SHARE THE ROOM CODE - WAITING FOR PILOTS"
             : (spectate ? "CONNECTING TO " + room.Trim().ToUpperInvariant() + " AS A SPECTATOR"
                         : "CONNECTING TO " + room.Trim().ToUpperInvariant());
         RefreshRoyaleLobby();
@@ -1662,7 +1662,7 @@ public partial class HudController : MonoBehaviour
             var p = s.players[i];
             string pilot = ZealData.Pilots[Mathf.Clamp(p.pilot, 0, ZealData.Pilots.Length - 1)].name.ToUpperInvariant();
             string team = p.team > 0 ? "  [" + (char)('A' + p.team - 1) + "]" : "";
-            _brRowTexts[i].text = (p.slot == s.mySlot ? "> " : "") + p.name.ToUpperInvariant() + "  —  " + pilot + team + (p.slot == 0 ? "  (HOST)" : "");
+            _brRowTexts[i].text = (p.slot == s.mySlot ? "> " : "") + p.name.ToUpperInvariant() + "  -  " + pilot + team + (p.slot == 0 ? "  (HOST)" : "");
             _brRowTexts[i].color = p.slot == s.mySlot ? new Color(0.5f, 0.98f, 1f) : new Color(0.85f, 0.9f, 1f);
             _brRowKicks[i].gameObject.SetActive(s.IsHostRole && p.slot != 0);
         }
@@ -1670,7 +1670,7 @@ public partial class HudController : MonoBehaviour
         {
             var teamLabel = _brTeamBtn.GetComponentInChildren<Text>();
             teamLabel.text = s.MyInfo.team > 0
-                ? "TEAM: " + (char)('A' + s.MyInfo.team - 1) + " — SQUAD COMMS ONLY"
+                ? "TEAM: " + (char)('A' + s.MyInfo.team - 1) + " - SQUAD COMMS ONLY"
                 : "TEAM: FFA (EVERY SHIP FOR ITSELF)";
             _brTeamBtn.gameObject.SetActive(s.mySlot >= 0);
         }
@@ -1719,7 +1719,7 @@ public partial class HudController : MonoBehaviour
         if (_sideLevelPanel != null) _sideLevelPanel.SetActive(false);
         _warnBorder.color = new Color(1, 1, 1, 0);
         string partner = partnerName.ToUpperInvariant();
-        string hits = "HITS — YOU " + myHits + "  /  " + partner + " " + theirHits;
+        string hits = "HITS - YOU " + myHits + "  /  " + partner + " " + theirHits;
         if (outcome == 0)
         {
             _winPanel.SetActive(true);
@@ -1760,7 +1760,7 @@ public partial class HudController : MonoBehaviour
         _sidePick = onPick;
         _sideLevelPanel.SetActive(true);
 
-        var title = NewText(_sideLevelPanel.transform, "title", "LEVEL " + level + " — PICK!", 26, TextAnchor.MiddleCenter,
+        var title = NewText(_sideLevelPanel.transform, "title", "LEVEL " + level + " - PICK!", 26, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -20), new Vector2(330, 40));
         title.color = new Color(0.4f, 0.95f, 1f);
         title.font = _titleFont;
@@ -2009,7 +2009,7 @@ public partial class HudController : MonoBehaviour
         var t = NewText(_pausePanel.transform, "title", live ? "SETTINGS" : "PAUSED", 64, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.8f), new Vector2(0.5f, 0.8f), Vector2.zero, new Vector2(900, 90));
         if (live)
-            NewText(_pausePanel.transform, "livenote", "THE MATCH KEEPS RUNNING — CLOSE THIS QUICKLY", 18, TextAnchor.MiddleCenter,
+            NewText(_pausePanel.transform, "livenote", "THE VOID DOES NOT WAIT · THE MATCH IS STILL ON", 18, TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 0.735f), new Vector2(0.5f, 0.735f), Vector2.zero, new Vector2(900, 26))
                 .color = new Color(1f, 0.6f, 0.5f);
         t.color = new Color(0.55f, 0.95f, 1f);
@@ -2051,7 +2051,7 @@ public partial class HudController : MonoBehaviour
                 GameManager.I.AbandonRun();
             });
 
-        NewText(_pausePanel.transform, "hint", "ESC / P — RESUME", 16, TextAnchor.MiddleCenter,
+        NewText(_pausePanel.transform, "hint", "ESC / P - RESUME", 16, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.115f), new Vector2(0.5f, 0.115f), Vector2.zero, new Vector2(600, 24))
             .color = new Color(0.75f, 0.72f, 0.95f, 0.6f);
     }
@@ -2085,7 +2085,7 @@ public partial class HudController : MonoBehaviour
         _overScore.text = score.ToString("N0");
         _overBest.text = newBest ? "NEW BEST!" : "BEST  " + best.ToString("N0");
         _overStats.text = wave > WaveDirector.FinalWave
-            ? "Survived to wave " + wave + " — sector cleared"
+            ? "Survived to wave " + wave + " - sector cleared"
             : "Reached wave " + wave + " / " + WaveDirector.FinalWave;
         if (CoopSync.Active && CoopSync.I != null && !CoopSync.DuelActive)
             _overStats.text += "\n" + CoopSync.I.MvpLine();
@@ -2183,15 +2183,15 @@ public partial class HudController : MonoBehaviour
         rt.sizeDelta = new Vector2(560, 200);
 
         bool adventure = GameManager.AdventureRun && !CoopSync.Active && !RoyaleSync.Active && !DecimationMode.Active;
-        string mode = GameManager.Mode == GameManager.RunMode.Quick ? "PRACTICE RUN — NOTHING EARNED"
-            : adventure ? "ADVENTURE — BANKING REWARDS..."
-            : "MULTIPLAYER — NOTHING EARNED";
+        string mode = GameManager.Mode == GameManager.RunMode.Quick ? "SPARRING RUN · NO PLUNDER"
+            : adventure ? "ADVENTURE · COUNTING THE PLUNDER..."
+            : "MULTIPLAYER · GLORY ONLY, NO PLUNDER";
         var head = NewText(root.transform, "mode", mode, 18, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -14), new Vector2(560, 26));
         head.color = adventure ? new Color(1f, 0.85f, 0.4f) : new Color(0.8f, 0.9f, 1f, 0.8f);
         head.fontStyle = FontStyle.Bold;
 
-        string[] labels = { "GOLD BANKED", "PASS XP", "QUESTS COMPLETED", "WEEKLY RANK", "GOLD PICKED UP" };
+        string[] labels = { "GOLD BANKED", "PASS XP", "BOUNTIES CLEARED", "WEEKLY RANK", "GOLD LOOTED" };
         var vals = new Text[labels.Length];
         for (int i = 0; i < labels.Length; i++)
         {
@@ -2199,7 +2199,7 @@ public partial class HudController : MonoBehaviour
             var lbl = NewText(root.transform, "rl" + i, labels[i], 19, TextAnchor.MiddleLeft,
                 new Vector2(0f, y), new Vector2(0f, y), new Vector2(150, 0), new Vector2(300, 26));
             lbl.color = new Color(0.75f, 0.72f, 0.95f, 0.9f);
-            vals[i] = NewText(root.transform, "rv" + i, adventure ? "..." : "—", 21, TextAnchor.MiddleRight,
+            vals[i] = NewText(root.transform, "rv" + i, adventure ? "..." : "-", 21, TextAnchor.MiddleRight,
                 new Vector2(1f, y), new Vector2(1f, y), new Vector2(-130, 0), new Vector2(220, 26));
             vals[i].color = new Color(1f, 0.85f, 0.4f);
             vals[i].fontStyle = FontStyle.Bold;
@@ -2218,25 +2218,25 @@ public partial class HudController : MonoBehaviour
             if (st == null || st.busy) continue;
             if (st.ok)
             {
-                head.text = "ADVENTURE — REWARDS BANKED";
+                head.text = "ADVENTURE · PLUNDER BANKED";
                 vals[0].text = st.gold.ToString("N0");
                 vals[1].text = st.passXp.ToString("N0");
                 vals[2].text = st.quests != null ? st.quests.Length.ToString() : "0";
-                vals[3].text = st.weeklyRank > 0 ? "#" + st.weeklyRank : "—";
+                vals[3].text = st.weeklyRank > 0 ? "#" + st.weeklyRank : "-";
             }
             else
             {
-                head.text = st.reason == "offline" ? "OFFLINE — RUN NOT RECORDED"
-                    : st.reason == "discord_required" ? "RECONNECT DISCORD — NOT RECORDED"
-                    : st.reason == "auth_required" ? "RECONNECT RONIN — NOT RECORDED"
-                    : "NOT RECORDED: " + (st.reason ?? "").ToUpperInvariant();
+                head.text = st.reason == "offline" ? "LOST IN THE VOID · RUN NOT LOGGED"
+                    : st.reason == "discord_required" ? "RELINK DISCORD · RUN NOT LOGGED"
+                    : st.reason == "auth_required" ? "RELINK RONIN · RUN NOT LOGGED"
+                    : "RUN NOT LOGGED: " + (st.reason ?? "").ToUpperInvariant();
                 head.color = new Color(1f, 0.5f, 0.5f);
                 vals[0].text = "0"; vals[1].text = st.passXp.ToString("N0");
-                vals[2].text = st.quests != null ? st.quests.Length.ToString() : "0"; vals[3].text = "—";
+                vals[2].text = st.quests != null ? st.quests.Length.ToString() : "0"; vals[3].text = "-";
             }
             yield break;
         }
-        if (head != null) head.text = "ADVENTURE — SERVER DID NOT ANSWER";
+        if (head != null) head.text = "ADVENTURE · THE VOID DID NOT ANSWER";
     }
 
     public void ShowDuelEnd(bool won, string partnerName)
@@ -2340,7 +2340,7 @@ public partial class HudController : MonoBehaviour
             var sb = new System.Text.StringBuilder();
             if (TournamentMode.Active && TournamentNet.I != null && TournamentNet.I.online && TournamentNet.I.latest.Length > 0)
             {
-                sb.AppendLine("LIVE — " + TournamentMode.MatchCode);
+                sb.AppendLine("LIVE - " + TournamentMode.MatchCode);
                 int shown = 0;
                 foreach (var e in TournamentNet.I.latest)
                 {
@@ -2461,16 +2461,16 @@ public partial class HudController : MonoBehaviour
         if (Time.unscaledTime < _dailyHoldUntil) return;   // a fresh result stays readable before the hint returns
         int streak = st != null ? Mathf.Max(1, st.streak) : 1;
         int pay = 200 + Mathf.Min(10, streak) * 20;
-        if (_dailyInfo != null) _dailyInfo.text = "day " + streak + " · +" + pay + " gold · +" + pay + " pass XP · +3 energy";
+        if (_dailyInfo != null) _dailyInfo.text = "day " + streak + " · +" + pay + " gold · +" + pay + " pass XP\n+3 energy for the Void";
         if (st != null && st.claimed)
         {
             if (lbl != null) lbl.text = "CHECKED IN  " + (st.streak > 0 ? "x" + st.streak : "");
-            if (_dailyStatus != null) _dailyStatus.text = "claimed — resets 8:00 AM PHT";
+            if (_dailyStatus != null) _dailyStatus.text = "signed · the log reopens at 8:00 AM PHT";
         }
         else
         {
             if (lbl != null) lbl.text = "CHECK IN";
-            if (_dailyStatus != null) _dailyStatus.text = (WalletAuth.Connected && DiscordAuth.LoggedIn) ? "on-chain check-in · streak grows daily" : "connect Discord + Ronin to claim";
+            if (_dailyStatus != null) _dailyStatus.text = (WalletAuth.Connected && DiscordAuth.LoggedIn) ? "sign the log on-chain · longer streaks pay more" : "link Discord + Ronin to sign the log";
         }
     }
 
@@ -2541,7 +2541,7 @@ public partial class HudController : MonoBehaviour
         if (!unlocked)
         {
             NewText(_hangar.transform, "lockmsg",
-                "CUSTOM HANGAR — MIX ANY PILOT WITH ANY SHIP · UNLOCKS AT PREMIUM PASS TIER 10",
+                "CUSTOM HANGAR - MIX ANY PILOT WITH ANY SHIP · UNLOCKS AT PREMIUM PASS TIER 10",
                 15, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.155f), new Vector2(0.5f, 0.155f), Vector2.zero, new Vector2(1100, 26))
                 .color = new Color(1f, 0.85f, 0.4f, 0.55f);
             return;
@@ -2723,7 +2723,7 @@ public partial class HudController : MonoBehaviour
             IdentityLogo("icons/ronin", new Vector2(0.9075f, 0.92f), new Color(0.35f, 0.75f, 1f),
                 WalletAuth.Connected,
                 WalletAuth.Busy ? "CONNECTING…"
-                    : WalletAuth.Connected ? "RONIN: " + WalletAuth.ShortAddress.ToUpperInvariant() + " — CLICK TO DISCONNECT"
+                    : WalletAuth.Connected ? "RONIN: " + WalletAuth.ShortAddress.ToUpperInvariant() + " - CLICK TO DISCONNECT"
                     : "CONNECT RONIN WALLET",
                 () => {
                     if (WalletAuth.Busy) return;
@@ -2733,7 +2733,7 @@ public partial class HudController : MonoBehaviour
         if (DiscordAuth.Available)
             IdentityLogo("icons/discord", new Vector2(0.945f, 0.92f), new Color(0.55f, 0.62f, 1f),
                 DiscordAuth.LoggedIn,
-                DiscordAuth.LoggedIn ? "DISCORD: " + DiscordAuth.DisplayName.ToUpperInvariant() + " — CLICK TO SIGN OUT"
+                DiscordAuth.LoggedIn ? "DISCORD: " + DiscordAuth.DisplayName.ToUpperInvariant() + " - CLICK TO SIGN OUT"
                     : "SIGN IN WITH DISCORD",
                 () => {
                     if (DiscordAuth.LoggedIn) { DiscordAuth.Logout(); BuildIdentityCorner(); }
@@ -2756,7 +2756,7 @@ public partial class HudController : MonoBehaviour
         if ((DiscordAuth.Available || WalletAuth.Available) && (!DiscordAuth.LoggedIn || !WalletAuth.Connected))
         {
             var warn = NewText(_idCorner.transform, "saveWarn",
-                "!! PROGRESS NOT SAVED — CONNECT DISCORD & RONIN !!", 15, TextAnchor.MiddleRight,
+                "!! PROGRESS NOT SAVED - CONNECT DISCORD & RONIN !!", 15, TextAnchor.MiddleRight,
                 new Vector2(0.985f, 0.775f), new Vector2(0.985f, 0.775f), new Vector2(-290, 0), new Vector2(580, 30));
             warn.horizontalOverflow = HorizontalWrapMode.Overflow;
             warn.color = new Color(1f, 0.75f, 0.3f, 0.9f);
@@ -2844,11 +2844,11 @@ public partial class HudController : MonoBehaviour
         var eEdge = NewImage(echip.transform, "edge", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         eEdge.sprite = _roundedOutline; eEdge.type = Image.Type.Sliced;
         eEdge.color = new Color(0.4f, 0.95f, 1f, 0.5f);
-        _advEnergy = NewText(echip.transform, "energy", "ENERGY  —", 20, TextAnchor.MiddleCenter,
+        _advEnergy = NewText(echip.transform, "energy", "ENERGY  ...", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(290, 40));
         _advEnergy.color = new Color(0.4f, 0.95f, 1f);
         _advEnergy.fontStyle = FontStyle.Bold;
-        _advEnergyNote = NewText(_adventurePanel.transform, "energyNote", "resets 8:00 AM PHT · +3 from the daily check-in", 13, TextAnchor.MiddleCenter,
+        _advEnergyNote = NewText(_adventurePanel.transform, "energyNote", "tanks refill at 8:00 AM PHT · the daily log tops up +3", 13, TextAnchor.MiddleCenter,
             new Vector2(0.73f, 0.893f), new Vector2(0.73f, 0.893f), Vector2.zero, new Vector2(320, 18));
         _advEnergyNote.color = new Color(0.8f, 0.9f, 1f, 0.6f);
 
@@ -2906,12 +2906,12 @@ public partial class HudController : MonoBehaviour
         if (_advLaunching) yield break;
         if (!WalletAuth.Connected || !DiscordAuth.LoggedIn)
         {
-            _advStatus.text = "CONNECT DISCORD + RONIN (TOP-RIGHT OF THE HOME SCREEN) TO PLAY ADVENTURE";
+            _advStatus.text = "LINK DISCORD + RONIN (TOP-RIGHT, HOME) BEFORE YOU BRAVE THE VOID";
             yield break;
         }
-        if (!MetaBridge.Ready) { _advStatus.text = "META LAYER OFFLINE — TRY AGAIN SHORTLY"; yield break; }
+        if (!MetaBridge.Ready) { _advStatus.text = "THE VOID IS NOT ANSWERING · TRY AGAIN SHORTLY"; yield break; }
         _advLaunching = true;
-        _advStatus.text = "SPENDING 1 ENERGY...";
+        _advStatus.text = "FIRING UP THE ENGINES · 1 ENERGY";
         MetaBridge.RunStartMode("adventure");
         MetaBridge.StartStatus st = null;
         for (int i = 0; i < 40; i++)
@@ -2921,14 +2921,14 @@ public partial class HudController : MonoBehaviour
             if (st != null && !st.busy) break;
         }
         _advLaunching = false;
-        if (st == null || st.busy) { _advStatus.text = "NO ANSWER FROM THE SERVER — TRY AGAIN"; yield break; }
+        if (st == null || st.busy) { _advStatus.text = "NO ANSWER FROM THE VOID · TRY AGAIN"; yield break; }
         if (!st.ok)
         {
-            _advStatus.text = st.reason == "no_energy" ? "OUT OF ENERGY — RESETS 8:00 AM PHT (DAILY CHECK-IN GIVES +3)"
+            _advStatus.text = st.reason == "no_energy" ? "TANKS EMPTY · REFILL AT 8:00 AM PHT, OR SIGN THE DAILY LOG FOR +3"
                 : st.reason == "discord_required" ? "RECONNECT DISCORD (TOP-RIGHT OF THE HOME SCREEN)"
                 : st.reason == "auth_required" || st.reason == "wallet_required" ? "RECONNECT RONIN (TOP-RIGHT OF THE HOME SCREEN)"
-                : st.reason == "busy" ? "ONE MOMENT — TRY AGAIN"
-                : "COULD NOT START: " + (st.reason ?? "offline").ToUpperInvariant();
+                : st.reason == "busy" ? "HOLD FAST · TRY AGAIN"
+                : "LAUNCH ABORTED: " + (st.reason ?? "offline").ToUpperInvariant();
             if (st.energy >= 0 && _advEnergy != null) _advEnergy.text = "ENERGY  " + st.energy + " / " + st.max;
             yield break;
         }
@@ -2950,9 +2950,43 @@ public partial class HudController : MonoBehaviour
             if (e == null) continue;
             if (_advEnergy == null) yield break;
             if (e.ok && e.energy >= 0) _advEnergy.text = "ENERGY  " + e.energy + " / " + e.max + (e.bonus > 0 ? "  (+" + e.bonus + " bonus)" : "");
-            else _advEnergy.text = (WalletAuth.Connected && DiscordAuth.LoggedIn) ? "ENERGY  —" : "ENERGY  connect to play";
+            else if (!(WalletAuth.Connected && DiscordAuth.LoggedIn)) _advEnergy.text = "ENERGY  link to fly";
+            else _advEnergy.text = "ENERGY  ?  " + (string.IsNullOrEmpty(e.reason) ? "no reading" : e.reason);
             yield break;
         }
+    }
+
+    GameObject _viewerPanel;
+    Text _viewerTitle;
+
+    void OpenShipViewer(string pilotId)
+    {
+        var pilot = System.Array.Find(ZealData.Pilots, x => x.id == pilotId);
+        if (_viewerPanel == null)
+        {
+            _viewerPanel = Panel("ShipViewerPanel");
+            var bg = _viewerPanel.GetComponent<Image>();
+            if (bg != null) { bg.color = new Color(0f, 0f, 0f, 0f); bg.raycastTarget = false; }   // the hull renders behind the canvas
+            _viewerTitle = NewText(_viewerPanel.transform, "title", "", 46, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.9f), new Vector2(0.5f, 0.9f), Vector2.zero, new Vector2(1200, 64));
+            _viewerTitle.font = _titleFont;
+            NewText(_viewerPanel.transform, "hint", "DRAG TO TURN THE HULL  ·  SCROLL TO ZOOM", 18, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.84f), new Vector2(0.5f, 0.84f), Vector2.zero, new Vector2(1000, 26))
+                .color = new Color(0.8f, 0.9f, 1f, 0.75f);
+            MakeButton(_viewerPanel.transform, "CLOSE", new Vector2(0.5f, 0.08f), new Vector2(300, 52),
+                new Color(0.8f, 0.9f, 1f), () =>
+                {
+                    ShipViewer.Close();
+                    _viewerPanel.SetActive(false);
+                    _adventurePanel.SetActive(true);
+                    RefreshAdventure();
+                });
+        }
+        _viewerTitle.text = (pilot != null ? pilot.name.ToUpperInvariant() : pilotId.ToUpperInvariant()) + "'S SHIP";
+        _viewerTitle.color = pilot != null ? pilot.accent : Color.white;
+        _adventurePanel.SetActive(false);
+        _viewerPanel.SetActive(true);
+        ShipViewer.Open(pilotId);
     }
 
     void RefreshAdventure()
@@ -3028,14 +3062,14 @@ public partial class HudController : MonoBehaviour
     void BuildSurvivorTab()
     {
         AdvPilotBackdrop(_advPilot);
-        AdvHeader("Personal training — each survivor levels up on their own.");
+        AdvHeader("Personal training - each survivor levels up on their own.");
         PilotPicker(0.715f);
         var data = MetaBridge.GetSurvivors(_advPilot);
         var pilot = System.Array.Find(ZealData.Pilots, x => x.id == _advPilot);
         if (pilot != null)
         {
             var pt = NewText(_advContent.transform, "ptitle",
-                pilot.name.ToUpperInvariant() + " — " + pilot.title.ToUpperInvariant(), 22, TextAnchor.MiddleCenter,
+                pilot.name.ToUpperInvariant() + " - " + pilot.title.ToUpperInvariant(), 22, TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 0.62f), new Vector2(0.5f, 0.62f), Vector2.zero, new Vector2(1000, 32));
             pt.color = pilot.accent;
             pt.fontStyle = FontStyle.Bold;
@@ -3191,7 +3225,7 @@ public partial class HudController : MonoBehaviour
     void BuildArmoryTab()
     {
         AdvPilotBackdrop(_advPilot);
-        AdvHeader("Every pilot flies their own ship — pick one, upgrade their hull.");
+        AdvHeader("Every pilot flies their own ship - pick one, upgrade their hull.");
         PilotPicker(0.715f);
         var pilot = System.Array.Find(ZealData.Pilots, x => x.id == _advPilot);
         if (pilot != null)
@@ -3200,6 +3234,11 @@ public partial class HudController : MonoBehaviour
                 new Vector2(0.5f, 0.625f), new Vector2(0.5f, 0.625f), Vector2.zero, new Vector2(1000, 32));
             pt.color = pilot.accent;
             pt.fontStyle = FontStyle.Bold;
+            // spin the real hull around: full-screen viewer, drag to turn
+            string viewId = pilot.id;
+            var vb = MakeButton(_advContent.transform, "VIEW SHIP", new Vector2(0.665f, 0.625f), new Vector2(150, 32),
+                pilot.accent, () => OpenShipViewer(viewId));
+            vb.GetComponentInChildren<Text>().fontSize = 14;
         }
         var data = MetaBridge.GetShip(_advPilot);
         if (data == null || data.tracks == null) return;
@@ -3302,7 +3341,7 @@ public partial class HudController : MonoBehaviour
             yield return new WaitForSecondsRealtime(0.35f);
             var b = MetaBridge.BoardTake();
             if (b == null) continue;
-            if (!b.ok) { rows.text = "BOARD UNAVAILABLE — " + (b.reason ?? "OFFLINE").ToUpperInvariant(); yield break; }
+            if (!b.ok) { rows.text = "BOARD UNAVAILABLE - " + (b.reason ?? "OFFLINE").ToUpperInvariant(); yield break; }
             var sb = new System.Text.StringBuilder();
             int shown = 0;
             foreach (var r in b.rows)
@@ -3311,19 +3350,19 @@ public partial class HudController : MonoBehaviour
                 if (shown > 10) break;
                 sb.AppendLine(shown + ".  " + (r.premium ? "★ " : "") + r.name.ToUpperInvariant() + "   " + r.score.ToString("N0"));
             }
-            if (shown == 0) sb.AppendLine("NO SCORES YET — BE THE FIRST!");
+            if (shown == 0) sb.AppendLine("NO SCORES YET - BE THE FIRST!");
             if (b.me != null && b.me.rank > 0)
                 sb.AppendLine("\nYOUR RANK: #" + b.me.rank + "  (" + b.me.score.ToString("N0") + ")");
             rows.text = sb.ToString();
             yield break;
         }
-        rows.text = "BOARD TIMED OUT — TRY AGAIN";
+        rows.text = "BOARD TIMED OUT - TRY AGAIN";
     }
 
     void BuildPassTab()
     {
         var s = _advSummary;
-        AdvHeader("Season " + s.seasonId + " — " + s.seasonName + ". Earn pass XP from run scores and quests.");
+        AdvHeader("Season " + s.seasonId + " - " + s.seasonName + ". Earn pass XP from run scores and quests.");
 
         var tier = NewText(_advContent.transform, "tier",
             "TIER " + s.passTier + " / " + s.passTiers + "   ·   " + (s.passXp % s.xpPerTier) + " / " + s.xpPerTier + " XP" +
@@ -3348,7 +3387,7 @@ public partial class HudController : MonoBehaviour
                 .GetComponentInChildren<Text>().fontSize = 17;
         if (!s.premium && WalletAuth.Available)
         {
-            MakeButton(_advContent.transform, "BUY PASS — " + s.priceRon + " RON",
+            MakeButton(_advContent.transform, "BUY PASS - " + s.priceRon + " RON",
                 new Vector2(0.845f, 0.72f), new Vector2(280, 46), new Color(0.35f, 0.75f, 1f),
                 () => { MetaBridge.PassBuy(); _advCo = StartCoroutine(PollPass()); })
                 .GetComponentInChildren<Text>().fontSize = 17;

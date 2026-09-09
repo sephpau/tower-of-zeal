@@ -129,7 +129,7 @@ public class GameManager : MonoBehaviour
             ? "BLITZ // " + TournamentMode.MatchCode + " // " + _skills.pilot.name.ToUpperInvariant()
             : customLoadout
                 ? _skills.pilot.name.ToUpperInvariant() + " × " + shipPilot.name.ToUpperInvariant() + "'S SHIP"
-                : (mode == RunMode.Quick ? "PRACTICE RUN — " : "") + _skills.pilot.name.ToUpperInvariant() + " — " + _skills.pilot.title.ToUpperInvariant());
+                : (mode == RunMode.Quick ? "PRACTICE RUN - " : "") + _skills.pilot.name.ToUpperInvariant() + " - " + _skills.pilot.title.ToUpperInvariant());
         if (mode == RunMode.Quick) Announcer.Say("Sparring run. No plunder, no bounties, no board.", 0.6f, 1f);
     }
 
@@ -172,7 +172,7 @@ public class GameManager : MonoBehaviour
             _playerHealth.hull = Mathf.Min(_playerHealth.maxHull, _playerHealth.hull + _playerHealth.maxHull * 0.1f);
             _playerHealth.shield = _playerHealth.maxShield;
             PlaySfx(SfxSynth.WaveUp, 0.5f);
-            Announcer.Say("Level " + lvl + " — hull and shields reinforced!", 0.6f, 1f);
+            Announcer.Say("Level " + lvl + " - hull and shields reinforced!", 0.6f, 1f);
             TryOpenDraft();
             return;
         }
@@ -464,7 +464,7 @@ public class GameManager : MonoBehaviour
     public void OnSurvivalStart()
     {
         score += 2500;
-        _hud.WaveBanner("SECTOR CLEARED — SURVIVAL MODE!");
+        _hud.WaveBanner("SECTOR CLEARED - SURVIVAL MODE!");
         PlaySfx(SfxSynth.WaveUp, 1f);
         PlaySfx(SfxSynth.Pickup, 0.8f);
         Announcer.Say("Sector cleared! Survival mode, engaged!", 0.58f, 1f);

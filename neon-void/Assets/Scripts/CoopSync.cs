@@ -171,7 +171,7 @@ public class CoopSync : MonoBehaviour
     {
         string partner = _partnerName.ToUpperInvariant();
         string lead = myDamage >= partnerDamage ? "YOU" : partner;
-        return "MVP: " + lead + "   ·   DAMAGE — YOU " + Mathf.RoundToInt(myDamage).ToString("N0")
+        return "MVP: " + lead + "   ·   DAMAGE - YOU " + Mathf.RoundToInt(myDamage).ToString("N0")
             + "  /  " + partner + " " + Mathf.RoundToInt(partnerDamage).ToString("N0");
     }
 
@@ -288,7 +288,7 @@ public class CoopSync : MonoBehaviour
     {
         if (state == 1) OnLinkUp();
         else if (state == 2) HandleDisconnect();
-        else if (state == -1) onStatus?.Invoke("NO PARTNER FOUND — CHECK THE ROOM CODE AND TRY AGAIN");
+        else if (state == -1) onStatus?.Invoke("NO PARTNER FOUND - CHECK THE ROOM CODE AND TRY AGAIN");
     }
 
     void OnLinkUp()
@@ -639,7 +639,7 @@ public class CoopSync : MonoBehaviour
                     if (_ghost != null) _ghost.SetActive(false);
                     RemoteShip = null;
                     if (theirLives > 0)
-                        GameManager.I.Banner("ENEMY DOWN — " + theirLives + (theirLives == 1 ? " LIFE" : " LIVES") + " LEFT");
+                        GameManager.I.Banner("ENEMY DOWN - " + theirLives + (theirLives == 1 ? " LIFE" : " LIVES") + " LEFT");
                     else if (!_duelEnded && GameManager.I.Running)
                     {
                         _duelEnded = true;
@@ -851,7 +851,7 @@ public class CoopSync : MonoBehaviour
         for (int s = 4; s > 0; s--)
         {
             if (_duelEnded || GameManager.I == null || !GameManager.I.Running) yield break;
-            GameManager.I.Banner("RESPAWN IN " + s + " — " + _duelLivesLeft + (_duelLivesLeft == 1 ? " LIFE" : " LIVES") + " LEFT");
+            GameManager.I.Banner("RESPAWN IN " + s + " - " + _duelLivesLeft + (_duelLivesLeft == 1 ? " LIFE" : " LIVES") + " LEFT");
             yield return new WaitForSecondsRealtime(1f);
         }
         if (_duelEnded || GameManager.I == null || !GameManager.I.Running || _localHealth == null) yield break;
@@ -864,7 +864,7 @@ public class CoopSync : MonoBehaviour
         if (sc != null) sc.SetPose(pos, Quaternion.LookRotation(-dir.normalized).eulerAngles.y);
         _localHealth.Revive(1f);
         Send("RES");
-        GameManager.I.Banner("ROUND " + (duelLives - _duelLivesLeft + 1) + " — FIGHT!");
+        GameManager.I.Banner("ROUND " + (duelLives - _duelLivesLeft + 1) + " - FIGHT!");
     }
 
     // host referee: the clock ran out — most landed hits takes it
@@ -923,7 +923,7 @@ public class CoopSync : MonoBehaviour
             _partnerHere = false;
             partnerReady = false;
             _counting = false;
-            onStatus?.Invoke("PARTNER DISCONNECTED — LEAVE AND HOST A NEW ROOM");
+            onStatus?.Invoke("PARTNER DISCONNECTED - LEAVE AND HOST A NEW ROOM");
             onLobbyChanged?.Invoke();
             return;
         }
@@ -937,7 +937,7 @@ public class CoopSync : MonoBehaviour
             GameManager.I.CoopGameOver();
         }
         else if (GameManager.I != null)
-            GameManager.I.Banner("PARTNER DISCONNECTED — FLYING SOLO");
+            GameManager.I.Banner("PARTNER DISCONNECTED - FLYING SOLO");
         Active = false;   // host degrades to plain single-player
     }
 }

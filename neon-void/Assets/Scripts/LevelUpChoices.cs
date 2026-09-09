@@ -54,7 +54,7 @@ public class LevelUpChoices
             string id = def.id;
             int key = acts.slots.Count + 1;
             cards.Add(new LevelUpChoices {
-                title = "LEARN — " + def.name,
+                title = "LEARN - " + def.name,
                 icon = def.abbrev,
                 sprite = SkillIcons.Active(def.id),
                 desc = def.desc + "\nKey [" + key + "] · " + def.cooldown + "s cooldown",
