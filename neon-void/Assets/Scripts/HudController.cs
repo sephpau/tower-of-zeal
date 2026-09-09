@@ -837,39 +837,43 @@ public partial class HudController : MonoBehaviour
             toggleLabel.color = GameSettings.HitWarning ? new Color(0.5f, 1f, 0.6f) : new Color(1f, 0.5f, 0.5f);
         });
 
-        // touch controls: AUTO detects mobile browsers; layout is editable
-        var touchLbl = NewText(_settingsPanel.transform, "touchlbl", "TOUCH CONTROLS", 28, TextAnchor.MiddleRight,
-            new Vector2(0.5f, 0.505f), new Vector2(0.5f, 0.505f), new Vector2(-200, 0), new Vector2(520, 44));
-        touchLbl.color = new Color(0.9f, 0.95f, 1f);
-        string[] touchModes = { "AUTO", "ON", "OFF" };
-        Text touchModeLabel = null;
-        var touchBtn = MakeButton(_settingsPanel.transform, touchModes[GameSettings.TouchMode],
-            new Vector2(0.5f, 0.505f), new Vector2(140, 48), new Color(0.5f, 0.95f, 1f), () => { });
-        touchBtn.transform.localPosition += new Vector3(135, 0, 0);
-        touchModeLabel = touchBtn.GetComponentInChildren<Text>();
-        touchBtn.onClick.AddListener(() => {
-            GameSettings.TouchMode = (GameSettings.TouchMode + 1) % 3;
-            touchModeLabel.text = touchModes[GameSettings.TouchMode];
-        });
-        var editBtn = MakeButton(_settingsPanel.transform, "EDIT LAYOUT",
-            new Vector2(0.5f, 0.505f), new Vector2(190, 48), new Color(1f, 0.85f, 0.4f),
-            () => SwitchPanel(_settingsPanel, _touchEditPanel, RefreshTouchEditor));
-        editBtn.transform.localPosition += new Vector3(305, 0, 0);
-        editBtn.GetComponentInChildren<Text>().fontSize = 18;
+        // touch controls only matter on a touch device; a PC never sees the row
+        if (Application.isMobilePlatform || Input.touchSupported)
+        {
+            // touch controls: AUTO detects mobile browsers; layout is editable
+            var touchLbl = NewText(_settingsPanel.transform, "touchlbl", "TOUCH CONTROLS", 28, TextAnchor.MiddleRight,
+                new Vector2(0.5f, 0.505f), new Vector2(0.5f, 0.505f), new Vector2(-200, 0), new Vector2(520, 44));
+            touchLbl.color = new Color(0.9f, 0.95f, 1f);
+            string[] touchModes = { "AUTO", "ON", "OFF" };
+            Text touchModeLabel = null;
+            var touchBtn = MakeButton(_settingsPanel.transform, touchModes[GameSettings.TouchMode],
+                new Vector2(0.5f, 0.505f), new Vector2(140, 48), new Color(0.5f, 0.95f, 1f), () => { });
+            touchBtn.transform.localPosition += new Vector3(135, 0, 0);
+            touchModeLabel = touchBtn.GetComponentInChildren<Text>();
+            touchBtn.onClick.AddListener(() => {
+                GameSettings.TouchMode = (GameSettings.TouchMode + 1) % 3;
+                touchModeLabel.text = touchModes[GameSettings.TouchMode];
+            });
+            var editBtn = MakeButton(_settingsPanel.transform, "EDIT LAYOUT",
+                new Vector2(0.5f, 0.505f), new Vector2(190, 48), new Color(1f, 0.85f, 0.4f),
+                () => SwitchPanel(_settingsPanel, _touchEditPanel, RefreshTouchEditor));
+            editBtn.transform.localPosition += new Vector3(305, 0, 0);
+            editBtn.GetComponentInChildren<Text>().fontSize = 18;
 
-        // aim style on touch: right stick, or drag the right half of the screen
-        string[] aimModes = { "AIM: STICK", "AIM: DRAG" };
-        Text aimLabel = null;
-        var aimBtn = MakeButton(_settingsPanel.transform, aimModes[GameSettings.TouchAimMode],
-            new Vector2(0.5f, 0.505f), new Vector2(150, 44), new Color(0.5f, 0.95f, 1f), () => { });
-        aimBtn.transform.localPosition += new Vector3(462, 0, 0);   // stays left of the mouse test pad at 16:9
-        aimLabel = aimBtn.GetComponentInChildren<Text>();
-        aimLabel.fontSize = 17;
-        aimBtn.onClick.AddListener(() => {
-            GameSettings.TouchAimMode = 1 - GameSettings.TouchAimMode;
-            aimLabel.text = aimModes[GameSettings.TouchAimMode];
-            if (_touchOverlay != null) { Destroy(_touchOverlay); _touchOverlay = null; }   // rebuilt with the new mode
-        });
+            // aim style on touch: right stick, or drag the right half of the screen
+            string[] aimModes = { "AIM: STICK", "AIM: DRAG" };
+            Text aimLabel = null;
+            var aimBtn = MakeButton(_settingsPanel.transform, aimModes[GameSettings.TouchAimMode],
+                new Vector2(0.5f, 0.505f), new Vector2(150, 44), new Color(0.5f, 0.95f, 1f), () => { });
+            aimBtn.transform.localPosition += new Vector3(462, 0, 0);   // stays left of the mouse test pad at 16:9
+            aimLabel = aimBtn.GetComponentInChildren<Text>();
+            aimLabel.fontSize = 17;
+            aimBtn.onClick.AddListener(() => {
+                GameSettings.TouchAimMode = 1 - GameSettings.TouchAimMode;
+                aimLabel.text = aimModes[GameSettings.TouchAimMode];
+                if (_touchOverlay != null) { Destroy(_touchOverlay); _touchOverlay = null; }   // rebuilt with the new mode
+            });
+        }
 
         // mouse sensitivity: try it live on the test pad to the right
         MakeVolumeRow("MOUSE SENSITIVITY", 0.46f, GameSettings.MouseSensitivity,
@@ -2513,7 +2517,9 @@ public partial class HudController : MonoBehaviour
             if (st.ok)
                 DailySay("+" + st.gold + " gold, +" + st.xp + " pass XP" + (st.energy > 0 ? ", +" + st.energy + " energy" : "") + "  (streak " + st.streak + ")", 15f, true);
             else
-                DailySay(string.IsNullOrEmpty(st.reason) ? "check-in failed" : st.reason, 15f, true);
+                DailySay(string.IsNullOrEmpty(st.reason) ? "check-in failed"
+                    : st.reason == "auth_required" ? "Ronin session expired - click the Ronin logo to re-sign"
+                    : st.reason, 15f, true);
             break;
         }
         _dailyRunning = false;
@@ -2688,7 +2694,7 @@ public partial class HudController : MonoBehaviour
     float _idPollTimer;
 
     string IdentityState() =>
-        (DiscordAuth.LoggedIn ? "d" : "-") + (WalletAuth.Connected ? "w" : "-") + (WalletAuth.Busy ? "b" : "-");
+        (DiscordAuth.LoggedIn ? "d" : "-") + (WalletAuth.Connected ? "w" : "-") + (WalletAuth.Busy ? "b" : "-") + (WalletAuth.SessionOk ? "s" : "x");
 
     void BuildIdentityCorner()
     {
@@ -2721,15 +2727,25 @@ public partial class HudController : MonoBehaviour
         // badge; hovering shows who is connected.
         if (WalletAuth.Available)
             IdentityLogo("icons/ronin", new Vector2(0.9075f, 0.92f), new Color(0.35f, 0.75f, 1f),
-                WalletAuth.Connected,
+                WalletAuth.Ready,
                 WalletAuth.Busy ? "CONNECTING…"
+                    : WalletAuth.Connected && !WalletAuth.SessionOk ? "RONIN SESSION EXPIRED - CLICK TO RE-SIGN (NO GAS)"
                     : WalletAuth.Connected ? "RONIN: " + WalletAuth.ShortAddress.ToUpperInvariant() + " - CLICK TO DISCONNECT"
                     : "CONNECT RONIN WALLET",
                 () => {
                     if (WalletAuth.Busy) return;
-                    if (WalletAuth.Connected) { WalletAuth.Disconnect(); BuildIdentityCorner(); }
+                    if (WalletAuth.Connected && !WalletAuth.SessionOk) { _idLastError = ""; WalletAuth.Connect(); BuildIdentityCorner(); }   // re-sign
+                    else if (WalletAuth.Connected) { WalletAuth.Disconnect(); BuildIdentityCorner(); }
                     else { _idLastError = ""; WalletAuth.Connect(); BuildIdentityCorner(); }
                 });
+        if (WalletAuth.Connected && !WalletAuth.SessionOk)
+        {
+            var exp = NewText(_idCorner.transform, "sessionWarn", "!! RONIN SESSION EXPIRED - CLICK THE RONIN LOGO TO RE-SIGN !!", 15, TextAnchor.MiddleRight,
+                new Vector2(0.985f, 0.8f), new Vector2(0.985f, 0.8f), new Vector2(-290, 0), new Vector2(580, 30));
+            exp.horizontalOverflow = HorizontalWrapMode.Overflow;
+            exp.color = new Color(1f, 0.55f, 0.35f, 0.95f);
+            exp.fontStyle = FontStyle.Bold;
+        }
         if (DiscordAuth.Available)
             IdentityLogo("icons/discord", new Vector2(0.945f, 0.92f), new Color(0.55f, 0.62f, 1f),
                 DiscordAuth.LoggedIn,
@@ -2808,6 +2824,14 @@ public partial class HudController : MonoBehaviour
     static readonly string[] SurvivorIds = { "magnet", "xpgain", "greed", "revival", "reroll", "banish" };   // CREW tab
 
     readonly List<Text> _advTabLabels = new List<Text>();
+    readonly List<Image> _advTabFrames = new List<Image>();   // gold outline on icon-only tabs
+    readonly List<string> _advTabNames = new List<string>();
+    Text _advTabTip;
+    string ActiveTabName()
+    {
+        int k = System.Array.IndexOf(AdvTabs, _advTab);
+        return k >= 0 && k < _advTabNames.Count && k < _advTabFrames.Count && _advTabFrames[k] != null ? _advTabNames[k] : "";
+    }
     static readonly string[] AdvTabs = { "armory", "survivors", "crew", "quests", "board", "pass" };
     string _advPilot = "ego";
 
@@ -2853,7 +2877,7 @@ public partial class HudController : MonoBehaviour
         _advEnergyNote.color = new Color(0.8f, 0.9f, 1f, 0.6f);
 
         string[] labels = { "ARMORY", "SURVIVORS", "CREW", "QUESTS", "LEADERBOARD", "BATTLE PASS" };
-        _advTabLabels.Clear();
+        _advTabLabels.Clear(); _advTabFrames.Clear(); _advTabNames.Clear();
         for (int i = 0; i < AdvTabs.Length; i++)
         {
             string tab = AdvTabs[i];
@@ -2861,8 +2885,38 @@ public partial class HudController : MonoBehaviour
                 new Color(0.95f, 0.8f, 0.5f), () => { _advTab = tab; RefreshAdventure(); });
             var lbl = b.GetComponentInChildren<Text>();
             lbl.fontSize = 16;
+            Image frame = null;
+            var tabTex = Resources.Load<Texture2D>("icons/tabs/" + tab);
+            if (tabTex != null)
+            {
+                // icon-only tab: square tile, the name shows in the caption on hover or tap
+                b.GetComponent<RectTransform>().sizeDelta = new Vector2(66, 58);
+                lbl.text = "";
+                var ti = NewImage(b.transform, "tabicon", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(46, 46));
+                ti.sprite = Sprite.Create(tabTex, new Rect(0, 0, tabTex.width, tabTex.height), new Vector2(0.5f, 0.5f));
+                ti.preserveAspect = true;
+                frame = NewImage(b.transform, "frame", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                frame.sprite = _roundedOutline; frame.type = Image.Type.Sliced;
+                frame.color = new Color(1f, 0.85f, 0.4f, 0f);
+                string tipText = labels[i];
+                var trig = b.gameObject.AddComponent<EventTrigger>();
+                var enter = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
+                enter.callback.AddListener(_ => { if (_advTabTip != null) _advTabTip.text = tipText; });
+                trig.triggers.Add(enter);
+                var exit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
+                exit.callback.AddListener(_ => { if (_advTabTip != null) _advTabTip.text = ActiveTabName(); });
+                trig.triggers.Add(exit);
+            }
             _advTabLabels.Add(lbl);
+            _advTabFrames.Add(frame);
+            _advTabNames.Add(labels[i]);
         }
+
+        // caption under the tab row: hovered tab name, else the active one
+        _advTabTip = NewText(_adventurePanel.transform, "tabtip", "", 15, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.808f), new Vector2(0.5f, 0.808f), Vector2.zero, new Vector2(600, 22));
+        _advTabTip.color = new Color(1f, 0.85f, 0.4f, 0.85f);
+        _advTabTip.fontStyle = FontStyle.Bold;
 
         _advStatus = NewText(_adventurePanel.transform, "status", "", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.125f), new Vector2(0.5f, 0.125f), Vector2.zero, new Vector2(1200, 34));
@@ -2926,7 +2980,7 @@ public partial class HudController : MonoBehaviour
         {
             _advStatus.text = st.reason == "no_energy" ? "TANKS EMPTY · REFILL AT 8:00 AM PHT, OR SIGN THE DAILY LOG FOR +3"
                 : st.reason == "discord_required" ? "RECONNECT DISCORD (TOP-RIGHT OF THE HOME SCREEN)"
-                : st.reason == "auth_required" || st.reason == "wallet_required" ? "RECONNECT RONIN (TOP-RIGHT OF THE HOME SCREEN)"
+                : st.reason == "auth_required" || st.reason == "wallet_required" ? "RONIN SESSION EXPIRED - RE-SIGN VIA THE RONIN LOGO (HOME, TOP-RIGHT)"
                 : st.reason == "busy" ? "HOLD FAST · TRY AGAIN"
                 : "LAUNCH ABORTED: " + (st.reason ?? "offline").ToUpperInvariant();
             if (st.energy >= 0 && _advEnergy != null) _advEnergy.text = "ENERGY  " + st.energy + " / " + st.max;
@@ -2951,6 +3005,7 @@ public partial class HudController : MonoBehaviour
             if (_advEnergy == null) yield break;
             if (e.ok && e.energy >= 0) _advEnergy.text = "ENERGY  " + e.energy + " / " + e.max + (e.bonus > 0 ? "  (+" + e.bonus + " bonus)" : "");
             else if (!(WalletAuth.Connected && DiscordAuth.LoggedIn)) _advEnergy.text = "ENERGY  link to fly";
+            else if (e.reason == "auth_required") _advEnergy.text = "ENERGY  ?  re-sign Ronin (home, top-right)";
             else _advEnergy.text = "ENERGY  ?  " + (string.IsNullOrEmpty(e.reason) ? "no reading" : e.reason);
             yield break;
         }
@@ -2977,6 +3032,8 @@ public partial class HudController : MonoBehaviour
                 new Color(0.8f, 0.9f, 1f), () =>
                 {
                     ShipViewer.Close();
+                    EgoShowcase.SetVisible(true);
+                    GameManager.I.SetMenuShipVisible(true);
                     _viewerPanel.SetActive(false);
                     _adventurePanel.SetActive(true);
                     RefreshAdventure();
@@ -2986,6 +3043,8 @@ public partial class HudController : MonoBehaviour
         _viewerTitle.color = pilot != null ? pilot.accent : Color.white;
         _adventurePanel.SetActive(false);
         _viewerPanel.SetActive(true);
+        EgoShowcase.SetVisible(false);          // mascots off stage
+        GameManager.I.SetMenuShipVisible(false); // parked ship off stage
         ShipViewer.Open(pilotId);
     }
 
@@ -3008,7 +3067,9 @@ public partial class HudController : MonoBehaviour
             bool active = AdvTabs[i] == _advTab;
             _advTabLabels[i].color = active ? new Color(1f, 0.85f, 0.4f) : new Color(0.75f, 0.7f, 0.95f, 0.8f);
             _advTabLabels[i].fontStyle = active ? FontStyle.Bold : FontStyle.Normal;
+            if (i < _advTabFrames.Count && _advTabFrames[i] != null) _advTabFrames[i].color = new Color(1f, 0.85f, 0.4f, active ? 0.95f : 0f);
         }
+        if (_advTabTip != null) _advTabTip.text = ActiveTabName();
 
         if (_advSummary == null)
         {

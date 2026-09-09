@@ -76,6 +76,7 @@ public class GameManager : MonoBehaviour
     public void StartRun(int pilotIndex, int shipIndex = -1, RunMode mode = RunMode.Multi)
     {
         Mode = mode;
+        SetMenuShipVisible(true);    // never start a run with the hull hidden
         ChaseCamera.ZoomMult = 1f;   // fresh run, normal camera distance
         _sigilIdx = 0;
         _overtimeAnnounced = false;
@@ -439,6 +440,14 @@ public class GameManager : MonoBehaviour
 
     // in-run gold: Plunder Sense ranks and the Captain's greed perk scale it,
     // the total rides along in the run report and lands in the cloud profile
+    // menu-only: the parked ship steps off stage while the ship viewer is open
+    public void SetMenuShipVisible(bool on)
+    {
+        if (_playerHealth == null) return;
+        var vis = _playerHealth.transform.Find("visual");
+        if (vis != null) vis.gameObject.SetActive(on);
+    }
+
     public void GainGold(int amount, Vector3 where)
     {
         if (!Running || amount <= 0 || Mode != RunMode.Adventure) return;

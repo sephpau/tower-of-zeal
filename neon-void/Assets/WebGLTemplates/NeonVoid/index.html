@@ -175,6 +175,10 @@
     }
     window.NVWalletAddress = function () { return nvValidAddress(localStorage.getItem(NV_WALLET_KEY)); };
     window.NVWalletBusy = function () { return window.__nvWalletBusy ? 1 : 0; };
+    // 0 when the server has rejected the saved wallet session (cookie expired): re-sign needed
+    window.NVWalletSessionOk = function () {
+      try { return (window.SURV && SURV.Net && SURV.Net.walletState().kind === 'reconnect') ? 0 : 1; } catch (e) { return 1; }
+    };
     window.NVWalletTakeError = function () { var e = window.__nvWalletError; window.__nvWalletError = ""; return e; };
     window.NVWalletDisconnect = function () {
       localStorage.removeItem(NV_WALLET_KEY); localStorage.removeItem(NV_WALLET_VERIFIED);
@@ -221,6 +225,7 @@
         var ts = String(Date.now());
         localStorage.setItem(NV_WALLET_KEY, addr); localStorage.setItem(NV_WALLET_VERIFIED, ts);
         localStorage.setItem('motz_voyages_wallet', addr); localStorage.setItem('motz_voyages_wallet_verified', ts);
+        try { if (window.SURV && SURV.Net && SURV.Net.resetWalletAuth) SURV.Net.resetWalletAuth(); } catch (e) {}
       } catch (e) {
         var msg = (e && e.message) || 'Wallet connection failed.';
         window.__nvWalletError = ((e && e.code === 4001) || /cancel|denied|reject/i.test(msg)) ? 'Wallet connection cancelled.' : msg;

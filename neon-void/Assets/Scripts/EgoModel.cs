@@ -67,6 +67,17 @@ public class EgoShowcase : MonoBehaviour
     void OnEnable() => All.Add(this);
     void OnDestroy() => All.Remove(this);
 
+    // the ship viewer wants the stage to itself
+    public static void SetVisible(bool on)
+    {
+        foreach (var sc in All)
+        {
+            if (sc == null) continue;
+            foreach (var r in sc.GetComponentsInChildren<Renderer>(true)) r.enabled = on;
+            foreach (var l in sc.GetComponentsInChildren<Light>(true)) l.enabled = on;
+        }
+    }
+
     public static void Create(Camera cam)
     {
         CreateOne(cam, "ego", 2.6f, +3.2f);
