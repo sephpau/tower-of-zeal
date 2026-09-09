@@ -10,6 +10,7 @@ public static class WalletAuth
     [DllImport("__Internal")] static extern string NVWalletGetAddress();
     [DllImport("__Internal")] static extern int NVWalletIsBusy();
     [DllImport("__Internal")] static extern int NVWalletSessionOk();
+    [DllImport("__Internal")] static extern string NVWalletStepText();
     [DllImport("__Internal")] static extern string NVWalletPullError();
     [DllImport("__Internal")] static extern void NVWalletDoConnect();
     [DllImport("__Internal")] static extern void NVWalletDoDisconnect();
@@ -18,6 +19,7 @@ public static class WalletAuth
     static string NVWalletGetAddress() => "";
     static int NVWalletIsBusy() => 0;
     static int NVWalletSessionOk() => 1;
+    static string NVWalletStepText() => "";
     static string NVWalletPullError() => "";
     static void NVWalletDoConnect() { }
     static void NVWalletDoDisconnect() { }
@@ -29,6 +31,7 @@ public static class WalletAuth
     public static bool Busy => NVWalletIsBusy() != 0;
     // false once the server has refused the saved session (it lives 7 days): the player must re-sign
     public static bool SessionOk => NVWalletSessionOk() != 0;
+    public static string Step => NVWalletStepText() ?? "";
     public static bool Ready => Connected && SessionOk;
 
     public static string ShortAddress

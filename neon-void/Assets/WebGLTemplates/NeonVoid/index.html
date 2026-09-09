@@ -187,13 +187,21 @@
       var p = nvRoninProvider();
       if (p && p.request) p.request({ method: 'wallet_revokePermissions', params: [{ eth_accounts: {} }] }).catch(function () {});
     };
+    window.__nvWalletStep = "";
+    window.NVWalletStep = function () { return window.__nvWalletStep || ""; };
+    // a wallet popup that is closed without answering would leave the flow hanging
+    // forever (and every later click ignored), so every step races a timeout
+    function nvWithTimeout(p, ms, what) {
+      return Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej(new Error(what + ' did not answer - close the Ronin popup and try again.')); }, ms); })]);
+    }
     window.NVWalletConnect = async function () {
       if (window.__nvWalletBusy) return;
       window.__nvWalletBusy = true; window.__nvWalletError = "";
       try {
         var provider = nvRoninProvider();
-        if (!provider) throw new Error('Ronin Wallet not detected — open this page in a browser with the Ronin extension.');
-        var accounts = await provider.request({ method: 'eth_requestAccounts' });
+        if (!provider) throw new Error('Ronin Wallet not detected - open this page in a browser with the Ronin extension.');
+        window.__nvWalletStep = "waiting for the wallet";
+        var accounts = await nvWithTimeout(provider.request({ method: 'eth_requestAccounts' }), 90000, 'The wallet');
         var from = ((accounts && accounts[0]) || '').toLowerCase();
         if (!from) throw new Error('No wallet account connected.');
         try {
@@ -209,10 +217,13 @@
             } catch (_) {}
           }
         }
-        var cr = await fetch('/api/staking/verify-wallet?address=' + encodeURIComponent(from), { credentials: 'same-origin' });
+        window.__nvWalletStep = "asking the server for a challenge";
+        var cr = await nvWithTimeout(fetch('/api/staking/verify-wallet?address=' + encodeURIComponent(from), { credentials: 'same-origin' }), 30000, 'The server');
         if (!cr.ok) throw new Error('Could not start wallet verification.');
         var ch = await cr.json();
-        var sig = await provider.request({ method: 'personal_sign', params: [ch.message, from] });
+        window.__nvWalletStep = "waiting for your signature (no gas)";
+        var sig = await nvWithTimeout(provider.request({ method: 'personal_sign', params: [ch.message, from] }), 120000, 'The signature request');
+        window.__nvWalletStep = "verifying the signature";
         var vr = await fetch('/api/staking/verify-wallet', {
           method: 'POST', credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
@@ -229,7 +240,8 @@
       } catch (e) {
         var msg = (e && e.message) || 'Wallet connection failed.';
         window.__nvWalletError = ((e && e.code === 4001) || /cancel|denied|reject/i.test(msg)) ? 'Wallet connection cancelled.' : msg;
-      } finally { window.__nvWalletBusy = false; }
+        console.warn('[wallet] connect failed:', msg);
+      } finally { window.__nvWalletBusy = false; window.__nvWalletStep = ""; }
     };
 
     // ---------- mobile: taps request fullscreen + landscape until it sticks ----------

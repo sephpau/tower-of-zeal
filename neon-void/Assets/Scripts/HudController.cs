@@ -2694,7 +2694,7 @@ public partial class HudController : MonoBehaviour
     float _idPollTimer;
 
     string IdentityState() =>
-        (DiscordAuth.LoggedIn ? "d" : "-") + (WalletAuth.Connected ? "w" : "-") + (WalletAuth.Busy ? "b" : "-") + (WalletAuth.SessionOk ? "s" : "x");
+        (DiscordAuth.LoggedIn ? "d" : "-") + (WalletAuth.Connected ? "w" : "-") + (WalletAuth.Busy ? "b" : "-") + (WalletAuth.SessionOk ? "s" : "x") + (WalletAuth.Busy ? WalletAuth.Step : "");
 
     void BuildIdentityCorner()
     {
@@ -2728,7 +2728,7 @@ public partial class HudController : MonoBehaviour
         if (WalletAuth.Available)
             IdentityLogo("icons/ronin", new Vector2(0.9075f, 0.92f), new Color(0.35f, 0.75f, 1f),
                 WalletAuth.Ready,
-                WalletAuth.Busy ? "CONNECTING…"
+                WalletAuth.Busy ? ("CONNECTING - " + (string.IsNullOrEmpty(WalletAuth.Step) ? "..." : WalletAuth.Step.ToUpperInvariant()))
                     : WalletAuth.Connected && !WalletAuth.SessionOk ? "RONIN SESSION EXPIRED - CLICK TO RE-SIGN (NO GAS)"
                     : WalletAuth.Connected ? "RONIN: " + WalletAuth.ShortAddress.ToUpperInvariant() + " - CLICK TO DISCONNECT"
                     : "CONNECT RONIN WALLET",
@@ -2738,7 +2738,14 @@ public partial class HudController : MonoBehaviour
                     else if (WalletAuth.Connected) { WalletAuth.Disconnect(); BuildIdentityCorner(); }
                     else { _idLastError = ""; WalletAuth.Connect(); BuildIdentityCorner(); }
                 });
-        if (WalletAuth.Connected && !WalletAuth.SessionOk)
+        if (WalletAuth.Busy)
+        {
+            var stepT = NewText(_idCorner.transform, "walletStep", "RONIN: " + (string.IsNullOrEmpty(WalletAuth.Step) ? "CONNECTING..." : WalletAuth.Step.ToUpperInvariant()), 15, TextAnchor.MiddleRight,
+                new Vector2(0.985f, 0.8f), new Vector2(0.985f, 0.8f), new Vector2(-290, 0), new Vector2(580, 30));
+            stepT.horizontalOverflow = HorizontalWrapMode.Overflow;
+            stepT.color = new Color(0.5f, 0.95f, 1f, 0.95f);
+        }
+        else if (WalletAuth.Connected && !WalletAuth.SessionOk)
         {
             var exp = NewText(_idCorner.transform, "sessionWarn", "!! RONIN SESSION EXPIRED - CLICK THE RONIN LOGO TO RE-SIGN !!", 15, TextAnchor.MiddleRight,
                 new Vector2(0.985f, 0.8f), new Vector2(0.985f, 0.8f), new Vector2(-290, 0), new Vector2(580, 30));
@@ -2827,6 +2834,24 @@ public partial class HudController : MonoBehaviour
     readonly List<Image> _advTabFrames = new List<Image>();   // gold outline on icon-only tabs
     readonly List<string> _advTabNames = new List<string>();
     Text _advTabTip;
+    Image _advTabTag;
+    void ShowTabTag(string name)
+    {
+        if (_advTabTag == null) return;
+        _advTabTag.gameObject.SetActive(!string.IsNullOrEmpty(name));
+        if (_advTabTip != null) _advTabTip.text = name;
+        if (!string.IsNullOrEmpty(name)) PlaceTabTag();
+    }
+    void PlaceTabTag()
+    {
+        if (_advTabTag == null || !_advTabTag.gameObject.activeSelf) return;
+        // just above the pointer, kept inside the screen
+        Vector2 p = Input.mousePosition;
+        float w = _advTabTag.rectTransform.rect.width * _canvas.transform.localScale.x;
+        p.x = Mathf.Clamp(p.x, w * 0.5f + 8f, Screen.width - w * 0.5f - 8f);
+        _advTabTag.rectTransform.position = p + new Vector2(0f, 22f);
+        _advTabTag.transform.SetAsLastSibling();
+    }
     string ActiveTabName()
     {
         int k = System.Array.IndexOf(AdvTabs, _advTab);
@@ -2868,8 +2893,15 @@ public partial class HudController : MonoBehaviour
         var eEdge = NewImage(echip.transform, "edge", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         eEdge.sprite = _roundedOutline; eEdge.type = Image.Type.Sliced;
         eEdge.color = new Color(0.4f, 0.95f, 1f, 0.5f);
+        var energyTex = Resources.Load<Texture2D>("icons/energy");
+        if (energyTex != null)
+        {
+            var ei = NewImage(echip.transform, "energyicon", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(26, 0), new Vector2(38, 38));
+            ei.sprite = Sprite.Create(energyTex, new Rect(0, 0, energyTex.width, energyTex.height), new Vector2(0.5f, 0.5f));
+            ei.preserveAspect = true;
+        }
         _advEnergy = NewText(echip.transform, "energy", "ENERGY  ...", 20, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(290, 40));
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(energyTex != null ? 14 : 0, 0), new Vector2(260, 40));
         _advEnergy.color = new Color(0.4f, 0.95f, 1f);
         _advEnergy.fontStyle = FontStyle.Bold;
         _advEnergyNote = NewText(_adventurePanel.transform, "energyNote", "tanks refill at 8:00 AM PHT · the daily log tops up +3", 13, TextAnchor.MiddleCenter,
@@ -2890,9 +2922,9 @@ public partial class HudController : MonoBehaviour
             if (tabTex != null)
             {
                 // icon-only tab: square tile, the name shows in the caption on hover or tap
-                b.GetComponent<RectTransform>().sizeDelta = new Vector2(66, 58);
+                b.GetComponent<RectTransform>().sizeDelta = new Vector2(104, 92);
                 lbl.text = "";
-                var ti = NewImage(b.transform, "tabicon", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(46, 46));
+                var ti = NewImage(b.transform, "tabicon", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(78, 78));
                 ti.sprite = Sprite.Create(tabTex, new Rect(0, 0, tabTex.width, tabTex.height), new Vector2(0.5f, 0.5f));
                 ti.preserveAspect = true;
                 frame = NewImage(b.transform, "frame", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -2901,10 +2933,10 @@ public partial class HudController : MonoBehaviour
                 string tipText = labels[i];
                 var trig = b.gameObject.AddComponent<EventTrigger>();
                 var enter = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
-                enter.callback.AddListener(_ => { if (_advTabTip != null) _advTabTip.text = tipText; });
+                enter.callback.AddListener(_ => ShowTabTag(tipText));
                 trig.triggers.Add(enter);
                 var exit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
-                exit.callback.AddListener(_ => { if (_advTabTip != null) _advTabTip.text = ActiveTabName(); });
+                exit.callback.AddListener(_ => ShowTabTag(""));
                 trig.triggers.Add(exit);
             }
             _advTabLabels.Add(lbl);
@@ -2912,11 +2944,19 @@ public partial class HudController : MonoBehaviour
             _advTabNames.Add(labels[i]);
         }
 
-        // caption under the tab row: hovered tab name, else the active one
-        _advTabTip = NewText(_adventurePanel.transform, "tabtip", "", 15, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.808f), new Vector2(0.5f, 0.808f), Vector2.zero, new Vector2(600, 22));
-        _advTabTip.color = new Color(1f, 0.85f, 0.4f, 0.85f);
+        // name tag that rides on the pointer while a tab icon is hovered
+        _advTabTag = NewImage(_adventurePanel.transform, "tabtag", Vector2.zero, Vector2.zero, Vector2.zero, new Vector2(180, 30));
+        _advTabTag.sprite = _roundedFill; _advTabTag.type = Image.Type.Sliced;
+        _advTabTag.color = new Color(0.08f, 0.06f, 0.18f, 0.96f);
+        _advTabTag.rectTransform.pivot = new Vector2(0.5f, 0f);
+        var tagEdge = NewImage(_advTabTag.transform, "edge", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        tagEdge.sprite = _roundedOutline; tagEdge.type = Image.Type.Sliced;
+        tagEdge.color = new Color(1f, 0.85f, 0.4f, 0.7f);
+        _advTabTip = NewText(_advTabTag.transform, "tabtip", "", 15, TextAnchor.MiddleCenter,
+            Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        _advTabTip.color = new Color(1f, 0.85f, 0.4f);
         _advTabTip.fontStyle = FontStyle.Bold;
+        _advTabTag.gameObject.SetActive(false);
 
         _advStatus = NewText(_adventurePanel.transform, "status", "", 20, TextAnchor.MiddleCenter,
             new Vector2(0.5f, 0.125f), new Vector2(0.5f, 0.125f), Vector2.zero, new Vector2(1200, 34));
@@ -3069,7 +3109,7 @@ public partial class HudController : MonoBehaviour
             _advTabLabels[i].fontStyle = active ? FontStyle.Bold : FontStyle.Normal;
             if (i < _advTabFrames.Count && _advTabFrames[i] != null) _advTabFrames[i].color = new Color(1f, 0.85f, 0.4f, active ? 0.95f : 0f);
         }
-        if (_advTabTip != null) _advTabTip.text = ActiveTabName();
+        ShowTabTag("");
 
         if (_advSummary == null)
         {
@@ -3574,6 +3614,7 @@ public partial class HudController : MonoBehaviour
     float _dailyHintTimer;
     void PollIdentity()
     {
+        PlaceTabTag();
         // keep the daily check-in hint in step with wallet state (cheap, every 2s, home only)
         _dailyHintTimer -= Time.unscaledDeltaTime;
         if (_dailyHintTimer <= 0f)

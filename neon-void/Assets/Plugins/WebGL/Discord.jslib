@@ -25,6 +25,10 @@ mergeInto(LibraryManager.library, {
   NVWalletIsBusy: function () {
     return (window.NVWalletBusy && window.NVWalletBusy()) ? 1 : 0;
   },
+  NVWalletStepText: function () {
+    var s = (window.NVWalletStep && window.NVWalletStep()) || "";
+    var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
+  },
   NVWalletSessionOk: function () {
     return window.NVWalletSessionOk ? window.NVWalletSessionOk() : 1;
   },
