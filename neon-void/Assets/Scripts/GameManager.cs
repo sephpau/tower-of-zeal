@@ -76,6 +76,7 @@ public class GameManager : MonoBehaviour
     public void StartRun(int pilotIndex, int shipIndex = -1, RunMode mode = RunMode.Multi)
     {
         Mode = mode;
+        ChaseCamera.ZoomMult = 1f;   // fresh run, normal camera distance
         _sigilIdx = 0;
         _overtimeAnnounced = false;
         _eliteTimer = EliteEvery;
@@ -129,7 +130,7 @@ public class GameManager : MonoBehaviour
             : customLoadout
                 ? _skills.pilot.name.ToUpperInvariant() + " × " + shipPilot.name.ToUpperInvariant() + "'S SHIP"
                 : (mode == RunMode.Quick ? "PRACTICE RUN — " : "") + _skills.pilot.name.ToUpperInvariant() + " — " + _skills.pilot.title.ToUpperInvariant());
-        if (mode == RunMode.Quick) Announcer.Say("Practice run. No gold, no quests, no leaderboard.", 0.6f, 1f);
+        if (mode == RunMode.Quick) Announcer.Say("Sparring run. No plunder, no bounties, no board.", 0.6f, 1f);
     }
 
     // every level-up gets its own draft, even when one orb jumps several
@@ -521,7 +522,7 @@ public class GameManager : MonoBehaviour
     // Tournament and multiplayer runs stay out — same rule as the classic game.
     void FinishAdventureRun()
     {
-        if (Mode == RunMode.Quick) { _hud.AnnounceCaption("Practice run — nothing earned, nothing ranked"); return; }
+        if (Mode == RunMode.Quick) { _hud.AnnounceCaption("Sparring run: no plunder, no rank"); return; }
         if (Mode != RunMode.Adventure || !MetaBridge.Ready || CoopSync.Active || RoyaleSync.Active || DecimationMode.Active) return;
         string results = RunStats.ResultsJson(score, Mathf.RoundToInt(_elapsed), xpLevel,
             _skills != null && _skills.pilot != null ? _skills.pilot.id : "ego");
@@ -540,16 +541,16 @@ public class GameManager : MonoBehaviour
             if (st == null || st.busy) continue;
             if (st.ok)
             {
-                if (st.gold > 0) _hud.AnnounceCaption("+" + st.gold + " gold banked");
+                if (st.gold > 0) _hud.AnnounceCaption("+" + st.gold + " gold banked in the hold");
                 if (st.weeklyRank > 0) _hud.AnnounceCaption("Weekly rank #" + st.weeklyRank);
             }
             else if (!string.IsNullOrEmpty(st.reason))
-                _hud.AnnounceCaption(st.reason == "offline" ? "Offline — run not recorded"
-                    : st.reason == "discord_required" ? "Reconnect Discord — run not recorded"
-                    : st.reason == "auth_required" ? "Reconnect Ronin — run not recorded"
-                    : "Run not recorded: " + st.reason);
+                _hud.AnnounceCaption(st.reason == "offline" ? "Lost in the Void: run not logged"
+                    : st.reason == "discord_required" ? "Relink Discord: run not logged"
+                    : st.reason == "auth_required" ? "Relink Ronin: run not logged"
+                    : "Run not logged: " + st.reason);
             if (st.quests != null)
-                foreach (var q in st.quests) _hud.AnnounceCaption("Quest complete: " + q);
+                foreach (var q in st.quests) _hud.AnnounceCaption("Bounty cleared: " + q);
             yield break;
         }
     }

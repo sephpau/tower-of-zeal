@@ -281,6 +281,7 @@ public class DecimationRunner : MonoBehaviour
 
         _savedScale = h.transform.localScale;
         h.transform.localScale = _savedScale * 2f;
+        ChaseCamera.ZoomMult = 2.2f;   // the doubled hull would swallow the view otherwise
         if (sk != null)
         {
             _savedMight = sk.stats["might"]; sk.stats["might"] += 1.5f;
@@ -321,6 +322,7 @@ public class DecimationRunner : MonoBehaviour
         var h = gm.Player;
         var sk = gm.Skills;
         var w = h != null ? h.GetComponent<Weapon>() : null;
+        ChaseCamera.ZoomMult = 1f;
         if (h != null)
         {
             h.transform.localScale = _savedScale;

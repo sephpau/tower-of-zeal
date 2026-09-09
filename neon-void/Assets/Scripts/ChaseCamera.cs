@@ -11,6 +11,9 @@ public class ChaseCamera : MonoBehaviour
     public Vector3 fpOffset = new Vector3(0f, 0.6f, 0.4f);   // inside the dome
 
     public static bool FirstPerson;
+    // pulls the chase offset back (Decimator: the ship doubles, so the camera backs off too)
+    public static float ZoomMult = 1f;
+    float _zoom = 1f;
 
     static float _shake;
     Camera _cam;
@@ -54,7 +57,8 @@ public class ChaseCamera : MonoBehaviour
         else
         {
             // rigid shooter cam glued behind the ship, steady through spins
-            Vector3 desired = target.position + target.rotation * offset;
+            _zoom = Mathf.Lerp(_zoom, ZoomMult, 1f - Mathf.Exp(-Time.deltaTime * 3f));
+            Vector3 desired = target.position + target.rotation * (offset * _zoom);
             transform.position = Vector3.Lerp(transform.position, desired, 1f - Mathf.Exp(-Time.deltaTime * 18f));
             transform.rotation = Quaternion.Slerp(transform.rotation, target.rotation, 1f - Mathf.Exp(-Time.deltaTime * 22f));
         }
