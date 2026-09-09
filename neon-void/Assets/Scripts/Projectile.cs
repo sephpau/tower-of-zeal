@@ -89,7 +89,13 @@ public class Projectile : MonoBehaviour
                             RoyaleSync.NoteHitOnMe(_owner, _damage);   // royale per-player stats
                         }
                         if (_fromPlayer && !_ghostFire && !h.isPlayer)
-                            GameManager.I.PlaySfx(SfxSynth.HitPulse, 0.35f);
+                        {
+                            // stone and hulls answer differently (files: "hit asteroid" / "hit enemy")
+                            bool rock = h.GetComponent<Asteroid>() != null;
+                            var cue = rock ? (GameAudio.Clip("hit asteroid") ?? SfxSynth.HitRock)
+                                           : (GameAudio.Clip("hit enemy") ?? SfxSynth.HitEnemy);
+                            GameManager.I.PlaySfx(cue, rock ? 0.45f : 0.4f);
+                        }
                         ExplosionFactory.Sparks(hit.point, _fromPlayer ? new Color(0.4f, 0.9f, 1f) : new Color(1f, 0.4f, 0.8f));
                         if (h.isPlayer)
                         {

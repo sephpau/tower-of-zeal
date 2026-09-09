@@ -8,6 +8,7 @@ public static class SfxSynth
     public static AudioClip Laser, Boom, BigBoom, Hit, Pickup, WaveUp, Music;
     public static AudioClip MusicBoss;              // v1 intensity-3 layer: drums join
     public static AudioClip HitPulse, HitSpecial;   // hit-confirm cues
+    public static AudioClip HitEnemy, HitRock, HitSelf;   // bolt on a hull, bolt on stone, damage taken
     public static AudioClip Dash;                   // dash whoosh
     public static AudioClip Crash;                  // death crunch: blast + debris tail
     public static AudioClip Click, Swish;           // UI: button click + panel swish
@@ -62,6 +63,12 @@ public static class SfxSynth
             float noise = (Mathf.Sin(t * 5200f) + Mathf.Sin(t * 8900f)) / 2f;
             return noise * env * 0.35f * (1f - 0.5f * k);
         });
+        // bolt on an enemy hull: a metallic thock - a click of noise and a falling ping
+        HitEnemy = RenderNoiseHit("hitenemy", 0.09f, 5200f, 900f, 1400f, 520f, 0.32f, 1.0f);
+        // bolt on an asteroid: dull stony crack - dark noise, low knock, no ring
+        HitRock = RenderNoiseHit("hitrock", 0.12f, 1800f, 260f, 150f, 90f, 0.7f, 0.9f);
+        // damage taken: a heavy thud plus shield crackle and a short alarm blip
+        HitSelf = RenderNoiseHit("hitself", 0.24f, 3000f, 200f, 95f, 42f, 0.85f, 1.1f);
         // bright tick when a pulse shot connects
         HitPulse = Render("hitpulse", 0.07f, (t, d) =>
         {
@@ -106,6 +113,33 @@ public static class SfxSynth
     static float Saw(float f, float t) { float p = f * t; return 2f * (p - Mathf.Floor(p + 0.5f)); }
     static float Tri(float f, float t) { float p = f * t; return 4f * Mathf.Abs(p - Mathf.Floor(p + 0.5f)) - 1f; }
     static float Decay(float t, float d, float k) => Mathf.Exp(-k * t / d * 3f);
+
+    // Impact: a burst of noise through a closing lowpass (cutStart -> cutEnd) plus a
+    // pitched thump (toneStart -> toneEnd). toneMix balances thump vs noise.
+    static AudioClip RenderNoiseHit(string name, float dur, float cutStart, float cutEnd, float toneStart, float toneEnd, float toneMix, float gain)
+    {
+        int n = (int)(SR * dur);
+        var data = new float[n];
+        var rng = new System.Random(777);
+        float lp = 0f, phase = 0f;
+        for (int i = 0; i < n; i++)
+        {
+            float t = i / (float)SR;
+            float k = t / dur;
+            float env = Mathf.Min(1f, t / 0.003f) * Mathf.Exp(-5.5f * k);
+            float cutoff = Mathf.Lerp(cutStart, cutEnd, Mathf.Sqrt(k));
+            float alpha = Mathf.Clamp01(2f * Mathf.PI * cutoff / SR);
+            float noise = (float)(rng.NextDouble() * 2 - 1);
+            lp += alpha * (noise - lp);
+            float f = Mathf.Lerp(toneStart, toneEnd, k);
+            phase += 2f * Mathf.PI * f / SR;
+            float tone = Mathf.Sin(phase) * Mathf.Exp(-9f * k);
+            data[i] = Mathf.Clamp((lp * (1f - toneMix) * 1.6f + tone * toneMix) * env * gain, -1f, 1f);
+        }
+        var clip = AudioClip.Create(name, n, 1, SR, false);
+        clip.SetData(data, 0);
+        return clip;
+    }
 
     static AudioClip RenderNoiseBoom(string name, float dur, float startFreq, float gain)
     {

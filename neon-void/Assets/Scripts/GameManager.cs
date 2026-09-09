@@ -689,8 +689,8 @@ public class GameManager : MonoBehaviour
     {
         if (Time.unscaledTime - _lastHitSfx < 0.09f) return;
         _lastHitSfx = Time.unscaledTime;
-        var c = GameAudio.Clip("damage received");
-        if (c != null) PlaySfx(c, 0.8f); else PlaySfx(SfxSynth.Hit, 0.7f);
+        var c = GameAudio.Clip("hit self");   // drop-in file wins; else the synthesized thud
+        PlaySfx(c ?? SfxSynth.HitSelf, 0.8f);
     }
 
     // THE DECIMATION: the clock ran out; tally kills, deaths, K/D
