@@ -42,6 +42,11 @@ mergeInto(LibraryManager.library, {
     var s = (window.NVRunFinishTake && window.NVRunFinishTake()) || "";
     var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
   },
+  NVMetaJsSessionFetch: function () { if (window.NVSessionFetch) window.NVSessionFetch(); },
+  NVMetaJsSessionTake: function () {
+    var s = (window.NVSessionTake && window.NVSessionTake()) || "";
+    var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
+  },
   NVMetaJsEnergyFetch: function () { if (window.NVEnergyFetch) window.NVEnergyFetch(); },
   NVMetaJsEnergyTake: function () {
     var s = (window.NVEnergyTake && window.NVEnergyTake()) || "";

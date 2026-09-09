@@ -2738,12 +2738,17 @@ public partial class HudController : MonoBehaviour
                     else if (WalletAuth.Connected) { WalletAuth.Disconnect(); BuildIdentityCorner(); }
                     else { _idLastError = ""; WalletAuth.Connect(); BuildIdentityCorner(); }
                 });
+        _idSpinner = null;
         if (WalletAuth.Busy)
         {
             var stepT = NewText(_idCorner.transform, "walletStep", "RONIN: " + (string.IsNullOrEmpty(WalletAuth.Step) ? "CONNECTING..." : WalletAuth.Step.ToUpperInvariant()), 15, TextAnchor.MiddleRight,
                 new Vector2(0.985f, 0.8f), new Vector2(0.985f, 0.8f), new Vector2(-290, 0), new Vector2(580, 30));
             stepT.horizontalOverflow = HorizontalWrapMode.Overflow;
             stepT.color = new Color(0.5f, 0.95f, 1f, 0.95f);
+            // spinning ring over the Ronin badge so the wait is visible without hovering
+            _idSpinner = NewImage(_idCorner.transform, "spinner", new Vector2(0.9075f, 0.92f), new Vector2(0.9075f, 0.92f), Vector2.zero, new Vector2(70, 70));
+            _idSpinner.sprite = RingSprite();
+            _idSpinner.color = new Color(0.5f, 0.95f, 1f, 0.9f);
         }
         else if (WalletAuth.Connected && !WalletAuth.SessionOk)
         {
@@ -2752,6 +2757,12 @@ public partial class HudController : MonoBehaviour
             exp.horizontalOverflow = HorizontalWrapMode.Overflow;
             exp.color = new Color(1f, 0.55f, 0.35f, 0.95f);
             exp.fontStyle = FontStyle.Bold;
+            // ask the server why, and print its verdict under the warning
+            var why = NewText(_idCorner.transform, "sessionWhy", "checking the session...", 13, TextAnchor.MiddleRight,
+                new Vector2(0.985f, 0.752f), new Vector2(0.985f, 0.752f), new Vector2(-290, 0), new Vector2(580, 22));
+            why.horizontalOverflow = HorizontalWrapMode.Overflow;
+            why.color = new Color(1f, 0.8f, 0.6f, 0.9f);
+            StartCoroutine(SessionWhyCo(why));
         }
         if (DiscordAuth.Available)
             IdentityLogo("icons/discord", new Vector2(0.945f, 0.92f), new Color(0.55f, 0.62f, 1f),
@@ -2788,6 +2799,46 @@ public partial class HudController : MonoBehaviour
     }
 
     Text _idTooltip;
+    Image _idSpinner;
+
+    System.Collections.IEnumerator SessionWhyCo(Text target)
+    {
+        MetaBridge.SessionFetch();
+        for (int i = 0; i < 40; i++)
+        {
+            yield return new WaitForSecondsRealtime(0.25f);
+            if (target == null) yield break;
+            var s = MetaBridge.SessionTake();
+            if (s == null) continue;
+            string code = s.code ?? "";
+            target.text = code == "NO_COOKIE" ? "server: no session cookie - the sign-in did not stick (private window or blocked cookies?)"
+                : code == "WALLET_MISMATCH" ? "server: signed as " + Short(s.signedAs) + " but the game holds " + WalletAuth.ShortAddress + " - switch account in Ronin and re-sign"
+                : code.Contains("EXPIRED") ? "server: session expired - re-sign"
+                : code == "OFFLINE" ? "server unreachable"
+                : s.ok ? "server: session OK - refresh the page" : "server: " + code;
+            yield break;
+        }
+        if (target != null) target.text = "server did not answer";
+    }
+    static string Short(string a) => string.IsNullOrEmpty(a) ? "?" : (a.Length >= 10 ? a.Substring(0, 6) + "..." + a.Substring(a.Length - 4) : a);
+
+    // open ring with a gap, spun while the wallet flow is busy
+    Sprite RingSprite()
+    {
+        const int S = 64;
+        var tex = new Texture2D(S, S, TextureFormat.RGBA32, false);
+        for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                float dx = x - 31.5f, dy = y - 31.5f;
+                float d = Mathf.Sqrt(dx * dx + dy * dy);
+                float ang = Mathf.Atan2(dy, dx);
+                bool ring = d > 25f && d < 30f && ang > -2.4f;   // ~75% of the circle
+                tex.SetPixel(x, y, new Color(1f, 1f, 1f, ring ? 1f : 0f));
+            }
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f));
+    }
 
     // square logo button with connected-check badge and hover tooltip
     Button IdentityLogo(string iconRes, Vector2 anchor, Color tint, bool connected, string tip, UnityEngine.Events.UnityAction onClick)
@@ -2894,14 +2945,24 @@ public partial class HudController : MonoBehaviour
         eEdge.sprite = _roundedOutline; eEdge.type = Image.Type.Sliced;
         eEdge.color = new Color(0.4f, 0.95f, 1f, 0.5f);
         var energyTex = Resources.Load<Texture2D>("icons/energy");
+        _energyIconShown = energyTex != null;
         if (energyTex != null)
         {
-            var ei = NewImage(echip.transform, "energyicon", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(26, 0), new Vector2(38, 38));
+            var ei = NewImage(echip.transform, "energyicon", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(30, 0), new Vector2(44, 44));
             ei.sprite = Sprite.Create(energyTex, new Rect(0, 0, energyTex.width, energyTex.height), new Vector2(0.5f, 0.5f));
             ei.preserveAspect = true;
+            // hovering the chip names it on the pointer, like the tabs
+            echip.raycastTarget = true;
+            var etrig = echip.gameObject.AddComponent<EventTrigger>();
+            var eEnter = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
+            eEnter.callback.AddListener(_ => ShowTabTag("ENERGY"));
+            etrig.triggers.Add(eEnter);
+            var eExit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
+            eExit.callback.AddListener(_ => ShowTabTag(""));
+            etrig.triggers.Add(eExit);
         }
-        _advEnergy = NewText(echip.transform, "energy", "ENERGY  ...", 20, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(energyTex != null ? 14 : 0, 0), new Vector2(260, 40));
+        _advEnergy = NewText(echip.transform, "energy", EnergyLabel("..."), 20, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(energyTex != null ? 18 : 0, 0), new Vector2(250, 40));
         _advEnergy.color = new Color(0.4f, 0.95f, 1f);
         _advEnergy.fontStyle = FontStyle.Bold;
         _advEnergyNote = NewText(_adventurePanel.transform, "energyNote", "tanks refill at 8:00 AM PHT · the daily log tops up +3", 13, TextAnchor.MiddleCenter,
@@ -2992,7 +3053,9 @@ public partial class HudController : MonoBehaviour
     }
 
     Text _advEnergy, _advEnergyNote;
-    bool _advLaunching;
+    bool _advLaunching, _energyIconShown;
+    // with the icon on the chip the word is redundant; without it the word stays
+    string EnergyLabel(string body) => (_energyIconShown ? "" : "ENERGY  ") + body;
 
     // Adventure launch: the server issues the run token and takes 1 energy first
     System.Collections.IEnumerator LaunchAdventureCo(int pilotIdx)
@@ -3023,10 +3086,10 @@ public partial class HudController : MonoBehaviour
                 : st.reason == "auth_required" || st.reason == "wallet_required" ? "RONIN SESSION EXPIRED - RE-SIGN VIA THE RONIN LOGO (HOME, TOP-RIGHT)"
                 : st.reason == "busy" ? "HOLD FAST · TRY AGAIN"
                 : "LAUNCH ABORTED: " + (st.reason ?? "offline").ToUpperInvariant();
-            if (st.energy >= 0 && _advEnergy != null) _advEnergy.text = "ENERGY  " + st.energy + " / " + st.max;
+            if (st.energy >= 0 && _advEnergy != null) _advEnergy.text = EnergyLabel(st.energy + " / " + st.max);
             yield break;
         }
-        if (_advEnergy != null && st.energy >= 0) _advEnergy.text = "ENERGY  " + st.energy + " / " + st.max;
+        if (_advEnergy != null && st.energy >= 0) _advEnergy.text = EnergyLabel(st.energy + " / " + st.max);
         DecimationMode.Pending = false;
         ShipShowcase.Clear();
         _adventurePanel.SetActive(false);
@@ -3043,10 +3106,10 @@ public partial class HudController : MonoBehaviour
             var e = MetaBridge.EnergyTake();
             if (e == null) continue;
             if (_advEnergy == null) yield break;
-            if (e.ok && e.energy >= 0) _advEnergy.text = "ENERGY  " + e.energy + " / " + e.max + (e.bonus > 0 ? "  (+" + e.bonus + " bonus)" : "");
-            else if (!(WalletAuth.Connected && DiscordAuth.LoggedIn)) _advEnergy.text = "ENERGY  link to fly";
-            else if (e.reason == "auth_required") _advEnergy.text = "ENERGY  ?  re-sign Ronin (home, top-right)";
-            else _advEnergy.text = "ENERGY  ?  " + (string.IsNullOrEmpty(e.reason) ? "no reading" : e.reason);
+            if (e.ok && e.energy >= 0) _advEnergy.text = EnergyLabel(e.energy + " / " + e.max + (e.bonus > 0 ? "  (+" + e.bonus + " bonus)" : ""));
+            else if (!(WalletAuth.Connected && DiscordAuth.LoggedIn)) _advEnergy.text = EnergyLabel("link to fly");
+            else if (e.reason == "auth_required") _advEnergy.text = EnergyLabel("?  re-sign Ronin (home, top-right)");
+            else _advEnergy.text = EnergyLabel("?  " + (string.IsNullOrEmpty(e.reason) ? "no reading" : e.reason));
             yield break;
         }
     }
@@ -3615,6 +3678,7 @@ public partial class HudController : MonoBehaviour
     void PollIdentity()
     {
         PlaceTabTag();
+        if (_idSpinner != null) _idSpinner.transform.Rotate(0f, 0f, -240f * Time.unscaledDeltaTime);
         // keep the daily check-in hint in step with wallet state (cheap, every 2s, home only)
         _dailyHintTimer -= Time.unscaledDeltaTime;
         if (_dailyHintTimer <= 0f)

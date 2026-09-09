@@ -495,6 +495,15 @@
         .catch(function () { window.__nvEnergy = '{"ok":false,"reason":"offline"}'; });
     };
     window.NVEnergyTake = function () { return window.__nvEnergy; };
+    // session diagnostic: why the server accepts or rejects the saved wallet session
+    window.__nvSession = "";
+    window.NVSessionFetch = function () {
+      window.__nvSession = "";
+      if (!window.NVMetaReady() || !SURV.Net) { window.__nvSession = '{"ok":false,"code":"OFFLINE"}'; return; }
+      SURV.Net.getSession().then(function (d) { window.__nvSession = JSON.stringify(d || { ok: false, code: "NO_ANSWER" }); })
+        .catch(function () { window.__nvSession = '{"ok":false,"code":"OFFLINE"}'; });
+    };
+    window.NVSessionTake = function () { return window.__nvSession; };
     window.NVBoardFetch = function (period) {
       window.__nvBoard = "";
       if (!window.NVMetaReady() || !SURV.Net) { window.__nvBoard = '{"ok":false,"reason":"offline"}'; return; }

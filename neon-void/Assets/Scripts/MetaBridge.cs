@@ -22,6 +22,8 @@ public static class MetaBridge
     [DllImport("__Internal")] static extern void NVMetaJsRunFinish(string json);
     [DllImport("__Internal")] static extern string NVMetaJsRunFinishTake();
     [DllImport("__Internal")] static extern void NVMetaJsEnergyFetch();
+    [DllImport("__Internal")] static extern void NVMetaJsSessionFetch();
+    [DllImport("__Internal")] static extern string NVMetaJsSessionTake();
     [DllImport("__Internal")] static extern string NVMetaJsEnergyTake();
     [DllImport("__Internal")] static extern void NVMetaJsBoardFetch(string period);
     [DllImport("__Internal")] static extern string NVMetaJsBoardTake();
@@ -51,6 +53,8 @@ public static class MetaBridge
     static void NVMetaJsRunFinish(string json) { }
     static string NVMetaJsRunFinishTake() => "";
     static void NVMetaJsEnergyFetch() { }
+    static void NVMetaJsSessionFetch() { }
+    static string NVMetaJsSessionTake() => "";
     static string NVMetaJsEnergyTake() => "";
     static void NVMetaJsBoardFetch(string period) { }
     static string NVMetaJsBoardTake() => "";
@@ -121,6 +125,9 @@ public static class MetaBridge
     // run finish chain (submit -> bank gold -> reload profile -> local absorb)
     public static void RunFinish(string resultsJson) => NVMetaJsRunFinish(resultsJson);
     public static FinishStatus RunFinishTake() => Parse<FinishStatus>(NVMetaJsRunFinishTake());
+    [System.Serializable] public class SessionInfo { public bool ok; public string code, signedAs; }
+    public static void SessionFetch() => NVMetaJsSessionFetch();
+    public static SessionInfo SessionTake() => Parse<SessionInfo>(NVMetaJsSessionTake());
     public static void EnergyFetch() => NVMetaJsEnergyFetch();
     public static Energy EnergyTake() => Parse<Energy>(NVMetaJsEnergyTake());
     public static void BoardFetch(string period) => NVMetaJsBoardFetch(period);
