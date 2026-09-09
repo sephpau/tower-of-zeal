@@ -3233,6 +3233,19 @@ public partial class HudController : MonoBehaviour
         t.gameObject.AddComponent<ScorePopupAnim>();
     }
 
+    public void GoldPopup(int amount, Vector3 worldPos)
+    {
+        if (Camera.main == null) return;
+        Vector3 sp = Camera.main.WorldToScreenPoint(worldPos);
+        if (sp.z < 0) return;
+        var t = NewText(_canvas.transform, "goldpop", "+" + amount + " GOLD", 22, TextAnchor.MiddleCenter,
+            Vector2.zero, Vector2.zero, Vector2.zero, new Vector2(220, 40));
+        t.color = new Color(1f, 0.72f, 0.15f);
+        t.fontStyle = FontStyle.Bold;
+        t.rectTransform.position = sp + new Vector3(0f, 26f, 0f);
+        t.gameObject.AddComponent<ScorePopupAnim>();
+    }
+
     public void ScorePopup(int amount, Vector3 worldPos)
     {
         if (Camera.main == null) return;

@@ -53,6 +53,7 @@ public class MinibossAI : MonoBehaviour
         GameManager.I.PlaySfxAt(SfxSynth.Crash, transform.position, 1f);
         GameManager.I.EnemyKilled(def.score, transform.position);
         XpOrb.Drop(transform.position, def.xp);
+        GoldCoin.Drop(transform.position, 5, 10);    // boss purse: 50 gold
         int drops = def.id == "smuggler" ? 4 : 2;   // the Smuggler's hoard
         for (int i = 0; i < drops; i++)
             Powerup.TryDrop(transform.position + Random.insideUnitSphere * 5f, 1f);

@@ -251,3 +251,58 @@ public class XpOrb : MonoBehaviour
         }
     }
 }
+
+// Gold coin dropped by kills — magnets to the player like XP, pays profile gold.
+// Drops are deliberately stingy: mobs rarely, elites a handful, bosses a purse.
+public class GoldCoin : MonoBehaviour
+{
+    public int gold = 1;
+    float _life = 40f, _spin;
+    Transform _player;
+
+    public static void Drop(Vector3 pos, int coins, int goldEach)
+    {
+        for (int i = 0; i < coins; i++)
+        {
+            var go = new GameObject("gold");
+            go.transform.position = pos + Random.insideUnitSphere * (coins > 1 ? 3f : 1.5f);
+            var c = go.AddComponent<GoldCoin>();
+            c.gold = goldEach;
+            c._spin = Random.Range(160f, 260f);
+            var col = new Color(1f, 0.82f, 0.25f);
+            // flat disc = a coin, with a warm glow so it reads from afar
+            NVMeshes.SpherePart(go, NVAssets.Emissive(col, 2.6f), Vector3.zero, new Vector3(0.7f, 0.7f, 0.18f));
+            var glow = NVAssets.Quad(NVAssets.AdditiveTinted(col), 2.4f);
+            glow.transform.SetParent(go.transform, false);
+            glow.AddComponent<Billboard>();
+        }
+    }
+
+    void Start()
+    {
+        var ship = FindAnyObjectByType<ShipController>();
+        if (ship != null) _player = ship.transform;
+    }
+
+    void Update()
+    {
+        _life -= Time.deltaTime;
+        if (_life <= 0f) { Destroy(gameObject); return; }
+        transform.Rotate(0f, _spin * Time.deltaTime, 0f, Space.World);
+        if (_player == null || !GameManager.I.Running) return;
+
+        float magnetRange = 26f;
+        var skills = _player.GetComponent<SkillSystem>();
+        if (skills != null) magnetRange *= skills.MagnetMult;
+
+        Vector3 to = _player.position - transform.position;
+        float d = to.magnitude;
+        if (d < magnetRange)
+            transform.position += to.normalized * Mathf.Lerp(45f, 10f, d / magnetRange) * Time.deltaTime;
+        if (d < 3.5f)
+        {
+            GameManager.I.GainGold(gold, transform.position);
+            Destroy(gameObject);
+        }
+    }
+}

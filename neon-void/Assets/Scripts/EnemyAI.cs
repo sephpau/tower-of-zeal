@@ -51,11 +51,15 @@ public class EnemyAI : MonoBehaviour
         {
             RunStats.elites++;
             XpOrb.Drop(transform.position, 30);          // v1 eliteXp
+            GoldCoin.Drop(transform.position, 3, 4);     // elite purse: 12 gold
             Powerup.TryDrop(transform.position, 1f);     // guaranteed hoard
             Powerup.TryDrop(transform.position + Random.insideUnitSphere * 4f, 1f);
         }
         else
+        {
             Powerup.TryDrop(transform.position, 0.25f);
+            if (Random.value < 0.10f) GoldCoin.Drop(transform.position, 1, 2);   // mobs: a coin now and then
+        }
         Destroy(gameObject);
     }
 

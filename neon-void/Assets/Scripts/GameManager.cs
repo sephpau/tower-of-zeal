@@ -426,6 +426,18 @@ public class GameManager : MonoBehaviour
         XpOrb.Drop(where, Mathf.Clamp(baseScore / 40, 1, 10));
     }
 
+    // in-run gold: Plunder Sense ranks and the Captain's greed perk scale it,
+    // the total rides along in the run report and lands in the cloud profile
+    public void GainGold(int amount, Vector3 where)
+    {
+        if (!Running || amount <= 0) return;
+        float greed = _skills != null ? _skills.GreedMult : 1f;
+        int n = Mathf.Max(1, Mathf.RoundToInt(amount * greed));
+        RunStats.gold += n;
+        _hud.GoldPopup(n, where);
+        PlaySfx(SfxSynth.Pickup, 0.25f);
+    }
+
     public void OnWaveStarted(int wave)
     {
         _hud.WaveBanner(wave > WaveDirector.FinalWave

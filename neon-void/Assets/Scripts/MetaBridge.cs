@@ -121,15 +121,15 @@ public static class MetaBridge
 // Per-run stat counters feeding quests, achievements and the leaderboard.
 public static class RunStats
 {
-    public static int kills, elites, bosses, gems, evolved, chests, asteroids, xp;
+    public static int kills, elites, bosses, gems, evolved, chests, asteroids, xp, gold;
 
-    public static void Reset() { kills = elites = bosses = gems = evolved = chests = asteroids = xp = 0; }
+    public static void Reset() { kills = elites = bosses = gems = evolved = chests = asteroids = xp = gold = 0; }
 
     public static string ResultsJson(int score, int timeSec, int level, string character)
     {
         return "{\"score\":" + score + ",\"time\":" + timeSec + ",\"level\":" + level +
             ",\"kills\":" + kills + ",\"elites\":" + elites + ",\"bosses\":" + bosses +
             ",\"gems\":" + gems + ",\"evolved\":" + evolved + ",\"chests\":" + chests +
-            ",\"gold\":0,\"weapons\":0,\"character\":\"" + character + "\"}";
+            ",\"gold\":" + gold + ",\"weapons\":0,\"character\":\"" + character + "\"}";
     }
 }

@@ -48,6 +48,7 @@ public class BossAI : MonoBehaviour
         GameManager.I.PlaySfxAt(SfxSynth.BigBoom, transform.position, 1f);
         GameManager.I.PlaySfxAt(SfxSynth.Crash, transform.position, 1f);
         GameManager.I.EnemyKilled(5000, transform.position);
+        GoldCoin.Drop(transform.position, 8, 12);    // the Dreadnought's vault: 96 gold
         Powerup.TryDrop(transform.position, 1f);
         Powerup.TryDrop(transform.position + Vector3.right * 6f, 1f);
         Powerup.TryDrop(transform.position + Vector3.up * 6f, 1f);
