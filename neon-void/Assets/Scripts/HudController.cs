@@ -3381,7 +3381,7 @@ public partial class HudController : MonoBehaviour
     void AdvHeader(string text)
     {
         NewText(_advContent.transform, "hdr", text, 19, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.785f), new Vector2(0.5f, 0.785f), Vector2.zero, new Vector2(1300, 30))
+            new Vector2(0.5f, 0.766f), new Vector2(0.5f, 0.766f), Vector2.zero, new Vector2(1300, 30))
             .color = new Color(0.75f, 0.72f, 0.95f, 0.8f);
     }
 
