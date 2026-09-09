@@ -18,7 +18,7 @@ public static class DailyBridge
     {
         public bool busy, ok, claimed;
         public string status, reason;
-        public int gold, xp, streak;
+        public int gold, xp, streak, energy;
     }
 
     public static void Start() => NVMetaJsDailyStart();

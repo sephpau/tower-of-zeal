@@ -262,6 +262,7 @@ public class GoldCoin : MonoBehaviour
 
     public static void Drop(Vector3 pos, int coins, int goldEach)
     {
+        if (!GameManager.AdventureRun) return;   // practice and multiplayer runs pay nothing
         for (int i = 0; i < coins; i++)
         {
             var go = new GameObject("gold");

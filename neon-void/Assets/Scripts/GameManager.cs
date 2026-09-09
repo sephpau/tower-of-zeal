@@ -66,8 +66,16 @@ public class GameManager : MonoBehaviour
     // shipIndex: -1 = the pilot's own ship. Custom hangar (premium pass T10)
     // mixes freely — the CHARACTER carries stats/training, the SHIP carries
     // the special skill, armory ranks and the hull.
-    public void StartRun(int pilotIndex, int shipIndex = -1)
+    // QUICK = practice (all meta stats at level 1, nothing earned, nothing ranked)
+    // ADVENTURE = the real game (costs energy, earns gold + quests, ranks)
+    // MULTI = tournament / co-op / royale / decimation (meta stats apply, nothing earned)
+    public enum RunMode { Quick, Adventure, Multi }
+    public static RunMode Mode = RunMode.Multi;
+    public static bool AdventureRun => Mode == RunMode.Adventure;
+
+    public void StartRun(int pilotIndex, int shipIndex = -1, RunMode mode = RunMode.Multi)
     {
+        Mode = mode;
         _sigilIdx = 0;
         _overtimeAnnounced = false;
         _eliteTimer = EliteEvery;
@@ -92,13 +100,14 @@ public class GameManager : MonoBehaviour
         bool customLoadout = shipPilot.id != _skills.pilot.id;
         RunStats.Reset();
         if (DecimationMode.Pending) DecimationMode.Arm(); else DecimationMode.Active = false;
-        if (!TournamentMode.Active && MetaBridge.Ready)
+        // quick play flies a stock ship: no armory, crew or training ranks
+        if (mode != RunMode.Quick && !TournamentMode.Active && MetaBridge.Ready)
         {
             _skills.ApplyShipBonuses(MetaBridge.GetShipBonuses(shipPilot.id));               // the flown hull's armory
             _skills.ApplyCrewBonuses(MetaBridge.GetCrewBonuses());                           // shared crew perks
             _skills.ApplySurvivorBonuses(MetaBridge.GetSurvivorBonuses(_skills.pilot.id));   // the character's training
-            MetaBridge.RunStart();                                                           // leaderboard run token
         }
+        // (the Adventure run token is requested by the hub BEFORE StartRun, since it costs energy)
         var tint = _playerHealth.GetComponent<ShipTint>();
         if (tint != null) tint.Apply(_skills.pilot.accent);
         PilotShipModel.Swap(_playerHealth.gameObject, shipPilot.id);   // hull follows the ship choice
@@ -119,7 +128,8 @@ public class GameManager : MonoBehaviour
             ? "BLITZ // " + TournamentMode.MatchCode + " // " + _skills.pilot.name.ToUpperInvariant()
             : customLoadout
                 ? _skills.pilot.name.ToUpperInvariant() + " × " + shipPilot.name.ToUpperInvariant() + "'S SHIP"
-                : _skills.pilot.name.ToUpperInvariant() + " — " + _skills.pilot.title.ToUpperInvariant());
+                : (mode == RunMode.Quick ? "PRACTICE RUN — " : "") + _skills.pilot.name.ToUpperInvariant() + " — " + _skills.pilot.title.ToUpperInvariant());
+        if (mode == RunMode.Quick) Announcer.Say("Practice run. No gold, no quests, no leaderboard.", 0.6f, 1f);
     }
 
     // every level-up gets its own draft, even when one orb jumps several
@@ -430,7 +440,7 @@ public class GameManager : MonoBehaviour
     // the total rides along in the run report and lands in the cloud profile
     public void GainGold(int amount, Vector3 where)
     {
-        if (!Running || amount <= 0) return;
+        if (!Running || amount <= 0 || Mode != RunMode.Adventure) return;
         float greed = _skills != null ? _skills.GreedMult : 1f;
         int n = Mathf.Max(1, Mathf.RoundToInt(amount * greed));
         RunStats.gold += n;
@@ -511,18 +521,36 @@ public class GameManager : MonoBehaviour
     // Tournament and multiplayer runs stay out — same rule as the classic game.
     void FinishAdventureRun()
     {
-        if (!MetaBridge.Ready || CoopSync.Active || RoyaleSync.Active || DecimationMode.Active) return;
+        if (Mode == RunMode.Quick) { _hud.AnnounceCaption("Practice run — nothing earned, nothing ranked"); return; }
+        if (Mode != RunMode.Adventure || !MetaBridge.Ready || CoopSync.Active || RoyaleSync.Active || DecimationMode.Active) return;
         string results = RunStats.ResultsJson(score, Mathf.RoundToInt(_elapsed), xpLevel,
             _skills != null && _skills.pilot != null ? _skills.pilot.id : "ego");
-        var absorbed = MetaBridge.AbsorbRun(results);
-        // leaderboard is for connected pilots only: guests keep local progress but never rank
-        if (WalletAuth.Connected && DiscordAuth.LoggedIn) MetaBridge.RunSubmit(results);
-        else _hud.AnnounceCaption("Connect Discord + Ronin to rank on the leaderboard");
-        if (absorbed != null && absorbed.ok)
+        // server banks the gold + ranks the run, then the page reloads the profile and
+        // absorbs pass XP / quests locally; captions arrive when that chain settles
+        MetaBridge.RunFinish(results);
+        StartCoroutine(FinishCaptionsCo());
+    }
+
+    System.Collections.IEnumerator FinishCaptionsCo()
+    {
+        for (int i = 0; i < 60; i++)
         {
-            if (absorbed.gold > 0) _hud.AnnounceCaption("+" + absorbed.gold + " gold earned");
-            if (absorbed.quests != null)
-                foreach (var q in absorbed.quests) _hud.AnnounceCaption("Quest complete: " + q);
+            yield return new WaitForSecondsRealtime(0.5f);
+            var st = MetaBridge.RunFinishTake();
+            if (st == null || st.busy) continue;
+            if (st.ok)
+            {
+                if (st.gold > 0) _hud.AnnounceCaption("+" + st.gold + " gold banked");
+                if (st.weeklyRank > 0) _hud.AnnounceCaption("Weekly rank #" + st.weeklyRank);
+            }
+            else if (!string.IsNullOrEmpty(st.reason))
+                _hud.AnnounceCaption(st.reason == "offline" ? "Offline — run not recorded"
+                    : st.reason == "discord_required" ? "Reconnect Discord — run not recorded"
+                    : st.reason == "auth_required" ? "Reconnect Ronin — run not recorded"
+                    : "Run not recorded: " + st.reason);
+            if (st.quests != null)
+                foreach (var q in st.quests) _hud.AnnounceCaption("Quest complete: " + q);
+            yield break;
         }
     }
 

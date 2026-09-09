@@ -17,6 +17,12 @@ public static class MetaBridge
     [DllImport("__Internal")] static extern string NVMetaJsAbsorbRun(string json);
     [DllImport("__Internal")] static extern void NVMetaJsRunStart();
     [DllImport("__Internal")] static extern void NVMetaJsRunSubmit(string json);
+    [DllImport("__Internal")] static extern void NVMetaJsRunStartMode(string mode);
+    [DllImport("__Internal")] static extern string NVMetaJsRunStartStatus();
+    [DllImport("__Internal")] static extern void NVMetaJsRunFinish(string json);
+    [DllImport("__Internal")] static extern string NVMetaJsRunFinishTake();
+    [DllImport("__Internal")] static extern void NVMetaJsEnergyFetch();
+    [DllImport("__Internal")] static extern string NVMetaJsEnergyTake();
     [DllImport("__Internal")] static extern void NVMetaJsBoardFetch(string period);
     [DllImport("__Internal")] static extern string NVMetaJsBoardTake();
     [DllImport("__Internal")] static extern void NVMetaJsPassBuy();
@@ -40,6 +46,12 @@ public static class MetaBridge
     static string NVMetaJsAbsorbRun(string json) => "{}";
     static void NVMetaJsRunStart() { }
     static void NVMetaJsRunSubmit(string json) { }
+    static void NVMetaJsRunStartMode(string mode) { }
+    static string NVMetaJsRunStartStatus() => "";
+    static void NVMetaJsRunFinish(string json) { }
+    static string NVMetaJsRunFinishTake() => "";
+    static void NVMetaJsEnergyFetch() { }
+    static string NVMetaJsEnergyTake() => "";
     static void NVMetaJsBoardFetch(string period) { }
     static string NVMetaJsBoardTake() => "";
     static void NVMetaJsPassBuy() { }
@@ -99,6 +111,18 @@ public static class MetaBridge
     public static Absorb AbsorbRun(string statsJson) => Parse<Absorb>(NVMetaJsAbsorbRun(statsJson));
     public static void RunStart() => NVMetaJsRunStart();
     public static void RunSubmit(string resultsJson) => NVMetaJsRunSubmit(resultsJson);
+
+    [System.Serializable] public class StartStatus { public bool busy, ok; public string reason; public int energy = -1, max = 10; public double resetAt; }
+    [System.Serializable] public class FinishStatus { public bool busy, ok; public string reason; public int gold, passXp, weeklyRank, allRank; public string[] quests; }
+    [System.Serializable] public class Energy { public bool ok; public string reason; public int energy = -1, max = 10, bonus; public double resetAt; }
+    // Adventure: the server hands out a run token that costs 1 energy
+    public static void RunStartMode(string mode) => NVMetaJsRunStartMode(mode);
+    public static StartStatus RunStartStatus() => Parse<StartStatus>(NVMetaJsRunStartStatus());
+    // run finish chain (submit -> bank gold -> reload profile -> local absorb)
+    public static void RunFinish(string resultsJson) => NVMetaJsRunFinish(resultsJson);
+    public static FinishStatus RunFinishTake() => Parse<FinishStatus>(NVMetaJsRunFinishTake());
+    public static void EnergyFetch() => NVMetaJsEnergyFetch();
+    public static Energy EnergyTake() => Parse<Energy>(NVMetaJsEnergyTake());
     public static void BoardFetch(string period) => NVMetaJsBoardFetch(period);
     public static Board BoardTake() => Parse<Board>(NVMetaJsBoardTake());
     public static void PassBuy() => NVMetaJsPassBuy();

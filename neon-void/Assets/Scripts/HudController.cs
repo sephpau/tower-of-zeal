@@ -298,6 +298,7 @@ public partial class HudController : MonoBehaviour
         }
 
         BuildHomePanel();
+        BuildMultiPanel();
         BuildStartPanel();
         BuildOverPanel();
         BuildWinPanel();
@@ -596,28 +597,16 @@ public partial class HudController : MonoBehaviour
         _bestHomeText.color = new Color(0.5f, 0.98f, 1f, 0.9f);
         _bestHomeText.font = _titleFont;
 
-        MakeButton(_homePanel.transform, "QUICK PLAY", new Vector2(0.5f, 0.49f), new Vector2(430, 74),
-            new Color(1f, 0.85f, 0.4f), () => { DecimationMode.Pending = false; SwitchPanel(_homePanel, _startPanel, RefreshCustomHangar); });
-        MakeButton(_homePanel.transform, "ADVENTURE", new Vector2(0.5f, 0.395f), new Vector2(360, 56),
-            new Color(1f, 0.72f, 0.25f), () => SwitchPanel(_homePanel, _adventurePanel, RefreshAdventure));
-        MakeButton(_homePanel.transform, "BLITZ TOURNAMENT", new Vector2(0.5f, 0.33f), new Vector2(360, 56),
-            new Color(1f, 0.55f, 0.9f), () => SwitchPanel(_homePanel, _tourneySetupPanel));
-        MakeButton(_homePanel.transform, "CO-OP (2P)", new Vector2(0.5f, 0.265f), new Vector2(360, 56),
-            new Color(0.4f, 1f, 0.75f), () => SwitchPanel(_homePanel, _coopPanel));
-        MakeButton(_homePanel.transform, "BATTLE ROYALE", new Vector2(0.5f, 0.2f), new Vector2(360, 56),
-            new Color(1f, 0.35f, 0.35f), () => SwitchPanel(_homePanel, _brPanel));
-        MakeButton(_homePanel.transform, "THE DECIMATION", new Vector2(0.5f, 0.135f), new Vector2(360, 56),
-            new Color(1f, 0.2f, 0.15f), () => OpenDecimationLobby());
-        MakeButton(_homePanel.transform, "SETTINGS", new Vector2(0.5f, 0.07f), new Vector2(360, 56),
-            new Color(0.6f, 0.9f, 1f), () => SwitchPanel(_homePanel, _settingsPanel));
+        // three doors: practice, the real game, everything multiplayer
+        HomeTile("QUICK PLAY", "practice run · stock ship · nothing earned", new Vector2(0.5f, 0.47f), new Color(0.6f, 0.9f, 1f),
+            () => { DecimationMode.Pending = false; SwitchPanel(_homePanel, _startPanel, RefreshCustomHangar); });
+        HomeTile("ADVENTURE", "the real game · earn gold · quests · leaderboard · 1 energy per run", new Vector2(0.5f, 0.355f), new Color(1f, 0.85f, 0.4f),
+            () => SwitchPanel(_homePanel, _adventurePanel, RefreshAdventure));
+        HomeTile("MULTIPLAYER", "tournament · co-op · battle royale · the decimation", new Vector2(0.5f, 0.24f), new Color(1f, 0.55f, 0.9f),
+            () => SwitchPanel(_homePanel, _multiPanel));
 
-        // daily on-chain check-in reward (Ronin tx through the classic meta layer)
-        _dailyBtn = MakeButton(_homePanel.transform, "DAILY CHECK-IN", new Vector2(0.11f, 0.93f), new Vector2(240, 46),
-            new Color(1f, 0.85f, 0.4f), () => StartCoroutine(DailyClaimCo()));
-        _dailyStatus = NewText(_homePanel.transform, "dailystatus", "", 15, TextAnchor.MiddleCenter,
-            new Vector2(0.11f, 0.885f), new Vector2(0.11f, 0.885f), Vector2.zero, new Vector2(360, 24));
-        _dailyStatus.color = new Color(0.8f, 0.9f, 1f, 0.8f);
-        RefreshDailyButton();
+        // daily on-chain check-in card, top-left
+        BuildDailyCard();
 
         // Discord + Ronin wallet identity corner (top-right)
         BuildIdentityCorner();
@@ -628,13 +617,124 @@ public partial class HudController : MonoBehaviour
         _homePanel.SetActive(false);
     }
 
+    // big homepage door: label + one-line promise underneath
+    void HomeTile(string label, string sub, Vector2 anchor, Color color, UnityEngine.Events.UnityAction onClick)
+    {
+        var b = MakeButton(_homePanel.transform, label, anchor, new Vector2(460, 72), color, onClick);
+        b.GetComponentInChildren<Text>().fontSize = 26;
+        var s = NewText(_homePanel.transform, "sub", sub, 15, TextAnchor.MiddleCenter,
+            anchor + new Vector2(0f, -0.052f), anchor + new Vector2(0f, -0.052f), Vector2.zero, new Vector2(700, 22));
+        s.color = new Color(0.8f, 0.9f, 1f, 0.7f);
+    }
+
+    Text _dailyInfo;
+
+    // daily check-in as a proper card: icon (Resources/icons/Daily Check-in.png when
+    // it exists, else a drawn coin), what it pays, streak, and the claim button
+    void BuildDailyCard()
+    {
+        var card = NewImage(_homePanel.transform, "dailyCard", new Vector2(0.125f, 0.905f), new Vector2(0.125f, 0.905f), Vector2.zero, new Vector2(360, 118));
+        card.sprite = _roundedFill; card.type = Image.Type.Sliced;
+        card.color = new Color(0.1f, 0.07f, 0.22f, 0.92f);
+        card.raycastTarget = true;
+        var edge = NewImage(card.transform, "edge", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        edge.sprite = _roundedOutline; edge.type = Image.Type.Sliced;
+        edge.color = new Color(1f, 0.85f, 0.4f, 0.55f);
+
+        var iconTex = Resources.Load<Texture2D>("icons/Daily Check-in");
+        var icon = NewImage(card.transform, "icon", new Vector2(0.13f, 0.5f), new Vector2(0.13f, 0.5f), Vector2.zero, new Vector2(72, 72));
+        if (iconTex != null) { icon.sprite = Sprite.Create(iconTex, new Rect(0, 0, iconTex.width, iconTex.height), new Vector2(0.5f, 0.5f)); icon.preserveAspect = true; }
+        else { icon.sprite = CoinSprite(); icon.color = new Color(1f, 0.85f, 0.4f); }
+
+        var title = NewText(card.transform, "title", "DAILY CHECK-IN", 19, TextAnchor.MiddleLeft,
+            new Vector2(0.27f, 0.8f), new Vector2(0.27f, 0.8f), new Vector2(120, 0), new Vector2(240, 26));
+        title.color = new Color(1f, 0.85f, 0.4f);
+        title.fontStyle = FontStyle.Bold;
+        _dailyInfo = NewText(card.transform, "info", "", 13, TextAnchor.MiddleLeft,
+            new Vector2(0.27f, 0.6f), new Vector2(0.27f, 0.6f), new Vector2(120, 0), new Vector2(240, 20));
+        _dailyInfo.color = new Color(0.8f, 0.9f, 1f, 0.85f);
+        _dailyBtn = MakeButton(card.transform, "CHECK IN", new Vector2(0.62f, 0.3f), new Vector2(200, 34),
+            new Color(1f, 0.85f, 0.4f), () => StartCoroutine(DailyClaimCo()));
+        _dailyBtn.GetComponentInChildren<Text>().fontSize = 14;
+        _dailyStatus = NewText(_homePanel.transform, "dailystatus", "", 14, TextAnchor.MiddleCenter,
+            new Vector2(0.125f, 0.835f), new Vector2(0.125f, 0.835f), Vector2.zero, new Vector2(420, 22));
+        _dailyStatus.color = new Color(0.8f, 0.9f, 1f, 0.85f);
+        RefreshDailyButton();
+    }
+
+    // gold coin glyph for the daily card when no art is shipped
+    Sprite CoinSprite()
+    {
+        const int S = 64;
+        var tex = new Texture2D(S, S, TextureFormat.RGBA32, false);
+        for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                float d = Vector2.Distance(new Vector2(x, y), new Vector2(31.5f, 31.5f));
+                float a = d < 30f ? 1f : Mathf.Clamp01(31f - d);
+                bool rim = d > 24f && d < 30f;
+                bool star = Mathf.Abs(x - 31.5f) < 3f && Mathf.Abs(y - 31.5f) < 14f || Mathf.Abs(y - 31.5f) < 3f && Mathf.Abs(x - 31.5f) < 14f;
+                float v = rim ? 1f : star ? 1f : 0.55f;
+                tex.SetPixel(x, y, new Color(v, v, v, a));
+            }
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f));
+    }
+
+    // gear glyph for the settings button in the identity corner
+    Sprite GearSprite()
+    {
+        const int S = 64;
+        var tex = new Texture2D(S, S, TextureFormat.RGBA32, false);
+        for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                float dx = x - 31.5f, dy = y - 31.5f;
+                float d = Mathf.Sqrt(dx * dx + dy * dy);
+                float ang = Mathf.Atan2(dy, dx);
+                bool tooth = Mathf.Abs(Mathf.Repeat(ang / (Mathf.PI * 2f) * 8f + 0.5f, 1f) - 0.5f) < 0.22f;
+                bool on = (d > 9f && d < 20f) || (tooth && d >= 20f && d < 27f);
+                tex.SetPixel(x, y, new Color(1f, 1f, 1f, on ? 1f : 0f));
+            }
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f));
+    }
+
+    GameObject _multiPanel;
+
+    void BuildMultiPanel()
+    {
+        _multiPanel = Panel("MultiPanel");
+        var t = NewText(_multiPanel.transform, "title", "MULTIPLAYER", 64, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.8f), new Vector2(0.5f, 0.8f), Vector2.zero, new Vector2(1200, 90));
+        t.color = new Color(1f, 0.55f, 0.9f);
+        t.font = _titleFont;
+        var s = NewText(_multiPanel.transform, "sub", "Meta upgrades apply. No gold, no quests, no adventure leaderboard — just glory.", 20, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.72f), new Vector2(0.5f, 0.72f), Vector2.zero, new Vector2(1200, 30));
+        s.color = new Color(0.8f, 0.9f, 1f, 0.8f);
+        MakeButton(_multiPanel.transform, "BLITZ TOURNAMENT", new Vector2(0.5f, 0.6f), new Vector2(420, 60),
+            new Color(1f, 0.55f, 0.9f), () => SwitchPanel(_multiPanel, _tourneySetupPanel));
+        MakeButton(_multiPanel.transform, "CO-OP (2P)", new Vector2(0.5f, 0.5f), new Vector2(420, 60),
+            new Color(0.4f, 1f, 0.75f), () => SwitchPanel(_multiPanel, _coopPanel));
+        MakeButton(_multiPanel.transform, "BATTLE ROYALE", new Vector2(0.5f, 0.4f), new Vector2(420, 60),
+            new Color(1f, 0.35f, 0.35f), () => SwitchPanel(_multiPanel, _brPanel));
+        MakeButton(_multiPanel.transform, "THE DECIMATION", new Vector2(0.5f, 0.3f), new Vector2(420, 60),
+            new Color(1f, 0.2f, 0.15f), () => { _multiPanel.SetActive(false); _homePanel.SetActive(true); OpenDecimationLobby(); });
+        MakeButton(_multiPanel.transform, "BACK", new Vector2(0.5f, 0.16f), new Vector2(300, 52),
+            new Color(0.8f, 0.9f, 1f), () => SwitchPanel(_multiPanel, _homePanel));
+        _multiPanel.SetActive(false);
+    }
+
     void BuildStartPanel()   // character select, reached from the homepage
     {
         _startPanel = Panel("SelectPanel");
-        var pick = NewText(_startPanel.transform, "pick", "CHOOSE YOUR EGO", 46, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.85f), new Vector2(0.5f, 0.85f), Vector2.zero, new Vector2(1000, 64));
+        var pick = NewText(_startPanel.transform, "pick", "QUICK PLAY — CHOOSE YOUR EGO", 46, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.85f), new Vector2(0.5f, 0.85f), Vector2.zero, new Vector2(1200, 64));
         pick.color = new Color(1f, 0.85f, 0.4f);
         pick.font = _titleFont;
+        var practice = NewText(_startPanel.transform, "practice", "practice run: stock ship, all stats level 1 · no gold, no quests, no leaderboard", 17, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.795f), new Vector2(0.5f, 0.795f), Vector2.zero, new Vector2(1200, 26));
+        practice.color = new Color(0.8f, 0.9f, 1f, 0.75f);
 
         for (int i = 0; i < ZealData.Pilots.Length; i++)
         {
@@ -660,7 +760,7 @@ public partial class HudController : MonoBehaviour
                 ShipShowcase.Clear();
                 _startPanel.SetActive(false);
                 _gameHud.SetActive(true);
-                GameManager.I.StartRun(idx);
+                GameManager.I.StartRun(idx, -1, GameManager.RunMode.Quick);
             });
 
             var borderGlow = NewImage(card.transform, "border", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -2277,15 +2377,18 @@ public partial class HudController : MonoBehaviour
         var st = DailyBridge.Poll();
         if (st != null && st.busy) return;   // a claim is in progress: leave its live status alone
         if (Time.unscaledTime < _dailyHoldUntil) return;   // a fresh result stays readable before the hint returns
+        int streak = st != null ? Mathf.Max(1, st.streak) : 1;
+        int pay = 200 + Mathf.Min(10, streak) * 20;
+        if (_dailyInfo != null) _dailyInfo.text = "day " + streak + " · +" + pay + " gold · +" + pay + " pass XP · +3 energy";
         if (st != null && st.claimed)
         {
             if (lbl != null) lbl.text = "CHECKED IN  " + (st.streak > 0 ? "x" + st.streak : "");
-            if (_dailyStatus != null) _dailyStatus.text = "daily reward claimed, come back tomorrow";
+            if (_dailyStatus != null) _dailyStatus.text = "claimed — resets 8:00 AM PHT";
         }
         else
         {
-            if (lbl != null) lbl.text = "DAILY CHECK-IN";
-            if (_dailyStatus != null) _dailyStatus.text = (WalletAuth.Connected && DiscordAuth.LoggedIn) ? "on-chain check-in: gold + pass XP, streak grows daily" : "connect Discord + Ronin to claim daily rewards";
+            if (lbl != null) lbl.text = "CHECK IN";
+            if (_dailyStatus != null) _dailyStatus.text = (WalletAuth.Connected && DiscordAuth.LoggedIn) ? "on-chain check-in · streak grows daily" : "connect Discord + Ronin to claim";
         }
     }
 
@@ -2326,7 +2429,7 @@ public partial class HudController : MonoBehaviour
                 continue;
             }
             if (st.ok)
-                DailySay("+" + st.gold + " gold, +" + st.xp + " pass XP  (streak " + st.streak + ")", 15f, true);
+                DailySay("+" + st.gold + " gold, +" + st.xp + " pass XP" + (st.energy > 0 ? ", +" + st.energy + " energy" : "") + "  (streak " + st.streak + ")", 15f, true);
             else
                 DailySay(string.IsNullOrEmpty(st.reason) ? "check-in failed" : st.reason, 15f, true);
             break;
@@ -2409,7 +2512,7 @@ public partial class HudController : MonoBehaviour
             }
         }
         MakeButton(_hangar.transform, "LAUNCH", new Vector2(0.85f, 0.15f), new Vector2(170, 54),
-            new Color(1f, 0.85f, 0.4f), () => { ShipShowcase.Clear(); GameManager.I.StartRun(_customChar, _customShip); });
+            new Color(1f, 0.85f, 0.4f), () => { ShipShowcase.Clear(); GameManager.I.StartRun(_customChar, _customShip, GameManager.RunMode.Quick); });
         // preview the chosen pairing's hull turning under the cards
         ShipShowcase.ShowPair(_canvas.GetComponent<RectTransform>(), ZealData.Pilots[_customShip].id);
     }
@@ -2514,6 +2617,22 @@ public partial class HudController : MonoBehaviour
         rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
         rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
         _idCornerState = IdentityState();
+
+        // settings gear sits left of the identity logos
+        {
+            var gear = MakeButton(_idCorner.transform, "", new Vector2(0.87f, 0.92f), new Vector2(58, 58), new Color(0.6f, 0.9f, 1f),
+                () => SwitchPanel(_homePanel, _settingsPanel));
+            var g = NewImage(gear.transform, "gear", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(40, 40));
+            g.sprite = GearSprite();
+            g.color = new Color(0.85f, 0.95f, 1f);
+            var trig = gear.gameObject.AddComponent<EventTrigger>();
+            var enter = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
+            enter.callback.AddListener(_ => { if (_idTooltip != null) _idTooltip.text = "SETTINGS"; });
+            trig.triggers.Add(enter);
+            var exit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
+            exit.callback.AddListener(_ => { if (_idTooltip != null) _idTooltip.text = ""; });
+            trig.triggers.Add(exit);
+        }
 
         // logo pair, top-right: Ronin beside Discord. Connected = green check
         // badge; hovering shows who is connected.
@@ -2635,6 +2754,21 @@ public partial class HudController : MonoBehaviour
         _advGold.color = new Color(1f, 0.85f, 0.4f);
         _advGold.fontStyle = FontStyle.Bold;
 
+        // energy chip beside it: 10 runs a day, server-counted
+        var echip = NewImage(_adventurePanel.transform, "energyChip", new Vector2(0.73f, 0.925f), new Vector2(0.73f, 0.925f), Vector2.zero, new Vector2(300, 46));
+        echip.sprite = _roundedFill; echip.type = Image.Type.Sliced;
+        echip.color = new Color(0.12f, 0.09f, 0.26f, 0.95f);
+        var eEdge = NewImage(echip.transform, "edge", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        eEdge.sprite = _roundedOutline; eEdge.type = Image.Type.Sliced;
+        eEdge.color = new Color(0.4f, 0.95f, 1f, 0.5f);
+        _advEnergy = NewText(echip.transform, "energy", "ENERGY  —", 20, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(290, 40));
+        _advEnergy.color = new Color(0.4f, 0.95f, 1f);
+        _advEnergy.fontStyle = FontStyle.Bold;
+        _advEnergyNote = NewText(_adventurePanel.transform, "energyNote", "resets 8:00 AM PHT · +3 from the daily check-in", 13, TextAnchor.MiddleCenter,
+            new Vector2(0.73f, 0.893f), new Vector2(0.73f, 0.893f), Vector2.zero, new Vector2(320, 18));
+        _advEnergyNote.color = new Color(0.8f, 0.9f, 1f, 0.6f);
+
         string[] labels = { "ARMORY", "SURVIVORS", "CREW", "QUESTS", "LEADERBOARD", "BATTLE PASS" };
         _advTabLabels.Clear();
         for (int i = 0; i < AdvTabs.Length; i++)
@@ -2652,15 +2786,11 @@ public partial class HudController : MonoBehaviour
         _advStatus.color = new Color(0.6f, 0.95f, 1f);
 
         // launch straight from the hub with the pilot picked in the Armory/Survivors tabs
-        MakeButton(_adventurePanel.transform, "GO ADVENTURE", new Vector2(0.5f, 0.135f), new Vector2(430, 62),
+        MakeButton(_adventurePanel.transform, "GO ADVENTURE  (1 ENERGY)", new Vector2(0.5f, 0.135f), new Vector2(430, 62),
             new Color(1f, 0.85f, 0.4f), () =>
             {
-                DecimationMode.Pending = false;
-                ShipShowcase.Clear();
                 int idx = System.Array.FindIndex(ZealData.Pilots, x => x.id == _advPilot);
-                _adventurePanel.SetActive(false);
-                _gameHud.SetActive(true);
-                GameManager.I.StartRun(Mathf.Max(0, idx));
+                StartCoroutine(LaunchAdventureCo(Mathf.Max(0, idx)));
             });
         MakeButton(_adventurePanel.transform, "BACK", new Vector2(0.5f, 0.058f), new Vector2(300, 52),
             new Color(0.8f, 0.9f, 1f), () => SwitchPanel(_adventurePanel, _homePanel));
@@ -2684,12 +2814,71 @@ public partial class HudController : MonoBehaviour
         return go;
     }
 
+    Text _advEnergy, _advEnergyNote;
+    bool _advLaunching;
+
+    // Adventure launch: the server issues the run token and takes 1 energy first
+    System.Collections.IEnumerator LaunchAdventureCo(int pilotIdx)
+    {
+        if (_advLaunching) yield break;
+        if (!WalletAuth.Connected || !DiscordAuth.LoggedIn)
+        {
+            _advStatus.text = "CONNECT DISCORD + RONIN (TOP-RIGHT OF THE HOME SCREEN) TO PLAY ADVENTURE";
+            yield break;
+        }
+        if (!MetaBridge.Ready) { _advStatus.text = "META LAYER OFFLINE — TRY AGAIN SHORTLY"; yield break; }
+        _advLaunching = true;
+        _advStatus.text = "SPENDING 1 ENERGY...";
+        MetaBridge.RunStartMode("adventure");
+        MetaBridge.StartStatus st = null;
+        for (int i = 0; i < 40; i++)
+        {
+            yield return new WaitForSecondsRealtime(0.25f);
+            st = MetaBridge.RunStartStatus();
+            if (st != null && !st.busy) break;
+        }
+        _advLaunching = false;
+        if (st == null || st.busy) { _advStatus.text = "NO ANSWER FROM THE SERVER — TRY AGAIN"; yield break; }
+        if (!st.ok)
+        {
+            _advStatus.text = st.reason == "no_energy" ? "OUT OF ENERGY — RESETS 8:00 AM PHT (DAILY CHECK-IN GIVES +3)"
+                : st.reason == "discord_required" ? "RECONNECT DISCORD (TOP-RIGHT OF THE HOME SCREEN)"
+                : st.reason == "auth_required" || st.reason == "wallet_required" ? "RECONNECT RONIN (TOP-RIGHT OF THE HOME SCREEN)"
+                : st.reason == "busy" ? "ONE MOMENT — TRY AGAIN"
+                : "COULD NOT START: " + (st.reason ?? "offline").ToUpperInvariant();
+            if (st.energy >= 0 && _advEnergy != null) _advEnergy.text = "ENERGY  " + st.energy + " / " + st.max;
+            yield break;
+        }
+        if (_advEnergy != null && st.energy >= 0) _advEnergy.text = "ENERGY  " + st.energy + " / " + st.max;
+        DecimationMode.Pending = false;
+        ShipShowcase.Clear();
+        _adventurePanel.SetActive(false);
+        _gameHud.SetActive(true);
+        GameManager.I.StartRun(pilotIdx, -1, GameManager.RunMode.Adventure);
+    }
+
+    System.Collections.IEnumerator EnergyPollCo()
+    {
+        MetaBridge.EnergyFetch();
+        for (int i = 0; i < 40; i++)
+        {
+            yield return new WaitForSecondsRealtime(0.25f);
+            var e = MetaBridge.EnergyTake();
+            if (e == null) continue;
+            if (_advEnergy == null) yield break;
+            if (e.ok && e.energy >= 0) _advEnergy.text = "ENERGY  " + e.energy + " / " + e.max + (e.bonus > 0 ? "  (+" + e.bonus + " bonus)" : "");
+            else _advEnergy.text = (WalletAuth.Connected && DiscordAuth.LoggedIn) ? "ENERGY  —" : "ENERGY  connect to play";
+            yield break;
+        }
+    }
+
     void RefreshAdventure()
     {
         if (_advCo != null) { StopCoroutine(_advCo); _advCo = null; }
         _advSummary = MetaBridge.GetSummary();
         _advStatus.text = "";
         _advGold.text = _advSummary != null ? "GOLD  " + _advSummary.gold.ToString("N0") : "";
+        if (MetaBridge.Ready) StartCoroutine(EnergyPollCo());
         if (_advContent != null) Destroy(_advContent);
         _advContent = new GameObject("advContent");
         _advContent.transform.SetParent(_adventurePanel.transform, false);

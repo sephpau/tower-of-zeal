@@ -32,6 +32,21 @@ mergeInto(LibraryManager.library, {
   NVMetaJsRunSubmit: function (jsonPtr) {
     if (window.NVRunSubmit) window.NVRunSubmit(UTF8ToString(jsonPtr));
   },
+  NVMetaJsRunStartMode: function (modePtr) { if (window.NVRunStart) window.NVRunStart(UTF8ToString(modePtr)); },
+  NVMetaJsRunStartStatus: function () {
+    var s = (window.NVRunStartStatus && window.NVRunStartStatus()) || "";
+    var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
+  },
+  NVMetaJsRunFinish: function (jsonPtr) { if (window.NVRunFinish) window.NVRunFinish(UTF8ToString(jsonPtr)); },
+  NVMetaJsRunFinishTake: function () {
+    var s = (window.NVRunFinishTake && window.NVRunFinishTake()) || "";
+    var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
+  },
+  NVMetaJsEnergyFetch: function () { if (window.NVEnergyFetch) window.NVEnergyFetch(); },
+  NVMetaJsEnergyTake: function () {
+    var s = (window.NVEnergyTake && window.NVEnergyTake()) || "";
+    var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
+  },
   NVMetaJsBoardFetch: function (periodPtr) {
     if (window.NVBoardFetch) window.NVBoardFetch(UTF8ToString(periodPtr));
   },
