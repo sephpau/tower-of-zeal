@@ -418,6 +418,15 @@
       });
       return JSON.stringify(out);
     };
+    window.NVMetaCosmetics = function () {
+      if (!window.NVMetaReady()) return "{}";
+      var c = (SURV.Meta.profile && SURV.Meta.profile.cosmetics) || {};
+      var owned = c.trails || [];
+      var trail = c.trail || (owned.indexOf('void') >= 0 ? 'void' : owned.indexOf('ember') >= 0 ? 'ember' : '');
+      var skins = c.skins || [];
+      var skin = c.skin || (skins.indexOf('gilded') >= 0 ? 'gilded' : '');
+      return JSON.stringify({ trail: trail, skin: skin, bossShips: c.bossShips || [] });
+    };
     window.NVMetaCrewBonuses = function () {
       if (!window.NVMetaReady()) return "{}";
       var b = SURV.Meta.bonuses(), out = {};

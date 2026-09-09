@@ -131,6 +131,7 @@ public static class PlayerShipFactory
         ship.AddComponent<ShipController>();
         ship.AddComponent<SpecialAttack>();
         ship.AddComponent<ActiveSkills>();
+        PilotShipModel.Swap(ship, "ego");   // the legacy Ego hull is only scaffolding: never shown
         return ship;
     }
 

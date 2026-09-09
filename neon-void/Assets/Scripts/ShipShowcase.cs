@@ -24,7 +24,8 @@ public class ShipShowcase : MonoBehaviour
         if (Live.Count > 0) return;
         for (int i = 0; i < ZealData.Pilots.Length; i++)
         {
-            var go = Spawn(canvas, ZealData.Pilots[i].id, new Vector2((i - 1.5f) * 330f + 69f, 111f), 1.25f);
+            // sized so the hull stays inside its own card even at the widest point of the spin
+            var go = Spawn(canvas, ZealData.Pilots[i].id, new Vector2((i - 1.5f) * 330f + 60f, 111f), 0.82f);
             if (go != null) Live.Add(go);
         }
     }

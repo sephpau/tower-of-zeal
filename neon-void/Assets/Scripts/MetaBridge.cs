@@ -36,6 +36,7 @@ public static class MetaBridge
     [DllImport("__Internal")] static extern string NVMetaJsBuyShip(string pilot, string id);
     [DllImport("__Internal")] static extern string NVMetaJsShipBonuses(string pilot);
     [DllImport("__Internal")] static extern string NVMetaJsCrewBonuses();
+    [DllImport("__Internal")] static extern string NVMetaJsCosmetics();
     [DllImport("__Internal")] static extern string NVMetaJsPassTrack();
     [DllImport("__Internal")] static extern string NVMetaJsClaimTier(string track, int tier);
 #else
@@ -67,6 +68,7 @@ public static class MetaBridge
     static string NVMetaJsBuyShip(string pilot, string id) => "{}";
     static string NVMetaJsShipBonuses(string pilot) => "{}";
     static string NVMetaJsCrewBonuses() => "{}";
+    static string NVMetaJsCosmetics() => "{}";
     static string NVMetaJsPassTrack() => "";
     static string NVMetaJsClaimTier(string track, int tier) => "{}";
 #endif
@@ -141,6 +143,8 @@ public static class MetaBridge
     public static BuyResult BuyShip(string pilot, string id) => Parse<BuyResult>(NVMetaJsBuyShip(pilot, id)) ?? new BuyResult();
     public static ShipBonuses GetShipBonuses(string pilot) => Parse<ShipBonuses>(NVMetaJsShipBonuses(pilot)) ?? new ShipBonuses();
     public static CrewBonuses GetCrewBonuses() => Parse<CrewBonuses>(NVMetaJsCrewBonuses()) ?? new CrewBonuses();
+    [System.Serializable] public class Cosmetics { public string trail, skin; public string[] bossShips; }
+    public static Cosmetics GetCosmetics() => Parse<Cosmetics>(NVMetaJsCosmetics()) ?? new Cosmetics();
     public static PassTrack GetPassTrack() => Parse<PassTrack>(NVMetaJsPassTrack());
     public static bool ClaimTier(string track, int tier)
     {

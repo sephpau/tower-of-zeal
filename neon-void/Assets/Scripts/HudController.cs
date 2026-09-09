@@ -300,6 +300,7 @@ public partial class HudController : MonoBehaviour
 
         BuildHomePanel();
         BuildMultiPanel();
+        BuildCodexPanel();
         BuildStartPanel();
         BuildOverPanel();
         BuildWinPanel();
@@ -608,6 +609,10 @@ public partial class HudController : MonoBehaviour
 
         // daily on-chain check-in card, top-left
         BuildDailyCard();
+        // the codex: every level-up, sigil tier and special, explained
+        var cdx = MakeButton(_homePanel.transform, "CODEX", new Vector2(0.125f, 0.79f), new Vector2(220, 40),
+            new Color(0.6f, 0.9f, 1f), () => SwitchPanel(_homePanel, _codexPanel));
+        cdx.GetComponentInChildren<Text>().fontSize = 15;
 
         // Discord + Ronin wallet identity corner (top-right)
         BuildIdentityCorner();
@@ -699,6 +704,104 @@ public partial class HudController : MonoBehaviour
             }
         tex.Apply();
         return Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f));
+    }
+
+    GameObject _codexPanel;
+
+    // one codex entry: icon (when art exists), title, body lines
+    void CodexCard(Transform parent, Vector2 anchor, Vector2 size, Sprite icon, string title, string body, Color accent, int bodySize = 14)
+    {
+        var card = NewImage(parent, "codexCard", anchor, anchor, Vector2.zero, size);
+        card.sprite = _roundedFill; card.type = Image.Type.Sliced;
+        card.color = new Color(0.1f, 0.07f, 0.22f, 0.92f);
+        var edge = NewImage(card.transform, "edge", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        edge.sprite = _roundedOutline; edge.type = Image.Type.Sliced;
+        edge.color = new Color(accent.r, accent.g, accent.b, 0.55f);
+        float left = 16f;
+        if (icon != null)
+        {
+            float iconSize = Mathf.Min(size.y - 16f, 64f);
+            var ii = NewImage(card.transform, "icon", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(12f + iconSize * 0.5f, 0f), new Vector2(iconSize, iconSize));
+            ii.sprite = icon; ii.preserveAspect = true;
+            left = 24f + iconSize;
+        }
+        var t = NewText(card.transform, "title", title, 17, TextAnchor.UpperLeft,
+            new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
+        t.rectTransform.offsetMin = new Vector2(left, -30f); t.rectTransform.offsetMax = new Vector2(-12f, -8f);
+        t.color = accent; t.fontStyle = FontStyle.Bold;
+        var b = NewText(card.transform, "body", body, bodySize, TextAnchor.UpperLeft,
+            new Vector2(0f, 0f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
+        b.rectTransform.offsetMin = new Vector2(left, 8f); b.rectTransform.offsetMax = new Vector2(-12f, -32f);
+        b.color = new Color(0.85f, 0.9f, 1f, 0.9f);
+        b.verticalOverflow = VerticalWrapMode.Overflow;
+    }
+
+    void BuildCodexPanel()
+    {
+        _codexPanel = Panel("CodexPanel");
+        var bg = NewImage(_codexPanel.transform, "bg", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+        bg.color = new Color(0.05f, 0.035f, 0.13f, 0.97f);
+        var title = NewText(_codexPanel.transform, "title", "CODEX", 52, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.945f), new Vector2(0.5f, 0.945f), Vector2.zero, new Vector2(1000, 70));
+        title.color = new Color(0.6f, 0.9f, 1f); title.font = _titleFont;
+        NewText(_codexPanel.transform, "sub", "What every level-up gives you. Even levels draft a passive, odd levels learn an active (keys 1-4), and the Zeal Sigil grows with your level.", 17, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.895f), new Vector2(0.5f, 0.895f), Vector2.zero, new Vector2(1500, 26)).color = new Color(0.8f, 0.9f, 1f, 0.8f);
+
+        var gold = new Color(1f, 0.85f, 0.4f); var cyan = new Color(0.5f, 0.95f, 1f); var pink = new Color(1f, 0.55f, 0.9f); var green = new Color(0.55f, 1f, 0.65f);
+        var t = _codexPanel.transform;
+
+        // column 1: the Zeal Sigil (pulse wave)
+        NewText(t, "h1", "ZEAL SIGIL  ·  PULSE WAVE", 22, TextAnchor.MiddleCenter, new Vector2(0.19f, 0.84f), new Vector2(0.19f, 0.84f), Vector2.zero, new Vector2(520, 30)).color = cyan;
+        string[] sigil = {
+            "SIGIL 1  ·  LV 1", "one straight pulse",
+            "SIGIL 2  ·  LV 2", "two straight pulses",
+            "SIGIL 3  ·  LV 3", "two slanted + one straight",
+            "SIGIL 4  ·  LV 4", "two slanted + two straight",
+            "SIGIL 5  ·  LV 5", "two slanted + a triangle of three",
+            "SIGIL 6  ·  LV 6+", "two slanted + a box of four  (max)",
+        };
+        for (int i = 0; i < 6; i++)
+            CodexCard(t, new Vector2(0.19f, 0.78f - i * 0.083f), new Vector2(520, 66), null, sigil[i * 2], sigil[i * 2 + 1], cyan, 15);
+        NewText(t, "sigilnote", "Reaching a level raises the sigil at once, in every mode. The Decimator holds sigil 6 for its thirty seconds.", 13, TextAnchor.MiddleCenter,
+            new Vector2(0.19f, 0.27f), new Vector2(0.19f, 0.27f), Vector2.zero, new Vector2(520, 40)).color = new Color(0.75f, 0.72f, 0.95f, 0.8f);
+
+        // column 2: passives (even levels), three tiers each + mastery
+        NewText(t, "h2", "PASSIVES  ·  EVEN LEVELS", 22, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.84f), new Vector2(0.5f, 0.84f), Vector2.zero, new Vector2(520, 30)).color = gold;
+        for (int i = 0; i < ZealData.Passives.Length; i++)
+        {
+            var p = ZealData.Passives[i];
+            string body = "LV 1  " + p.tierDesc[0] + "\nLV 2  " + p.tierDesc[1] + "\nLV 3  " + p.tierDesc[2] + "  +  MASTERY: +10% xp, damage, hp, speed";
+            CodexCard(t, new Vector2(0.5f, 0.745f - i * 0.165f), new Vector2(520, 130), SkillIcons.Passive(p.id, 3), p.name.ToUpperInvariant(), body, gold);
+        }
+        NewText(t, "passnote", "Once every passive is at level 3, later levels grow the hull and shields by 6% each.", 13, TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.27f), new Vector2(0.5f, 0.27f), Vector2.zero, new Vector2(520, 40)).color = new Color(0.75f, 0.72f, 0.95f, 0.8f);
+
+        // column 3: actives (odd levels), four slots
+        NewText(t, "h3", "ACTIVES  ·  ODD LEVELS  ·  KEYS 1-4", 22, TextAnchor.MiddleCenter, new Vector2(0.81f, 0.84f), new Vector2(0.81f, 0.84f), Vector2.zero, new Vector2(520, 30)).color = pink;
+        for (int i = 0; i < ZealData.Actives.Length; i++)
+        {
+            var a = ZealData.Actives[i];
+            CodexCard(t, new Vector2(0.81f, 0.78f - i * 0.098f), new Vector2(520, 84), SkillIcons.Active(a.id), a.name.ToUpperInvariant() + "   ·   " + a.cooldown + "s cooldown", a.desc, pink, 13);
+        }
+
+        // bottom row: pilot specials (RMB)
+        NewText(t, "h4", "PILOT SPECIALS  ·  RIGHT MOUSE BUTTON", 20, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.215f), new Vector2(0.5f, 0.215f), Vector2.zero, new Vector2(1000, 28)).color = green;
+        string[] specials = {
+            "ego", "ZEAL BOLT", "Charges a blinding two-second laser torrent.  12s cooldown",
+            "captain", "CORSAIR CUTLASS", "A storm of spectral cutlasses around the ship.  20s cooldown",
+            "chef", "SCALDING PIE", "Flings a superheated pie that boomerangs back.  2.5s cooldown",
+            "lunar", "STORM MARK", "Chain lightning that leaps between hostiles.  6s cooldown",
+        };
+        for (int i = 0; i < 4; i++)
+        {
+            var pilot = System.Array.Find(ZealData.Pilots, x => x.id == specials[i * 3]);
+            string who = pilot != null ? pilot.name.ToUpperInvariant() + "  ·  " : "";
+            CodexCard(t, new Vector2(0.155f + i * 0.23f, 0.15f), new Vector2(420, 80), SkillIcons.Special(specials[i * 3]), who + specials[i * 3 + 1], specials[i * 3 + 2], green, 13);
+        }
+
+        MakeButton(t, "BACK", new Vector2(0.5f, 0.055f), new Vector2(300, 48),
+            new Color(0.8f, 0.9f, 1f), () => SwitchPanel(_codexPanel, _homePanel));
+        _codexPanel.SetActive(false);
     }
 
     GameObject _multiPanel;
@@ -1914,6 +2017,7 @@ public partial class HudController : MonoBehaviour
         }
         _homePanel.SetActive(true);
         Time.timeScale = 1f;   // a death mid-draft could leave the clock frozen; the menu never runs frozen
+        if (GameManager.I != null) GameManager.I.SetMenuShipVisible(false);   // the parked hull stays off every menu; StartRun shows it
         _bestHomeText.text = GameManager.I != null && GameManager.I.best > 0 ? "BEST  " + GameManager.I.best.ToString("N0") : "";
         WantsStart = true;
     }
@@ -2911,6 +3015,8 @@ public partial class HudController : MonoBehaviour
     }
     static readonly string[] AdvTabs = { "armory", "survivors", "crew", "quests", "board", "pass" };
     string _advPilot = "ego";
+    string _advChar = "";   // custom hangar: pilot whose stats fly the chosen ship ("" = the ship's own pilot)
+    bool HangarUnlocked => _advSummary != null && _advSummary.premium && _advSummary.passTier >= 10;
 
     void BuildAdventurePanel()
     {
@@ -2921,25 +3027,42 @@ public partial class HudController : MonoBehaviour
         bg.color = new Color(0.05f, 0.035f, 0.13f, 0.97f);
 
         var t = NewText(_adventurePanel.transform, "title", "ADVENTURE", 52, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.925f), new Vector2(0.5f, 0.925f), Vector2.zero, new Vector2(1400, 70));
+            new Vector2(0.5f, 0.955f), new Vector2(0.5f, 0.955f), Vector2.zero, new Vector2(1400, 70));
         t.color = new Color(1f, 0.72f, 0.25f);
         t.fontStyle = FontStyle.BoldAndItalic;
         t.font = _titleFont;
 
         // gold chip, top-right (mirrors the classic armory)
-        var chip = NewImage(_adventurePanel.transform, "goldChip", new Vector2(0.88f, 0.925f), new Vector2(0.88f, 0.925f), Vector2.zero, new Vector2(230, 46));
+        var chip = NewImage(_adventurePanel.transform, "goldChip", new Vector2(0.885f, 0.955f), new Vector2(0.885f, 0.955f), Vector2.zero, new Vector2(190, 46));
         chip.sprite = _roundedFill; chip.type = Image.Type.Sliced;
         chip.color = new Color(0.12f, 0.09f, 0.26f, 0.95f);
         var chipEdge = NewImage(chip.transform, "edge", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         chipEdge.sprite = _roundedOutline; chipEdge.type = Image.Type.Sliced;
         chipEdge.color = new Color(1f, 0.85f, 0.4f, 0.5f);
-        _advGold = NewText(chip.transform, "gold", "", 22, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(220, 40));
+        var goldTex = Resources.Load<Texture2D>("icons/gold");
+        _goldIconShown = goldTex != null;
+        if (goldTex != null)
+        {
+            var gi = NewImage(chip.transform, "goldicon", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(28, 0), new Vector2(44, 44));
+            gi.sprite = Sprite.Create(goldTex, new Rect(0, 0, goldTex.width, goldTex.height), new Vector2(0.5f, 0.5f));
+            gi.preserveAspect = true;
+            chip.raycastTarget = true;
+            var gtrig = chip.gameObject.AddComponent<EventTrigger>();
+            var gEnter = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
+            gEnter.callback.AddListener(_ => ShowTabTag("GOLD"));
+            gtrig.triggers.Add(gEnter);
+            var gExit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
+            gExit.callback.AddListener(_ => ShowTabTag(""));
+            gtrig.triggers.Add(gExit);
+        }
+        _advGold = NewText(chip.transform, "gold", "", 22, goldTex != null ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(goldTex != null ? 62 : 0, 0), new Vector2(goldTex != null ? 150 : 220, 40));
+        _advGold.horizontalOverflow = HorizontalWrapMode.Overflow;
         _advGold.color = new Color(1f, 0.85f, 0.4f);
         _advGold.fontStyle = FontStyle.Bold;
 
         // energy chip beside it: 10 runs a day, server-counted
-        var echip = NewImage(_adventurePanel.transform, "energyChip", new Vector2(0.73f, 0.925f), new Vector2(0.73f, 0.925f), Vector2.zero, new Vector2(300, 46));
+        var echip = NewImage(_adventurePanel.transform, "energyChip", new Vector2(0.765f, 0.955f), new Vector2(0.765f, 0.955f), Vector2.zero, new Vector2(170, 46));
         echip.sprite = _roundedFill; echip.type = Image.Type.Sliced;
         echip.color = new Color(0.12f, 0.09f, 0.26f, 0.95f);
         var eEdge = NewImage(echip.transform, "edge", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -2949,7 +3072,7 @@ public partial class HudController : MonoBehaviour
         _energyIconShown = energyTex != null;
         if (energyTex != null)
         {
-            var ei = NewImage(echip.transform, "energyicon", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(30, 0), new Vector2(44, 44));
+            var ei = NewImage(echip.transform, "energyicon", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(28, 0), new Vector2(44, 44));
             ei.sprite = Sprite.Create(energyTex, new Rect(0, 0, energyTex.width, energyTex.height), new Vector2(0.5f, 0.5f));
             ei.preserveAspect = true;
             // hovering the chip names it on the pointer, like the tabs
@@ -2962,12 +3085,13 @@ public partial class HudController : MonoBehaviour
             eExit.callback.AddListener(_ => ShowTabTag(""));
             etrig.triggers.Add(eExit);
         }
-        _advEnergy = NewText(echip.transform, "energy", EnergyLabel("..."), 20, TextAnchor.MiddleCenter,
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(energyTex != null ? 18 : 0, 0), new Vector2(250, 40));
+        _advEnergy = NewText(echip.transform, "energy", EnergyLabel("..."), 20, energyTex != null ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter,
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(energyTex != null ? 62 : 0, 0), new Vector2(energyTex != null ? 110 : 160, 40));
+        _advEnergy.horizontalOverflow = HorizontalWrapMode.Overflow;
         _advEnergy.color = new Color(0.4f, 0.95f, 1f);
         _advEnergy.fontStyle = FontStyle.Bold;
         _advEnergyNote = NewText(_adventurePanel.transform, "energyNote", "tanks refill at 8:00 AM PHT · the daily log tops up +3", 13, TextAnchor.MiddleCenter,
-            new Vector2(0.73f, 0.893f), new Vector2(0.73f, 0.893f), Vector2.zero, new Vector2(320, 18));
+            new Vector2(0.765f, 0.922f), new Vector2(0.765f, 0.922f), Vector2.zero, new Vector2(320, 18));
         _advEnergyNote.color = new Color(0.8f, 0.9f, 1f, 0.6f);
 
         string[] labels = { "ARMORY", "SURVIVORS", "CREW", "QUESTS", "LEADERBOARD", "BATTLE PASS" };
@@ -2975,7 +3099,7 @@ public partial class HudController : MonoBehaviour
         for (int i = 0; i < AdvTabs.Length; i++)
         {
             string tab = AdvTabs[i];
-            var b = MakeButton(_adventurePanel.transform, labels[i], new Vector2(0.225f + i * 0.11f, 0.845f), new Vector2(196, 48),
+            var b = MakeButton(_adventurePanel.transform, labels[i], new Vector2(0.225f + i * 0.11f, 0.825f), new Vector2(196, 48),
                 new Color(0.95f, 0.8f, 0.5f), () => { _advTab = tab; RefreshAdventure(); });
             var lbl = b.GetComponentInChildren<Text>();
             lbl.fontSize = 16;
@@ -2984,9 +3108,9 @@ public partial class HudController : MonoBehaviour
             if (tabTex != null)
             {
                 // icon-only tab: square tile, the name shows in the caption on hover or tap
-                b.GetComponent<RectTransform>().sizeDelta = new Vector2(104, 92);
+                b.GetComponent<RectTransform>().sizeDelta = new Vector2(180, 160);
                 lbl.text = "";
-                var ti = NewImage(b.transform, "tabicon", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(78, 78));
+                var ti = NewImage(b.transform, "tabicon", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(150, 150));
                 ti.sprite = Sprite.Create(tabTex, new Rect(0, 0, tabTex.width, tabTex.height), new Vector2(0.5f, 0.5f));
                 ti.preserveAspect = true;
                 frame = NewImage(b.transform, "frame", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -3028,8 +3152,11 @@ public partial class HudController : MonoBehaviour
         MakeButton(_adventurePanel.transform, "GO ADVENTURE  (1 ENERGY)", new Vector2(0.5f, 0.135f), new Vector2(430, 62),
             new Color(1f, 0.85f, 0.4f), () =>
             {
-                int idx = System.Array.FindIndex(ZealData.Pilots, x => x.id == _advPilot);
-                StartCoroutine(LaunchAdventureCo(Mathf.Max(0, idx)));
+                int shipIdx = Mathf.Max(0, System.Array.FindIndex(ZealData.Pilots, x => x.id == _advPilot));
+                int charIdx = shipIdx;
+                if (HangarUnlocked && !string.IsNullOrEmpty(_advChar))
+                    charIdx = Mathf.Max(0, System.Array.FindIndex(ZealData.Pilots, x => x.id == _advChar));
+                StartCoroutine(LaunchAdventureCo(charIdx, charIdx == shipIdx ? -1 : shipIdx));
             });
         MakeButton(_adventurePanel.transform, "BACK", new Vector2(0.5f, 0.058f), new Vector2(300, 52),
             new Color(0.8f, 0.9f, 1f), () => SwitchPanel(_adventurePanel, _homePanel));
@@ -3054,12 +3181,12 @@ public partial class HudController : MonoBehaviour
     }
 
     Text _advEnergy, _advEnergyNote;
-    bool _advLaunching, _energyIconShown;
+    bool _advLaunching, _energyIconShown, _goldIconShown;
     // with the icon on the chip the word is redundant; without it the word stays
     string EnergyLabel(string body) => (_energyIconShown ? "" : "ENERGY  ") + body;
 
     // Adventure launch: the server issues the run token and takes 1 energy first
-    System.Collections.IEnumerator LaunchAdventureCo(int pilotIdx)
+    System.Collections.IEnumerator LaunchAdventureCo(int pilotIdx, int shipIdx = -1)
     {
         if (_advLaunching) yield break;
         if (!WalletAuth.Connected || !DiscordAuth.LoggedIn)
@@ -3087,15 +3214,15 @@ public partial class HudController : MonoBehaviour
                 : st.reason == "auth_required" || st.reason == "wallet_required" ? "RONIN SESSION EXPIRED - RE-SIGN VIA THE RONIN LOGO (HOME, TOP-RIGHT)"
                 : st.reason == "busy" ? "HOLD FAST · TRY AGAIN"
                 : "LAUNCH ABORTED: " + (st.reason ?? "offline").ToUpperInvariant();
-            if (st.energy >= 0 && _advEnergy != null) _advEnergy.text = EnergyLabel(st.energy + " / " + st.max);
+            if (st.energy >= 0 && _advEnergy != null) _advEnergy.text = EnergyLabel(st.energy + "/" + st.max);
             yield break;
         }
-        if (_advEnergy != null && st.energy >= 0) _advEnergy.text = EnergyLabel(st.energy + " / " + st.max);
+        if (_advEnergy != null && st.energy >= 0) _advEnergy.text = EnergyLabel(st.energy + "/" + st.max);
         DecimationMode.Pending = false;
         ShipShowcase.Clear();
         _adventurePanel.SetActive(false);
         _gameHud.SetActive(true);
-        GameManager.I.StartRun(pilotIdx, -1, GameManager.RunMode.Adventure);
+        GameManager.I.StartRun(pilotIdx, shipIdx, GameManager.RunMode.Adventure);
     }
 
     System.Collections.IEnumerator EnergyPollCo()
@@ -3107,7 +3234,7 @@ public partial class HudController : MonoBehaviour
             var e = MetaBridge.EnergyTake();
             if (e == null) continue;
             if (_advEnergy == null) yield break;
-            if (e.ok && e.energy >= 0) _advEnergy.text = EnergyLabel(e.energy + " / " + e.max + (e.bonus > 0 ? "  (+" + e.bonus + " bonus)" : ""));
+            if (e.ok && e.energy >= 0) _advEnergy.text = EnergyLabel(e.energy + "/" + e.max + (e.bonus > 0 ? " +" + e.bonus : ""));
             else if (!(WalletAuth.Connected && DiscordAuth.LoggedIn)) _advEnergy.text = EnergyLabel("link to fly");
             else if (e.reason == "auth_required") _advEnergy.text = EnergyLabel("?  re-sign Ronin (home, top-right)");
             else _advEnergy.text = EnergyLabel("?  " + (string.IsNullOrEmpty(e.reason) ? "no reading" : e.reason));
@@ -3137,7 +3264,6 @@ public partial class HudController : MonoBehaviour
                 {
                     ShipViewer.Close();
                     EgoShowcase.SetVisible(true);
-                    GameManager.I.SetMenuShipVisible(true);
                     _viewerPanel.SetActive(false);
                     _adventurePanel.SetActive(true);
                     RefreshAdventure();
@@ -3157,14 +3283,14 @@ public partial class HudController : MonoBehaviour
         if (_advCo != null) { StopCoroutine(_advCo); _advCo = null; }
         _advSummary = MetaBridge.GetSummary();
         _advStatus.text = "";
-        _advGold.text = _advSummary != null ? "GOLD  " + _advSummary.gold.ToString("N0") : "";
+        _advGold.text = _advSummary != null ? (_goldIconShown ? "" : "GOLD  ") + _advSummary.gold.ToString("N0") : "";
         if (MetaBridge.Ready) StartCoroutine(EnergyPollCo());
         if (_advContent != null) Destroy(_advContent);
         _advContent = new GameObject("advContent");
         _advContent.transform.SetParent(_adventurePanel.transform, false);
         var rt = _advContent.AddComponent<RectTransform>();
         rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
-        rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+        rt.offsetMin = new Vector2(0f, -48f); rt.offsetMax = new Vector2(0f, -48f);   // room for the tall tab tiles
 
         for (int i = 0; i < _advTabLabels.Count; i++)
         {
@@ -3392,16 +3518,57 @@ public partial class HudController : MonoBehaviour
         AdvPilotBackdrop(_advPilot);
         AdvHeader("Every pilot flies their own ship - pick one, upgrade their hull.");
         PilotPicker(0.715f);
+        // premium custom hangar: any pilot's stats in any ship (the ship carries special + armory)
+        if (HangarUnlocked)
+        {
+            NewText(_advContent.transform, "hangarlbl", "CUSTOM HANGAR  ·  PILOT AT THE HELM:", 15, TextAnchor.MiddleRight,
+                new Vector2(0.25f, 0.667f), new Vector2(0.25f, 0.667f), Vector2.zero, new Vector2(360, 24)).color = new Color(1f, 0.85f, 0.4f);
+            string[] opts = { "", "ego", "captain", "chef", "lunar" };
+            for (int i = 0; i < opts.Length; i++)
+            {
+                string opt = opts[i];
+                var pil = System.Array.Find(ZealData.Pilots, x => x.id == opt);
+                string label = opt == "" ? "OWN PILOT" : pil.name.ToUpperInvariant();
+                bool sel = (_advChar == opt) || (opt == "" && (_advChar == "" || _advChar == _advPilot));
+                var b = MakeButton(_advContent.transform, label, new Vector2(0.415f + i * 0.105f, 0.667f), new Vector2(180, 32),
+                    pil != null ? pil.accent : new Color(0.8f, 0.9f, 1f), () => { _advChar = opt; RefreshAdventure(); });
+                var lb = b.GetComponentInChildren<Text>(); lb.fontSize = 13;
+                if (sel) { lb.color = new Color(1f, 0.85f, 0.4f); lb.fontStyle = FontStyle.Bold; }
+            }
+        }
+        else
+            NewText(_advContent.transform, "hangarlock", "CUSTOM HANGAR (PREMIUM PASS TIER 10): FLY ANY SHIP WITH ANY PILOT'S STATS", 13, TextAnchor.MiddleCenter,
+                new Vector2(0.5f, 0.667f), new Vector2(0.5f, 0.667f), Vector2.zero, new Vector2(1000, 22)).color = new Color(1f, 0.85f, 0.4f, 0.55f);
+        // boss hulls unlocked on the premium pass (T15 Smuggler, T20 Gruyere, T25 Garrison, T30 Doom)
+        var cos = MetaBridge.Ready ? MetaBridge.GetCosmetics() : null;
+        var owned = cos != null && cos.bossShips != null ? cos.bossShips : new string[0];
+        if (owned.Length > 0)
+        {
+            string worn = PlayerPrefs.GetString("nv_hull", "");
+            NewText(_advContent.transform, "hulllbl", "HULL SKIN:", 15, TextAnchor.MiddleRight,
+                new Vector2(0.25f, 0.64f), new Vector2(0.25f, 0.64f), Vector2.zero, new Vector2(360, 24)).color = new Color(1f, 0.85f, 0.4f);
+            string[] all = { "", "smuggler", "gruyere", "garrison", "doom" };
+            string[] names = { "OWN HULL", "SMUGGLER", "GRUYERE", "GARRISON", "DOOM" };
+            for (int i = 0; i < all.Length; i++)
+            {
+                string id = all[i];
+                bool have = id == "" || System.Array.IndexOf(owned, id) >= 0;
+                var hb = MakeButton(_advContent.transform, names[i] + (have ? "" : " (LOCKED)"), new Vector2(0.415f + i * 0.105f, 0.64f), new Vector2(180, 30),
+                    have ? new Color(1f, 0.55f, 0.5f) : new Color(0.5f, 0.5f, 0.6f), () => { if (have) { PlayerPrefs.SetString("nv_hull", id); PlayerPrefs.Save(); RefreshAdventure(); } });
+                var hl = hb.GetComponentInChildren<Text>(); hl.fontSize = 13;
+                if (worn == id) { hl.color = new Color(1f, 0.85f, 0.4f); hl.fontStyle = FontStyle.Bold; }
+            }
+        }
         var pilot = System.Array.Find(ZealData.Pilots, x => x.id == _advPilot);
         if (pilot != null)
         {
             var pt = NewText(_advContent.transform, "ptitle", pilot.name.ToUpperInvariant() + "'S SHIP", 22, TextAnchor.MiddleCenter,
-                new Vector2(0.5f, 0.625f), new Vector2(0.5f, 0.625f), Vector2.zero, new Vector2(1000, 32));
+                new Vector2(0.5f, 0.607f), new Vector2(0.5f, 0.607f), Vector2.zero, new Vector2(1000, 32));
             pt.color = pilot.accent;
             pt.fontStyle = FontStyle.Bold;
             // spin the real hull around: full-screen viewer, drag to turn
             string viewId = pilot.id;
-            var vb = MakeButton(_advContent.transform, "VIEW SHIP", new Vector2(0.665f, 0.625f), new Vector2(150, 32),
+            var vb = MakeButton(_advContent.transform, "VIEW SHIP", new Vector2(0.665f, 0.607f), new Vector2(150, 32),
                 pilot.accent, () => OpenShipViewer(viewId));
             vb.GetComponentInChildren<Text>().fontSize = 14;
         }
@@ -3550,6 +3717,12 @@ public partial class HudController : MonoBehaviour
                 new Vector2(0.685f, 0.72f), new Vector2(180, 46), new Color(0.55f, 1f, 0.65f),
                 () => { int n = MetaBridge.ClaimAllRewards(); _advStatus.text = n + " REWARDS CLAIMED!"; RefreshAdventure(); })
                 .GetComponentInChildren<Text>().fontSize = 17;
+        var perks = NewText(_advContent.transform, "perks",
+            (s.premium ? "★ PREMIUM PERKS YOU HOLD:  " : "★ PREMIUM PERKS:  ") +
+            "Gilded Ego skin (T1)  ·  Ember Trail + Custom Hangar (T10)  ·  boss hulls for your ship: Smuggler (T15), Gruyere (T20), Garrison (T25), Doom (T30)  ·  +1 permanent revival (T20)  ·  Void Trail + 5000 gold (T30)",
+            13, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.655f), new Vector2(0.5f, 0.655f), Vector2.zero, new Vector2(1500, 22));
+        perks.color = new Color(1f, 0.85f, 0.4f, 0.85f);
+        perks.horizontalOverflow = HorizontalWrapMode.Overflow;
         if (!s.premium && WalletAuth.Available)
         {
             MakeButton(_advContent.transform, "BUY PASS - " + s.priceRon + " RON",

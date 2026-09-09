@@ -413,7 +413,9 @@ public class RoyaleSync : MonoBehaviour
         var rb = g.GetComponent<Rigidbody>();
         if (rb != null) rb.isKinematic = true;
         var tint = g.GetComponent<ShipTint>();
-        if (tint != null) tint.Apply(ZealData.Pilots[Mathf.Clamp(p.pilot, 0, ZealData.Pilots.Length - 1)].accent);
+        var ghostPilot = ZealData.Pilots[Mathf.Clamp(p.pilot, 0, ZealData.Pilots.Length - 1)];
+        if (tint != null) tint.Apply(ghostPilot.accent);
+        PilotShipModel.Swap(g, ghostPilot.id);   // their hull, not the placeholder
         NVOutline.Add(g, SameTeam(Me, p) ? NVOutline.Ally : NVOutline.Hostile, 0.03f);
         p.ghost = g;
         p.targetPos = g.transform.position;
@@ -1091,7 +1093,7 @@ public class RoyaleSync : MonoBehaviour
         var g = p.ghost;
         if (g == null) yield break;
         Vector3 baseScale = g.transform.localScale;
-        g.transform.localScale = baseScale * 2f;
+        if (!DoomHull.Mount(g)) g.transform.localScale = baseScale * 2f;
         var aura = new GameObject("decimatorAura");
         aura.transform.SetParent(g.transform, false);
         var red = new Color(1f, 0.15f, 0.1f);
@@ -1102,7 +1104,7 @@ public class RoyaleSync : MonoBehaviour
         l.type = LightType.Point; l.color = red; l.intensity = 7f; l.range = 45f;
         float t = DecimationMode.DecimatorTime;
         while (t > 0f && g != null) { t -= Time.deltaTime; yield return null; }
-        if (g != null) { g.transform.localScale = baseScale; if (aura != null) Destroy(aura); }
+        if (g != null) { DoomHull.Unmount(g); g.transform.localScale = baseScale; if (aura != null) Destroy(aura); }
     }
 
     void SendPoseAndFire()

@@ -341,6 +341,7 @@ public class CoopSync : MonoBehaviour
         if (rb != null) rb.isKinematic = true;
         var tint = _ghost.GetComponent<ShipTint>();
         if (tint != null) tint.Apply(ZealData.Pilots[Mathf.Clamp(_partnerPilot, 0, ZealData.Pilots.Length - 1)].accent);
+        PilotShipModel.Swap(_ghost, ZealData.Pilots[Mathf.Clamp(_partnerPilot, 0, ZealData.Pilots.Length - 1)].id);   // partner's own hull
         _ghostBubble = FindDeep(_ghost.transform, "guardBubble");
         // blue rim = friend; in a duel the other saucer is very much not a friend
         NVOutline.Add(_ghost, DuelActive ? NVOutline.Hostile : NVOutline.Ally, 0.03f);

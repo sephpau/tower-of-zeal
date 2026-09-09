@@ -98,6 +98,10 @@ mergeInto(LibraryManager.library, {
     var s = (window.NVMetaPassTrack && window.NVMetaPassTrack()) || "";
     var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
   },
+  NVMetaJsCosmetics: function () {
+    var s = (window.NVMetaCosmetics && window.NVMetaCosmetics()) || "{}";
+    var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;
+  },
   NVMetaJsCrewBonuses: function () {
     var s = (window.NVMetaCrewBonuses && window.NVMetaCrewBonuses()) || "{}";
     var len = lengthBytesUTF8(s) + 1; var buf = _malloc(len); stringToUTF8(s, buf, len); return buf;

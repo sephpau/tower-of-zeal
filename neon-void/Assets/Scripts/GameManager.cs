@@ -58,7 +58,7 @@ public class GameManager : MonoBehaviour
     bool _lowHpSaid;
     public float ElapsedSeconds => _elapsed;
     int _sigilIdx;
-    public int SigilLevelNow => 1 + _sigilIdx;   // what the run clock has earned so far
+    public int SigilLevelNow => 1 + _sigilIdx;   // what your level has earned so far
     bool _overtimeAnnounced;
     float _eliteTimer;
     const float EliteEvery = 90f;   // v1 elite cadence
@@ -113,6 +113,7 @@ public class GameManager : MonoBehaviour
         var tint = _playerHealth.GetComponent<ShipTint>();
         if (tint != null) tint.Apply(_skills.pilot.accent);
         PilotShipModel.Swap(_playerHealth.gameObject, shipPilot.id);   // hull follows the ship choice
+        if (MetaBridge.Ready) ShipCosmetics.Apply(_playerHealth.gameObject, MetaBridge.GetCosmetics());   // pass trails / gilded skin, every mode
         // pulse-wave bolts take the hull's booster color, lifted toward white so they read in the dark
         var pulseWeapon = _playerHealth.GetComponent<Weapon>();
         if (pulseWeapon != null)
@@ -181,9 +182,10 @@ public class GameManager : MonoBehaviour
         PlaySfx(SfxSynth.WaveUp, 0.6f);
         Announcer.Say("Level up! Choose a skill to upgrade.", 0.65f, 1.05f);
 
-        if (CoopSync.Active || RoyaleSync.Active)
+        if (CoopSync.Active || RoyaleSync.Active || Mode != RunMode.Quick)
         {
-            // multiplayer never pauses: compact side panel, J/K/L picks
+            // only Quick Play pauses for a level-up; Adventure and multiplayer keep the
+            // action going and offer the draft in the compact side panel (J/K/L picks)
             _hud.ShowLevelUpSide(lvl, choices, choice =>
             {
                 choice.Apply(_skills);
@@ -278,9 +280,10 @@ public class GameManager : MonoBehaviour
         }
         else if (hpFrac > 0.5f) _lowHpSaid = false;
 
-        // Zeal Sigil grows on the run clock
+        // Zeal Sigil grows with your level, every mode: LV2 = sigil 2 ... LV6 = sigil 6 (max)
         var weapon = _playerHealth.GetComponent<Weapon>();
-        while (_sigilIdx < ZealData.SigilTimes.Length && _elapsed >= ZealData.SigilTimes[_sigilIdx])
+        int wantSigil = Mathf.Clamp(xpLevel, 1, Weapon.MaxSigil);
+        while (1 + _sigilIdx < wantSigil)
         {
             _sigilIdx++;
             // the Decimator holds max sigil; the clock catches up when the buff ends
