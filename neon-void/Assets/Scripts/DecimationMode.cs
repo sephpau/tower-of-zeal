@@ -280,8 +280,9 @@ public class DecimationRunner : MonoBehaviour
         if (_decimatorLeft > 0f) { _decimatorLeft = DecimationMode.DecimatorTime; return; }   // re-claim: refresh the timer
 
         _savedScale = h.transform.localScale;
-        h.transform.localScale = _savedScale * 2f;
-        ChaseCamera.ZoomMult = 2.2f;   // the doubled hull would swallow the view otherwise
+        // the Decimator flies Doom's warship; the hitbox stays the pilot's own
+        if (!DoomHull.Mount(h.gameObject)) h.transform.localScale = _savedScale * 2f;
+        ChaseCamera.ZoomMult = 2.2f;   // the big hull would swallow the view otherwise
         if (sk != null)
         {
             _savedMight = sk.stats["might"]; sk.stats["might"] += 1.5f;
@@ -325,6 +326,7 @@ public class DecimationRunner : MonoBehaviour
         ChaseCamera.ZoomMult = 1f;
         if (h != null)
         {
+            DoomHull.Unmount(h.gameObject);
             h.transform.localScale = _savedScale;
             h.maxHull = _savedMaxHull; h.maxShield = _savedMaxShield;
             h.hull = Mathf.Min(h.hull, h.maxHull);
