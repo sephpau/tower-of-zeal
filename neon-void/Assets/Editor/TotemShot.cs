@@ -50,17 +50,28 @@ public static class TotemShot
             }
         Debug.Log("TotemShot: textures found=" + Resources.LoadAll<Texture2D>("decimation/tex").Length + " picked=" + (tex != null ? tex.name : "none") + " materialsWithTex=" + already + " appliedNow=" + applied);
 
-        camGo.transform.position = new Vector3(0f, 1.5f, -16f);
-        camGo.transform.LookAt(new Vector3(0f, 0f, 0f));
+        // several angles: the trailer wants the face, not the back
+        var views = new (string name, Vector3 pos)[] {
+            ("totem", new Vector3(0f, 1.5f, -16f)),
+            ("totem_front", new Vector3(0f, 1.5f, 16f)),
+            ("totem_3q", new Vector3(11f, 3f, 11f)),
+            ("totem_3q_left", new Vector3(-11f, 3f, 11f)),
+        };
         var rt = new RenderTexture(900, 1100, 24);
         cam.targetTexture = rt;
-        cam.Render();
-        RenderTexture.active = rt;
-        var png = new Texture2D(rt.width, rt.height, TextureFormat.RGB24, false);
-        png.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
-        png.Apply();
-        RenderTexture.active = null;
-        File.WriteAllBytes(Path.Combine(outDir, "totem.png"), png.EncodeToPNG());
-        Debug.Log("TotemShot: wrote totem.png");
+        foreach (var v in views)
+        {
+            camGo.transform.position = v.pos;
+            camGo.transform.LookAt(new Vector3(0f, 0f, 0f));
+            lightGo.transform.rotation = Quaternion.LookRotation((Vector3.zero - v.pos).normalized + Vector3.down * 0.6f);
+            cam.Render();
+            RenderTexture.active = rt;
+            var png = new Texture2D(rt.width, rt.height, TextureFormat.RGB24, false);
+            png.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
+            png.Apply();
+            RenderTexture.active = null;
+            File.WriteAllBytes(Path.Combine(outDir, v.name + ".png"), png.EncodeToPNG());
+            Debug.Log("TotemShot: wrote " + v.name + ".png");
+        }
     }
 }
