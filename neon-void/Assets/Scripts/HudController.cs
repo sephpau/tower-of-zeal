@@ -1913,6 +1913,7 @@ public partial class HudController : MonoBehaviour
             return;
         }
         _homePanel.SetActive(true);
+        Time.timeScale = 1f;   // a death mid-draft could leave the clock frozen; the menu never runs frozen
         _bestHomeText.text = GameManager.I != null && GameManager.I.best > 0 ? "BEST  " + GameManager.I.best.ToString("N0") : "";
         WantsStart = true;
     }
@@ -2435,7 +2436,7 @@ public partial class HudController : MonoBehaviour
         // announcer caption fade
         if (_announceTimer > 0f)
         {
-            _announceTimer -= Time.deltaTime;
+            _announceTimer -= Time.unscaledDeltaTime;
             float a = Mathf.Clamp01(_announceTimer / 0.5f);
             float ain = Mathf.Clamp01((2.6f - _announceTimer) / 0.2f);
             _announceText.color = new Color(0.55f, 0.95f, 1f, Mathf.Min(a, ain));
@@ -3687,7 +3688,7 @@ public partial class HudController : MonoBehaviour
             if (_homePanel != null && _homePanel.activeSelf) RefreshDailyButton();
         }
         if (_homePanel == null || !_homePanel.activeInHierarchy) return;
-        _idPollTimer -= Time.deltaTime;
+        _idPollTimer -= Time.unscaledDeltaTime;   // menus may sit at timeScale 0; the corner must keep polling
         if (_idPollTimer > 0f) return;
         _idPollTimer = 1f;
         string err = WalletAuth.PullError();

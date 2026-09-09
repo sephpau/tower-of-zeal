@@ -200,8 +200,15 @@
       try {
         var provider = nvRoninProvider();
         if (!provider) throw new Error('Ronin Wallet not detected - open this page in a browser with the Ronin extension.');
-        window.__nvWalletStep = "waiting for the wallet";
-        var accounts = await nvWithTimeout(provider.request({ method: 'eth_requestAccounts' }), 90000, 'The wallet');
+        // already authorized for this site? then no connect popup is needed (it can hang
+        // when the extension thinks it is already connected); otherwise ask for access
+        window.__nvWalletStep = "checking the wallet";
+        var accounts = [];
+        try { accounts = await nvWithTimeout(provider.request({ method: 'eth_accounts' }), 8000, 'The wallet'); } catch (e) { accounts = []; }
+        if (!accounts || !accounts[0]) {
+          window.__nvWalletStep = "waiting for the wallet - approve the connection in Ronin";
+          accounts = await nvWithTimeout(provider.request({ method: 'eth_requestAccounts' }), 90000, 'The wallet');
+        }
         var from = ((accounts && accounts[0]) || '').toLowerCase();
         if (!from) throw new Error('No wallet account connected.');
         try {
