@@ -10,6 +10,7 @@ public static class SfxSynth
     public static AudioClip HitPulse, HitSpecial;   // hit-confirm cues
     public static AudioClip HitEnemy, HitRock, HitSelf;   // bolt on a hull, bolt on stone, damage taken
     public static AudioClip Dash;                   // dash whoosh
+    public static AudioClip Blink;                  // teleport zap (Smuggler blink)
     public static AudioClip Crash;                  // death crunch: blast + debris tail
     public static AudioClip Click, Swish;           // UI: button click + panel swish
 
@@ -34,22 +35,18 @@ public static class SfxSynth
         // dash: rising airy whoosh
         // dash = an air-whoosh past the ear: fast attack, a bright→dull noise
         // sweep, a downward "doppler" tone, and a low launch thump at the start
-        Dash = Render("dash", 0.36f, (t, d) =>
+        // blink: a fast rising chirp with a glassy shimmer and a short ring-out - a teleport
+        Blink = Render("blink", 0.34f, (t, d) =>
         {
             float k = t / d;
-            // punchy attack (first 6%) then a fast exponential tail
-            float env = Mathf.Min(1f, k / 0.06f) * Mathf.Exp(-4.5f * k);
-            // broadband noise whose bright partials decay faster than the low
-            // ones — approximates a lowpass sweeping shut as the gust passes
-            float bright = (Mathf.Sin(t * 8300f) + Mathf.Sin(t * 13100f) + Mathf.Sin(t * 17700f)) / 3f;
-            float dull = (Mathf.Sin(t * 2100f) + Mathf.Sin(t * 3400f)) / 2f;
-            float air = bright * Mathf.Exp(-7f * k) * 0.6f + dull * (1f - 0.5f * k) * 0.4f;
-            // downward doppler tone for the "vwoosh"
-            float woosh = Tri(Mathf.Lerp(760f, 120f, k), t) * 0.35f;
-            // short low thump for the launch kick
-            float thump = Mathf.Sin(t * 70f * Mathf.PI * 2f) * Mathf.Exp(-22f * k) * 0.5f;
-            return (air + woosh) * env * 0.8f + thump;
+            float f = Mathf.Lerp(260f, 2400f, k * k);
+            float env = Mathf.Min(1f, t / 0.01f) * Mathf.Exp(-4.5f * k);
+            float chirp = Mathf.Sin(t * 2f * Mathf.PI * f) * 0.55f + Tri(f * 1.5f, t) * 0.25f;
+            float shimmer = Mathf.Sin(t * 2f * Mathf.PI * 3900f) * Mathf.Sin(t * 47f) * 0.2f * Mathf.Exp(-6f * k);
+            return (chirp + shimmer) * env * 0.9f;
         });
+        // dash: a deep swoop - low rumble and sub glide, swelling mid-way (matched to the reference clip)
+        Dash = RenderSwoop("dash", 0.5f);
         // UI feedback: crisp click on any button, soft swish on panel changes
         Click = Render("click", 0.06f, (t, d) =>
         {
@@ -131,6 +128,35 @@ public static class SfxSynth
             phase += 2f * Mathf.PI * f / SR;
             float tone = Mathf.Sin(phase) * Mathf.Exp(-9f * k);
             data[i] = Mathf.Clamp((lp * (1f - toneMix) * 1.6f + tone * toneMix) * env * gain, -1f, 1f);
+        }
+        var clip = AudioClip.Create(name, n, 1, SR, false);
+        clip.SetData(data, 0);
+        return clip;
+    }
+
+    // Swoop: a deep whoomp - low band-passed rumble gliding down (520 -> 140 Hz) over a
+    // sub sine sweep (120 -> 48 Hz), swelling in the middle. Modelled on the reference clip.
+    static AudioClip RenderSwoop(string name, float dur)
+    {
+        int n = (int)(SR * dur);
+        var data = new float[n];
+        var rng = new System.Random(4242);
+        float lpHi = 0f, lpLo = 0f, ph = 0f;
+        for (int i = 0; i < n; i++)
+        {
+            float k = i / (float)n;
+            float env = Mathf.Pow(Mathf.Sin(Mathf.PI * k), 1.1f);
+            float center = Mathf.Lerp(520f, 140f, k);
+            float aHi = Mathf.Clamp01(2f * Mathf.PI * center / SR);
+            float aLo = Mathf.Clamp01(2f * Mathf.PI * (center * 0.25f) / SR);
+            float noise = (float)(rng.NextDouble() * 2 - 1);
+            lpHi += aHi * (noise - lpHi);
+            lpLo += aLo * (noise - lpLo);
+            float rumble = (lpHi - lpLo) * 2.6f;
+            float f = Mathf.Lerp(120f, 48f, k);
+            ph += 2f * Mathf.PI * f / SR;
+            float sub = Mathf.Sin(ph) * 0.55f;
+            data[i] = Mathf.Clamp((rumble * 0.7f + sub) * env * 0.45f, -1f, 1f);   // understated
         }
         var clip = AudioClip.Create(name, n, 1, SR, false);
         clip.SetData(data, 0);

@@ -114,14 +114,23 @@ public class MinibossAI : MonoBehaviour
         if (_missileTimer <= 0f && dist < 260f)
         {
             _missileTimer = 9f;
-            int volley = 1 + def.wave / 3;   // smuggler 2, gruyere 3, garrison 4
-            for (int i = 0; i < volley; i++)
-            {
-                Vector3 dir = (toPlayer.normalized + Random.insideUnitSphere * 0.5f).normalized;
-                EnemyMissile.Launch(transform.position + dir * 8f, dir, def.tint);
-            }
+            int volley = Mathf.Min(3, 1 + def.wave / 3);   // smuggler 2, gruyere 3, garrison 3 (was 4)
+            StartCoroutine(StaggeredVolley(volley));
             GameManager.I.PlaySfxAt(SfxSynth.WaveUp, transform.position, 0.5f);
             Announcer.Say("Homing missiles, incoming!", 0.58f, 1.05f);
+        }
+    }
+
+    // missiles leave one at a time so the player can shoot them down in sequence
+    System.Collections.IEnumerator StaggeredVolley(int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            if (_player == null) yield break;
+            Vector3 toPlayer = _player.position - transform.position;
+            Vector3 dir = (toPlayer.normalized + Random.insideUnitSphere * 0.5f).normalized;
+            EnemyMissile.Launch(transform.position + dir * 8f, dir, def.tint);
+            yield return new WaitForSeconds(0.45f);
         }
     }
 
@@ -167,9 +176,10 @@ public class MinibossAI : MonoBehaviour
                 _blinkCharge = -1f;
                 if (_blinkMarker != null) Destroy(_blinkMarker);
                 ExplosionFactory.Sparks(transform.position, def.tint);
+                GameManager.I.PlaySfxAt(GameAudio.Clip("blink") ?? SfxSynth.Blink, transform.position, 0.55f);   // departure
                 transform.position = _blinkDest;
                 ExplosionFactory.Sparks(transform.position, def.tint);
-                GameManager.I.PlaySfxAt(SfxSynth.Hit, transform.position, 0.5f);
+                GameManager.I.PlaySfxAt(GameAudio.Clip("blink") ?? SfxSynth.Blink, transform.position, 0.9f);    // arrival
                 // ambush burst right after the blink lands
                 for (int i = 0; i < 5; i++)
                     FireAimed(6f * i / 5f - 3f);
@@ -252,7 +262,7 @@ public class MinibossAI : MonoBehaviour
         // gravity well: drag the player toward the void
         if (dist < 130f && _playerRb != null)
         {
-            float pull = Mathf.Lerp(14f, 3f, dist / 130f);
+            float pull = Mathf.Lerp(9f, 2f, dist / 130f);
             _playerRb.AddForce(-toPlayer.normalized * pull, ForceMode.Acceleration);
         }
 

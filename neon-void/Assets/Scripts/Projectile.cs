@@ -67,6 +67,24 @@ public class Projectile : MonoBehaviour
         _life -= Time.deltaTime;
         if (_life <= 0f) { Release(); return; }
 
+        // aim assist against missiles: a player bolt heading roughly at a live missile bends onto it
+        if (_fromPlayer && !_ghostFire && EnemyMissile.Live.Count > 0)
+        {
+            EnemyMissile best = null; float bestD = 24f;
+            Vector3 dir = _velocity.normalized;
+            foreach (var m in EnemyMissile.Live)
+            {
+                if (m == null) continue;
+                Vector3 to = m.transform.position - transform.position;
+                float d = to.magnitude;
+                if (d < bestD && d > 0.01f && Vector3.Dot(dir, to / d) > 0.6f) { best = m; bestD = d; }
+            }
+            if (best != null)
+            {
+                Vector3 want = (best.transform.position - transform.position).normalized * _velocity.magnitude;
+                _velocity = Vector3.RotateTowards(_velocity, want, 7f * Time.deltaTime, 0f);
+            }
+        }
         Vector3 step = _velocity * Time.deltaTime;
         if (Physics.Raycast(transform.position, step.normalized, out RaycastHit hit, step.magnitude + 0.3f))
         {

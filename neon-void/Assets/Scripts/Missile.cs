@@ -5,8 +5,13 @@ using UnityEngine;
 // a little score + xp). Reaching its target hurts.
 public class EnemyMissile : MonoBehaviour
 {
-    public const float Damage = 32f;
-    const float Speed = 46f;
+    // live missiles, so player bolts can home onto them (see Projectile aim assist)
+    public static readonly System.Collections.Generic.List<EnemyMissile> Live = new System.Collections.Generic.List<EnemyMissile>();
+    void OnEnable() => Live.Add(this);
+    void OnDisable() => Live.Remove(this);
+
+    public const float Damage = 24f;
+    const float Speed = 40f;
     const float TurnDegPerSec = 105f;
     const float FuseRadius = 4.5f;
 
@@ -40,9 +45,9 @@ public class EnemyMissile : MonoBehaviour
         // collider must be WIDER than a player bolt's per-frame step (~4 units
         // at speed 240) or fast bolts tunnel straight through and never hit it
         var col = go.AddComponent<SphereCollider>();
-        col.radius = 5.2f;   // doubled with the body
+        col.radius = 6.5f;   // generous: it is meant to be shot down
         var h = go.AddComponent<Health>();
-        h.Configure(0f, 22f);   // ~2 base pulse hits to shoot one down
+        h.Configure(0f, 20f);   // two base pulse hits shoot it down
         var m = go.AddComponent<EnemyMissile>();
         h.OnDeath += _ => {                       // shot down: harmless boom + a small bounty
             GameManager.I.EnemyKilled(40, m.transform.position);
